@@ -1,0 +1,2717 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Cost Calculator Studio · Build a procurement-grade AI cost calculator</title>
+<style>
+  /* Editorial palette inherited from the EIE calculator. */
+  :root {
+    --ink: #1a1a1a;
+    --ink-2: #3a3a3a;
+    --muted: #76706a;
+    --paper: #fbf9f4;
+    --panel: #fff;
+    --rule: #d8d2c5;
+    --accent: #8b2331;
+    --good: #2b7a3d;
+    --bad: #b8404a;
+    --serif: 'Source Serif 4', 'Source Serif Pro', Georgia, serif;
+    --sans:  'Source Sans 3', 'Source Sans Pro', -apple-system, system-ui, sans-serif;
+    --mono:  'JetBrains Mono', 'SF Mono', Consolas, monospace;
+  }
+  * { box-sizing: border-box; }
+  html, body {
+    width: 100%;
+    max-width: 100vw;
+    overflow-x: hidden;
+  }
+  body {
+    margin: 0; padding: 0;
+    font-family: var(--sans);
+    color: var(--ink);
+    background: var(--paper);
+    font-size: 14px;
+    line-height: 1.5;
+  }
+  .topbar {
+    background: var(--ink);
+    color: var(--paper);
+    padding: 10px 18px;
+    display: flex; align-items: center; gap: 12px;
+    flex-wrap: wrap;
+    row-gap: 6px;
+    border-bottom: 1px solid var(--rule);
+    width: 100%;
+    max-width: 100vw;
+  }
+  .topbar h1 { white-space: nowrap; }
+  .topbar .pill { white-space: nowrap; }
+  .topbar h1 {
+    font-family: var(--serif);
+    font-size: 19px; font-weight: 600;
+    margin: 0; flex: 1;
+  }
+  .topbar .pill {
+    font-family: var(--mono); font-size: 11px;
+    padding: 3px 8px; border: 1px solid rgba(255,255,255,0.3);
+    border-radius: 3px; color: rgba(255,255,255,0.85);
+  }
+  .topbar button, .topbar select {
+    font-family: var(--sans); font-size: 12.5px;
+    padding: 6px 12px;
+    background: rgba(255,255,255,0.08);
+    color: var(--paper);
+    border: 1px solid rgba(255,255,255,0.25);
+    border-radius: 3px;
+    cursor: pointer;
+  }
+  .topbar button:hover, .topbar select:hover { background: rgba(255,255,255,0.16); }
+  .topbar button.primary {
+    background: var(--accent);
+    border-color: var(--accent);
+    font-weight: 600;
+  }
+
+  .layout {
+    display: grid;
+    grid-template-columns: minmax(0, var(--col2, 540px)) 5px minmax(0, 1fr);
+    height: calc(100vh - 56px);
+    width: 100%;
+    max-width: 100vw;
+    overflow: hidden;
+  }
+  .editor {
+    overflow-y: auto;
+    overflow-x: hidden;
+    padding: 0;
+    background: var(--paper);
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+  }
+  .splitter {
+    background: var(--rule);
+    cursor: col-resize;
+    user-select: none;
+    transition: background 0.12s;
+    position: relative;
+  }
+  .splitter:hover, .splitter.dragging { background: var(--accent); }
+  .splitter::before {
+    content: '';
+    position: absolute;
+    top: 0; bottom: 0;
+    left: -3px; right: -3px;
+  }
+  .editor-body {
+    padding: 14px 22px 80px;
+  }
+
+  /* Column 2 tab navigation — Build / Components / Token Estimator */
+  .tabs-bar {
+    display: flex;
+    gap: 0;
+    background: var(--panel);
+    border-bottom: 1px solid var(--rule);
+    padding: 0 12px;
+    flex-shrink: 0;
+    position: sticky;
+    top: 0;
+    z-index: 10;
+  }
+  .tab-btn {
+    background: none;
+    border: none;
+    border-bottom: 2px solid transparent;
+    padding: 10px 14px 8px;
+    font-family: var(--sans);
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    font-weight: 600;
+    color: var(--muted);
+    cursor: pointer;
+    margin-bottom: -1px;
+    transition: color 0.15s, border-color 0.15s;
+  }
+  .tab-btn:hover { color: var(--ink); }
+  .tab-btn.active {
+    color: var(--accent);
+    border-bottom-color: var(--accent);
+  }
+  .tab-btn .tab-icon {
+    margin-right: 4px;
+    font-size: 13px;
+    vertical-align: middle;
+  }
+  .tab-panel { display: none; }
+  .tab-panel.active { display: block; }
+  .estimator-panel {
+    padding: 18px 24px 60px;
+  }
+  .benchmarks-panel { padding: 18px 24px 60px; }
+  .benchmarks-panel .benchmarks-header { margin-bottom: 16px; padding-bottom: 12px; border-bottom: 1px solid var(--rule); }
+  .benchmarks-panel .benchmarks-header h2 { margin: 0 0 4px; font-family: var(--serif); font-size: 22px; font-weight: 600; color: var(--ink); }
+  .benchmarks-panel .benchmarks-header p { margin: 0 0 10px; color: var(--muted); font-size: 12px; line-height: 1.5; }
+  .benchmark-comparison {
+    background: #fff8e8;
+    border: 1px solid #e8d8a8;
+    padding: 8px 12px;
+    border-radius: 3px;
+    font-size: 12px;
+    color: var(--ink-2);
+  }
+  .benchmark-comparison strong { color: var(--ink); }
+  .benchmark-comparison span { font-family: var(--mono); color: var(--accent); }
+  .benchmark-card {
+    border: 1px solid var(--rule);
+    border-radius: 3px;
+    background: var(--paper);
+    padding: 12px 14px;
+    margin-bottom: 10px;
+    display: grid;
+    grid-template-columns: 1.4fr 1fr;
+    gap: 10px;
+  }
+  .benchmark-card .bc-info .bc-cat {
+    display: inline-block;
+    font-family: var(--mono);
+    font-size: 9px;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--muted);
+    padding: 1px 6px;
+    background: var(--panel);
+    border-radius: 2px;
+    margin-right: 6px;
+  }
+  .benchmark-card .bc-name { font-family: var(--sans); font-weight: 700; font-size: 13px; color: var(--ink); margin-top: 4px; }
+  .benchmark-card .bc-desc { font-size: 11.5px; color: var(--ink-2); margin: 4px 0; line-height: 1.4; }
+  .benchmark-card .bc-notes { font-size: 10.5px; color: var(--muted); margin-top: 4px; font-style: italic; line-height: 1.4; }
+  .benchmark-card .bc-source { font-size: 10px; color: var(--muted); margin-top: 6px; }
+  .benchmark-card .bc-source a { color: var(--accent); text-decoration: none; }
+  .benchmark-card .bc-source a:hover { text-decoration: underline; }
+  .benchmark-card .bc-numbers {
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    gap: 4px;
+    border-left: 1px solid var(--rule);
+    padding-left: 12px;
+  }
+  .benchmark-card .bc-num-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    font-size: 11px;
+  }
+  .benchmark-card .bc-num-label { color: var(--muted); font-family: var(--sans); }
+  .benchmark-card .bc-num-value { font-family: var(--mono); font-weight: 700; color: var(--ink); font-size: 13px; }
+  .benchmark-card .bc-delta {
+    margin-top: 6px;
+    padding: 4px 8px;
+    border-radius: 2px;
+    font-size: 10.5px;
+    font-family: var(--mono);
+    font-weight: 600;
+    text-align: center;
+  }
+  .benchmark-card .bc-delta.in-range { background: #e8f3e8; color: #2a6a2a; }
+  .benchmark-card .bc-delta.high { background: #fff0e0; color: #b35d00; }
+  .benchmark-card .bc-delta.way-off { background: #fff0f0; color: #b3333d; }
+
+  .prices-panel { padding: 18px 24px 60px; }
+  .prices-panel .prices-header { margin-bottom: 16px; padding-bottom: 12px; border-bottom: 1px solid var(--rule); }
+  .prices-panel .prices-header h2 { margin: 0 0 4px; font-family: var(--serif); font-size: 22px; font-weight: 600; color: var(--ink); }
+  .prices-panel .prices-header p { margin: 0; color: var(--muted); font-size: 12px; line-height: 1.5; }
+  .prices-panel .prices-header code { font-family: var(--mono); font-size: 11px; background: var(--paper); padding: 1px 4px; border-radius: 2px; }
+  .price-category {
+    margin-bottom: 18px;
+    border: 1px solid var(--rule);
+    border-radius: 3px;
+    background: var(--paper);
+  }
+  .price-category > summary {
+    padding: 10px 14px;
+    cursor: pointer;
+    font-family: var(--sans);
+    font-size: 12px;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: var(--ink);
+    font-weight: 700;
+    background: var(--panel);
+    list-style: none;
+    border-radius: 3px 3px 0 0;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+  .price-category > summary::-webkit-details-marker { display: none; }
+  .price-category > summary::before {
+    content: '▸';
+    color: var(--muted);
+    transition: transform 0.15s;
+    display: inline-block;
+  }
+  .price-category[open] > summary::before { transform: rotate(90deg); }
+  .price-category > summary em { font-style: normal; color: var(--muted); font-weight: 400; text-transform: none; letter-spacing: 0; margin-left: auto; font-size: 10.5px; }
+  .price-category > .pc-body { padding: 6px 10px 12px; overflow-x: auto; }
+  .price-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 11.5px;
+  }
+  .price-table th {
+    text-align: left;
+    padding: 6px 8px;
+    color: var(--muted);
+    font-family: var(--sans);
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    font-weight: 700;
+    border-bottom: 1px solid var(--rule);
+  }
+  .price-table td {
+    padding: 6px 8px;
+    border-bottom: 1px solid #f0e8d8;
+    vertical-align: middle;
+  }
+  .price-table input[type="number"], .price-table input[type="text"] {
+    font-family: var(--mono);
+    font-size: 11px;
+    padding: 3px 6px;
+    border: 1px solid var(--rule);
+    border-radius: 2px;
+    background: var(--paper);
+    width: 90px;
+  }
+  .price-table input:focus { outline: none; border-color: var(--accent); }
+  .price-table .row-id {
+    font-family: var(--mono);
+    font-size: 11px;
+    color: var(--ink-2);
+  }
+  .price-table .row-source a {
+    font-size: 10px;
+    color: var(--muted);
+    text-decoration: none;
+  }
+  .price-table .row-source a:hover { color: var(--accent); }
+  .price-table .row-verified {
+    font-family: var(--mono);
+    font-size: 10px;
+    color: var(--muted);
+  }
+  .price-table .row-stale .row-verified { color: #b3333d; font-weight: 600; }
+  .estimator-panel .estimator-header {
+    margin-bottom: 18px;
+    padding-bottom: 12px;
+    border-bottom: 1px solid var(--rule);
+  }
+  .estimator-panel .estimator-header h2 {
+    margin: 0 0 4px;
+    font-family: var(--serif);
+    font-size: 22px;
+    font-weight: 600;
+    color: var(--ink);
+  }
+  .estimator-panel .estimator-header p {
+    margin: 0;
+    color: var(--muted);
+    font-size: 13px;
+    line-height: 1.5;
+  }
+
+  /* Post-apply hint inside chat-builder */
+  .post-apply-hint {
+    margin-top: 8px;
+    padding: 8px 10px;
+    background: #e8f3e8;
+    border: 1px solid #b3d6b3;
+    border-radius: 3px;
+    font-size: 11px;
+    color: #2a4a2a;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+  }
+  .post-apply-hint .hint-link {
+    background: var(--paper);
+    border: 1px solid #b3d6b3;
+    color: #2a4a2a;
+    padding: 3px 8px;
+    border-radius: 2px;
+    font-family: var(--sans);
+    font-size: 10px;
+    font-weight: 600;
+    cursor: pointer;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+  }
+  .post-apply-hint .hint-link:hover { background: #d8e8d8; }
+
+  .arch-header {
+    background: var(--panel);
+    border-bottom: 1px solid var(--rule);
+    padding: 12px 18px;
+    flex-shrink: 0;
+  }
+
+  /* Chat-driven system builder */
+  .chat-builder {
+    background: #fff8e8;
+    border: 1px solid #e8d8a8;
+    border-radius: 4px;
+    padding: 10px 12px;
+    margin-bottom: 12px;
+  }
+  .chat-builder .chat-header-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 6px;
+    font-size: 12px;
+    color: var(--ink);
+  }
+  .chat-builder .chat-ai-badge {
+    font-size: 10px;
+    color: var(--accent);
+    background: var(--paper);
+    border: 1px solid #e8d8a8;
+    padding: 2px 8px;
+    border-radius: 10px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+  }
+  .chat-builder .chat-examples {
+    width: 100%;
+    margin-bottom: 6px;
+    padding: 6px 8px;
+    font-family: var(--sans);
+    font-size: 11.5px;
+    background: var(--paper);
+    border: 1px solid var(--rule);
+    border-radius: 2px;
+    cursor: pointer;
+    color: var(--ink-2);
+  }
+  .chat-builder .chat-examples:focus { outline: none; border-color: var(--accent); }
+  .chat-builder textarea {
+    width: 100%;
+    min-height: 110px;
+    padding: 10px 12px;
+    font-family: var(--serif);
+    font-size: 13.5px;
+    line-height: 1.5;
+    background: var(--paper);
+    border: 1px solid var(--rule);
+    border-radius: 3px;
+    resize: vertical;
+    box-sizing: border-box;
+  }
+  .chat-builder textarea:focus { outline: none; border-color: var(--accent); }
+  .chat-builder .chat-controls {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    margin-top: 6px;
+    flex-wrap: wrap;
+  }
+  .chat-builder .primary-btn {
+    background: var(--accent);
+    color: white;
+    border: none;
+    padding: 5px 14px;
+    border-radius: 2px;
+    font-family: var(--sans);
+    font-weight: 600;
+    font-size: 11px;
+    cursor: pointer;
+  }
+  .chat-builder .primary-btn:hover { background: #6a1828; }
+  .chat-builder .ghost-btn {
+    background: var(--paper);
+    border: 1px solid var(--rule);
+    color: var(--ink-2);
+    padding: 5px 10px;
+    border-radius: 2px;
+    font-family: var(--sans);
+    font-size: 11px;
+    cursor: pointer;
+  }
+  .chat-builder .ghost-btn:hover { border-color: var(--accent); color: var(--accent); }
+  .chat-builder .chat-mode-label {
+    margin-left: auto;
+    font-size: 10px;
+    color: var(--muted);
+  }
+  .chat-builder .ai-key-row {
+    margin-top: 8px;
+    padding-top: 8px;
+    border-top: 1px dashed #d4c08a;
+    font-size: 11px;
+  }
+  .chat-builder .ai-key-row label {
+    display: block;
+    font-weight: 600;
+    color: var(--ink-2);
+    margin-bottom: 3px;
+  }
+  .chat-builder .ai-key-row input {
+    padding: 4px 8px;
+    font-family: var(--mono);
+    font-size: 11px;
+    border: 1px solid var(--rule);
+    border-radius: 2px;
+  }
+  .chat-builder .ai-key-status {
+    margin-top: 4px;
+    font-size: 10px;
+    color: var(--muted);
+  }
+  .chat-builder .ai-key-status.saved { color: var(--good, #2a6a2a); }
+  .chat-builder .ai-key-status.error { color: var(--bad, #b3333d); }
+  /* Execution log + suggestions panel that appears under the chat after Build */
+  .chat-builder .chat-output {
+    margin-top: 10px;
+    font-size: 11.5px;
+    line-height: 1.4;
+  }
+  .chat-builder .exec-log {
+    background: var(--paper);
+    border: 1px solid var(--rule);
+    border-left: 3px solid var(--ink-2);
+    padding: 8px 10px;
+    border-radius: 2px;
+    margin-bottom: 6px;
+  }
+  .chat-builder .exec-log .log-title {
+    font-family: var(--mono);
+    font-size: 9px;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: var(--muted);
+    margin-bottom: 4px;
+    font-weight: 600;
+  }
+  .chat-builder .exec-log .log-entry {
+    margin: 2px 0;
+    color: var(--ink);
+  }
+  .chat-builder .exec-log .log-entry .check {
+    color: #2a6a2a;
+    font-weight: 700;
+    margin-right: 5px;
+  }
+  .chat-builder .suggestions {
+    background: #fff8e8;
+    border: 1px solid #e8d8a8;
+    border-left: 3px solid #d4761f;
+    padding: 8px 10px;
+    border-radius: 2px;
+  }
+  .chat-builder .suggestions .sug-title {
+    font-family: var(--mono);
+    font-size: 9px;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: #6b3e0a;
+    margin-bottom: 4px;
+    font-weight: 600;
+  }
+  .chat-builder .suggestions .sug-entry {
+    margin: 3px 0;
+    color: #5a3805;
+  }
+  .chat-builder .suggestions .sug-entry .bulb {
+    margin-right: 5px;
+  }
+  .chat-builder .chat-error {
+    background: #fff0f0;
+    border: 1px solid #f5b8b8;
+    border-left: 3px solid #b3333d;
+    padding: 8px 10px;
+    border-radius: 2px;
+    margin-top: 6px;
+    font-size: 11.5px;
+    color: #6b1f25;
+  }
+  .chat-builder .applied-summary {
+    margin-top: 6px;
+    padding: 6px 8px;
+    background: #e8f3e8;
+    border-left: 3px solid var(--good, #2a6a2a);
+    font-size: 11px;
+    color: #2a4a2a;
+    border-radius: 2px;
+  }
+  .arch-header .arch-title-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 8px;
+    gap: 10px;
+  }
+  .arch-header .arch-title {
+    font-family: var(--sans);
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.12em;
+    color: var(--muted);
+    font-weight: 700;
+    margin: 0;
+    flex: 1;
+    min-width: 0;
+  }
+  .arch-zoom-controls {
+    display: flex;
+    gap: 2px;
+    flex-shrink: 0;
+  }
+  .arch-zoom-controls .zoom-btn {
+    width: 26px;
+    height: 22px;
+    padding: 0;
+    background: var(--paper);
+    border: 1px solid var(--rule);
+    color: var(--ink-2);
+    font-family: var(--mono);
+    font-size: 14px;
+    line-height: 1;
+    cursor: pointer;
+    border-radius: 2px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  .arch-zoom-controls .zoom-btn:hover {
+    border-color: var(--accent);
+    color: var(--accent);
+    background: #fffaf2;
+  }
+  .arch-diagram-wrap {
+    overflow: auto;
+  }
+  .preview {
+    overflow-y: auto;
+    overflow-x: hidden;
+    padding: 24px 28px 80px;
+    background: var(--panel);
+    min-width: 0;
+  }
+  .preview .compare-table { table-layout: auto; word-wrap: break-word; }
+  .preview .compare-table td, .preview .compare-table th { word-break: break-word; }
+  .headline .secondary { grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); }
+  /* Components-tab header strip + active components affordances */
+  .components-header {
+    padding: 12px 22px;
+    border-bottom: 1px solid var(--rule);
+    background: var(--paper);
+    font-size: 11px;
+    color: var(--ink);
+  }
+  .components-header strong {
+    font-family: var(--sans);
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    font-size: 10.5px;
+    color: var(--accent);
+    margin-right: 8px;
+  }
+  .components-header .components-hint {
+    color: var(--muted);
+    font-size: 10.5px;
+  }
+
+  /* Section H2 with × remove button on the right */
+  .section-body .section .sec-remove,
+  .section .sec-remove {
+    background: none;
+    border: none;
+    color: var(--muted);
+    font-size: 16px;
+    line-height: 1;
+    cursor: pointer;
+    padding: 2px 6px;
+    border-radius: 2px;
+    margin-left: auto;
+    flex-shrink: 0;
+    opacity: 0.4;
+    transition: opacity 0.15s, color 0.15s, background 0.15s;
+  }
+  .section h2:hover .sec-remove { opacity: 1; }
+  .section .sec-remove:hover { color: #b3333d; background: #fff0f0; }
+  .section h2 { display: flex; align-items: center; }
+  .section h2 .lead { flex-shrink: 0; }
+
+  /* "+ Add a component" trigger button */
+  .add-component-row {
+    padding: 14px 22px;
+    border-top: 1px dashed var(--rule);
+    border-bottom: 1px dashed var(--rule);
+    margin: 16px 0;
+  }
+  .add-component-btn {
+    display: block;
+    width: 100%;
+    padding: 12px 18px;
+    background: var(--paper);
+    border: 1.5px dashed var(--accent);
+    color: var(--accent);
+    font-family: var(--sans);
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+    border-radius: 3px;
+    transition: background 0.15s;
+  }
+  .add-component-btn:hover { background: #fff8e8; }
+
+  /* Gallery dropdown overlay (modal-like) */
+  .gallery-overlay {
+    position: fixed;
+    top: 0; left: 0; right: 0; bottom: 0;
+    background: rgba(43, 30, 23, 0.45);
+    z-index: 9999;
+    display: flex;
+    align-items: flex-start;
+    justify-content: center;
+    padding-top: 80px;
+    overflow-y: auto;
+  }
+  .gallery-panel {
+    background: var(--paper);
+    border-radius: 6px;
+    box-shadow: 0 12px 48px rgba(0, 0, 0, 0.3);
+    width: min(720px, 90vw);
+    max-height: 80vh;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    animation: galleryIn 0.18s ease-out;
+  }
+  @keyframes galleryIn {
+    from { opacity: 0; transform: translateY(-12px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+  .gallery-header {
+    padding: 14px 20px;
+    border-bottom: 1px solid var(--rule);
+    background: var(--panel);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+  .gallery-header h3 {
+    margin: 0;
+    font-family: var(--serif);
+    font-size: 18px;
+    color: var(--ink);
+    font-weight: 600;
+  }
+  .gallery-close {
+    background: none;
+    border: none;
+    font-size: 22px;
+    line-height: 1;
+    color: var(--muted);
+    cursor: pointer;
+    padding: 4px 10px;
+    border-radius: 3px;
+  }
+  .gallery-close:hover { background: var(--rule); color: var(--ink); }
+  .gallery-search {
+    margin: 12px 20px 8px;
+    padding: 8px 12px;
+    font-family: var(--serif);
+    font-size: 13px;
+    border: 1px solid var(--rule);
+    border-radius: 3px;
+    background: var(--paper);
+  }
+  .gallery-search:focus { outline: none; border-color: var(--accent); }
+  .gallery-categories {
+    display: flex;
+    gap: 4px;
+    padding: 0 20px 8px;
+    flex-wrap: wrap;
+  }
+  .gallery-cat-btn {
+    padding: 3px 10px;
+    background: var(--paper);
+    border: 1px solid var(--rule);
+    color: var(--muted);
+    font-family: var(--sans);
+    font-size: 10.5px;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    cursor: pointer;
+    border-radius: 12px;
+    font-weight: 600;
+  }
+  .gallery-cat-btn.active { background: var(--accent); color: white; border-color: var(--accent); }
+  .gallery-cat-btn:hover:not(.active) { border-color: var(--accent); color: var(--accent); }
+  .gallery-grid {
+    padding: 0 20px 20px;
+    overflow-y: auto;
+    flex: 1;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+  }
+  .gallery-card {
+    background: var(--paper);
+    border: 1px solid var(--rule);
+    border-radius: 4px;
+    padding: 12px 14px;
+    cursor: pointer;
+    transition: border-color 0.15s, transform 0.1s, box-shadow 0.15s;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+  }
+  .gallery-card:hover {
+    border-color: var(--accent);
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+  }
+  .gallery-card .gc-head {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .gallery-card .gc-icon {
+    font-size: 18px;
+    line-height: 1;
+  }
+  .gallery-card .gc-name {
+    font-family: var(--sans);
+    font-size: 12.5px;
+    font-weight: 700;
+    color: var(--ink);
+    flex: 1;
+  }
+  .gallery-card .gc-add {
+    background: var(--accent);
+    color: white;
+    border: none;
+    padding: 3px 10px;
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    font-weight: 700;
+    border-radius: 2px;
+    cursor: pointer;
+    pointer-events: none;
+  }
+  .gallery-card .gc-desc {
+    font-family: var(--serif);
+    font-size: 11.5px;
+    color: var(--ink-2);
+    line-height: 1.4;
+  }
+  .gallery-card .gc-cat {
+    margin-top: 4px;
+    font-family: var(--mono);
+    font-size: 9px;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: var(--muted);
+  }
+  .gallery-empty {
+    padding: 30px 20px;
+    text-align: center;
+    color: var(--muted);
+    font-style: italic;
+  }
+
+  /* Reference bucket — collapsed disclosure for sections 10-14 */
+  .reference-bucket {
+    margin: 16px 22px;
+    border: 1px solid var(--rule);
+    border-radius: 3px;
+    background: var(--panel);
+  }
+  .reference-bucket summary {
+    padding: 10px 14px;
+    cursor: pointer;
+    font-family: var(--sans);
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: var(--ink-2);
+    font-weight: 600;
+    list-style: none;
+  }
+  .reference-bucket summary::-webkit-details-marker { display: none; }
+  .reference-bucket summary::before {
+    content: '▸';
+    margin-right: 8px;
+    color: var(--muted);
+    transition: transform 0.15s;
+    display: inline-block;
+  }
+  .reference-bucket[open] summary::before { transform: rotate(90deg); }
+  .reference-bucket summary em {
+    font-style: normal;
+    color: var(--muted);
+    font-weight: 400;
+    text-transform: none;
+    letter-spacing: 0;
+    margin-left: 6px;
+    font-size: 10.5px;
+  }
+  .reference-bucket .reference-bucket-body {
+    padding: 4px 14px 10px;
+    background: var(--paper);
+  }
+  .reference-bucket .reference-bucket-body .section { margin-bottom: 6px; }
+  /* Mobile: single column stacked */
+  @media (max-width: 899px) {
+    .layout { grid-template-columns: 1fr; height: auto; overflow: visible; }
+    .editor, .preview { height: auto; max-height: none; overflow: visible; border: none; }
+    .splitter { display: none; }
+  }
+
+  /* Editor section nav */
+  .section-nav {
+    position: sticky;
+    top: 0;
+    z-index: 10;
+    background: var(--paper);
+    border-bottom: 1px solid var(--rule);
+    padding: 14px 28px 12px;
+    flex-shrink: 0;
+  }
+  .section-nav input.search {
+    width: 100%;
+    padding: 8px 10px;
+    font-family: var(--sans);
+    font-size: 13px;
+    color: var(--ink);
+    background: var(--panel);
+    border: 1px solid var(--rule);
+    border-radius: 3px;
+    margin-bottom: 8px;
+  }
+  .section-nav input.search:focus {
+    border-color: var(--accent);
+    outline: none;
+  }
+  .section-nav .pills {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+  .section-nav .pill-group {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    flex-wrap: wrap;
+  }
+  .section-nav .group-label {
+    font-family: var(--sans);
+    font-size: 9.5px;
+    text-transform: uppercase;
+    letter-spacing: 0.12em;
+    color: var(--muted);
+    font-weight: 700;
+    margin-right: 4px;
+    min-width: 64px;
+  }
+  .section-toolbar {
+    margin-top: 8px;
+    padding-top: 8px;
+    border-top: 1px dashed var(--rule);
+    display: flex; align-items: center; gap: 6px;
+    font-size: 11px;
+  }
+  .section-toolbar .link {
+    background: none; border: none; padding: 0;
+    color: var(--muted); cursor: pointer;
+    font-family: var(--sans); font-size: 11px;
+    text-decoration: underline;
+  }
+  .section-toolbar .link:hover { color: var(--accent); }
+  .section-toolbar .dot { color: var(--rule); }
+  .section-nav .pill {
+    font-family: var(--sans);
+    font-size: 10.5px;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    padding: 4px 9px;
+    background: var(--panel);
+    border: 1px solid var(--rule);
+    color: var(--ink-2);
+    cursor: pointer;
+    border-radius: 12px;
+    transition: all 0.15s;
+    user-select: none;
+  }
+  .section-nav .pill:hover {
+    border-color: var(--accent);
+    color: var(--accent);
+  }
+  .section-nav .pill.active {
+    background: var(--accent);
+    color: var(--paper);
+    border-color: var(--accent);
+  }
+  .section-nav .pill.hidden { display: none; }
+  .section.dimmed { opacity: 0.25; }
+  .section.match {
+    border-left-color: var(--accent);
+    border-left-width: 3px;
+  }
+
+  /* Editor sections — accordion-style */
+  .section {
+    background: var(--panel);
+    border-left: 2px solid var(--rule);
+    padding: 0;
+    margin-bottom: 8px;
+    scroll-margin-top: 96px;
+  }
+  .section h2 {
+    font-family: var(--sans);
+    font-size: 13px;
+    text-transform: none;
+    letter-spacing: 0;
+    color: var(--ink);
+    font-weight: 600;
+    margin: 0;
+    padding: 12px 16px 12px 14px;
+    cursor: pointer;
+    user-select: none;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    transition: background 0.12s;
+  }
+  .section h2:hover { background: var(--paper); color: var(--accent); }
+  .section h2 .chev {
+    font-family: var(--mono);
+    font-size: 10px;
+    color: var(--muted);
+    width: 12px;
+    transition: transform 0.18s;
+    transform: rotate(0deg);
+  }
+  .section.open h2 .chev { transform: rotate(90deg); color: var(--accent); }
+  .section h2 .num {
+    font-family: var(--mono);
+    font-size: 11px;
+    color: var(--muted);
+    font-weight: 500;
+    min-width: 22px;
+  }
+  .section h2 .lead { flex: 1; }
+  .section h2 em {
+    font-family: var(--serif);
+    font-size: 12px;
+    color: var(--muted);
+    font-weight: 400;
+    font-style: italic;
+  }
+  .section .section-body {
+    padding: 4px 18px 18px 18px;
+    border-top: 1px solid var(--rule);
+    display: none;
+  }
+  .section.open .section-body { display: block; }
+  .section.open { border-left-color: var(--accent); }
+  .section .helper {
+    font-family: var(--serif);
+    font-size: 13px;
+    color: var(--ink-2);
+    line-height: 1.55;
+    margin: -6px 0 12px;
+  }
+  .row { margin-bottom: 10px; }
+  .row label {
+    display: block;
+    font-size: 12px;
+    color: var(--muted);
+    margin-bottom: 4px;
+    font-weight: 500;
+  }
+  .row em { font-style: normal; color: var(--ink); font-weight: 600; }
+  .row input[type="text"],
+  .row input[type="number"],
+  .row select,
+  .row textarea {
+    width: 100%;
+    padding: 7px 10px;
+    font-family: var(--mono);
+    font-size: 13px;
+    color: var(--ink);
+    background: var(--paper);
+    border: 1px solid var(--rule);
+    border-radius: 2px;
+  }
+  .row textarea { font-family: var(--serif); resize: vertical; min-height: 50px; }
+  .row .grid-2, .row.grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+  .row .grid-3, .row.grid-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px; }
+  .row .grid-4, .row.grid-4 { display: grid; grid-template-columns: 1fr 1fr 1fr 1fr; gap: 8px; }
+
+  .migration-chart {
+    background: var(--paper);
+    border: 1px solid var(--rule);
+    border-radius: 3px;
+    padding: 12px 14px;
+    margin: 8px 0;
+  }
+  .migration-chart svg { width: 100%; height: auto; display: block; }
+  .migration-chart .phase-bar { fill-opacity: 0.85; cursor: default; }
+  .migration-chart .phase-label { font-family: var(--mono); font-size: 9px; fill: white; }
+  .migration-chart .axis-label { font-family: var(--mono); font-size: 9px; fill: var(--muted); }
+
+  /* Tooltip — ⓘ icon next to a label that reveals a hover bubble. */
+  .tip {
+    display: inline-block;
+    width: 14px; height: 14px; line-height: 14px;
+    text-align: center; border-radius: 50%;
+    background: var(--rule); color: var(--muted);
+    font-size: 10px; font-weight: 600; cursor: help;
+    margin-left: 3px; user-select: none;
+    position: relative;
+    transition: background 0.15s, color 0.15s;
+  }
+  .tip:hover { background: var(--accent); color: white; }
+  .tip:hover::after, .tip:focus::after {
+    content: attr(data-tip);
+    position: absolute;
+    bottom: calc(100% + 6px);
+    left: 50%;
+    transform: translateX(-50%);
+    background: var(--ink);
+    color: var(--paper);
+    padding: 8px 10px;
+    border-radius: 4px;
+    font-size: 11px;
+    font-weight: 400;
+    line-height: 1.4;
+    width: 240px;
+    z-index: 1000;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+    pointer-events: none;
+    white-space: normal;
+    text-align: left;
+  }
+  .tip:hover::before, .tip:focus::before {
+    content: '';
+    position: absolute;
+    bottom: calc(100% + 1px);
+    left: 50%;
+    transform: translateX(-50%);
+    border: 5px solid transparent;
+    border-top-color: var(--ink);
+    z-index: 1001;
+    pointer-events: none;
+  }
+  /* Right-edge tooltip — flip to left-anchor to avoid clipping out of viewport */
+  .tip.tip-right:hover::after { left: auto; right: -8px; transform: none; }
+  .tip.tip-right:hover::before { left: auto; right: 0; transform: none; }
+
+  /* Mode-conflict warning banner */
+  .mode-warning {
+    background: #fff3e0;
+    border: 1px solid #f5b342;
+    border-left: 4px solid #d4761f;
+    padding: 10px 12px;
+    margin: 0 0 12px;
+    border-radius: 3px;
+    font-size: 12px;
+    color: #6b3e0a;
+    line-height: 1.4;
+  }
+  .mode-warning strong { color: #5a2d05; }
+  .section.mode-disabled {
+    opacity: 0.55;
+    position: relative;
+  }
+  .section.mode-disabled .section-body::before {
+    content: 'Multi-agent mode is active — this section is ignored';
+    position: absolute;
+    top: 4px; right: 8px;
+    background: #fff3e0;
+    color: #6b3e0a;
+    padding: 2px 8px;
+    border-radius: 2px;
+    font-size: 10px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    z-index: 5;
+  }
+  .row.checkbox { display: flex; align-items: center; gap: 8px; }
+  .row.checkbox label { margin: 0; }
+
+  /* Lists for shapes / segments / etc. */
+  .item-list { display: flex; flex-direction: column; gap: 8px; margin-top: 6px; }
+  .item {
+    background: var(--paper);
+    border: 1px solid var(--rule);
+    padding: 10px 12px;
+    border-radius: 3px;
+    position: relative;
+  }
+  .item .item-title {
+    font-family: var(--mono); font-size: 12px;
+    color: var(--accent); font-weight: 600;
+    margin-bottom: 6px;
+  }
+  .item .item-remove {
+    position: absolute; top: 8px; right: 8px;
+    background: none; border: 1px solid var(--rule); color: var(--muted);
+    font-size: 11px; padding: 2px 6px; cursor: pointer; border-radius: 2px;
+  }
+  .item .item-remove:hover { color: var(--bad); border-color: var(--bad); }
+  .item.add-row {
+    border: 1px dashed var(--rule);
+    text-align: center;
+    cursor: pointer;
+    color: var(--muted);
+    font-size: 12px;
+    padding: 8px;
+  }
+  .item.add-row:hover { color: var(--accent); border-color: var(--accent); }
+
+  /* Preview pane / report */
+  .report-header {
+    margin-bottom: 14px;
+  }
+  .preview h2 {
+    font-family: var(--serif);
+    font-size: 26px; font-weight: 600;
+    margin: 0 0 4px;
+    letter-spacing: -0.01em;
+  }
+  .preview .agency {
+    font-family: var(--sans); font-size: 11px;
+    text-transform: uppercase; letter-spacing: 0.14em;
+    color: var(--muted); font-weight: 700;
+    margin-bottom: 8px;
+  }
+  .preview .scenario-tag {
+    display: inline-block;
+    font-family: var(--mono); font-size: 11px;
+    color: var(--accent);
+    margin-top: 6px;
+    padding: 3px 8px;
+    background: #f3ecdb;
+    border: 1px solid var(--rule);
+    border-radius: 3px;
+  }
+  .preview .description {
+    font-family: var(--serif); font-size: 14.5px; line-height: 1.6;
+    color: var(--ink-2); margin: 0 0 24px;
+    padding-left: 14px; border-left: 2px solid var(--rule);
+  }
+  .report-h {
+    font-family: var(--sans);
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.14em;
+    color: var(--muted);
+    font-weight: 700;
+    margin: 32px 0 10px;
+    padding-bottom: 4px;
+    border-bottom: 1px solid var(--rule);
+  }
+  .math-trace-toolbar {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 8px;
+    flex-wrap: wrap;
+  }
+  .math-copy-btn {
+    background: var(--accent);
+    color: white;
+    border: none;
+    padding: 5px 12px;
+    border-radius: 2px;
+    font-family: var(--sans);
+    font-size: 11px;
+    font-weight: 600;
+    cursor: pointer;
+  }
+  .math-copy-btn:hover { background: #6a1828; }
+  .math-trace-hint {
+    color: var(--muted);
+    font-size: 11px;
+    font-style: italic;
+  }
+  .math-trace {
+    background: #1c1612;
+    color: #e8d8b8;
+    padding: 12px 14px;
+    border-radius: 3px;
+    font-family: var(--mono);
+    font-size: 11px;
+    line-height: 1.5;
+    overflow-x: auto;
+    max-height: 600px;
+    overflow-y: auto;
+    white-space: pre;
+    margin: 0;
+  }
+  .math-walk {
+    font-family: var(--serif);
+    font-size: 13.5px;
+    line-height: 1.6;
+    color: var(--ink-2);
+  }
+  .math-walk p { margin: 0 0 10px; }
+  .math-walk code {
+    font-family: var(--mono);
+    font-size: 12px;
+    background: var(--paper);
+    padding: 1px 5px;
+    border-radius: 2px;
+    color: var(--ink);
+  }
+  .math-walk .step-num {
+    font-family: var(--mono);
+    color: var(--accent);
+    font-weight: 600;
+    margin-right: 4px;
+  }
+
+  /* Charts */
+  .composition-chart {
+    margin: 8px 0 12px;
+  }
+  .composition-chart .stack-bar {
+    width: 100%;
+    height: 24px;
+    border: 1px solid var(--rule);
+    border-radius: 3px;
+    overflow: hidden;
+    display: flex;
+  }
+  .composition-chart .seg {
+    height: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-family: var(--mono);
+    font-size: 10.5px;
+    color: var(--paper);
+    font-weight: 600;
+    overflow: hidden;
+    transition: all 0.18s;
+  }
+  .composition-chart .legend {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 14px;
+    margin-top: 8px;
+    font-family: var(--sans);
+    font-size: 12px;
+  }
+  .composition-chart .legend-item {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+  .composition-chart .swatch {
+    width: 11px; height: 11px; border-radius: 2px;
+    display: inline-block;
+  }
+  .composition-chart .legend-label { color: var(--ink); }
+  .composition-chart .legend-val { color: var(--muted); font-family: var(--mono); }
+
+  .agents-chart {
+    margin: 8px 0 12px;
+  }
+  .agents-chart .agent-row {
+    display: grid;
+    grid-template-columns: 140px 1fr 80px;
+    gap: 10px;
+    align-items: center;
+    padding: 4px 0;
+    font-size: 12.5px;
+  }
+  .agents-chart .agent-label { color: var(--ink); font-weight: 600; }
+  .agents-chart .agent-bar-track {
+    height: 14px;
+    background: var(--paper);
+    border: 1px solid var(--rule);
+    border-radius: 2px;
+    overflow: hidden;
+  }
+  .agents-chart .agent-bar-fill {
+    height: 100%;
+    background: var(--accent);
+    transition: width 0.2s;
+  }
+  .agents-chart .agent-num {
+    font-family: var(--mono);
+    color: var(--ink);
+    text-align: right;
+  }
+
+  .headline {
+    background: #f3ecdb;
+    border: 1px solid var(--rule);
+    padding: 22px 24px;
+    margin-bottom: 24px;
+  }
+  .headline .label-row {
+    font-family: var(--sans); font-size: 11px;
+    text-transform: uppercase; letter-spacing: 0.12em; color: var(--muted);
+    margin-bottom: 10px;
+  }
+  .headline .number {
+    font-family: var(--serif);
+    font-size: clamp(28px, 4vw, 44px);
+    font-weight: 600;
+    color: var(--accent);
+    line-height: 1;
+    margin: 0;
+    word-break: break-word;
+  }
+  .headline .risk-band {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin: 4px 0 8px;
+    font-size: 11.5px;
+    flex-wrap: wrap;
+  }
+  .headline .risk-band .risk-label {
+    color: var(--muted);
+    font-family: var(--sans);
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+  }
+  .headline .risk-band .risk-range {
+    color: var(--ink);
+    font-family: var(--mono);
+    font-weight: 600;
+  }
+  .headline .risk-band .risk-perturbations {
+    color: var(--muted);
+    font-size: 10px;
+    font-style: italic;
+  }
+  .headline .risk-band .risk-toggle {
+    background: var(--paper);
+    border: 1px solid var(--rule);
+    color: var(--accent);
+    font-family: var(--mono);
+    font-size: 10px;
+    padding: 2px 6px;
+    border-radius: 2px;
+    cursor: pointer;
+    text-transform: uppercase;
+  }
+  .headline .risk-band.off .risk-toggle { color: var(--muted); }
+  .headline .risk-band.off .risk-range, .headline .risk-band.off .risk-perturbations { opacity: 0.4; }
+
+  .headline .tco-toggle {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin: 8px 0 10px;
+    padding: 6px 0;
+    border-top: 1px dashed var(--rule);
+    border-bottom: 1px dashed var(--rule);
+    font-size: 11px;
+  }
+  .headline .tco-label { color: var(--muted); font-family: var(--sans); text-transform: uppercase; letter-spacing: 0.06em; font-size: 10px; }
+  .headline .tco-opt { cursor: pointer; user-select: none; color: var(--ink-2); }
+  .headline .tco-opt input { vertical-align: middle; margin-right: 3px; accent-color: var(--accent); }
+  .headline .number-caption {
+    font-family: var(--mono); font-size: 11px;
+    color: var(--muted); margin-top: 6px;
+  }
+  .headline .secondary {
+    display: grid; grid-template-columns: 1fr 1fr 1fr;
+    gap: 18px;
+    margin-top: 18px;
+    padding-top: 14px;
+    border-top: 1px solid var(--rule);
+  }
+  .headline .secondary .item {
+    background: none; border: none; padding: 0;
+  }
+  /* Headline numbers get a "click to inspect formula" affordance */
+  .headline .number, .headline .secondary .val {
+    cursor: help;
+  }
+  .headline .number[title]:hover, .headline .secondary .val[title]:hover {
+    background: linear-gradient(transparent 75%, #fff8e8 75%);
+  }
+  .headline .secondary .item .ttl {
+    font-family: var(--sans); font-size: 11px;
+    text-transform: uppercase; letter-spacing: 0.1em; color: var(--muted);
+  }
+  .headline .secondary .item .val {
+    font-family: var(--mono); font-size: 16px; color: var(--ink);
+    margin-top: 3px;
+  }
+
+  .compare-table {
+    width: 100%; border-collapse: collapse;
+    margin: 14px 0 22px;
+  }
+  .compare-table th, .compare-table td {
+    text-align: left;
+    padding: 10px 12px;
+    border-bottom: 1px solid var(--rule);
+    font-size: 13px;
+  }
+  .compare-table th {
+    font-family: var(--sans); font-size: 11px;
+    text-transform: uppercase; letter-spacing: 0.1em;
+    color: var(--muted); font-weight: 700;
+    border-bottom: 1px solid var(--ink);
+  }
+  .compare-table td.num { font-family: var(--mono); text-align: right; }
+  .compare-table tr.highlight { background: #f3ecdb; }
+  .compare-table .refused { color: var(--bad); }
+  .compare-table .pass { color: var(--good); }
+
+  .note {
+    background: var(--panel); border-left: 2px solid var(--accent);
+    padding: 14px 16px; font-family: var(--serif); font-size: 13.5px;
+    color: var(--ink-2); margin: 16px 0 24px;
+    line-height: 1.55;
+  }
+
+  .controls-row {
+    display: flex; align-items: center; gap: 16px;
+    padding: 14px 18px; background: var(--panel);
+    border: 1px solid var(--rule); border-radius: 2px;
+    margin-bottom: 18px;
+  }
+  .controls-row label {
+    font-size: 12px; color: var(--muted); text-transform: uppercase;
+    letter-spacing: 0.08em; font-weight: 700;
+  }
+  .controls-row select, .controls-row input {
+    padding: 5px 8px; font-family: var(--mono); font-size: 12px;
+    border: 1px solid var(--rule); border-radius: 2px;
+    background: var(--paper); color: var(--ink);
+  }
+
+  .footer {
+    padding: 12px 28px;
+    background: var(--ink);
+    color: rgba(255,255,255,0.7);
+    font-size: 11.5px;
+    font-family: var(--mono);
+    border-top: 1px solid rgba(255,255,255,0.1);
+    display: flex; gap: 24px;
+  }
+  .footer a { color: rgba(255,255,255,0.85); text-decoration: none; }
+  .footer a:hover { color: var(--paper); text-decoration: underline; }
+
+  details summary {
+    cursor: pointer; font-family: var(--sans); font-size: 11px;
+    text-transform: uppercase; letter-spacing: 0.1em;
+    color: var(--muted); font-weight: 700;
+    padding: 4px 0;
+  }
+
+  /* Compact rate-card table (Section 11) */
+  .ratecard-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-family: var(--sans);
+    font-size: 12px;
+    margin-top: 6px;
+  }
+  .ratecard-table th {
+    text-align: left;
+    padding: 6px 6px;
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--muted);
+    font-weight: 700;
+    border-bottom: 1px solid var(--rule);
+  }
+  .ratecard-table td {
+    padding: 4px 6px;
+    border-bottom: 1px solid var(--rule);
+    vertical-align: middle;
+  }
+  .ratecard-table th.rc-name, .ratecard-table td.rc-name { width: 38%; }
+  .ratecard-table tr.active td {
+    background: #fffaf2;
+  }
+  .ratecard-table tr.active td.rc-name strong {
+    color: var(--accent);
+  }
+  .ratecard-table input[type="number"] {
+    width: 100%;
+    padding: 4px 6px;
+    font-family: var(--mono);
+    font-size: 12px;
+    border: 1px solid var(--rule);
+    border-radius: 2px;
+    background: var(--paper);
+    color: var(--ink);
+  }
+  .ratecard-table .rc-name strong {
+    font-family: var(--mono);
+    font-weight: 600;
+    color: var(--ink);
+  }
+  .ratecard-table .rc-provider {
+    color: var(--muted);
+    font-size: 10.5px;
+    margin-left: 4px;
+  }
+  .ratecard-table .rc-badge {
+    display: inline-block;
+    margin-left: 6px;
+    padding: 1px 5px;
+    background: var(--accent);
+    color: var(--paper);
+    font-size: 9px;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    border-radius: 2px;
+    font-weight: 600;
+  }
+  .ratecard-table .rc-action { width: 28px; text-align: center; }
+  .ratecard-table .rc-reset {
+    background: none;
+    border: 1px solid var(--rule);
+    color: var(--muted);
+    font-size: 12px;
+    padding: 1px 5px;
+    cursor: pointer;
+    border-radius: 2px;
+  }
+  .ratecard-table .rc-reset:hover {
+    color: var(--accent);
+    border-color: var(--accent);
+  }
+  .rc-dot {
+    display: inline-block;
+    width: 6px; height: 6px;
+    background: var(--accent);
+    border-radius: 50%;
+    margin-right: 4px;
+    vertical-align: middle;
+  }
+  .gpu-card.active {
+    border-color: var(--accent);
+    background: #fffaf2;
+  }
+  .gpu-card.active .item-title {
+    color: var(--accent);
+  }
+
+  .template-btn {
+    background: var(--paper);
+    border: 1px solid var(--rule);
+    border-radius: 3px;
+    padding: 6px 10px;
+    cursor: pointer;
+    font-family: var(--sans);
+    font-size: 11.5px;
+    color: var(--ink-2);
+  }
+  .template-btn:hover {
+    border-color: var(--accent);
+    color: var(--accent);
+    background: #fffaf2;
+  }
+
+  /* Architecture diagram */
+  .arch-diagram-wrap {
+    background: var(--paper);
+    border: 1px solid var(--rule);
+    border-radius: 3px;
+    padding: 4px;
+    margin-bottom: 8px;
+    overflow: hidden;
+  }
+  #arch-diagram {
+    width: 100%;
+    height: 320px;
+    display: block;
+  }
+  #arch-diagram .node-rect {
+    fill: var(--panel);
+    stroke: var(--rule);
+    stroke-width: 1;
+    cursor: pointer;
+    transition: all 0.15s;
+  }
+  #arch-diagram .node-rect:hover {
+    stroke: var(--accent);
+    stroke-width: 1.5;
+  }
+  #arch-diagram .node.active .node-rect {
+    fill: #fffaf2;
+    stroke: var(--accent);
+    stroke-width: 2;
+  }
+  #arch-diagram .node-label {
+    font-family: 'Source Sans 3', sans-serif;
+    font-size: 11px;
+    fill: var(--ink);
+    pointer-events: none;
+    text-anchor: middle;
+    font-weight: 500;
+  }
+  #arch-diagram .node-cost {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 9px;
+    fill: var(--muted);
+    pointer-events: none;
+    text-anchor: middle;
+  }
+  #arch-diagram .node.active .node-cost {
+    fill: var(--accent);
+    font-weight: 600;
+  }
+  #arch-diagram .node-type {
+    font-family: 'Source Sans 3', sans-serif;
+    font-size: 8.5px;
+    fill: var(--muted);
+    pointer-events: none;
+    text-anchor: middle;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+  }
+  #arch-diagram .conn {
+    stroke: var(--rule);
+    stroke-width: 1;
+    fill: none;
+    transition: all 0.15s;
+  }
+  #arch-diagram .conn.active {
+    stroke: var(--accent);
+    stroke-width: 1.5;
+    opacity: 0.6;
+  }
+  #arch-diagram .group-bg {
+    fill: var(--paper);
+    stroke: var(--rule);
+    stroke-width: 1;
+    stroke-dasharray: 3 3;
+    rx: 6;
+  }
+  #arch-diagram .group-label {
+    font-family: 'Source Sans 3', sans-serif;
+    font-size: 9px;
+    fill: var(--muted);
+    text-transform: uppercase;
+    letter-spacing: 0.12em;
+    font-weight: 700;
+    text-anchor: start;
+  }
+  .arch-summary {
+    font-family: var(--sans);
+    font-size: 12.5px;
+    color: var(--ink-2);
+    background: var(--paper);
+    border-left: 2px solid var(--accent);
+    padding: 10px 14px;
+    margin: 0;
+  }
+  .arch-summary strong { color: var(--ink); }
+  .arch-summary .pill-tag {
+    display: inline-block;
+    background: var(--panel);
+    border: 1px solid var(--rule);
+    padding: 1px 6px;
+    margin: 1px 2px;
+    border-radius: 2px;
+    font-family: var(--mono);
+    font-size: 11px;
+    color: var(--accent);
+  }
+
+  /* Token estimator wizard */
+  .wizard-cta {
+    background: linear-gradient(180deg, #f3ecdb 0%, #ede4cf 100%);
+    border: 1px solid var(--accent);
+    border-radius: 4px;
+    padding: 12px 14px;
+    margin: 10px 0 14px;
+    cursor: pointer;
+    color: var(--accent);
+    font-family: var(--sans);
+    font-size: 13.5px;
+    display: flex; align-items: center; justify-content: space-between; gap: 10px;
+    transition: background 0.15s;
+  }
+  .wizard-cta:hover {
+    background: linear-gradient(180deg, #ede4cf 0%, #e6dcc4 100%);
+  }
+  .wizard {
+    background: var(--paper);
+    border: 1px solid var(--rule);
+    border-left: 3px solid var(--accent);
+    border-radius: 3px;
+    padding: 16px 18px;
+    margin: 0 0 16px;
+  }
+  .wiz-q { margin-bottom: 16px; }
+  .wiz-label {
+    font-family: var(--sans);
+    font-weight: 600;
+    font-size: 13px;
+    color: var(--ink);
+    margin-bottom: 8px;
+  }
+  .wiz-opts {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 6px;
+  }
+  .wiz-opt {
+    display: flex;
+    align-items: flex-start;
+    gap: 8px;
+    padding: 8px 10px;
+    background: var(--panel);
+    border: 1px solid var(--rule);
+    border-radius: 3px;
+    cursor: pointer;
+    font-size: 12.5px;
+    line-height: 1.4;
+    transition: all 0.12s;
+  }
+  .wiz-opt:hover {
+    border-color: var(--accent);
+    background: #fffaf2;
+  }
+  .wiz-opt input[type="radio"] {
+    margin-top: 2px;
+    accent-color: var(--accent);
+    flex-shrink: 0;
+  }
+  .wiz-opt input[type="radio"]:checked + span {
+    color: var(--accent);
+  }
+  .wiz-opt:has(input[type="radio"]:checked) {
+    border-color: var(--accent);
+    background: #fffaf2;
+    box-shadow: inset 2px 0 0 var(--accent);
+  }
+  .wiz-opt span em {
+    font-style: italic;
+    color: var(--muted);
+    font-weight: 400;
+    font-size: 11.5px;
+    display: block;
+    margin-top: 2px;
+  }
+  .wiz-result {
+    margin-top: 18px;
+    padding: 14px 16px;
+    background: var(--panel);
+    border: 1px solid var(--ink);
+    border-radius: 3px;
+  }
+  .wiz-result-headline {
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr;
+    gap: 14px;
+    padding-bottom: 12px;
+    border-bottom: 1px solid var(--rule);
+    margin-bottom: 12px;
+  }
+  .wiz-result-label {
+    font-family: var(--sans);
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    color: var(--muted);
+    font-weight: 700;
+    margin-bottom: 4px;
+  }
+  .wiz-result-value {
+    font-family: var(--serif);
+    font-size: 22px;
+    font-weight: 600;
+    color: var(--ink);
+  }
+  .wiz-breakdown {
+    font-family: var(--mono);
+    font-size: 11.5px;
+    line-height: 1.7;
+    color: var(--ink-2);
+  }
+  .wiz-breakdown .row {
+    display: flex; justify-content: space-between;
+    padding: 2px 0;
+    margin: 0;
+  }
+  .wiz-breakdown .row .num { color: var(--ink); font-weight: 600; }
+  .wiz-note {
+    font-family: var(--serif);
+    font-size: 12px;
+    color: var(--muted);
+    margin: 12px 0 0;
+    line-height: 1.5;
+    font-style: italic;
+  }
+  .wizard button {
+    font-family: var(--sans);
+    font-size: 12.5px;
+    padding: 8px 14px;
+    background: var(--panel);
+    color: var(--ink);
+    border: 1px solid var(--rule);
+    border-radius: 3px;
+    cursor: pointer;
+  }
+  .wizard button.primary {
+    background: var(--accent);
+    color: var(--paper);
+    border-color: var(--accent);
+    font-weight: 600;
+  }
+  .wizard button.primary:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+  }
+  .wizard button:hover:not(:disabled) {
+    background: var(--paper);
+  }
+  .wizard button.primary:hover:not(:disabled) {
+    background: #6a1b25;
+  }
+  /* Single-column wizard on narrow screens */
+  @media (max-width: 720px) {
+    .wiz-opts { grid-template-columns: 1fr; }
+    .wiz-result-headline { grid-template-columns: 1fr; gap: 8px; }
+  }
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <h1>AI Cost Calculator</h1>
+  <span class="pill">free · open · no signup</span>
+  <select id="example-loader" title="Load a preset workload">
+    <option value="">Load preset…</option>
+    <option value="nasa-eie">NASA · Earth Information Explorer</option>
+    <option value="nih-clinical-trials">NIH · ClinicalTrials Agent</option>
+    <option value="doe-grid-modeling">DOE · Grid Modeling Assistant</option>
+    <option value="noaa-storm-tracking">NOAA · Storm Tracking Explainer</option>
+    <option value="generic-startup-chatbot">Startup · Customer Support Bot</option>
+  </select>
+  <button id="share-btn" title="Copy a shareable link to this configuration">⌘ Copy link</button>
+  <button id="import-btn" title="Import workload JSON">⬆ Import JSON</button>
+  <button id="export-btn" title="Export workload JSON">⬇ Export JSON</button>
+  <button id="excel-btn" class="primary" title="Download as Excel workbook">⬇ Excel</button>
+</div>
+<div id="toast" style="position: fixed; bottom: 30px; left: 50%; transform: translateX(-50%); background: var(--ink); color: var(--paper); padding: 12px 20px; border-radius: 4px; font-family: var(--sans); font-size: 13px; opacity: 0; transition: opacity 0.3s; pointer-events: none; z-index: 1000;"></div>
+
+<div class="layout" id="layout">
+  <!-- ============ COL 1: EDITOR (chat / components / estimator tabs) ============ -->
+  <div class="editor" id="editor">
+    <!-- Tab navigation -->
+    <div class="tabs-bar" id="tabs-bar">
+      <button class="tab-btn active" data-tab="build"><span class="tab-icon">🛠️</span>Build</button>
+      <button class="tab-btn" data-tab="components"><span class="tab-icon">🔧</span>Components</button>
+      <button class="tab-btn" data-tab="estimator"><span class="tab-icon">🪙</span>Token Estimator</button>
+      <button class="tab-btn" data-tab="prices"><span class="tab-icon">💲</span>Prices</button>
+      <button class="tab-btn" data-tab="benchmarks"><span class="tab-icon">📊</span>Benchmarks</button>
+    </div>
+
+    <!-- TAB: BUILD (chat + diagram visualization) -->
+    <div class="tab-panel active" data-tab-panel="build">
+    <!-- Architecture diagram pinned at top of build column -->
+    <div class="arch-header" id="arch-header">
+      <div class="chat-builder" id="chat-builder">
+        <div class="chat-header-row">
+          <strong>📝 Describe your AI system in plain English</strong>
+          <span class="chat-ai-badge">✨ AI · OpenAI gpt-4o-mini</span>
+        </div>
+        <select id="chat-examples" class="chat-examples">
+          <option value="">— Or pick an example to fill in below —</option>
+        </select>
+        <textarea id="chat-input" placeholder="e.g., 'A federal customer-support chatbot for 5,000 monthly users that answers questions from our policy PDFs.' or 'Multi-step workflow agent that queries a database and generates a report.'"></textarea>
+        <div class="chat-controls">
+          <button id="chat-build" class="primary-btn">Build my system →</button>
+          <button id="chat-clear" class="ghost-btn">Clear</button>
+        </div>
+        <div class="ai-key-row" id="ai-key-row">
+          <label>OpenAI API key <span class="tip" data-tip="Stored only in your browser's localStorage — never sent to any server except OpenAI directly. Get a key at platform.openai.com.">ⓘ</span></label>
+          <div style="display: flex; gap: 4px;">
+            <input type="password" id="chat-api-key" placeholder="sk-..." style="flex: 1;">
+            <button id="chat-key-save" class="ghost-btn">Save</button>
+            <button id="chat-key-clear" class="ghost-btn" title="Remove from browser storage">✕</button>
+          </div>
+          <div class="ai-key-status" id="ai-key-status"></div>
+        </div>
+        <div class="chat-output" id="chat-output" style="display: none;">
+          <div class="exec-log" id="exec-log"></div>
+          <div class="suggestions" id="suggestions"></div>
+        </div>
+      </div>
+      <div class="arch-title-row">
+        <div class="arch-title">↑ What we built from your description · click any box to fine-tune</div>
+        <div class="arch-zoom-controls">
+          <button class="zoom-btn" id="arch-zoom-out" title="Zoom out">−</button>
+          <button class="zoom-btn" id="arch-zoom-reset" title="Fit">◇</button>
+          <button class="zoom-btn" id="arch-zoom-in" title="Zoom in">+</button>
+        </div>
+      </div>
+      <!-- Preset buttons removed — architecture is read-only and driven by the chat builder above. -->
+      <p style="font-size: 11px; color: var(--muted); margin: 0 0 8px; font-style: italic;">Architecture is built from your chat description. Components highlighted below appear in the Components tab.</p>
+      <div class="arch-diagram-wrap" id="arch-diagram-wrap">
+        <svg id="arch-diagram" viewBox="0 0 720 620" xmlns="http://www.w3.org/2000/svg" preserveAspectRatio="xMidYMid meet"></svg>
+      </div>
+      <div class="arch-summary" id="arch-summary"></div>
+    </div>
+    </div><!-- /.tab-panel build -->
+
+    <!-- TAB: COMPONENTS — active list replaces the old pill bar -->
+    <div class="tab-panel" data-tab-panel="components">
+    <div class="components-header" id="components-header">
+      <strong>Active components</strong>
+      <span class="components-hint">Hover any heading to remove · click <strong>+ Add a component</strong> below to extend</span>
+    </div>
+
+    <div class="editor-body" id="editor-body">
+    <div class="section open" id="sec-scenario" data-cat="scenario">
+      <h2><span class="chev">▶</span><span class="num">0</span><span class="lead">What you're modeling</span> <em>tweak these to compare options</em></h2>
+      <div class="section-body">
+      <p class="helper">Pick a hosting strategy, a model, and how your traffic looks. The report on the right updates instantly.</p>
+
+      <div class="row grid-2">
+        <div><label>Hosting <span class="tip" data-tip="API = pay per token, no servers to manage. Self-host = run the model on your own GPU instances. Hybrid (split) = fraction of traffic to each side — common for risk diversification or migration phasing.">ⓘ</span></label><select id="prev-hosting"><option value="api">API (managed)</option><option value="self">Self-host on EC2</option><option value="hybrid">Hybrid · API + Self-host (split)</option></select></div>
+        <div><label>Cost mode <span class="tip" data-tip="Optimistic = vendor demo numbers (low ops cost, no setup). Realistic = production numbers (real FTE allocation, $100K+ amortized setup, 25% throughput de-rate). Use Realistic for procurement decisions.">ⓘ</span></label><select id="prev-cost-mode"><option value="optimistic">Optimistic (vendor quote)</option><option value="realistic">Realistic (production)</option></select></div>
+      </div>
+      <div class="row grid-3">
+        <div><label>Model <span class="tip" data-tip="The LLM that handles every query. Cheaper models (gpt-5-mini) are 7-25× cheaper than flagship models. Pricing is set in Section 11.">ⓘ</span></label><select id="prev-model"></select></div>
+        <div><label>Tier <span class="tip" data-tip="OpenAI/Anthropic offer pricing tiers: Standard (1×), Flex/Batch (0.5× — accept latency), Priority (2.5× — guaranteed throughput). Multipliers configured in Section 12.">ⓘ</span></label><select id="prev-tier"><option value="standard">Standard</option><option value="flex">Flex −50%</option><option value="batch">Batch −50%</option><option value="priority">Priority 2.5×</option></select></div>
+        <div><label>Mix <span class="tip" data-tip="The blend of question types your traffic looks like. 'Mixed' is the realistic default. 'Worst case' treats every query as a full pipeline — useful for upper-bound budgeting.">ⓘ</span></label><select id="prev-mix"></select></div>
+      </div>
+
+      <div class="row">
+        <label>Bot factor <span class="tip" data-tip="Multiplier on anonymous traffic to account for bots, crawlers, and scrapers. Public agents see 1.5–3× more requests than the human MAU implies. 1.0 = humans only.">ⓘ</span> <span style="color: var(--ink); font-weight: 600;" id="prev-bot-val">1.5×</span></label>
+        <input type="range" id="prev-bot" min="1.0" max="3.0" step="0.1" value="1.5" style="width: 100%;">
+      </div>
+      <div class="row">
+        <label>Cache hit rate <span class="tip" data-tip="What fraction of input tokens hit the prompt cache. Cached tokens cost ~10% of fresh tokens. System prompts and conversation history cache well; per-query content does not. Typical: 60–85%.">ⓘ</span> <span style="color: var(--ink); font-weight: 600;" id="prev-cache-val">84%</span></label>
+        <input type="range" id="prev-cache" min="0.40" max="0.95" step="0.01" value="0.84" style="width: 100%;">
+      </div>
+      <div class="row">
+        <label>Verification coverage <span class="tip" data-tip="Fraction of responses sampled by a fact-checking pipeline (FactReasoner-style). 0% = none; 10% = audit sample; 100% = check every answer. Each verified query costs 5-20× the answer itself.">ⓘ</span> <span style="color: var(--ink); font-weight: 600;" id="prev-verif-val">0%</span></label>
+        <input type="range" id="prev-verif" min="0" max="1" step="0.05" value="0" style="width: 100%;">
+      </div>
+
+      <div id="prev-selfhost-row" style="display: none; margin-top: 10px; padding-top: 12px; border-top: 1px dashed var(--rule);">
+        <div class="row grid-2">
+          <div><label>GPU instance <span class="tip" data-tip="Which AWS EC2 GPU instance to run the model on. Hourly rate × replicas × 730 hr = monthly. Catalog editable in Section 9.">ⓘ</span></label><select id="prev-gpu"></select></div>
+          <div><label>Commitment <span class="tip" data-tip="On-demand = no commitment. 1-yr/3-yr Reserved Instances cut hourly rate by 33-60% but lock you in. Realistic discounts are smaller than AWS marketing says.">ⓘ</span></label><select id="prev-commitment"><option value="on-demand">On-demand</option><option value="ri-1y" selected>1-yr Reserved</option><option value="ri-3y">3-yr Reserved</option></select></div>
+        </div>
+        <div class="row">
+          <label>HA replicas (floor) <span class="tip" data-tip="Minimum number of GPU instances always running, regardless of load. 2+ is required for high availability. Each replica adds the full hourly cost.">ⓘ</span> <span style="color: var(--ink); font-weight: 600;" id="prev-replicas-val">2</span></label>
+          <input type="range" id="prev-replicas" min="2" max="12" step="1" value="2" style="width: 100%;">
+        </div>
+        <div class="row">
+          <label>Tokens per query <span class="tip" data-tip="Sizing input — total tokens (input + output + cached) per query. Used to compute peak tokens/sec the GPUs need to serve. Default 2000 fits most chat agents.">ⓘ</span> <span style="color: var(--ink); font-weight: 600;" id="prev-tokens-val">2000</span></label>
+          <input type="range" id="prev-tokens" min="500" max="10000" step="100" value="2000" style="width: 100%;">
+        </div>
+      </div>
+
+      <div id="prev-hybrid-row" style="display: none; margin-top: 10px; padding-top: 12px; border-top: 1px dashed var(--rule);">
+        <div class="row">
+          <label>API share <span class="tip" data-tip="Fraction of traffic routed to the API. The remainder goes to self-host. 100% = pure API, 0% = pure self-host. Both sides use their own configuration in Section 0 (model, GPU, etc.).">ⓘ</span> <span style="color: var(--ink); font-weight: 600;" id="prev-api-split-val">50%</span></label>
+          <input type="range" id="prev-api-split" min="0" max="100" step="5" value="50" style="width: 100%;">
+          <p class="helper" style="font-size: 11px; margin-top: 4px;">Self-host serves <strong id="prev-self-share">50%</strong> of queries. Both API and Self-host config above apply.</p>
+        </div>
+      </div>
+      </div><!-- /.section-body -->
+    </div>
+
+    <div class="section" data-cat="setup" id="sec-deployment">
+      <h2><span class="chev">▶</span><span class="num">1</span><span class="lead">About this deployment</span> <em>name and audience</em></h2>
+      <div class="section-body">
+      <p class="helper">Who is this calculator for? The labels here appear at the top of the report.</p>
+      <div class="row"><label>Project name</label><input type="text" data-bind="deployment.name"></div>
+      <div class="row"><label>Agency or organization</label><input type="text" data-bind="deployment.agency"></div>
+      <div class="row"><label>One-paragraph description <em>(shown in report)</em></label><textarea data-bind="deployment.description"></textarea></div>
+      <div class="row">
+        <label>Public-facing?</label>
+        <select data-bind="deployment.publicFacing"><option value="true">Yes — open to the public</option><option value="false">No — internal staff only</option></select>
+      </div>
+      <p class="helper" style="margin-top: 8px;"><em>FedRAMP tier, hosting region, and compliance costs moved to <strong>section 1.5 — Federal compliance</strong> below.</em></p>
+      </div>
+    </div>
+
+    <div class="section" data-cat="setup" id="sec-federal">
+      <h2><span class="chev">▶</span><span class="num">1.5</span><span class="lead">Federal compliance & hosting</span> <em>FedRAMP, ATO, egress, audit retention</em></h2>
+      <div class="section-body">
+      <p class="helper">Federal AI deployments cost more than commercial. Two kinds of overhead apply: <strong>multipliers</strong> (FedRAMP/GovCloud premium and multi-region redundancy multiply your LLM compute cost), and <strong>additive line items</strong> (ATO, egress, log retention, vector DB hosting). Set to "none / single / 0" if you're modeling a commercial deployment.</p>
+
+      <h3 style="margin: 12px 0 6px; font-size: 13px;">Hosting multipliers</h3>
+      <div class="row grid-2">
+        <div>
+          <label>FedRAMP tier <span class="tip" data-tip="GovCloud and FedRAMP-authorized regions cost more than commercial cloud. Low/moderate ≈ no premium; Moderate adds ~15%, High adds ~30%.">ⓘ</span></label>
+          <select data-bind="federal.fedramp_tier">
+            <option value="none">None / commercial (×1.00)</option>
+            <option value="low">Low (×1.00)</option>
+            <option value="moderate">Moderate (×1.15)</option>
+            <option value="high">High / GovCloud (×1.30)</option>
+          </select>
+        </div>
+        <div>
+          <label>Multi-region / DR <span class="tip" data-tip="Federal SLAs often require disaster recovery in a second region. Active-passive = warm standby (~1.5×); active-active = full duplicate (~2.0×).">ⓘ</span></label>
+          <select data-bind="federal.multi_region">
+            <option value="single">Single region (×1.00)</option>
+            <option value="active-passive">Active-passive (×1.50)</option>
+            <option value="active-active">Active-active (×2.00)</option>
+          </select>
+        </div>
+      </div>
+      <p class="helper" style="font-size: 11px; margin-top: 4px;">Multipliers stack — e.g. FedRAMP High + active-active = ×2.60 on LLM and GPU costs.</p>
+
+      <h3 style="margin: 16px 0 6px; font-size: 13px;">Additive monthly costs</h3>
+      <div class="row grid-2">
+        <div>
+          <label>ATO compliance tier <span class="tip" data-tip="Pick a tier to auto-compute ATO cost from Prices.ato (upfront amortized + annual continuous monitoring). Or set 'none' and use the manual ATO field instead.">ⓘ</span></label>
+          <select data-bind="compliance.ato_tier">
+            <option value="none">None / use manual field below</option>
+            <option value="fedramp_li_saas">FedRAMP Low Impact SaaS</option>
+            <option value="fedramp_low">FedRAMP Low</option>
+            <option value="fedramp_moderate">FedRAMP Moderate</option>
+            <option value="fedramp_high">FedRAMP High</option>
+            <option value="il4">DoD IL4 (CUI)</option>
+            <option value="il5">DoD IL5 (NSS)</option>
+          </select>
+        </div>
+        <div>
+          <label>Upfront amortization (months) <span class="tip" data-tip="How many months to spread the upfront ATO cost over. Default 36 (3-year cycle).">ⓘ</span></label>
+          <input type="number" min="1" step="1" data-bind="compliance.upfront_amortization_months">
+        </div>
+      </div>
+      <div class="row grid-2">
+        <div>
+          <label>ATO manual override ($/mo) <span class="tip" data-tip="Fallback if you don't want to use a tier. Direct $/month value. Overridden by tier if set to anything other than 'none'.">ⓘ</span></label>
+          <input type="number" step="100" data-bind="federal.ato_monthly">
+        </div>
+        <div>
+          <label>Vector DB / retrieval infra ($/mo) <span class="tip" data-tip="Managed vector DB (Pinecone, Weaviate) or self-hosted pgvector instance. Often more than the LLM itself for RAG-heavy workloads.">ⓘ</span></label>
+          <input type="number" step="50" data-bind="federal.retrieval_infra_monthly">
+        </div>
+      </div>
+      <div class="row grid-2">
+        <div>
+          <label>Egress per query (GB) <span class="tip" data-tip="Average response size leaving the cloud. Text-only ≈ 0.001 GB (1 KB). Image/document responses can be 0.01–0.1 GB.">ⓘ</span></label>
+          <input type="number" step="0.0001" data-bind="federal.egress_gb_per_query">
+        </div>
+        <div>
+          <label>Egress cost ($/GB) <span class="tip" data-tip="AWS commercial = $0.09/GB. AWS GovCloud = $0.155/GB. Azure = $0.087/GB. Set to 0 if you have a flat egress contract.">ⓘ</span></label>
+          <input type="number" step="0.01" data-bind="federal.egress_cost_per_gb">
+        </div>
+      </div>
+      <div class="row grid-3">
+        <div>
+          <label>Audit log size (KB/query) <span class="tip" data-tip="Per-query structured log entry size. Federal CISO requirements typically 5–20 KB per query (request + response + metadata + lineage).">ⓘ</span></label>
+          <input type="number" step="1" data-bind="federal.audit_log_kb_per_query">
+        </div>
+        <div>
+          <label>Retention (years) <span class="tip" data-tip="Federal records retention. NARA default is 7 years for operational logs; some classified or financial systems require 25+.">ⓘ</span></label>
+          <input type="number" step="1" data-bind="federal.audit_retention_years">
+        </div>
+        <div>
+          <label>Storage ($/GB-mo) <span class="tip" data-tip="S3 Glacier Deep Archive = $0.00099, Glacier Flexible = $0.0036, S3 Standard-IA = $0.0125. GovCloud adds ~25%.">ⓘ</span></label>
+          <input type="number" step="0.001" data-bind="federal.audit_storage_per_gb_month">
+        </div>
+      </div>
+      <div class="row">
+        <label>PII redaction ($/M tokens) <span class="tip" data-tip="Cost of scrubbing PII before LLM call. Presidio self-hosted ≈ $20/M tokens; CloudFlare DLP / AWS Comprehend ≈ $50/M. Set to 0 to disable.">ⓘ</span></label>
+        <input type="number" step="1" data-bind="federal.pii_redaction_per_million_tokens">
+      </div>
+      <p class="helper" style="font-size: 11px; margin-top: 4px;"><strong>Not modeled:</strong> ATO assessment labor, sole-source procurement overhead, GSA Schedule discounts, model availability constraints (some Anthropic/OpenAI models aren't in GovCloud). Add fixed-cost approximations as line items in section 10.</p>
+      </div>
+    </div>
+
+    <div class="section" data-cat="traffic" id="sec-anchor">
+      <h2><span class="chev">▶</span><span class="num">2</span><span class="lead">Your typical question</span> <em>token sizes for one canonical query</em></h2>
+      <div class="section-body">
+      <p class="helper">A "token" is roughly ¾ of a word (so 1,000 tokens ≈ 750 English words). The cost depends on how big each question and answer is. <strong>Don't know your numbers?</strong> Use the wizard below — it asks plain-English questions and figures out the token math for you.</p>
+
+      <div class="wizard-cta" id="wizard-toggle">
+        <strong>Estimate tokens in 30 seconds →</strong>
+        <span style="color: var(--muted); font-weight: 400; font-size: 12px;">No engineering required</span>
+      </div>
+
+      <div class="wizard" id="token-wizard" style="display: none;">
+        <div class="wiz-q">
+          <div class="wiz-label">1. What does your AI assistant do?</div>
+          <div class="wiz-opts" data-q="useCase">
+            <label class="wiz-opt"><input type="radio" name="wiz-useCase" value="support"><span><strong>Customer support / FAQ</strong><br><em>Answers common questions, routes to forms or staff</em></span></label>
+            <label class="wiz-opt"><input type="radio" name="wiz-useCase" value="search"><span><strong>Search & retrieval</strong><br><em>Helps users find documents, datasets, or records</em></span></label>
+            <label class="wiz-opt"><input type="radio" name="wiz-useCase" value="research"><span><strong>Research assistant</strong><br><em>Reads many sources and synthesizes a detailed answer</em></span></label>
+            <label class="wiz-opt"><input type="radio" name="wiz-useCase" value="data-qa"><span><strong>Data Q&A</strong><br><em>Answers questions by querying a database or running stats</em></span></label>
+            <label class="wiz-opt"><input type="radio" name="wiz-useCase" value="doc-qa"><span><strong>Chat with documents</strong><br><em>Conversational interface to PDFs, contracts, manuals</em></span></label>
+            <label class="wiz-opt"><input type="radio" name="wiz-useCase" value="workflow"><span><strong>Workflow automation</strong><br><em>Multi-step tasks calling several tools in sequence</em></span></label>
+            <label class="wiz-opt"><input type="radio" name="wiz-useCase" value="custom"><span><strong>Other / not sure</strong><br><em>Use balanced defaults</em></span></label>
+          </div>
+        </div>
+
+        <div class="wiz-q">
+          <div class="wiz-label">2. How long are typical answers?</div>
+          <div class="wiz-opts" data-q="answerLen">
+            <label class="wiz-opt"><input type="radio" name="wiz-answerLen" value="one-liner"><span><strong>A sentence or two</strong><br><em>"The form is at example.gov/X."</em></span></label>
+            <label class="wiz-opt"><input type="radio" name="wiz-answerLen" value="short"><span><strong>A short paragraph</strong><br><em>3–5 sentences with the key points</em></span></label>
+            <label class="wiz-opt"><input type="radio" name="wiz-answerLen" value="detailed"><span><strong>A detailed explanation</strong><br><em>1–2 paragraphs with examples or numbers</em></span></label>
+            <label class="wiz-opt"><input type="radio" name="wiz-answerLen" value="report"><span><strong>A long-form report</strong><br><em>Multiple sections, citations, summary tables</em></span></label>
+          </div>
+        </div>
+
+        <div class="wiz-q">
+          <div class="wiz-label">3. How much information does it look at to answer one question?</div>
+          <div class="wiz-opts" data-q="contextSize">
+            <label class="wiz-opt"><input type="radio" name="wiz-contextSize" value="none"><span><strong>Just the question itself</strong><br><em>No documents or external data</em></span></label>
+            <label class="wiz-opt"><input type="radio" name="wiz-contextSize" value="lookup"><span><strong>A few documents</strong><br><em>Quick lookup — 1 to 3 sources</em></span></label>
+            <label class="wiz-opt"><input type="radio" name="wiz-contextSize" value="moderate"><span><strong>Several sources</strong><br><em>Moderate research — 3 to 10 docs</em></span></label>
+            <label class="wiz-opt"><input type="radio" name="wiz-contextSize" value="comprehensive"><span><strong>Many sources or a dataset</strong><br><em>Deep analysis — 10+ docs or large data</em></span></label>
+          </div>
+        </div>
+
+        <div class="wiz-q">
+          <div class="wiz-label">4. Are conversations one-shot or continued?</div>
+          <div class="wiz-opts" data-q="conversation">
+            <label class="wiz-opt"><input type="radio" name="wiz-conversation" value="one-shot"><span><strong>One-shot</strong><br><em>Each question stands alone</em></span></label>
+            <label class="wiz-opt"><input type="radio" name="wiz-conversation" value="short"><span><strong>Short chats</strong><br><em>2–4 turns of back-and-forth</em></span></label>
+            <label class="wiz-opt"><input type="radio" name="wiz-conversation" value="long"><span><strong>Long conversations</strong><br><em>5+ turns; context builds up</em></span></label>
+          </div>
+        </div>
+
+        <div class="wiz-q">
+          <div class="wiz-label">5. Where does the answer come from?</div>
+          <div class="wiz-opts" data-q="source">
+            <label class="wiz-opt"><input type="radio" name="wiz-source" value="knowledge"><span><strong>Model's general knowledge</strong><br><em>No tool calls or document lookup</em></span></label>
+            <label class="wiz-opt"><input type="radio" name="wiz-source" value="rag"><span><strong>Our internal documents</strong><br><em>Retrieves from your knowledge base</em></span></label>
+            <label class="wiz-opt"><input type="radio" name="wiz-source" value="tools"><span><strong>Live database or APIs</strong><br><em>Queries data systems for real-time answers</em></span></label>
+            <label class="wiz-opt"><input type="radio" name="wiz-source" value="both"><span><strong>Both — docs AND live data</strong><br><em>Hybrid: retrieves docs and calls tools</em></span></label>
+          </div>
+        </div>
+
+        <div class="wiz-result" id="wiz-result">
+          <div class="wiz-result-headline">
+            <div>
+              <div class="wiz-result-label">Estimated input</div>
+              <div class="wiz-result-value" id="wiz-input-total">—</div>
+            </div>
+            <div>
+              <div class="wiz-result-label">Estimated output</div>
+              <div class="wiz-result-value" id="wiz-output-total">—</div>
+            </div>
+            <div>
+              <div class="wiz-result-label">Cost / query (gpt-5.2)</div>
+              <div class="wiz-result-value" id="wiz-cost">—</div>
+            </div>
+          </div>
+          <div class="wiz-breakdown" id="wiz-breakdown">Pick options above to see the breakdown.</div>
+          <div style="margin-top: 12px; display: flex; gap: 8px;">
+            <button class="primary" id="wiz-apply" disabled>Apply to calculator →</button>
+            <button id="wiz-reset">Reset wizard</button>
+          </div>
+          <p class="wiz-note">Estimates are based on common deployment shapes — typically within ±20% of measured production values.</p>
+        </div>
+
+        <details class="wiz-sample" style="margin-top: 18px;">
+          <summary style="cursor: pointer; font-family: var(--sans); font-size: 12.5px; color: var(--accent); font-weight: 600;">Have a sample query? Paste it for a precise count →</summary>
+          <div style="margin-top: 12px;">
+            <p class="helper" style="font-size: 12.5px; margin-bottom: 8px;">Paste a representative input (system prompt + retrieved context + user question) and a representative output (answer). We count characters and apply a 1-token-per-4-chars heuristic — accurate within ±10% of a real tokenizer for English text.</p>
+            <div class="row">
+              <label>Sample input <em>(prompt + context)</em></label>
+              <textarea id="wiz-sample-in" rows="5" style="width:100%; font-family: var(--mono); font-size: 11.5px;" placeholder="Paste system prompt, retrieved documents, tool results, and user question here…"></textarea>
+            </div>
+            <div class="row">
+              <label>Sample output <em>(answer back to user)</em></label>
+              <textarea id="wiz-sample-out" rows="3" style="width:100%; font-family: var(--mono); font-size: 11.5px;" placeholder="Paste a representative answer here…"></textarea>
+            </div>
+            <div class="wiz-result-headline" id="wiz-sample-result" style="margin-top:8px;">
+              <div><div class="wiz-result-label">Input chars / tokens</div><div class="wiz-result-value" id="wiz-sample-in-stats">0 / 0</div></div>
+              <div><div class="wiz-result-label">Output chars / tokens</div><div class="wiz-result-value" id="wiz-sample-out-stats">0 / 0</div></div>
+              <div><div class="wiz-result-label">Cost / query (gpt-5.2)</div><div class="wiz-result-value" id="wiz-sample-cost">—</div></div>
+            </div>
+            <div style="margin-top: 10px; display: flex; gap: 8px;">
+              <button class="primary" id="wiz-sample-apply" disabled>Apply to calculator →</button>
+              <button id="wiz-sample-clear">Clear samples</button>
+            </div>
+            <p class="wiz-note">For exact tokenization (vendor-specific), a one-time load of <code style="font-family:var(--mono); font-size:11px;">js-tiktoken</code> can be added — coming soon. Char-based heuristic is sufficient for procurement-grade decisions.</p>
+          </div>
+        </details>
+      </div>
+
+      <div class="row grid-2">
+        <div><label>Input tokens <span class="tip" data-tip="Total tokens you send to the model per query: system prompt + retrieved context + tool definitions + conversation history + the user's actual question. Often dominated by context (RAG retrieval can be 5–10K tokens).">ⓘ</span> <em>(prompt + context + tools)</em></label><input type="number" data-bind="anchor_query.input_tokens"></div>
+        <div><label>Output tokens <span class="tip" data-tip="Tokens the model generates in response. ~750 words = 1000 tokens. Output tokens cost 4–8× input tokens, so concise answers save real money.">ⓘ</span> <em>(the answer)</em></label><input type="number" data-bind="anchor_query.output_tokens"></div>
+      </div>
+      <div class="row grid-2">
+        <div><label>Prompt-cache hit rate <span class="tip" data-tip="What fraction of input tokens hit the cache. System prompts + retrieved context cache well; question-specific text doesn't. 0.70 is a good starting baseline at 6-turn sessions.">ⓘ</span> <em>(0–1, default 0.7–0.85)</em></label><input type="number" step="0.01" min="0" max="1" data-bind="anchor_query.cache_rate_baseline"></div>
+        <div><label>Average turns per session <span class="tip" data-tip="How many back-and-forth questions a typical user asks in one session. Longer sessions cache better (more reused context). 6 turns is the baseline reference point.">ⓘ</span></label><input type="number" data-bind="anchor_query.session_baseline_turns"></div>
+      </div>
+      <div class="row"><label>Example user question <em>(optional, shown in report)</em></label><input type="text" data-bind="anchor_query.example"></div>
+      </div>
+    </div>
+
+    <div class="section" data-cat="traffic" id="sec-shapes">
+      <h2><span class="chev">▶</span><span class="num">3</span><span class="lead">Question types</span> <em>full-pipeline, lookup-only, refusal, …</em></h2>
+      <div class="section-body">
+      <p class="helper">Different questions have different token cost. A simple lookup uses fewer tokens than a full multi-tool pipeline. Each shape's factor scales the typical query above (1.0 = same size; 0.5 = half). <span class="tip" data-tip="Examples: full = baseline pipeline; rag = retrieval-only (~30% of full); refusal = out-of-scope reject (~5%); heavy = long-context multi-turn (~120%).">ⓘ</span></p>
+      <div class="item-list" id="shapes-list"></div>
+      <div class="item add-row" id="shapes-add">+ Add another question type</div>
+      </div>
+    </div>
+
+    <div class="section" data-cat="traffic" id="sec-agents">
+      <h2><span class="chev">▶</span><span class="num">3.5</span><span class="lead">Multi-agent pipeline</span> <em>optional — if your system uses more than one LLM call per query</em></h2>
+      <div class="section-body">
+      <div id="agents-mode-banner" class="mode-warning" style="display:none;">
+        <strong>⚠ Multi-agent mode is active.</strong> Sections 3 (Question types) and 4 (Traffic mix) are <strong>ignored</strong> — the engine sums per-agent token cost instead of blending shapes. Remove all agents below to switch back to shape×mix mode.
+      </div>
+      <p class="helper">Many real deployments make several LLM calls per user question — e.g., a <strong>Planner</strong> decides which tools to call, a <strong>Retriever</strong> ranks documents, a <strong>Tool agent</strong> formulates a database query, a <strong>Summarizer</strong> writes the answer. Each agent has its own token budget. <strong>If you fill this in, the engine uses agent-sum instead of "Your typical question" above.</strong> Leave empty if your deployment is single-call.</p>
+      <div class="item-list" id="agents-list"></div>
+      <div class="item add-row" id="agents-add">+ Add an agent</div>
+      <details style="margin-top: 12px;">
+        <summary>Common pipeline templates</summary>
+        <div style="margin-top: 8px; display: grid; grid-template-columns: 1fr 1fr; gap: 6px;">
+          <button class="template-btn" data-template="rag">Standard RAG agent</button>
+          <button class="template-btn" data-template="multi">Multi-agent (planner + sub-agents)</button>
+          <button class="template-btn" data-template="tool">Tool-using agent</button>
+          <button class="template-btn" data-template="hybrid">Hybrid (RAG + tools + verifier)</button>
+        </div>
+      </details>
+      </div>
+    </div>
+
+    <div class="section" data-cat="traffic" id="sec-mix">
+      <h2><span class="chev">▶</span><span class="num">4</span><span class="lead">Traffic mix presets</span> <em>how questions split across types</em></h2>
+      <div class="section-body">
+      <p class="helper">Each preset is a different traffic distribution — e.g., "worst case" treats every question as full-pipeline; "mixed" reflects realistic production traffic. Weights must sum to 1.</p>
+      <div class="item-list" id="mixes-list"></div>
+      <div class="item add-row" id="mixes-add">+ Add another mix preset</div>
+      </div>
+    </div>
+
+    <div class="section" data-cat="traffic" id="sec-segments">
+      <h2><span class="chev">▶</span><span class="num">5</span><span class="lead">Your users</span> <em>monthly active users, sessions, questions</em></h2>
+      <div class="section-body">
+      <p class="helper">Break your audience into segments — e.g., "internal staff" vs "public visitors". Each has a different usage pattern. Anonymous public segments get a "bot factor" multiplier to account for crawlers and abuse.</p>
+      <div class="item-list" id="segments-list"></div>
+      <div class="item add-row" id="segments-add">+ Add another audience segment</div>
+      </div>
+    </div>
+
+    <div class="section" data-cat="quality" id="sec-verification">
+      <h2><span class="chev">▶</span><span class="num">6</span><span class="lead">Fact-checking pipeline</span> <em>optional — runs answers past a verifier</em></h2>
+      <div class="section-body">
+      <p class="helper">Adds an automated factuality check on a sample of answers. Costs more per verified query but catches hallucinations. Skip this section if you don't run a verifier.</p>
+      <div class="row checkbox"><input type="checkbox" id="verif-enabled" data-bind="verification.enabled"><label for="verif-enabled">Enable verification on this deployment</label></div>
+      <div class="row grid-2">
+        <div><label>Sampling coverage <span class="tip" data-tip="Fraction of responses that get fact-checked. 0.10 = 10% audit sample. 1.0 = check every response (very expensive). Federal compliance often demands ≥10%.">ⓘ</span> <em>(0–1)</em></label><input type="number" step="0.01" min="0" max="1" data-bind="verification.coverage"></div>
+        <div><label>Verifier preset <span class="tip" data-tip="FR1/FR2/FR3 are FactReasoner pipeline variants. FR1 = 24 NLI calls per atomic claim (cheap, lower recall). FR3 = 350 calls per atom (exhaustive, ~14× the cost). FR2 is the recommended middle ground.">ⓘ</span></label><select data-bind="verification.variant"><option value="fr1">FR1 — lean (24 NLI calls per atom)</option><option value="fr2">FR2 — high-recall (160 NLI calls)</option><option value="fr3">FR3 — exhaustive (350 NLI calls)</option></select></div>
+      </div>
+      <div class="row grid-2">
+        <div><label>Atoms (claims) per response <span class="tip" data-tip="An 'atom' = one factual claim extracted from the answer. A typical 200-word response contains 5–10 atoms. The verifier checks each atom independently.">ⓘ</span></label><input type="number" data-bind="verification.atoms_per_response"></div>
+        <div><label>Where the NLI model runs <span class="tip" data-tip="The Natural Language Inference model judges if evidence supports each claim. API = pay per token (scales with volume). EC2 = flat monthly cost (cheap at high volume, wasteful at low).">ⓘ</span></label><select data-bind="verification.nli_hosting"><option value="api">API (pay per token)</option><option value="ec2-g6">EC2 g6.xlarge ($588/mo flat)</option><option value="ec2-g5">EC2 g5.xlarge ($735/mo flat)</option></select></div>
+      </div>
+      <div class="row"><label>Source for evidence retrieval <span class="tip" data-tip="Where the verifier looks for evidence. Wikipedia = free dump-based lookups. Serper = Google Search API ($5 per 1000 atoms — adds up fast at high coverage).">ⓘ</span></label><select data-bind="verification.retrieval"><option value="wikipedia">Wikipedia (free)</option><option value="serper">Serper API ($5 per 1k calls)</option></select></div>
+      <details style="margin-top: 10px;">
+        <summary>Advanced — token budgets per call</summary>
+        <div class="row grid-2" style="margin-top: 8px;">
+          <div><label>Atomizer · input tokens</label><input type="number" data-bind="verification.atomizer_tokens.input"></div>
+          <div><label>Atomizer · output tokens</label><input type="number" data-bind="verification.atomizer_tokens.output"></div>
+        </div>
+        <div class="row grid-2">
+          <div><label>Reviser · input tokens</label><input type="number" data-bind="verification.reviser_tokens.input"></div>
+          <div><label>Reviser · output tokens</label><input type="number" data-bind="verification.reviser_tokens.output"></div>
+        </div>
+        <div class="row grid-2">
+          <div><label>NLI · input tokens</label><input type="number" data-bind="verification.nli_tokens.input"></div>
+          <div><label>NLI · output tokens</label><input type="number" data-bind="verification.nli_tokens.output"></div>
+        </div>
+        <div class="row"><label>Service pod monthly ($)</label><input type="number" data-bind="verification.service_pod_monthly"></div>
+      </details>
+      </div>
+    </div>
+
+    <!-- API reservations / committed-spend -->
+    <div class="section" data-cat="limits" id="sec-reservations">
+      <h2><span class="chev">▶</span><span class="num">6.5</span><span class="lead">API reservations / committed-spend</span> <em>discount or PTU vs on-demand</em></h2>
+      <div class="section-body">
+      <p class="helper">Reserved API capacity (Azure PTU, AWS Bedrock provisioned, OpenAI Enterprise commit) buys a discount in exchange for commitment. Often 30–50% effective savings at >$10K/mo on-demand spend. Choose the plan + size in <strong>units</strong> (PTU-style) — the engine swaps in the right cost model. Requires <strong>API hosting</strong>.</p>
+      <div class="row checkbox"><input type="checkbox" data-bind="reservations.enabled"><label>Apply a reservation</label></div>
+      <div class="row grid-2">
+        <div>
+          <label>Reservation type <span class="tip" data-tip="On-demand = no commitment. PTU = pay flat $/mo per unit (Azure). Provisioned = commit-and-discount (AWS Bedrock). Enterprise commit = % discount on big spend (OpenAI).">ⓘ</span></label>
+          <select data-bind="reservations.type">
+            <option value="none">None — on-demand</option>
+            <option value="azure-ptu-monthly">Azure PTU (monthly commit)</option>
+            <option value="azure-ptu-yearly">Azure PTU (annual commit, ~30% off)</option>
+            <option value="bedrock-provisioned-1mo">AWS Bedrock provisioned (1-month)</option>
+            <option value="bedrock-provisioned-6mo">AWS Bedrock provisioned (6-month, ~20% off)</option>
+            <option value="openai-enterprise-100k">OpenAI Enterprise ≥ $100K/mo (~10% off)</option>
+            <option value="openai-enterprise-1m">OpenAI Enterprise ≥ $1M/mo (~20% off)</option>
+          </select>
+        </div>
+        <div>
+          <label>PTU units <span class="tip" data-tip="Only for PTU-style reservations. Each unit ≈ 50 tok/sec throughput. Sized per your peak load.">ⓘ</span></label>
+          <input type="number" min="0" data-bind="reservations.units">
+        </div>
+      </div>
+      <p class="helper" style="font-size: 11px; margin-top: 4px;">Edit the rates / discounts in the <strong>Prices tab → API reservations</strong> table. Effective monthly cost shows in the report's "Reservation savings" row.</p>
+      </div>
+    </div>
+
+    <!-- Embedding generation cost (RAG ingest + per-query) -->
+    <div class="section" data-cat="quality" id="sec-embeddings">
+      <h2><span class="chev">▶</span><span class="num">6.6</span><span class="lead">Embeddings (RAG)</span> <em>ingest cost + per-query embedding</em></h2>
+      <div class="section-body">
+      <p class="helper">RAG systems pay for embeddings twice: once at <strong>ingest</strong> (chunking the corpus into vectors, amortized over the re-embed cycle) and once at <strong>query time</strong> (embedding the user question to do vector search). For a 100M-token corpus + 1M queries/mo this often runs $50–$500/mo. Skip if not using RAG.</p>
+      <div class="row checkbox"><input type="checkbox" data-bind="embedding.enabled"><label>Include embedding generation cost</label></div>
+      <div class="row grid-2">
+        <div>
+          <label>Embedding model <span class="tip" data-tip="Smaller = cheaper but less precise. text-embedding-3-small at $0.02/M is the cost-effective default; -large at $0.13/M for higher quality.">ⓘ</span></label>
+          <select data-bind="embedding.model">
+            <option value="text-embedding-3-small">OpenAI text-embedding-3-small ($0.02/M)</option>
+            <option value="text-embedding-3-large">OpenAI text-embedding-3-large ($0.13/M)</option>
+            <option value="cohere-embed-v3">Cohere embed-v3 ($0.10/M)</option>
+            <option value="voyage-3">Voyage AI v3 ($0.06/M)</option>
+            <option value="self-hosted-bge">Self-hosted BGE (cost in GPU/infra)</option>
+          </select>
+        </div>
+        <div>
+          <label>Corpus size (tokens) <span class="tip" data-tip="Total tokens to embed at ingest. A 100K-document corpus with avg 500 tok/doc = 50M tokens.">ⓘ</span></label>
+          <input type="number" min="0" step="100000" data-bind="embedding.corpus_size_tokens">
+        </div>
+      </div>
+      <div class="row grid-2">
+        <div>
+          <label>Re-embed every (months) <span class="tip" data-tip="How often you re-embed the corpus (model upgrades, content updates). Ingest cost amortizes over this.">ⓘ</span></label>
+          <input type="number" min="1" step="1" data-bind="embedding.reembed_frequency_months">
+        </div>
+        <div>
+          <label>Query embedding tokens <span class="tip" data-tip="Avg tokens per user question to embed. Typical: 5–15 tokens.">ⓘ</span></label>
+          <input type="number" min="0" step="1" data-bind="embedding.query_embedding_tokens">
+        </div>
+      </div>
+      </div>
+    </div>
+
+    <!-- Migration timeline — phased deployment over 36 months -->
+    <div class="section" data-cat="reference" id="sec-migration">
+      <h2><span class="chev">▶</span><span class="num">6.8</span><span class="lead">Migration timeline</span> <em>phased deployment over 36 months</em></h2>
+      <div class="section-body">
+      <p class="helper">Real procurement decisions span phases — <strong>"API year 1, hybrid year 2, self-host year 3"</strong>. Each phase has its own hosting + reservation. Engine computes monthly cost per phase and total 3-year TCO. The chart in the report visualizes cost-over-time so you can see where transitions break even.</p>
+      <div class="row checkbox"><input type="checkbox" data-bind="migration.enabled"><label>Enable phased migration timeline</label></div>
+      <div class="item-list" id="migration-list"></div>
+      <div class="item add-row" id="migration-add">+ Add a phase</div>
+      </div>
+    </div>
+
+    <!-- Personnel / staffing for the deployment -->
+    <div class="section" data-cat="reference" id="sec-personnel">
+      <h2><span class="chev">▶</span><span class="num">6.7</span><span class="lead">Personnel / staffing</span> <em>FTE allocations × loaded annual salary</em></h2>
+      <div class="section-body">
+      <p class="helper">Federal RFPs require fully-loaded labor in the cost basis. Each role: <strong>FTE allocation × annual base × total-comp multiplier (1.30 = +30% benefits/overhead) ÷ 12</strong>. Set FTE to 0 to skip a role. Salaries are editable in the <strong>Prices tab → Personnel</strong>.</p>
+      <div class="row checkbox"><input type="checkbox" data-bind="personnel.enabled"><label>Include personnel costs in monthly total</label></div>
+      <div class="item-list" id="personnel-list"></div>
+      <div class="item add-row" id="personnel-add">+ Add a role</div>
+      </div>
+    </div>
+
+    <div class="section" data-cat="limits" id="sec-cap">
+      <h2><span class="chev">▶</span><span class="num">7</span><span class="lead">Daily spending cap</span> <em>hard ceiling on LLM spend per day</em></h2>
+      <div class="section-body">
+      <p class="helper">A safety brake: when daily LLM spend hits this dollar amount, new requests get refused (HTTP 429). Surfacing refusal counts is essential for procurement — "served vs refused" is the truth, not just dollars.</p>
+      <div class="row checkbox"><input type="checkbox" id="cap-enabled" data-bind="daily_cap.enabled"><label for="cap-enabled">Enforce a daily spending cap</label></div>
+      <div class="row grid-3">
+        <div><label>Cap ($/day) <span class="tip" data-tip="Hard ceiling on LLM spend per day. Once exceeded, new requests are refused (HTTP 429). Set this to the max you can defend in your budget.">ⓘ</span></label><input type="number" data-bind="daily_cap.amount_usd"></div>
+        <div><label>Expected burst days/month <span class="tip" data-tip="Days per month where traffic spikes well above average — e.g., a press release, a viral moment, NOAA storm event. Used to size the daily cap realistically.">ⓘ</span></label><input type="number" data-bind="daily_cap.burst_days"></div>
+        <div><label>Burst-day multiplier <span class="tip" data-tip="On a burst day, how many times normal traffic? 2.0 = double. 5.0 = a NOAA hurricane spike. The cap clamps cost on burst days too.">ⓘ</span></label><input type="number" step="0.1" data-bind="daily_cap.burst_factor"></div>
+      </div>
+      </div>
+    </div>
+
+    <div class="section" data-cat="limits" id="sec-ratelimit">
+      <h2><span class="chev">▶</span><span class="num">8</span><span class="lead">Bot rate limiting</span> <em>protect public endpoints from runaway traffic</em></h2>
+      <div class="section-body">
+      <p class="helper">Public endpoints get hammered by bots. Rate-limiting strategy ranges from cheap edge filters to full WAF + CAPTCHA. The bot ceiling caps the "bot factor" that scales anonymous traffic.</p>
+      <div class="row grid-3">
+        <div><label>Strategy <span class="tip" data-tip="Edge WAF = AWS WAF / Cloudflare basic rule (cheapest, blocks obvious bots). Session+IP = throttles by session and IP. Bot Control + CAPTCHA = full bot detection (CAPTCHA-protected, most expensive but deflects sophisticated bots).">ⓘ</span></label><select data-bind="rate_limit.strategy"><option value="none">None — no protection</option><option value="edge">Edge WAF (basic)</option><option value="session">Session + IP throttling</option><option value="botcontrol">Bot Control + CAPTCHA (full)</option></select></div>
+        <div><label>Strategy monthly cost ($) <span class="tip" data-tip="Fixed monthly cost of the rate-limit strategy. Edge WAF ≈ $15-50, AWS Bot Control ≈ $1000+, Cloudflare Bot Management ≈ $200+. Now summed into the report.">ⓘ</span></label><input type="number" data-bind="rate_limit.monthly_cost"></div>
+        <div><label>Bot-factor ceiling (max ×) <span class="tip" data-tip="Maximum bot factor your rate-limiter allows through. E.g. 1.5 means even with bot abuse, anonymous traffic can never exceed 1.5× the human MAU. Tighter ceiling = less cost but more legitimate users blocked.">ⓘ</span></label><input type="number" step="0.1" data-bind="rate_limit.bot_ceiling"></div>
+      </div>
+      </div>
+    </div>
+
+    <div class="section" data-cat="selfhost" id="sec-selfhost">
+      <h2><span class="chev">▶</span><span class="num">9</span><span class="lead">Self-host capacity</span> <em>only matters if you self-host</em></h2>
+      <div class="section-body">
+      <p class="helper">A <strong>catalog</strong> of GPU specs the engine can use. You pick the actual instance in <strong>Section 0 · Scenario controls</strong> (when hosting = self-host). The currently-selected GPU is marked with a <span style="color: var(--accent);">●</span>.</p>
+      <div class="item-list" id="gpu-list"></div>
+      <div class="item add-row" id="gpu-add">+ Add another GPU instance</div>
+      <div class="row grid-3" style="margin-top: 10px;">
+        <div><label>Diurnal peak factor <span class="tip" data-tip="Peak hour traffic ÷ average hourly traffic. 4× is typical (most traffic in 6-hour window of business day). Higher = more GPUs needed to serve peak.">ⓘ</span> <em>(peak ÷ avg)</em></label><input type="number" step="0.1" data-bind="self_host.diurnal_peak_factor"></div>
+        <div><label>Headroom multiplier <span class="tip" data-tip="Safety margin above peak load. 1.5 = always 50% spare capacity. Lower (1.1-1.2) saves money but risks throttling on real spikes.">ⓘ</span></label><input type="number" step="0.05" data-bind="self_host.headroom"></div>
+        <div><label>Min replicas (HA floor) <span class="tip" data-tip="Minimum GPU instances always running (for high availability). 2+ is required by most federal SLAs. Even 0 traffic costs the floor × hourly rate.">ⓘ</span></label><input type="number" data-bind="self_host.min_replicas"></div>
+      </div>
+      <div class="row"><label>Default tokens per query (sizing) <span class="tip" data-tip="Total tokens per query (input + output + retrieval). Used to compute peak tokens/sec the GPUs must serve. Override per-scenario in Section 0.">ⓘ</span></label><input type="number" data-bind="self_host.tokens_per_query_default"></div>
+      <div class="row">
+        <label>Duty cycle / scale-to-zero <span class="tip" data-tip="Fraction of the month GPUs are running. 1.0 = always on (730 hr). 0.25 = 6 hr/day (business hours only). 0.05 = ~36 hr/month (NOAA storm-style burst, on-demand only). Cuts GPU cost proportionally; ops/FTE/setup still apply.">ⓘ</span> <span style="color: var(--ink); font-weight: 600;" id="self-host-duty-val">100%</span></label>
+        <input type="range" id="self-host-duty" min="5" max="100" step="5" value="100" style="width: 100%;">
+        <p class="helper" style="font-size: 11px; margin-top: 2px;"><strong>Critical for bursty traffic.</strong> A NOAA storm explainer might run only ~10% of the month; cutting GPU hours 10× changes the API-vs-self-host tradeoff dramatically.</p>
+      </div>
+      </div>
+    </div>
+
+    <!-- Add-component button + gallery dropdown -->
+    <div class="add-component-row">
+      <button class="add-component-btn" id="add-component-btn">+ Add a component</button>
+    </div>
+
+    <!-- Gallery dropdown panel — appears when Add Component clicked -->
+    <div class="gallery-overlay" id="gallery-overlay" style="display: none;">
+      <div class="gallery-panel" id="gallery-panel">
+        <div class="gallery-header">
+          <h3>Component gallery</h3>
+          <button class="gallery-close" id="gallery-close" title="Close">×</button>
+        </div>
+        <input type="search" id="gallery-search" class="gallery-search" placeholder="Search components…" autocomplete="off">
+        <div class="gallery-categories" id="gallery-categories"></div>
+        <div class="gallery-grid" id="gallery-grid"></div>
+        <div class="gallery-empty" id="gallery-empty" style="display:none;">No matching components.</div>
+      </div>
+    </div>
+
+    <!-- Reference bucket: rate cards, tiers, cost modes, defaults — collapsed by default -->
+    <details class="reference-bucket" id="reference-bucket">
+      <summary>⚙ Advanced reference <em>(rarely edited — pricing tables, tier multipliers, cost modes, defaults)</em></summary>
+      <div class="reference-bucket-body">
+
+    <div class="section" data-cat="reference" id="sec-infra">
+      <h2><span class="chev">▶</span><span class="num">10</span><span class="lead">Other monthly costs</span> <em>database, storage, networking, monitoring</em></h2>
+      <div class="section-body">
+      <p class="helper">Fixed monthly costs that show up regardless of LLM hosting choice — RDS, S3, CloudWatch, ALB, NAT, etc. These are usually the smaller part of total bill but they add up.</p>
+      <div class="item-list" id="infra-list"></div>
+      <div class="item add-row" id="infra-add">+ Add another infrastructure line</div>
+      </div>
+    </div>
+
+    <div class="section" data-cat="reference" id="sec-ratecards">
+      <h2><span class="chev">▶</span><span class="num">11</span><span class="lead">Model pricing</span> <em>$/million tokens — usually leave alone</em></h2>
+      <div class="section-body">
+      <p class="helper">A <strong>catalog</strong> of model prices ($ per million tokens). You pick the actual model in <strong>Section 0 · Scenario controls</strong> — the active model is marked with a <span style="color: var(--accent);">●</span>. Defaults are validated against vendor pricing; only edit cells if you have negotiated rates.</p>
+      <div class="item-list" id="ratecard-list"></div>
+      <div class="item add-row" id="ratecard-add">+ Add or override a model</div>
+      </div>
+    </div>
+
+    <div class="section" data-cat="reference" id="sec-tiers">
+      <h2><span class="chev">▶</span><span class="num">12</span><span class="lead">Service-tier multipliers</span> <em>discount factors per tier — usually leave alone</em></h2>
+      <div class="section-body">
+      <p class="helper">Standard tier = 1.0 (full price). Flex/Batch typically save ~50% with delayed delivery. Priority typically charges 2.5× for guaranteed latency.</p>
+      <div class="row grid-4">
+        <div><label>Standard <span class="tip" data-tip="The full per-token rate from the rate card. Always 1.0.">ⓘ</span></label><input type="number" step="0.05" data-bind="tier_multipliers.standard"></div>
+        <div><label>Flex <span class="tip" data-tip="Cheaper tier with relaxed latency (~minutes). OpenAI/Anthropic discount ~50%.">ⓘ</span></label><input type="number" step="0.05" data-bind="tier_multipliers.flex"></div>
+        <div><label>Batch <span class="tip" data-tip="Bulk job tier (24h SLA). Same ~50% discount as Flex but with even longer turnaround.">ⓘ</span></label><input type="number" step="0.05" data-bind="tier_multipliers.batch"></div>
+        <div><label>Priority <span class="tip" data-tip="Premium tier with guaranteed throughput (no rate limits, faster TTFT). 2.5× the standard rate.">ⓘ</span></label><input type="number" step="0.05" data-bind="tier_multipliers.priority"></div>
+      </div>
+      </div>
+    </div>
+
+    <div class="section" data-cat="reference" id="sec-costmodes">
+      <h2><span class="chev">▶</span><span class="num">13</span><span class="lead">Optimistic vs realistic mode</span> <em>what each mode includes — usually leave alone</em></h2>
+      <div class="section-body">
+      <p class="helper"><strong>Optimistic</strong> uses vendor-quoted defaults (lower ops cost, no setup, no FTE bump). <strong>Realistic</strong> adds production-grade ops, MLOps FTE allocation, one-time setup amortized over 12 months, and a 25% throughput de-rate.</p>
+      <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 14px;">
+        <div>
+          <div class="item-title" style="font-family: var(--mono); font-size: 12px; color: var(--accent); font-weight: 600; margin-bottom: 8px;">Optimistic</div>
+          <div class="row"><label>Ops monthly ($)</label><input type="number" data-bind="self_host.cost_modes.optimistic.ops_monthly"></div>
+          <div class="row"><label>FTE allocation ($/mo)</label><input type="number" data-bind="self_host.cost_modes.optimistic.fte_monthly"></div>
+          <div class="row"><label>Setup amortized ($/mo)</label><input type="number" data-bind="self_host.cost_modes.optimistic.setup_amortized"></div>
+          <div class="row"><label>Throughput derate (1.0 = none)</label><input type="number" step="0.01" data-bind="self_host.cost_modes.optimistic.throughput_derate"></div>
+          <div class="row grid-2">
+            <div><label>1yr RI discount</label><input type="number" step="0.01" data-bind="self_host.cost_modes.optimistic.discount_1yr"></div>
+            <div><label>3yr RI discount</label><input type="number" step="0.01" data-bind="self_host.cost_modes.optimistic.discount_3yr"></div>
+          </div>
+        </div>
+        <div>
+          <div class="item-title" style="font-family: var(--mono); font-size: 12px; color: var(--accent); font-weight: 600; margin-bottom: 8px;">Realistic</div>
+          <div class="row"><label>Ops monthly ($)</label><input type="number" data-bind="self_host.cost_modes.realistic.ops_monthly"></div>
+          <div class="row"><label>FTE allocation ($/mo)</label><input type="number" data-bind="self_host.cost_modes.realistic.fte_monthly"></div>
+          <div class="row"><label>Setup amortized ($/mo)</label><input type="number" data-bind="self_host.cost_modes.realistic.setup_amortized"></div>
+          <div class="row"><label>Throughput derate</label><input type="number" step="0.01" data-bind="self_host.cost_modes.realistic.throughput_derate"></div>
+          <div class="row grid-2">
+            <div><label>1yr RI discount</label><input type="number" step="0.01" data-bind="self_host.cost_modes.realistic.discount_1yr"></div>
+            <div><label>3yr RI discount</label><input type="number" step="0.01" data-bind="self_host.cost_modes.realistic.discount_3yr"></div>
+          </div>
+        </div>
+      </div>
+      </div>
+    </div>
+
+    <div class="section" data-cat="reference" id="sec-defaults">
+      <h2><span class="chev">▶</span><span class="num">14</span><span class="lead">Initial defaults</span> <em>what the calculator loads with</em></h2>
+      <div class="section-body">
+      <p class="helper">These are the starting selections when someone opens the report. The "What you're modeling" section above (Section 0) overrides these at runtime.</p>
+      <div class="row grid-2">
+        <div><label>Default model</label><select data-bind="defaults.model" id="defaults-model"></select></div>
+        <div><label>Default tier</label><select data-bind="defaults.tier"><option value="standard">Standard</option><option value="flex">Flex −50%</option><option value="batch">Batch −50%</option><option value="priority">Priority 2.5×</option></select></div>
+      </div>
+      <div class="row grid-2">
+        <div><label>Default mix</label><select data-bind="defaults.mix" id="defaults-mix"></select></div>
+        <div><label>Default cost mode</label><select data-bind="defaults.cost_mode"><option value="optimistic">Optimistic</option><option value="realistic">Realistic</option></select></div>
+      </div>
+      <div class="row grid-2">
+        <div><label>Default hosting</label><select data-bind="defaults.hosting"><option value="api">API (managed)</option><option value="self">Self-host</option></select></div>
+        <div><label>Default rate-limit</label><select data-bind="defaults.rate_limit"><option value="none">None</option><option value="edge">Edge WAF</option><option value="session">Session+IP</option><option value="botcontrol">Bot Control + CAPTCHA</option></select></div>
+      </div>
+      </div>
+    </div>
+
+      </div><!-- /.reference-bucket-body -->
+    </details><!-- /.reference-bucket -->
+
+    <details>
+      <summary>Advanced · raw JSON view</summary>
+      <textarea id="raw-json" style="width:100%; min-height:200px; font-family: var(--mono); font-size: 11px; margin-top: 10px;"></textarea>
+      <button id="apply-json" style="margin-top: 6px;">Apply edited JSON</button>
+    </details>
+    </div><!-- /.editor-body -->
+    </div><!-- /.tab-panel components -->
+
+    <!-- TAB: TOKEN ESTIMATOR (the wizard, promoted to a tab) -->
+    <div class="tab-panel estimator-panel" data-tab-panel="estimator">
+      <div class="estimator-header">
+        <h2>🪙 Token Estimator</h2>
+        <p>Don't know your token counts? Answer 5 plain-English questions and we'll compute realistic input/output tokens for your scenario. Or paste a sample query for a precise count. Apply pushes the result to <strong>Components → Section 2</strong>.</p>
+      </div>
+      <div id="wizard-host"></div>
+    </div><!-- /.tab-panel estimator -->
+
+    <!-- TAB: BENCHMARKS — published cost studies, your calc compared to citations -->
+    <div class="tab-panel benchmarks-panel" data-tab-panel="benchmarks">
+      <div class="benchmarks-header">
+        <h2>📊 Published cost benchmarks</h2>
+        <p>Real cost numbers cited in vendor pricing pages, earnings calls, GAO reports, and academic studies. Use these to <strong>sanity-check</strong> your calculator output and to <strong>defend procurement budgets</strong> with citations. Click any source link to verify the number.</p>
+        <div class="benchmark-comparison" id="benchmark-comparison">
+          <strong>Your calc:</strong> <span id="bench-your-headline">—</span> · <span id="bench-your-per-user">—</span>/user/mo · <span id="bench-your-per-query">—</span>/query · <span id="bench-your-annual">—</span>/yr
+        </div>
+      </div>
+      <div id="benchmarks-host"></div>
+    </div>
+
+    <!-- TAB: PRICES — central price book, organized by category -->
+    <div class="tab-panel prices-panel" data-tab-panel="prices">
+      <div class="prices-header">
+        <h2>💲 Price book</h2>
+        <p>Single source of truth for every price the calculator uses — LLM rates, API reservations, GPU instances, embeddings, vector DBs, AWS infra, personnel salaries, ATO costs. Edits here override the defaults for this workload only and persist in the URL hash. Defaults are validated against vendor pricing pages; <strong>last full refresh: <span id="prices-last-checked">—</span></strong>. Future plan: a scraper periodically fetches each <code>source_url</code> and bumps <code>last_verified</code>.</p>
+      </div>
+      <div id="prices-host"></div>
+    </div><!-- /.tab-panel prices -->
+  </div>
+
+  <!-- Splitter between components and report -->
+  <div class="splitter" data-split="col2" title="Drag to resize"></div>
+
+  <!-- ============ RIGHT: REPORT ============ -->
+  <div class="preview" id="preview">
+    <div class="report-header">
+      <div class="agency" id="prev-agency">—</div>
+      <h2 id="prev-name">—</h2>
+      <div class="scenario-tag" id="prev-scenario-tag">—</div>
+    </div>
+    <p class="description" id="prev-desc">—</p>
+
+    <div class="headline">
+      <div class="label-row" id="prev-headline-label">Total monthly cost</div>
+      <p class="number" id="prev-total">—</p>
+      <div class="number-caption" id="prev-total-caption">—</div>
+      <div class="risk-band" id="prev-risk-band" style="display: none;">
+        <span class="risk-label">Likely range</span>
+        <span class="risk-range" id="prev-risk-range">—</span>
+        <span class="risk-perturbations" id="prev-risk-perturbations">±20% tokens · ±15% MAU · ±5pp cache · ±10% rates</span>
+        <button class="risk-toggle" id="prev-risk-toggle" title="Toggle uncertainty bands">on</button>
+      </div>
+      <div class="tco-toggle">
+        <span class="tco-label">View:</span>
+        <label class="tco-opt"><input type="radio" name="tco-period" value="monthly" checked> Monthly</label>
+        <label class="tco-opt"><input type="radio" name="tco-period" value="annual"> Annual</label>
+        <label class="tco-opt"><input type="radio" name="tco-period" value="3yr"> 3-year TCO</label>
+      </div>
+      <div class="secondary">
+        <div class="item"><div class="ttl">Annual</div><div class="val" id="prev-annual">—</div></div>
+        <div class="item"><div class="ttl">3-year TCO</div><div class="val" id="prev-3yr">—</div></div>
+        <div class="item"><div class="ttl">$ / user / month</div><div class="val" id="prev-per-user">—</div></div>
+        <div class="item"><div class="ttl">Queries / month</div><div class="val" id="prev-queries">—</div></div>
+      </div>
+    </div>
+
+    <h3 class="report-h">Cost composition</h3>
+    <div id="prev-composition-chart" class="composition-chart"></div>
+
+    <h3 class="report-h">API vs self-host comparison</h3>
+    <table class="compare-table" id="prev-compare"></table>
+    <div class="note" id="prev-summary">—</div>
+
+    <div id="prev-agents-section" style="display: none;">
+      <h3 class="report-h">Per-agent cost contribution</h3>
+      <div id="prev-agents-chart" class="agents-chart"></div>
+      <table class="compare-table" id="prev-agents-table"></table>
+    </div>
+
+    <h3 class="report-h">Per-segment breakdown</h3>
+    <table class="compare-table" id="prev-segments"></table>
+
+    <div id="prev-migration-section" style="display: none;">
+      <h3 class="report-h">📅 Migration timeline (3-year phased)</h3>
+      <div id="prev-migration-chart" class="migration-chart"></div>
+      <table class="compare-table" id="prev-migration-table"></table>
+    </div>
+
+    <div id="prev-verif-section" style="display: none;">
+      <h3 class="report-h">Verification pipeline cost</h3>
+      <table class="compare-table" id="prev-verif-table"></table>
+      <div id="prev-verif-curve" style="margin-top: 14px; padding: 10px 12px; background: var(--paper); border: 1px solid var(--rule); border-radius: 3px;"></div>
+    </div>
+
+    <div id="prev-selfhost-section" style="display: none;">
+      <h3 class="report-h">Self-host capacity math</h3>
+      <table class="compare-table" id="prev-selfhost-table"></table>
+    </div>
+
+    <h3 class="report-h">Infrastructure breakdown</h3>
+    <table class="compare-table" id="prev-infra"></table>
+
+    <h3 class="report-h">How we got there</h3>
+    <div class="math-walk" id="prev-math">—</div>
+  </div>
+</div>
+
+<div class="footer">
+  <span>Cost Calculator Studio · v0.1 · alpha</span>
+  <span><a href="../docs/getting-started.md">Docs</a></span>
+  <span><a href="../examples/">Examples</a></span>
+  <span><a href="https://github.com/ajinkya-org/work-productivity">GitHub</a></span>
+  <span style="margin-left:auto;">Math: <a href="../lib/cost-engine.js">cost-engine.js</a></span>
+</div>
+
+<!-- SheetJS for client-side Excel export -->
+<script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+<script src="../lib/prices.js"></script>
+<script src="../lib/cost-engine.js"></script>
+<script src="app.js"></script>
+</body>
+</html>

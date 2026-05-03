@@ -1,0 +1,230 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/ajinkya-org/work-productivity/raw/main/cost-calculator-studio/schema/workload-v1.schema.json",
+  "title": "AI Agent Workload Specification (v1)",
+  "description": "Parameterized workload definition consumed by the cost-calculator-studio toolkit. Defines traffic shapes, user segments, model rate cards, verification configuration, and self-host options needed to produce a procurement-grade cost estimate.",
+  "type": "object",
+  "required": ["schemaVersion", "deployment", "anchor_query", "shapes", "mix", "segments"],
+  "properties": {
+    "schemaVersion": {
+      "type": "string",
+      "enum": ["1.0"],
+      "description": "Schema version; bumped on breaking changes."
+    },
+
+    "deployment": {
+      "type": "object",
+      "required": ["name", "agency"],
+      "properties": {
+        "name":         { "type": "string", "description": "Human-readable deployment name (e.g., 'Earth Information Explorer')." },
+        "agency":       { "type": "string", "description": "Owning agency or organization (e.g., 'NASA SMD', 'NIH')." },
+        "description":  { "type": "string", "description": "One-paragraph summary shown in the calculator UI." },
+        "contact":      { "type": "string", "description": "Optional contact email or URL for procurement questions." },
+        "publicFacing": { "type": "boolean", "description": "Whether the deployment serves anonymous public traffic. Affects bot-factor and rate-limiting modeling." },
+        "fedrampTier":  { "type": "string", "enum": ["none", "low", "moderate", "high"], "description": "FedRAMP authorization tier required, if any." }
+      }
+    },
+
+    "anchor_query": {
+      "type": "object",
+      "description": "Measured token shape of one canonical full-pipeline query. All other shapes express their token counts as factors of this anchor.",
+      "required": ["input_tokens", "output_tokens", "cache_rate_baseline"],
+      "properties": {
+        "input_tokens":         { "type": "number", "minimum": 1, "description": "Input tokens consumed by the anchor query." },
+        "output_tokens":        { "type": "number", "minimum": 1, "description": "Output tokens produced by the anchor query." },
+        "cache_rate_baseline":  { "type": "number", "minimum": 0, "maximum": 1, "description": "Effective prompt-cache hit rate at a 6-turn baseline session." },
+        "session_baseline_turns": { "type": "number", "minimum": 1, "default": 6, "description": "Session length the cache_rate_baseline corresponds to." },
+        "example":              { "type": "string", "description": "Optional example user query of this shape." }
+      }
+    },
+
+    "shapes": {
+      "type": "object",
+      "description": "Catalog of query shapes. Each shape's input/output token counts are expressed as factors of the anchor query.",
+      "additionalProperties": {
+        "type": "object",
+        "required": ["input_factor", "output_factor", "cache_eligible"],
+        "properties": {
+          "input_factor":   { "type": "number", "minimum": 0, "description": "Input tokens as a fraction of the anchor query." },
+          "output_factor":  { "type": "number", "minimum": 0, "description": "Output tokens as a fraction of the anchor query." },
+          "cache_eligible": { "type": "boolean", "description": "Whether prompt cache applies to this shape." },
+          "description":    { "type": "string" }
+        }
+      }
+    },
+
+    "mix": {
+      "type": "object",
+      "description": "Traffic-mix presets. Each preset is a name → { shape: weight } mapping. Weights should sum to 1.",
+      "additionalProperties": {
+        "type": "object",
+        "required": ["weights"],
+        "properties": {
+          "label":   { "type": "string", "description": "Display label for this mix preset." },
+          "weights": {
+            "type": "object",
+            "description": "Mapping of shape name to weight (0..1). Should sum to ~1.",
+            "additionalProperties": { "type": "number", "minimum": 0, "maximum": 1 }
+          }
+        }
+      }
+    },
+
+    "segments": {
+      "type": "array",
+      "description": "User segments. Each segment has its own MAU, session profile, and effective cache rate.",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "required": ["id", "label", "mau", "sessions_per_day", "questions_per_session"],
+        "properties": {
+          "id":                       { "type": "string", "description": "Stable identifier (e.g., 'auth', 'public')." },
+          "label":                    { "type": "string", "description": "Display label." },
+          "mau":                      { "type": "number", "minimum": 0, "description": "Monthly active users." },
+          "sessions_per_day":         { "type": "number", "minimum": 0, "description": "Sessions per user per day." },
+          "questions_per_session":    { "type": "number", "minimum": 1, "description": "Questions per session." },
+          "applyBotFactor":           { "type": "boolean", "default": false, "description": "Whether to apply the bot-overhead multiplier (typically anonymous segments only)." },
+          "description":              { "type": "string" }
+        }
+      }
+    },
+
+    "rate_cards": {
+      "type": "object",
+      "description": "Per-million-token rate cards. Default set is provided; can be overridden.",
+      "additionalProperties": {
+        "type": "object",
+        "required": ["input_per_million", "output_per_million"],
+        "properties": {
+          "input_per_million":  { "type": "number", "minimum": 0 },
+          "cached_per_million": { "type": "number", "minimum": 0 },
+          "output_per_million": { "type": "number", "minimum": 0 },
+          "provider":           { "type": "string" },
+          "notes":              { "type": "string" }
+        }
+      }
+    },
+
+    "tier_multipliers": {
+      "type": "object",
+      "description": "Standard / Flex / Batch / Priority tier multipliers on the base rate card.",
+      "additionalProperties": { "type": "number", "minimum": 0 }
+    },
+
+    "verification": {
+      "type": "object",
+      "description": "Optional FactReasoner-style probabilistic factuality verification pipeline.",
+      "properties": {
+        "enabled":              { "type": "boolean", "default": false },
+        "coverage":             { "type": "number", "minimum": 0, "maximum": 1, "description": "Fraction of responses that get verified." },
+        "atoms_per_response":   { "type": "number", "minimum": 1, "default": 8 },
+        "variant":              { "type": "string", "enum": ["fr1", "fr2"], "default": "fr2" },
+        "atoms_per_response_nli_calls": {
+          "type": "object",
+          "description": "How many NLI calls per pass for each variant.",
+          "properties": {
+            "fr1": { "type": "number", "default": 24 },
+            "fr2": { "type": "number", "default": 160 }
+          }
+        },
+        "atomizer_tokens":      { "type": "object", "properties": { "input": { "type": "number" }, "output": { "type": "number" } } },
+        "reviser_tokens":       { "type": "object", "properties": { "input": { "type": "number" }, "output": { "type": "number" } } },
+        "nli_tokens":           { "type": "object", "properties": { "input": { "type": "number" }, "output": { "type": "number" } } },
+        "retrieval":            { "type": "string", "enum": ["wikipedia", "serper"], "default": "wikipedia" },
+        "nli_hosting":          { "type": "string", "enum": ["api", "ec2-g6", "ec2-g5"], "default": "api" },
+        "service_pod_monthly":  { "type": "number", "default": 36 }
+      }
+    },
+
+    "rate_limit": {
+      "type": "object",
+      "description": "Rate-limiting strategy for the public-facing endpoint.",
+      "properties": {
+        "strategy":     { "type": "string", "enum": ["none", "edge", "session", "botcontrol"], "default": "edge" },
+        "monthly_cost": { "type": "number", "minimum": 0 },
+        "bot_ceiling":  { "type": "number", "minimum": 1 }
+      }
+    },
+
+    "daily_cap": {
+      "type": "object",
+      "description": "Daily LLM-spend cap as safety net.",
+      "properties": {
+        "enabled":       { "type": "boolean", "default": true },
+        "amount_usd":    { "type": "number", "minimum": 0, "default": 1500 },
+        "burst_days":    { "type": "number", "minimum": 0, "maximum": 30, "default": 7, "description": "Number of burst days per month (e.g., launch week)." },
+        "burst_factor":  { "type": "number", "minimum": 1, "default": 1.0 }
+      }
+    },
+
+    "self_host": {
+      "type": "object",
+      "description": "Self-host comparison configuration.",
+      "properties": {
+        "gpu_options": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "object",
+            "required": ["hourly", "tput_tps"],
+            "properties": {
+              "hourly":   { "type": "number" },
+              "tput_tps": { "type": "number" },
+              "name":     { "type": "string" },
+              "capable":  { "type": "string" }
+            }
+          }
+        },
+        "diurnal_peak_factor": { "type": "number", "default": 4 },
+        "headroom":            { "type": "number", "default": 1.5 },
+        "min_replicas":        { "type": "number", "default": 2 },
+        "tokens_per_query_default": { "type": "number", "default": 2000 },
+        "cost_modes": {
+          "type": "object",
+          "properties": {
+            "optimistic": {
+              "type": "object",
+              "properties": {
+                "ops_monthly":       { "type": "number", "default": 350 },
+                "fte_monthly":       { "type": "number", "default": 2500 },
+                "setup_amortized":   { "type": "number", "default": 0 },
+                "throughput_derate": { "type": "number", "default": 1.0 },
+                "discount_1yr":      { "type": "number", "default": 0.40 },
+                "discount_3yr":      { "type": "number", "default": 0.60 }
+              }
+            },
+            "realistic": {
+              "type": "object",
+              "properties": {
+                "ops_monthly":       { "type": "number", "default": 1800 },
+                "fte_monthly":       { "type": "number", "default": 8000 },
+                "setup_amortized":   { "type": "number", "default": 8333 },
+                "throughput_derate": { "type": "number", "default": 0.75 },
+                "discount_1yr":      { "type": "number", "default": 0.33 },
+                "discount_3yr":      { "type": "number", "default": 0.55 }
+              }
+            }
+          }
+        }
+      }
+    },
+
+    "infrastructure": {
+      "type": "object",
+      "description": "Non-LLM infrastructure cost lines (RDS, ALB, CloudFront, etc.). All in USD/month.",
+      "additionalProperties": { "type": "number", "minimum": 0 }
+    },
+
+    "defaults": {
+      "type": "object",
+      "description": "Default UI selections at calculator load time.",
+      "properties": {
+        "model":      { "type": "string" },
+        "tier":       { "type": "string" },
+        "mix":        { "type": "string" },
+        "rate_limit": { "type": "string" },
+        "hosting":    { "type": "string", "enum": ["api", "self"] },
+        "cost_mode":  { "type": "string", "enum": ["optimistic", "realistic"] }
+      }
+    }
+  }
+}

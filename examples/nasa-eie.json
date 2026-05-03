@@ -1,0 +1,93 @@
+{
+  "schemaVersion": "1.0",
+  "deployment": {
+    "name": "Earth Information Explorer",
+    "agency": "NASA SMD",
+    "description": "Public-facing conversational interface to NASA Earth observation datasets. Federal scientists and the public ask natural-language questions; EIE plans the data lookup, runs statistics over rasters, and answers in plain language.",
+    "publicFacing": true,
+    "fedrampTier": "moderate"
+  },
+
+  "anchor_query": {
+    "input_tokens": 84490,
+    "output_tokens": 854,
+    "cache_rate_baseline": 0.84,
+    "session_baseline_turns": 6,
+    "example": "Did monthly NO2 over New York City change from October to December 2021?"
+  },
+
+  "shapes": {
+    "full":    { "input_factor": 1.00, "output_factor": 1.00, "cache_eligible": true,  "description": "Full pipeline (Query A baseline)" },
+    "rag":     { "input_factor": 0.19, "output_factor": 0.47, "cache_eligible": true,  "description": "Retrieval-only, no statistics tool" },
+    "partial": { "input_factor": 0.62, "output_factor": 0.47, "cache_eligible": true,  "description": "Pipeline terminates early" },
+    "refusal": { "input_factor": 0.06, "output_factor": 0.12, "cache_eligible": false, "description": "Out-of-scope rejection" },
+    "heavy":   { "input_factor": 1.20, "output_factor": 1.17, "cache_eligible": true,  "description": "Long-context multi-turn" }
+  },
+
+  "mix": {
+    "worst":  { "label": "Worst-case (every query full pipeline)", "weights": { "full": 1.0 } },
+    "mixed":  { "label": "Mixed (40% full · 30% rag · 15% partial · 10% refusal · 5% heavy)", "weights": { "full": 0.40, "rag": 0.30, "partial": 0.15, "refusal": 0.10, "heavy": 0.05 } },
+    "lookup": { "label": "Lookup-heavy (70% rag, 15% full, 10% refusal, 5% partial)", "weights": { "rag": 0.70, "full": 0.15, "refusal": 0.10, "partial": 0.05 } }
+  },
+
+  "segments": [
+    { "id": "auth",   "label": "NASA scientists (authenticated)", "mau":   500, "sessions_per_day": 0.2, "questions_per_session":  5, "applyBotFactor": false, "description": "Authenticated researchers with multi-turn sessions." },
+    { "id": "public", "label": "Public visitors (anonymous)",     "mau": 10000, "sessions_per_day": 0.2, "questions_per_session": 10, "applyBotFactor": true,  "description": "Anonymous public users on earth.gov." }
+  ],
+
+  "verification": {
+    "enabled": true,
+    "coverage": 0.10,
+    "atoms_per_response": 8,
+    "variant": "fr1",
+    "atoms_per_response_nli_calls": { "fr1": 24, "fr2": 160 },
+    "atomizer_tokens": { "input": 1500, "output": 400 },
+    "reviser_tokens":  { "input":  500, "output":  30 },
+    "nli_tokens":      { "input": 1200, "output":  20 },
+    "retrieval": "wikipedia",
+    "nli_hosting": "ec2-g6",
+    "service_pod_monthly": 36
+  },
+
+  "rate_limit": {
+    "strategy": "edge",
+    "monthly_cost": 15,
+    "bot_ceiling": 2.5
+  },
+
+  "daily_cap": {
+    "enabled": true,
+    "amount_usd": 1500,
+    "burst_days": 7,
+    "burst_factor": 1.0
+  },
+
+  "infrastructure": {
+    "Runtime · compute platform": 179,
+    "RAG service": 36,
+    "Geodini geocoder": 90,
+    "Ollama embeddings": 18,
+    "Ingest jobs": 8,
+    "RDS Postgres": 292,
+    "ElastiCache Redis": 47,
+    "S3 artifacts": 115,
+    "EBS storage": 12,
+    "ALB": 35,
+    "CloudFront": 40,
+    "NAT Gateway": 33,
+    "Route 53": 1,
+    "CloudWatch + X-Ray": 290,
+    "Secrets Manager + KMS": 13,
+    "AWS Config": 20,
+    "ECR + platform baseline": 184
+  },
+
+  "defaults": {
+    "model": "gpt-5.2",
+    "tier": "standard",
+    "mix": "mixed",
+    "rate_limit": "edge",
+    "hosting": "api",
+    "cost_mode": "optimistic"
+  }
+}

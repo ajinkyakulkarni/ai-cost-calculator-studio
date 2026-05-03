@@ -1,0 +1,46 @@
+{
+  "schemaVersion": "1.0",
+  "deployment": {
+    "name": "Grid Modeling Assistant",
+    "agency": "DOE",
+    "description": "Internal-only conversational agent that helps grid operators reason about load forecasts, contingency analysis, and dispatch decisions. Users are dispatchers and engineers; the deployment lives inside DOE's controlled-unclassified network.",
+    "publicFacing": false,
+    "fedrampTier": "high"
+  },
+  "anchor_query": {
+    "input_tokens": 35000,
+    "output_tokens": 1200,
+    "cache_rate_baseline": 0.88,
+    "session_baseline_turns": 12,
+    "example": "What's the impact on the West Coast grid if we trip the 500kV line between Diablo and Path 15 during today's evening peak?"
+  },
+  "shapes": {
+    "diagnostic":  { "input_factor": 0.50, "output_factor": 0.70, "cache_eligible": true,  "description": "Diagnostic question with chart explanation" },
+    "scenario":    { "input_factor": 1.00, "output_factor": 1.00, "cache_eligible": true,  "description": "Long-context scenario walkthrough (anchor)" },
+    "deep_dive":   { "input_factor": 1.50, "output_factor": 1.40, "cache_eligible": true,  "description": "Multi-turn deep dive on a contingency" },
+    "lookup":      { "input_factor": 0.20, "output_factor": 0.30, "cache_eligible": true,  "description": "Quick parameter or status lookup" }
+  },
+  "mix": {
+    "default": { "label": "Operator workflow (heavy long-context)", "weights": { "diagnostic": 0.20, "scenario": 0.50, "deep_dive": 0.20, "lookup": 0.10 } },
+    "training": { "label": "Training / drills (mostly scenarios)", "weights": { "diagnostic": 0.10, "scenario": 0.70, "deep_dive": 0.15, "lookup": 0.05 } }
+  },
+  "segments": [
+    { "id": "operators", "label": "Grid operators / engineers", "mau": 500, "sessions_per_day": 1.5, "questions_per_session": 15, "applyBotFactor": false, "description": "Authenticated expert users; long sessions; high cache hit rates from reused modeling prompts." }
+  ],
+  "verification": {
+    "enabled": true,
+    "coverage": 1.0,
+    "atoms_per_response": 10,
+    "variant": "fr2",
+    "atomizer_tokens": { "input": 2000, "output": 500 },
+    "reviser_tokens":  { "input":  600, "output":  40 },
+    "nli_tokens":      { "input": 1500, "output":  25 },
+    "retrieval": "wikipedia",
+    "nli_hosting": "ec2-g6",
+    "service_pod_monthly": 36
+  },
+  "rate_limit":   { "strategy": "none", "monthly_cost": 0, "bot_ceiling": 1.0 },
+  "daily_cap":    { "enabled": false, "amount_usd": 0, "burst_days": 0, "burst_factor": 1.0 },
+  "infrastructure": { "Compute platform": 471, "RDS Postgres": 580, "ElastiCache Redis": 95, "S3 artifacts": 200, "ALB": 35, "NAT Gateway": 66, "CloudWatch + X-Ray": 450, "Hidden K8s FTE": 5333 },
+  "defaults": { "model": "gpt-5.4", "tier": "standard", "mix": "default", "rate_limit": "none", "hosting": "api", "cost_mode": "realistic" }
+}

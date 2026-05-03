@@ -1,0 +1,224 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>__DEPLOYMENT_NAME__ · Cost Calculator</title>
+<style>
+  :root {
+    --ink: #1a1a1a; --ink-2: #3a3a3a; --muted: #76706a;
+    --paper: #fbf9f4; --panel: #fff; --rule: #d8d2c5;
+    --accent: #8b2331; --good: #2b7a3d; --bad: #b8404a;
+    --serif: 'Source Serif 4', 'Source Serif Pro', Georgia, serif;
+    --sans:  'Source Sans 3', 'Source Sans Pro', -apple-system, system-ui, sans-serif;
+    --mono:  'JetBrains Mono', 'SF Mono', Consolas, monospace;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; padding: 40px 20px; max-width: 980px; margin: 0 auto;
+    font-family: var(--serif); color: var(--ink); background: var(--paper);
+    font-size: 16px; line-height: 1.6;
+  }
+  header { margin-bottom: 32px; padding-bottom: 24px; border-bottom: 2px solid var(--ink); }
+  .agency { font-family: var(--sans); font-size: 12px; text-transform: uppercase; letter-spacing: 0.12em; color: var(--muted); font-weight: 700; }
+  h1 { font-family: var(--serif); font-size: 36px; font-weight: 600; margin: 8px 0 16px; line-height: 1.15; }
+  .subtitle { font-style: italic; color: var(--ink-2); font-size: 17px; }
+
+  .headline {
+    background: #f3ecdb; padding: 28px; margin: 32px 0;
+    border: 1px solid var(--rule);
+    display: grid; grid-template-columns: 2fr 1fr; gap: 20px;
+  }
+  .headline .label { font-family: var(--sans); font-size: 11px; text-transform: uppercase; letter-spacing: 0.12em; color: var(--muted); font-weight: 700; margin-bottom: 8px; }
+  .headline .number { font-family: var(--serif); font-size: 56px; color: var(--accent); margin: 0; line-height: 1; font-weight: 600; }
+  .headline .caption { font-family: var(--mono); font-size: 12px; color: var(--muted); margin-top: 8px; }
+  .headline .stats { display: grid; gap: 10px; align-content: end; }
+  .headline .stats .stat .ttl { font-family: var(--sans); font-size: 10px; text-transform: uppercase; letter-spacing: 0.1em; color: var(--muted); }
+  .headline .stats .stat .val { font-family: var(--mono); font-size: 16px; color: var(--ink); margin-top: 2px; }
+
+  h2 { font-family: var(--sans); font-size: 13px; text-transform: uppercase; letter-spacing: 0.12em; color: var(--ink); font-weight: 700; margin: 32px 0 12px; padding-bottom: 6px; border-bottom: 1px solid var(--rule); }
+  .params { background: var(--panel); padding: 18px 22px; border-left: 2px solid var(--rule); }
+  .param { display: grid; grid-template-columns: 1fr 1fr 100px; gap: 14px; align-items: center; padding: 8px 0; border-bottom: 1px dashed var(--rule); }
+  .param:last-child { border-bottom: none; }
+  .param .k { font-family: var(--sans); font-size: 13px; color: var(--ink); font-weight: 500; }
+  .param .k em { font-style: normal; color: var(--muted); font-size: 11.5px; font-weight: 400; }
+  .param .c { display: flex; align-items: center; gap: 8px; }
+  .param .v { font-family: var(--mono); font-size: 13px; color: var(--ink); text-align: right; }
+  .param input[type="range"] { width: 100%; }
+  select { font-family: var(--mono); font-size: 13px; padding: 4px 8px; background: var(--paper); border: 1px solid var(--rule); }
+
+  table { width: 100%; border-collapse: collapse; margin: 14px 0; }
+  table th, table td { text-align: left; padding: 10px 12px; border-bottom: 1px solid var(--rule); font-family: var(--sans); font-size: 13.5px; }
+  table th { font-size: 11px; text-transform: uppercase; letter-spacing: 0.1em; color: var(--muted); font-weight: 700; border-bottom: 2px solid var(--ink); }
+  table td.num { font-family: var(--mono); text-align: right; }
+  table tr.highlight { background: #f3ecdb; }
+  .refused { color: var(--bad); }
+  .pass { color: var(--good); }
+
+  .summary {
+    background: var(--panel); border-left: 2px solid var(--accent);
+    padding: 16px 18px; margin: 18px 0;
+    font-family: var(--serif); font-size: 14.5px; line-height: 1.6;
+    color: var(--ink-2);
+  }
+  footer { margin-top: 60px; padding-top: 24px; border-top: 1px solid var(--rule); font-family: var(--mono); font-size: 11.5px; color: var(--muted); }
+  footer a { color: var(--accent); }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="agency" id="agency">__DEPLOYMENT_AGENCY__</div>
+  <h1 id="title">__DEPLOYMENT_NAME__</h1>
+  <p class="subtitle" id="subtitle"></p>
+</header>
+
+<div class="headline">
+  <div>
+    <div class="label">Total monthly cost · Agency-paid</div>
+    <p class="number" id="out-monthly">—</p>
+    <div class="caption" id="out-caption">—</div>
+  </div>
+  <div class="stats">
+    <div class="stat"><div class="ttl">Annual</div><div class="val" id="out-annual">—</div></div>
+    <div class="stat"><div class="ttl">$ / user / month</div><div class="val" id="out-per-user">—</div></div>
+    <div class="stat"><div class="ttl">Queries / month</div><div class="val" id="out-queries">—</div></div>
+  </div>
+</div>
+
+<h2>Adjust parameters</h2>
+<div class="params" id="param-form"></div>
+
+<h2>API vs self-host comparison</h2>
+<table id="compare-table"></table>
+<div class="summary" id="compare-summary">—</div>
+
+<h2>Reproducibility</h2>
+<p>Generated by <a href="https://github.com/ajinkya-org/work-productivity">Cost Calculator Studio</a>. The workload spec embedded in this page (below) is the single source of truth for every number above. Edit the spec and re-generate to publish a new version.</p>
+
+<details>
+  <summary style="cursor:pointer; font-family: var(--sans); font-size: 12px; text-transform: uppercase; letter-spacing: 0.12em; color: var(--muted); font-weight: 700;">Workload specification (JSON)</summary>
+  <pre id="workload-json" style="background: var(--panel); padding: 16px; border-left: 2px solid var(--rule); font-family: var(--mono); font-size: 11.5px; overflow-x: auto; line-height: 1.5;"></pre>
+</details>
+
+<footer>
+  <span>Generated by <a href="https://github.com/ajinkya-org/work-productivity">Cost Calculator Studio</a> · v0.1</span>
+  &nbsp; · &nbsp;
+  <span>Methodology: <a href="https://github.com/ajinkya-org/work-productivity/blob/main/nasa_cost_calculator/docs/papers/arxiv/paper.tex">paper</a></span>
+</footer>
+
+<script>
+// ============ EMBEDDED WORKLOAD SPEC ============
+const WORKLOAD = "__WORKLOAD_PLACEHOLDER__";
+</script>
+
+<script>
+// Inline cost engine (copied from cost-calculator-studio/lib/cost-engine.js).
+// Inlined so the generated calculator is fully self-contained.
+__COST_ENGINE_INLINE__
+</script>
+
+<script>
+// ============ APP ============
+(function () {
+  const fmt$ = (v) => {
+    if (!isFinite(v) || isNaN(v)) return '—';
+    if (v === 0) return '$0';
+    if (Math.abs(v) >= 10000) return '$' + Math.round(v).toLocaleString();
+    if (Math.abs(v) >= 100) return '$' + Math.round(v).toLocaleString();
+    if (Math.abs(v) >= 1) return '$' + v.toFixed(2);
+    return '$' + v.toFixed(4);
+  };
+  const fmtN = (v) => Math.round(v).toLocaleString();
+
+  const W = WORKLOAD;
+  document.getElementById('agency').textContent = W.deployment.agency || '';
+  document.getElementById('title').textContent = W.deployment.name || 'AI Agent';
+  document.getElementById('subtitle').textContent = W.deployment.description || '';
+  document.getElementById('workload-json').textContent = JSON.stringify(W, null, 2);
+
+  // Build parameter form (subset for generated calculator)
+  const form = document.getElementById('param-form');
+  const state = {
+    model: W.defaults.model,
+    tier: W.defaults.tier,
+    mix: W.defaults.mix,
+    costMode: W.defaults.cost_mode || 'optimistic',
+    segments: W.segments.map(s => Object.assign({}, s)),
+  };
+
+  // Model picker
+  const modelOpts = Object.keys(Object.assign({}, CostEngine.DEFAULT_RATE_CARDS, W.rate_cards || {}));
+  const mixOpts = Object.keys(W.mix);
+
+  let html = '';
+  html += `<div class="param"><div class="k">Model</div><div class="c"><select id="ctl-model">${modelOpts.map(m => `<option value="${m}"${m === state.model ? ' selected' : ''}>${m}</option>`).join('')}</select></div><div class="v"></div></div>`;
+  html += `<div class="param"><div class="k">Traffic mix</div><div class="c"><select id="ctl-mix">${mixOpts.map(m => `<option value="${m}"${m === state.mix ? ' selected' : ''}>${W.mix[m].label || m}</option>`).join('')}</select></div><div class="v"></div></div>`;
+  html += `<div class="param"><div class="k">Cost mode</div><div class="c"><select id="ctl-costmode"><option value="optimistic"${state.costMode==='optimistic'?' selected':''}>Optimistic</option><option value="realistic"${state.costMode==='realistic'?' selected':''}>Realistic</option></select></div><div class="v"></div></div>`;
+  W.segments.forEach((seg, idx) => {
+    html += `<div class="param"><div class="k">${seg.label} <em>MAU</em></div><div class="c"><input type="range" min="0" max="${Math.max(seg.mau * 10, 100000)}" step="100" value="${seg.mau}" data-seg-mau="${idx}"></div><div class="v" data-seg-mau-val="${idx}">${seg.mau.toLocaleString()}</div></div>`;
+  });
+  form.innerHTML = html;
+
+  function rerender() {
+    state.model = document.getElementById('ctl-model').value;
+    state.mix = document.getElementById('ctl-mix').value;
+    state.costMode = document.getElementById('ctl-costmode').value;
+
+    // Update segments from sliders
+    document.querySelectorAll('[data-seg-mau]').forEach(el => {
+      const idx = parseInt(el.dataset.segMau, 10);
+      state.segments[idx].mau = parseInt(el.value, 10);
+      const valEl = document.querySelector(`[data-seg-mau-val="${idx}"]`);
+      if (valEl) valEl.textContent = state.segments[idx].mau.toLocaleString();
+    });
+    const wlNow = Object.assign({}, W, { segments: state.segments });
+
+    const r = CostEngine.compute(wlNow, { model: state.model, mix: state.mix, costMode: state.costMode, tier: state.tier });
+    const queries = r.queries.total;
+    const refused = r.api.monthly_refused_queries;
+    const apiBill = r.api.monthly_capped;
+    const infraTotal = Object.values(W.infrastructure || {}).reduce((a, b) => a + (b || 0), 0);
+    const totalMau = state.segments.reduce((a, s) => a + (s.mau || 0), 0);
+    const headline = apiBill + infraTotal;
+
+    document.getElementById('out-monthly').textContent = fmt$(headline);
+    document.getElementById('out-annual').textContent = fmt$(headline * 12);
+    document.getElementById('out-per-user').textContent = totalMau > 0 ? '$' + (headline / totalMau).toFixed(2) : '—';
+    document.getElementById('out-queries').textContent = fmtN(queries);
+
+    const sh = r.self_host;
+    const shc = r.self_host_capped;
+    let rows = '<thead><tr><th>Strategy</th><th style="text-align:right;">LLM monthly</th><th>Service level</th></tr></thead><tbody>';
+    rows += `<tr><td>API · ${state.model} <em style="color:var(--muted); font-style:normal;">(capped)</em></td><td class="num">${fmt$(apiBill)}</td><td>${refused > 0 ? `${fmtN(queries - refused)} served · <span class="refused">${fmtN(refused)} refused</span>` : 'all queries'}</td></tr>`;
+    if (Math.abs(r.api.monthly_gross - apiBill) > 50) {
+      rows += `<tr><td>API · ${state.model} <em style="color:var(--muted); font-style:normal;">(uncapped)</em></td><td class="num">${fmt$(r.api.monthly_gross)}</td><td>all queries</td></tr>`;
+    }
+    rows += `<tr><td>Self-host · ${sh.gpu_spec.name} × ${sh.instances} <em style="color:var(--muted); font-style:normal;">(${sh.cost_mode})</em></td><td class="num">${fmt$(sh.total)}</td><td>all queries · <span class="refused">−8–15 pts quality ⚠</span></td></tr>`;
+    if (shc) rows += `<tr><td>Self-host <em style="color:var(--muted); font-style:normal;">(capped to same $${W.daily_cap.amount_usd}/day)</em></td><td class="num">${fmt$(shc.total)}</td><td>${fmtN(shc.queries_served)} served · ${shc.queries_refused > 0 ? `<span class="refused">${fmtN(shc.queries_refused)} refused</span>` : 'all queries'}</td></tr>`;
+    rows += '</tbody>';
+    document.getElementById('compare-table').innerHTML = rows;
+
+    const apiServed = queries - refused;
+    const shcServed = shc ? shc.queries_served : 0;
+    let summary = '';
+    if (shc && apiServed > 0) {
+      const diff = ((shcServed - apiServed) / apiServed) * 100;
+      const verdict = Math.abs(diff) < 10 ? `both strategies serve roughly the same number of queries` : (diff > 0 ? `<strong style="color:var(--good);">self-host serves ~${Math.abs(Math.round(diff))}% more</strong>` : `<strong style="color:var(--bad);">API serves ~${Math.abs(Math.round(diff))}% more</strong>`);
+      summary = `<strong>At equal budget</strong> — $${W.daily_cap.amount_usd}/day cap buys <strong>${fmtN(apiServed)}</strong> served queries on API vs <strong>${fmtN(shcServed)}</strong> on self-host: ${verdict}. The supposed cost advantage of self-host evaporates at equal budget; the procurement decision pivots to quality, operational burden, and vendor risk.`;
+    }
+    document.getElementById('compare-summary').innerHTML = summary;
+    document.getElementById('out-caption').textContent = `${state.model} · ${W.mix[state.mix].label || state.mix} · ${state.costMode} cost mode`;
+  }
+
+  document.getElementById('ctl-model').addEventListener('change', rerender);
+  document.getElementById('ctl-mix').addEventListener('change', rerender);
+  document.getElementById('ctl-costmode').addEventListener('change', rerender);
+  document.querySelectorAll('[data-seg-mau]').forEach(el => el.addEventListener('input', rerender));
+
+  rerender();
+})();
+</script>
+
+</body>
+</html>
