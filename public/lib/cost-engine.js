@@ -153,12 +153,31 @@
     let total = 0;
     const breakdown = [];
     for (const agent of (w.agents || [])) {
-      const modelId = agent.model || mainModelId;
-      const rates = w.rate_cards[modelId];
-      if (!rates) continue;
+      const hosting = agent.hosting || 'api';  // 'api' | 'byok' | 'self-host'
       const calls = agent.calls_per_query != null ? agent.calls_per_query : 1;
       const inT = agent.input_tokens || 0;
       const outT = agent.output_tokens || 0;
+
+      // BYOK: user pays the provider directly, this calc-bundle's API line is $0 for this agent.
+      // Self-host: counted under the self-host pricing path, NOT the API line.
+      // Both still appear in the breakdown for traceability.
+      if (hosting === 'byok' || hosting === 'self-host') {
+        breakdown.push({
+          id: agent.id, label: agent.label || agent.id,
+          hosting, model: agent.model || mainModelId,
+          calls, input: inT, output: outT,
+          per_call_cost: 0, per_query_cost: 0,
+          note: hosting === 'byok'
+            ? 'Excluded from API total — user provides their own key.'
+            : 'Excluded from API total — costed in self-host section.',
+        });
+        continue;
+      }
+
+      // Default 'api' path — full per-token rate card.
+      const modelId = agent.model || mainModelId;
+      const rates = w.rate_cards[modelId];
+      if (!rates) continue;
       const eff = agent.cache_eligible ? cacheRate : 0;
       const cached = inT * eff;
       const uncached = inT - cached;
@@ -171,7 +190,7 @@
       total += monthlyContrib;
       breakdown.push({
         id: agent.id, label: agent.label || agent.id,
-        model: modelId, calls, input: inT, output: outT,
+        hosting, model: modelId, calls, input: inT, output: outT,
         per_call_cost: perCall, per_query_cost: monthlyContrib,
       });
     }

@@ -420,6 +420,13 @@
       const modelOpts = ['<option value="">(use main model)</option>']
         .concat(models.map(m => `<option value="${m}"${agent.model === m ? ' selected' : ''}>${m}</option>`))
         .join('');
+      const hosting = agent.hosting || 'api';
+      const hostingHint = {
+        'api': '',
+        'byok': '<em style="color:var(--accent);">Excluded from API cost — user provides their own key.</em>',
+        'self-host': '<em style="color:var(--accent);">Excluded from API cost — counted in the self-host section.</em>',
+      }[hosting] || '';
+
       div.innerHTML = `
         <button class="item-remove" data-agent-remove="${idx}">remove</button>
         <div class="item-title">${agent.label || agent.id || ('agent ' + (idx + 1))}</div>
@@ -432,10 +439,19 @@
           <div><label>Output tokens / call</label><input type="number" value="${agent.output_tokens || 0}" data-agent="${idx}" data-key="output_tokens"></div>
           <div><label>Calls per user query</label><input type="number" step="0.1" value="${agent.calls_per_query != null ? agent.calls_per_query : 1}" data-agent="${idx}" data-key="calls_per_query"></div>
         </div>
-        <div class="row grid-2">
+        <div class="row grid-3">
+          <div>
+            <label>Hosting <em>(who pays?)</em></label>
+            <select data-agent="${idx}" data-key="hosting">
+              <option value="api"${hosting === 'api' ? ' selected' : ''}>API (this calc pays)</option>
+              <option value="byok"${hosting === 'byok' ? ' selected' : ''}>BYOK (user pays)</option>
+              <option value="self-host"${hosting === 'self-host' ? ' selected' : ''}>Self-host (GPU)</option>
+            </select>
+          </div>
           <div><label>Model override</label><select data-agent="${idx}" data-key="model">${modelOpts}</select></div>
           <div><label>Cache eligible?</label><select data-agent="${idx}" data-key="cache_eligible"><option value="true"${agent.cache_eligible?' selected':''}>yes</option><option value="false"${!agent.cache_eligible?' selected':''}>no</option></select></div>
         </div>
+        ${hostingHint ? `<div class="row" style="font-size:11px;margin-top:-2px;">${hostingHint}</div>` : ''}
         <div class="row"><label>Description <em>(optional)</em></label><input type="text" value="${(agent.description || '').replace(/"/g,'&quot;')}" data-agent="${idx}" data-key="description"></div>
       `;
       list.appendChild(div);
@@ -450,6 +466,9 @@
         else if (el.type === 'number') v = parseFloat(el.value) || 0;
         else v = el.value;
         workload.agents[idx][key] = v;
+        // Hosting changes need a full re-render to update the hint text;
+        // other fields just refresh the preview.
+        if (key === 'hosting') renderAgentsList();
         renderPreview();
         renderRawJson();
       });
