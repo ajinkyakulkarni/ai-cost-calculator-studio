@@ -3466,6 +3466,46 @@
   //   { intent, log, suggestions }
   // No multi-turn loop. If the description is ambiguous, the model
   // makes its best guess and surfaces refinement ideas as suggestions.
+  // ---------------------------------------------------------------------
+  // Proxy endpoint at api.ajinkya.ai. Free + capped + no API key needed.
+  // Falls back to BYOK when the shared budget is exhausted.
+  // ---------------------------------------------------------------------
+  const PROXY_BASE = 'https://api.ajinkya.ai';
+
+  // Stable per-browser id, used as one input to the proxy's fingerprint.
+  function getClientId() {
+    const KEY = 'ccs-client-id';
+    let id = localStorage.getItem(KEY);
+    if (!id) {
+      id = (crypto.randomUUID && crypto.randomUUID()) ||
+           (Date.now().toString(36) + Math.random().toString(36).slice(2));
+      localStorage.setItem(KEY, id);
+    }
+    return id;
+  }
+
+  // Call the proxy. Returns { intent, log, suggestions, meta } on success.
+  // Throws an Error with a `.code` property on quota/cap errors so the
+  // caller can decide whether to fall back to BYOK.
+  async function llmIntentViaProxy(text) {
+    const resp = await fetch(`${PROXY_BASE}/intent`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ userPrompt: text, clientId: getClientId() }),
+    });
+    if (!resp.ok) {
+      let err = {};
+      try { err = await resp.json(); } catch (_) {}
+      const e = new Error(err.error || `proxy_error_${resp.status}`);
+      e.code = err.error;
+      e.status = resp.status;
+      e.byokHint = err.byok_hint || false;
+      e.detail = err.detail;
+      throw e;
+    }
+    return await resp.json();
+  }
+
   async function llmIntent(text, apiKey) {
     const systemPrompt = `You are a cost-modeling assistant for AI deployments (federal and commercial). Given a plain-English description of an AI system, extract a structured intent that drives a cost calculator.
 
@@ -3707,20 +3747,44 @@ Rules:
       });
     }
 
-    // Restore saved key + show status
+    // ---- Shared-key availability (from api.ajinkya.ai/health) ----
+    // Cached for the page session so we don't hit the endpoint per click.
+    let sharedKeyState = null;  // { available, load, per_fingerprint_daily_limit }
+    const refreshSharedKeyState = async () => {
+      try {
+        const resp = await fetch(`${PROXY_BASE}/health`, { method: 'GET' });
+        const json = await resp.json();
+        sharedKeyState = json.shared_key || null;
+      } catch (_) { sharedKeyState = null; }
+      updateKeyStatus();
+    };
+
+    // Restore saved key + show status. The shared key is the default —
+    // BYOK is now the optional fallback.
     const updateKeyStatus = () => {
       const stored = localStorage.getItem(STORAGE_KEY);
-      if (stored) {
-        keyStatus.textContent = '✓ Saved in browser localStorage · sent only to OpenAI when you click Build';
+      let line;
+      if (sharedKeyState && sharedKeyState.available) {
+        const loadLabel = { plenty: '🟢 plenty', moderate: '🟡 moderate', low: '🟠 low', exhausted: '🔴 exhausted' }[sharedKeyState.load] || sharedKeyState.load;
+        line = `Shared key active — load: ${loadLabel}. ${sharedKeyState.per_fingerprint_daily_limit}/day per user. ` +
+               (stored ? '<em>Your own key is saved as fallback.</em>' : '<em>Add an OpenAI key below if you want unlimited use.</em>');
+        keyStatus.className = 'ai-key-status saved';
+      } else if (sharedKeyState && !sharedKeyState.available) {
+        line = '🔴 Shared key budget exhausted today — paste your own OpenAI key below to continue.';
+        keyStatus.className = 'ai-key-status';
+      } else if (stored) {
+        line = '✓ Your OpenAI key is saved (BYOK fallback). Will be used if shared key is unavailable.';
         keyStatus.className = 'ai-key-status saved';
       } else {
-        keyStatus.textContent = 'Required to use the chat builder. Get a key at platform.openai.com.';
+        line = 'Shared key (no setup needed) is the default. Add your own OpenAI key for unlimited use.';
         keyStatus.className = 'ai-key-status';
       }
+      keyStatus.innerHTML = line;
     };
     const stored = localStorage.getItem(STORAGE_KEY);
     if (stored) keyInput.value = stored;
     updateKeyStatus();
+    refreshSharedKeyState();
 
     keySaveBtn.addEventListener('click', () => {
       const key = keyInput.value.trim();
@@ -3797,19 +3861,56 @@ Rules:
         return;
       }
       const apiKey = (localStorage.getItem(STORAGE_KEY) || keyInput.value || '').trim();
-      if (!apiKey) {
-        showError('OpenAI API key required. Add one above to use the chat builder.');
-        return;
-      }
 
       // Loading state
       output.style.display = '';
-      execLog.innerHTML = '<div class="log-title">Execution log</div><div class="log-entry">⏳ Calling OpenAI gpt-4o-mini…</div>';
+      execLog.innerHTML = '<div class="log-title">Execution log</div><div class="log-entry">⏳ Calling shared key (api.ajinkya.ai)…</div>';
       suggestionsEl.innerHTML = '';
       buildBtn.disabled = true;
 
+      // ---- Strategy: try shared first, fall back to BYOK on quota errors.
+      // If user has no BYOK saved and shared fails, surface a clear prompt.
+      let result, source;
       try {
-        const result = await llmIntent(text, apiKey);
+        try {
+          result = await llmIntentViaProxy(text);
+          source = 'shared';
+        } catch (proxyErr) {
+          const isQuotaErr = proxyErr.byokHint || /cap_reached|fp_daily_limit|ip_daily_limit|ip_hourly_limit|ip_daily_cost_cap/.test(proxyErr.code || '');
+          if (isQuotaErr && apiKey) {
+            execLog.innerHTML = '<div class="log-title">Execution log</div>' +
+              `<div class="log-entry">⚠️ Shared key quota reached (${escapeHtml(proxyErr.code || 'cap')}); falling back to your OpenAI key…</div>`;
+            result = await llmIntent(text, apiKey);
+            source = 'byok-fallback';
+          } else if (isQuotaErr && !apiKey) {
+            // No BYOK to fall back to
+            const e = new Error('Shared key budget reached. Add your own OpenAI key below to continue (it stays in your browser).');
+            e.code = proxyErr.code;
+            throw e;
+          } else if (proxyErr.code === 'origin_not_allowed') {
+            // Likely running locally without registering this origin —
+            // fall back to BYOK if available, otherwise instruct user.
+            if (apiKey) {
+              execLog.innerHTML = '<div class="log-title">Execution log</div>' +
+                '<div class="log-entry">⚠️ This origin isn\'t allowed by the shared proxy; using your OpenAI key…</div>';
+              result = await llmIntent(text, apiKey);
+              source = 'byok-fallback';
+            } else {
+              throw new Error('This origin is not allowed by the shared proxy. Add your own OpenAI key below to use the chat builder.');
+            }
+          } else {
+            // Unknown proxy error — try BYOK if available, otherwise rethrow
+            if (apiKey) {
+              execLog.innerHTML = '<div class="log-title">Execution log</div>' +
+                `<div class="log-entry">⚠️ Shared key error (${escapeHtml(proxyErr.code || 'unknown')}); falling back to your OpenAI key…</div>`;
+              result = await llmIntent(text, apiKey);
+              source = 'byok-fallback';
+            } else {
+              throw proxyErr;
+            }
+          }
+        }
+
         const applied = applyIntentToWorkload(result.intent);
         renderOutput(result, applied);
         // Re-render rest of the calculator to reflect changes
@@ -3819,6 +3920,18 @@ Rules:
         renderPreview();
         // Auto-show any sections the intent touched (verification, federal, etc.)
         if (typeof window.__ccsRefreshComponents === 'function') window.__ccsRefreshComponents();
+
+        // Annotate the log with where the call went + remaining budget
+        if (source === 'shared' && result.meta && result.meta.remaining) {
+          const r = result.meta.remaining;
+          const note = document.createElement('div');
+          note.className = 'log-entry';
+          note.style.cssText = 'color:var(--muted);font-size:10px;margin-top:4px;';
+          note.innerHTML = `via shared key · ${r.per_fingerprint_today} of ${sharedKeyState ? sharedKeyState.per_fingerprint_daily_limit : 10} requests left today · cost this call $${(result.meta.cost_usd || 0).toFixed(4)}`;
+          execLog.appendChild(note);
+        }
+        // Refresh /health view after a successful shared call.
+        if (source === 'shared') refreshSharedKeyState();
       } catch (e) {
         showError(e.message);
       } finally {
