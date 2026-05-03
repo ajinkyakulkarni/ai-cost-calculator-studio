@@ -1,8 +1,10 @@
 {
   // Cloudflare Workers Static Assets deployment for the AI Cost Calculator.
-  // Pure static site — no build step. The entire repo root is uploaded
-  // as static assets; visitors landing at / hit a redirect that forwards
-  // to /studio/ (where the actual calculator lives).
+  // Pure static site — no build step. Only the public/ subfolder is
+  // uploaded as static assets; tooling files (package.json, scripts/,
+  // docs/, node_modules/, etc.) at the repo root are excluded from the
+  // deploy. Visitors landing at / hit a redirect (public/index.html)
+  // that forwards to /studio/ (where the actual calculator lives).
   //
   // Schema reference:
   //   https://developers.cloudflare.com/workers/wrangler/configuration/
@@ -13,8 +15,12 @@
   "compatibility_flags": ["nodejs_compat"],
   "observability":      { "enabled": true },
 
+  "routes": [
+    { "pattern": "calc.ajinkya.ai", "custom_domain": true }
+  ],
+
   "assets": {
-    "directory":          "./",
+    "directory":          "./public",
     "not_found_handling": "404-page"
   }
 }
