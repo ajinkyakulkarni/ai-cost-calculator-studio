@@ -1543,7 +1543,7 @@
       const slug = e.target.value;
       if (!slug) return;
       try {
-        const resp = await fetch(`../examples/${slug}.json`);
+        const resp = await fetch(`examples/${slug}.json`);
         if (!resp.ok) throw new Error('Could not load example');
         const data = await resp.json();
         workload = ensureFields(data);
@@ -2680,7 +2680,7 @@
     // Priority: URL hash > NASA EIE default
     if (!loadFromHash()) {
       try {
-        const resp = await fetch('../examples/nasa-eie.json');
+        const resp = await fetch('examples/nasa-eie.json');
         if (resp.ok) workload = ensureFields(await resp.json());
       } catch (_) { /* fall back to blank */ }
     } else {
