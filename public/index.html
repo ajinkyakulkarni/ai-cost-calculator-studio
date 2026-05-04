@@ -2704,7 +2704,7 @@
   <span>Cost Calculator Studio · v0.1 · alpha</span>
   <span><a href="https://github.com/ajinkyakulkarni/ai-cost-calculator-studio">Source</a></span>
   <span><a href="examples/">Examples</a></span>
-  <span><a href="https://github.com/ajinkya-org/work-productivity">GitHub</a></span>
+  <span id="prices-freshness" title="Prices are scraped daily from vendor pricing pages.">Prices: bundled (loading live…)</span>
   <span style="margin-left:auto;">Math: <a href="lib/cost-engine.js">cost-engine.js</a></span>
 </div>
 
@@ -2713,5 +2713,57 @@
 <script src="lib/prices.js"></script>
 <script src="lib/cost-engine.js"></script>
 <script src="app.js"></script>
+
+<!-- ===== Live prices from api.ajinkya.ai/prices ==================
+     The bundled lib/prices.js gives the calc a working snapshot;
+     this script overlays the daily-scraped fresh prices on top so
+     the bottom-line numbers reflect what vendors charge today. The
+     scraper writes to KV; the proxy serves it; this is the consumer.
+     If the proxy is unreachable, calc silently uses the bundled
+     snapshot — no user-visible failure.
+=================================================================== -->
+<script>
+(async function refreshPrices() {
+  const indicator = document.getElementById('prices-freshness');
+  const setIndicator = (text, title) => {
+    if (!indicator) return;
+    indicator.textContent = text;
+    if (title) indicator.title = title;
+  };
+
+  try {
+    const resp = await fetch('https://api.ajinkya.ai/prices', { cache: 'no-cache' });
+    if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+    const data = await resp.json();
+
+    // Proxy returns null when the scraper hasn't populated KV yet.
+    if (!data || data.prices === null || !data.meta) {
+      setIndicator('Prices: bundled', 'Live price feed not yet populated by the daily scraper. Calculator using bundled snapshot.');
+      return;
+    }
+
+    // Overlay fresh prices on top of the bundled object. Replace each
+    // top-level category that the live feed provides; keep helper
+    // functions (getPrice, listKeys, pickRdsTier) intact.
+    for (const [category, value] of Object.entries(data)) {
+      if (typeof value === 'object' && value !== null) {
+        window.Prices[category] = value;
+      }
+    }
+
+    // Format the last_checked date as "4 May 2026".
+    const dt = new Date(data.meta.last_checked + 'T00:00:00Z');
+    const formatted = dt.toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' });
+    setIndicator(`Prices: live · updated ${formatted}`,
+      `Prices auto-refreshed daily from vendor pricing pages. Last successful scrape: ${data.meta.last_checked}.`);
+
+    // Re-render so the calc reflects any changed values.
+    if (typeof window.__ccsRefreshComponents === 'function') window.__ccsRefreshComponents();
+  } catch (e) {
+    setIndicator('Prices: bundled (offline)',
+      `Couldn't reach api.ajinkya.ai/prices: ${e.message}. Calculator using bundled snapshot.`);
+  }
+})();
+</script>
 </body>
 </html>
