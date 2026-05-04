@@ -969,6 +969,74 @@
   //      (Azure OpenAI PTU). Total = units × dollar_per_unit_per_month.
   // Returns: { type, applied_discount, fixed_monthly, savings, ... }
   // -------------------------------------------------------------------
+  // Per-model PTU efficiency — TPS one PTU buys for that model.
+  // Approximate values from Azure's published per-model conversion table
+  // (see https://learn.microsoft.com/en-us/azure/foundry/openai/concepts/provisioned-throughput).
+  // Smaller models pack more on the same physical GPU and get more TPS/PTU.
+  // Override by passing `tps_per_ptu` in workload.reservations.
+  const TPS_PER_PTU = {
+    'gpt-4o':           50,
+    'gpt-4o-mini':      200,
+    'gpt-5':            30,
+    'gpt-5.5':          25,
+    'gpt-5.4':          35,
+    'gpt-5.2':          40,
+    'gpt-5.1':          50,
+    'gpt-5-mini':       150,
+    'gpt-5-nano':       400,
+    'claude-opus-4.7':  30,
+    'claude-sonnet-4.6':50,
+    'claude-haiku-4.5': 200,
+    'gemini-3.1-pro':   50,
+    '_default':         50,
+  };
+
+  // Auto-size PTU count from peak load. Returns { units, peak_tps,
+  // tokens_per_query, derivation } for surfacing in the UI.
+  function ptuSizing(workload, options) {
+    const opts = options || {};
+    const r = workload.reservations || {};
+    const modelId = opts.model || workload.defaults?.model;
+    const tpsPerPtu = (r.tps_per_ptu != null)
+      ? r.tps_per_ptu
+      : (TPS_PER_PTU[modelId] || TPS_PER_PTU._default);
+
+    // Average query token total — sum of per-shape (input + output)
+    // weighted by the active mix.
+    const mix = workload.mix?.[opts.mix || workload.defaults?.mix]?.weights || { full: 1 };
+    const anchor = workload.anchor_query || {};
+    let tokensPerQuery = 0;
+    for (const [shape, weight] of Object.entries(mix)) {
+      const s = workload.shapes?.[shape];
+      if (!s) continue;
+      const inT = (s.input_factor || 0) * (anchor.input_tokens || 0);
+      const outT = (s.output_factor || 0) * (anchor.output_tokens || 0);
+      tokensPerQuery += weight * (inT + outT);
+    }
+    if (tokensPerQuery === 0) tokensPerQuery = workload.self_host?.tokens_per_query_default || 2000;
+
+    // Compute peak TPS: avg QPS × tokens/query × diurnal peak × headroom
+    const baselineQueries = computeQueries(workload, opts);
+    const qpsAvg = baselineQueries.total / (30 * 86400);
+    const diurnal = workload.self_host?.diurnal_peak_factor || 4;
+    const headroom = workload.self_host?.headroom || 1.5;
+    const peakTps = qpsAvg * tokensPerQuery * diurnal * headroom;
+
+    const units = Math.max(1, Math.ceil(peakTps / tpsPerPtu));
+
+    return {
+      units,
+      peak_tps: peakTps,
+      qps_avg: qpsAvg,
+      tokens_per_query: tokensPerQuery,
+      tps_per_ptu: tpsPerPtu,
+      model: modelId,
+      diurnal_peak_factor: diurnal,
+      headroom,
+      derivation: `peak_tps = ${qpsAvg.toFixed(2)} qps × ${Math.round(tokensPerQuery)} tok/q × ${diurnal}× peak × ${headroom}× headroom = ${Math.round(peakTps)} tok/s. Need ⌈${Math.round(peakTps)}/${tpsPerPtu}⌉ = ${units} PTU.`,
+    };
+  }
+
   function computeReservation(workload, apiCostMonthly, options) {
     const r = workload.reservations || {};
     if (!r.enabled || !r.type || r.type === 'none') {
@@ -979,7 +1047,14 @@
 
     // PTU-style fixed cost
     if (spec.dollar_per_unit_per_month != null) {
-      const units = r.units || 1;
+      // Auto-size from peak load if requested; otherwise use the
+      // user-specified units field.
+      let units = r.units || 1;
+      let sizingDetail = null;
+      if (r.auto_size_ptu) {
+        sizingDetail = ptuSizing(workload, options);
+        units = sizingDetail.units;
+      }
       const fixedMonthly = units * spec.dollar_per_unit_per_month;
       const savings = Math.max(0, apiCostMonthly - fixedMonthly);
       return {
@@ -987,11 +1062,14 @@
         type: r.type,
         spec,
         units,
+        auto_sized: !!r.auto_size_ptu,
+        sizing_detail: sizingDetail,
         applied_discount: 0,
         fixed_monthly: fixedMonthly,
         effective_monthly: fixedMonthly,
         savings,
-        notes: `${units} PTU × $${spec.dollar_per_unit_per_month}/mo = $${fixedMonthly.toFixed(0)}/mo flat (replaces variable cost)`,
+        notes: `${units} PTU × $${spec.dollar_per_unit_per_month}/mo = $${fixedMonthly.toFixed(0)}/mo flat (replaces variable cost)` +
+               (sizingDetail ? `\nAuto-sized: ${sizingDetail.derivation}` : ''),
       };
     }
     // Discount-style (Bedrock, OpenAI Enterprise)
@@ -1401,6 +1479,8 @@
     computeSelfHost,
     computeSelfHostCapped,
     computeBreakEven,
+    ptuSizing,
+    TPS_PER_PTU,
     computeVerification,
     computeFederal,
     computeReservation,

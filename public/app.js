@@ -1022,6 +1022,22 @@
         <td>savings vs on-demand</td>
       </tr>`;
     }
+    // Surface auto-PTU-sizing derivation in the dedicated detail panel
+    // so users can see how the unit count was computed.
+    const sizingPanel = document.getElementById('ptu-sizing-detail');
+    if (sizingPanel) {
+      const sd = reservation && reservation.sizing_detail;
+      if (sd) {
+        sizingPanel.style.display = 'block';
+        sizingPanel.innerHTML = `
+          <strong>Auto-sized:</strong> <strong>${sd.units} PTU</strong> needed for <code>${sd.model || '(default model)'}</code>
+          <span style="color:var(--muted);">(${sd.tps_per_ptu} TPS/PTU)</span>
+          <br><span style="color:var(--muted); font-size:10.5px;">${escapeHtml(sd.derivation)}</span>
+        `;
+      } else {
+        sizingPanel.style.display = 'none';
+      }
+    }
     if (embeddingMonthly > 0 && result.embedding) {
       const e = result.embedding;
       rows += `<tr>

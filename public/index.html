@@ -2424,10 +2424,12 @@
           </select>
         </div>
         <div>
-          <label>PTU units <span class="tip" data-tip="Only for PTU-style reservations. Each unit ≈ 50 tok/sec throughput. Sized per your peak load.">ⓘ</span></label>
+          <label>PTU units <span class="tip" data-tip="Only for PTU-style reservations. Each unit ≈ 50 tok/sec throughput for gpt-4o-class models (varies per model — see auto-size option). Sized per your peak load.">ⓘ</span></label>
           <input type="number" min="0" data-bind="reservations.units">
         </div>
       </div>
+      <div class="row checkbox"><input type="checkbox" data-bind="reservations.auto_size_ptu"><label>Auto-size PTU units from peak TPS <span class="tip" data-tip="Computes the PTU count needed based on your model's TPS-per-PTU efficiency × the peak tokens-per-second your traffic requires (avg QPS × tokens/query × diurnal peak factor × headroom). Overrides the manual PTU units field above. Smaller models like gpt-4o-mini get more TPS per PTU.">ⓘ</span></label></div>
+      <div id="ptu-sizing-detail" style="display:none; padding: 8px 12px; background: var(--paper-2); border-left: 3px solid var(--accent); margin-top: 6px; font-size: 11px; line-height: 1.5;"></div>
       <p class="helper" style="font-size: 11px; margin-top: 4px;">Edit the rates / discounts in the <strong>Prices tab → API reservations</strong> table. Effective monthly cost shows in the report's "Reservation savings" row.</p>
       </div>
     </div>
