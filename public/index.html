@@ -20,6 +20,90 @@
     --sans:  'Source Sans 3', 'Source Sans Pro', -apple-system, system-ui, sans-serif;
     --mono:  'JetBrains Mono', 'SF Mono', Consolas, monospace;
   }
+  /* ========================================================================
+     GLOBAL THEMES — applied via <body> class. Three modes mirror AXIOM:
+       .theme-mission  (default): light cool palette
+       .theme-command:            light warm palette
+       .theme-tactical:           dark — calc UI inverts via the targeted
+                                  overrides at the bottom of this block
+     The entire app (calc + AXIOM) uses one switcher in the topbar.
+     ======================================================================== */
+  body.theme-mission {
+    --paper: #f0f4f8;
+    --panel: #ffffff;
+    --ink: #1a2332;
+    --ink-2: #3a4a62;
+    --muted: #4a5b7a;
+    --rule: rgba(0,0,30,0.10);
+    --accent: #0077cc;
+  }
+  body.theme-command {
+    --paper: #f8f9fb;
+    --panel: #ffffff;
+    --ink: #0a0f1e;
+    --ink-2: #2a334c;
+    --muted: #4a5670;
+    --rule: rgba(0,0,50,0.10);
+    --accent: #005fa3;
+  }
+  body.theme-tactical {
+    --paper: #04060c;
+    --panel: #0c1320;
+    --ink: #c8d8f0;
+    --ink-2: #a0b4cc;
+    --muted: rgba(180,200,230,0.50);
+    --rule: rgba(255,255,255,0.07);
+    --accent: #00d4ff;
+  }
+  /* Tactical: calc's appbar uses var(--ink) for bg expecting dark, but
+     in this theme --ink is the light text colour. Pin appbar surfaces
+     to known-dark values so the topbar doesn't flip light. */
+  body.theme-tactical .appbar {
+    background: #0c1320;
+    color: #c8d8f0;
+    border-bottom-color: rgba(255,255,255,0.07);
+  }
+  body.theme-tactical .appbar button,
+  body.theme-tactical .appbar select {
+    background: rgba(255,255,255,0.06);
+    color: #c8d8f0;
+    border-color: rgba(255,255,255,0.18);
+  }
+  body.theme-tactical .appbar button:hover,
+  body.theme-tactical .appbar select:hover { background: rgba(255,255,255,0.12); }
+
+  /* Theme switcher pill in the global appbar. Uses semi-transparent
+     white-on-dark — works against the appbar's dark bg in all 3 themes. */
+  .app-theme-switcher {
+    display: flex; gap: 2px; align-items: center;
+    background: rgba(255,255,255,0.05);
+    border: 1px solid rgba(255,255,255,0.18);
+    border-radius: 16px;
+    padding: 2px;
+  }
+  .app-theme-switcher .theme-btn {
+    padding: 4px 11px;
+    border-radius: 12px;
+    border: none;
+    background: transparent;
+    color: rgba(255,255,255,0.65);
+    font-family: var(--sans);
+    font-size: 10.5px;
+    font-weight: 600;
+    letter-spacing: 0.04em;
+    cursor: pointer;
+    transition: background .15s, color .15s;
+    text-transform: uppercase;
+  }
+  .app-theme-switcher .theme-btn:hover {
+    color: #fff;
+    background: rgba(255,255,255,0.08);
+  }
+  .app-theme-switcher .theme-btn.active {
+    background: rgba(0,212,255,0.22);
+    color: #fff;
+    box-shadow: inset 0 0 0 1px rgba(0,212,255,0.4);
+  }
   * { box-sizing: border-box; }
   html, body {
     width: 100%;
@@ -2276,6 +2360,14 @@ html,.simulator-pane{overflow-x:hidden;height:100%}
   <button id="import-btn" title="Import workload JSON">⬆ Import JSON</button>
   <button id="export-btn" title="Export workload JSON">⬇ Export JSON</button>
   <button id="excel-btn" class="primary" title="Download as Excel workbook">⬇ Excel</button>
+  <!-- Global theme switcher — themes apply to the whole app (calc + AXIOM).
+       Mission is default (light, cool); Command is light/warm; Tactical is
+       dark. Buttons use AXIOM's setTheme() defined in the inlined script. -->
+  <div class="theme-switcher app-theme-switcher" title="Switch app theme">
+    <button class="theme-btn" data-theme="tactical" onclick="setTheme('tactical')">Tactical</button>
+    <button class="theme-btn active" data-theme="mission" onclick="setTheme('mission')">Mission</button>
+    <button class="theme-btn" data-theme="command" onclick="setTheme('command')">Command</button>
+  </div>
   <!-- Live cost badge — always visible, click to jump to Report tab -->
   <div id="cost-pill" class="cost-pill" title="Click to view full cost report">
     <span class="cb-label">Total</span>
@@ -3054,11 +3146,7 @@ html,.simulator-pane{overflow-x:hidden;height:100%}
 <div style="display:flex;align-items:center;gap:8px;flex-shrink:0;padding:4px 6px">
   <label style="font-size:8px;color:var(--dim);white-space:nowrap">Max rounds</label>
   <input type="number" id="max-rounds" value="60" min="10" max="500" style="width:50px;font-size:9px">
-  <div class="theme-switcher">
-    <button class="theme-btn" data-theme="tactical" onclick="setTheme('tactical')">Tactical</button>
-    <button class="theme-btn active" data-theme="mission" onclick="setTheme('mission')">Mission</button>
-    <button class="theme-btn" data-theme="command" onclick="setTheme('command')">Command</button>
-  </div>
+  <!-- Theme switcher moved to global appbar (top of page). -->
 </div>
 </div>
 
@@ -5028,17 +5116,35 @@ function showConvergence(){
   const cb = document.getElementById('conv-close');
   if(cb) cb.onclick = function(){ b.className='conv-banner'; };
 }
-/* THEMES */
+/* THEMES — apply theme class to BOTH <body> (so calc's body-level
+   overrides take effect) AND .simulator-pane (so AXIOM's existing CSS
+   keeps working). Use classList.toggle so unrelated body classes are
+   preserved. */
 function setTheme(t){
-  document.body.className='theme-'+t;
+  ['theme-tactical','theme-mission','theme-command'].forEach(c=>{
+    document.body.classList.remove(c);
+    document.querySelectorAll('.simulator-pane').forEach(p=>p.classList.remove(c));
+  });
+  document.body.classList.add('theme-'+t);
+  document.querySelectorAll('.simulator-pane').forEach(p=>p.classList.add('theme-'+t));
   document.querySelectorAll('.theme-btn').forEach(b=>b.classList.toggle('active',b.dataset.theme===t));
+  try{ localStorage.setItem('ccs-theme', t); }catch(_){}
   setTimeout(()=>{
     try{updateCostPanel();renderLedger();updateSensitivity();}catch(e){}
-    // Redraw arch canvas bg immediately
     const ac=document.getElementById('arch-canvas');
     if(ac){const ctx2=ac.getContext('2d');const tc=getChartColors();ctx2.fillStyle=tc.bg;ctx2.fillRect(0,0,ac.width,ac.height);}
   },60);
 }
+// Restore saved theme on load (default: mission).
+(function restoreTheme(){
+  let t='mission';
+  try{ t = localStorage.getItem('ccs-theme') || 'mission'; }catch(_){}
+  if(!['tactical','mission','command'].includes(t)) t='mission';
+  // Defer until DOM (and AXIOM init) is ready.
+  const apply = () => { try{ setTheme(t); }catch(e){ console.warn('setTheme deferred:',e); setTimeout(apply,200);} };
+  if(document.readyState==='loading') document.addEventListener('DOMContentLoaded',apply);
+  else apply();
+})();
 
 /* ═══════ MULTI-MODEL ROUTING ═══════ */
 let routingSplit = Object.assign(Object.fromEntries(MK.map(k=>[k,0])), {'claude-haiku-4.5':60,'claude-sonnet-4.6':25,'claude-opus-4.7':5,'gpt-5.4':5,'gemini-3-flash-preview':5});
