@@ -2531,6 +2531,14 @@
         <input type="range" id="self-host-duty" min="5" max="100" step="5" value="100" style="width: 100%;">
         <p class="helper" style="font-size: 11px; margin-top: 2px;"><strong>Critical for bursty traffic.</strong> A NOAA storm explainer might run only ~10% of the month; cutting GPU hours 10× changes the API-vs-self-host tradeoff dramatically.</p>
       </div>
+      <div class="row">
+        <label>Compute platform <span class="tip" data-tip="What runs the GPU containers. Fargate / EKS abstract the cluster ops away. Self-managed Kubernetes adds a hidden ~$5,333/mo (~0.4 FTE) of MLOps overhead for cluster operation. Pick k8s only if you have a reason — auto-scaling and observability come 'free' with managed options.">ⓘ</span></label>
+        <select data-bind="self_host.compute_platform">
+          <option value="fargate">Fargate (managed, no extra FTE)</option>
+          <option value="eks">EKS (managed K8s, no extra FTE)</option>
+          <option value="k8s">Self-managed Kubernetes (+$5,333/mo hidden FTE)</option>
+        </select>
+      </div>
       </div>
     </div>
 

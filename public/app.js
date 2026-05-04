@@ -1108,6 +1108,16 @@
     } else {
       note = 'Configure a daily cap to see the same-budget fair comparison.';
     }
+    // Break-even line — single-number procurement signal: at what
+    // monthly volume does self-host beat API on pure inference $?
+    const be = result.break_even;
+    if (be && be.found && be.break_even_queries) {
+      const above = queries > be.break_even_queries;
+      note += `<br><br><strong>Break-even:</strong> self-host beats API above <strong>${fmtN(be.break_even_queries)}</strong> queries/month (pure inference $; excludes verification, federal, personnel, fixed infra). Your current volume of ${fmtN(queries)} is <strong style="color: var(--${above ? 'good' : 'muted'});">${above ? 'above' : 'below'}</strong> the crossover.`;
+    } else if (be && !be.found) {
+      const which = be.cheaper_in_range === 'api' ? 'API' : 'self-host';
+      note += `<br><br><strong>Break-even:</strong> ${which} is cheaper across the full 1K–100M queries/mo range; no crossover under current assumptions.`;
+    }
     document.getElementById('prev-summary').innerHTML = note;
 
     // Scenario tag

@@ -383,11 +383,22 @@
     // overhead). FTE and one-time setup are not hosting-region dependent.
     const gpuMonthly = instances * gpuHourlyEff * effectiveHours * hostMult;
     const opsMonthlyEff = params.ops_monthly * hostMult;
-    const total = gpuMonthly + opsMonthlyEff + params.fte_monthly + params.setup_amortized;
+
+    // K8s hidden FTE cost — self-managed Kubernetes adds an MLOps
+    // overhead that Fargate/EKS abstracts away. Default $5,333/mo
+    // (~0.4 FTE for cluster ops). Disable by setting compute_platform
+    // = 'fargate' or 'eks' (default).
+    const platform = w.self_host.compute_platform || 'fargate';
+    const k8sHiddenCost = platform === 'k8s'
+      ? (w.self_host.k8s_hidden_cost || 5333)
+      : 0;
+
+    const total = gpuMonthly + opsMonthlyEff + params.fte_monthly + params.setup_amortized + k8sHiddenCost;
 
     return {
       gpu_spec: gpu,
       cost_mode: costMode,
+      compute_platform: platform,
       qps_avg: qpsAvg,
       peak_tps: peakTps,
       effective_tput: effTput,
@@ -397,11 +408,95 @@
       ops_monthly: opsMonthlyEff,
       fte_monthly: params.fte_monthly,
       setup_amortized: params.setup_amortized,
+      k8s_hidden_cost: k8sHiddenCost,
       hosting_multiplier: hostMult,
       duty_cycle: dutyCycle,
       effective_hours: effectiveHours,
       total,
       effective_per_query: monthlyQueries > 0 ? total / monthlyQueries : 0,
+    };
+  }
+
+  // -------------------------------------------------------------------
+  // Break-even — binary-search the monthly query volume at which the
+  // self-host cost equals the API cost. Below break-even, API wins on
+  // pure $; above, self-host wins (in the cost-mode you selected).
+  //
+  // This is the "should we even be considering self-host?" number that
+  // procurement officers want as a single line. The original static
+  // EIE calculator surfaced it; the new generic engine does too.
+  //
+  // Returns { break_even_queries, api_cost, self_host_cost, found }.
+  // `found: false` means no crossover within [1K, 100M] — typically
+  // means self-host is always cheaper or always more expensive in the
+  // explored range, depending on assumptions.
+  // -------------------------------------------------------------------
+  function computeBreakEven(workload, options) {
+    const opts = options || {};
+    const lo = 1_000, hi = 100_000_000;
+
+    // Cost functions at a given volume — pure inference cost only,
+    // no verification / federal / personnel / fixed infra (these are
+    // common to both paths and don't affect the crossover).
+    //
+    // For API cost we need a `queries` object shape with bySegment for
+    // every segment in workload.audience. Distribute the target total
+    // proportionally to the workload's actual segment ratios so per-query
+    // economics (cache rates by segment) match production.
+    const segments = workload.segments || [];
+    const baselineQueries = computeQueries(workload, opts);
+    const baselineTotal = baselineQueries.total || 1;
+
+    const apiAt = (q) => {
+      const fakeQueries = { total: q, bySegment: {} };
+      for (const seg of segments) {
+        const segShare = (baselineQueries.bySegment?.[seg.id] || 0) / baselineTotal;
+        fakeQueries.bySegment[seg.id] = q * segShare;
+      }
+      // Some downstream code reads queries.auth/anon for back-compat.
+      if (baselineQueries.auth !== undefined) fakeQueries.auth = q * (baselineQueries.auth / baselineTotal);
+      if (baselineQueries.anon !== undefined) fakeQueries.anon = q * (baselineQueries.anon / baselineTotal);
+      try {
+        const r = computeApiCost(workload, fakeQueries, opts);
+        return r.monthly_gross_pre_federal || r.monthly_gross || 0;
+      } catch (_) { return 0; }
+    };
+    const selfHostAt = (q) => {
+      try {
+        const r = computeSelfHost(workload, q, opts);
+        return r.total || 0;
+      } catch (_) { return 0; }
+    };
+
+    // Quick check of endpoints — if no crossover, return early.
+    const apiLo  = apiAt(lo),  shLo  = selfHostAt(lo);
+    const apiHi  = apiAt(hi),  shHi  = selfHostAt(hi);
+    const cheaperAtLo = apiLo < shLo ? 'api' : 'self_host';
+    const cheaperAtHi = apiHi < shHi ? 'api' : 'self_host';
+    if (cheaperAtLo === cheaperAtHi) {
+      return {
+        found: false,
+        break_even_queries: null,
+        cheaper_in_range: cheaperAtLo,
+        api_at_low: apiLo, self_host_at_low: shLo,
+        api_at_high: apiHi, self_host_at_high: shHi,
+      };
+    }
+
+    // Binary search.
+    let l = lo, h = hi;
+    for (let i = 0; i < 40 && (h - l) > 1000; i++) {
+      const m = Math.floor((l + h) / 2);
+      const a = apiAt(m), s = selfHostAt(m);
+      if (a < s) l = m; else h = m;
+    }
+    const q = Math.round((l + h) / 2);
+    return {
+      found: true,
+      break_even_queries: q,
+      api_cost_at_break_even: Math.round(apiAt(q)),
+      self_host_cost_at_break_even: Math.round(selfHostAt(q)),
+      note: 'Above this monthly query volume, self-host beats API on pure inference $. Excludes verification, federal, personnel, fixed infra.',
     };
   }
 
@@ -1210,6 +1305,13 @@
     const api = computeApiCost(workload, queries, opts);
     const selfHost = computeSelfHost(workload, queries.total, opts);
     const selfHostCapped = computeSelfHostCapped(workload, queries.total, selfHost, opts);
+    // Break-even — at what monthly query volume does self-host beat API?
+    // Single-number procurement signal. Skipped when running under
+    // recursive contexts (migration / risk-band re-runs) to avoid blowing
+    // the call stack.
+    const breakEven = (!opts._inMigration && !opts._inRisk)
+      ? computeBreakEven(workload, opts)
+      : null;
     const verification = computeVerification(workload, queries.total, opts);
     const federal = computeFederal(workload, queries.total, api, opts);
     // Reservation discount/PTU on API LLM cost
@@ -1252,6 +1354,7 @@
       workload, queries, api,
       self_host: selfHost,
       self_host_capped: selfHostCapped,
+      break_even: breakEven,
       verification, federal,
       hybrid,
       reservation,
@@ -1297,6 +1400,7 @@
     computeApiCost,
     computeSelfHost,
     computeSelfHostCapped,
+    computeBreakEven,
     computeVerification,
     computeFederal,
     computeReservation,
