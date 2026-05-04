@@ -3425,7 +3425,10 @@
   // Tabs that exist after the layout redesign. Used to validate
   // the localStorage-restored tab so an old 'estimator' value
   // doesn't strand the user on a dead pane.
-  const VALID_TABS = ['build', 'components', 'simulator', 'prices', 'benchmarks', 'report'];
+  // Workspace replaces the old separate Components + Simulator tabs (one
+  // continuous scroll). Old saved values get migrated below.
+  const VALID_TABS = ['build', 'workspace', 'prices', 'benchmarks', 'report'];
+  const TAB_ALIASES = { components: 'workspace', simulator: 'workspace' };
 
   function setupTabs() {
     // The Token Estimator tab is gone (replaced by the AXIOM Simulator).
@@ -3444,10 +3447,87 @@
     });
 
     // Restore last-used tab — fall back to 'build' if saved value is
-    // a tab that no longer exists.
+    // a tab that no longer exists. Migrate aliases (components/simulator
+    // → workspace) so users coming back after the merger don't get
+    // stranded on a dead pane.
     const saved = (() => { try { return localStorage.getItem(TAB_STORAGE_KEY); } catch (_) { return null; } })();
-    switchTab(VALID_TABS.includes(saved) ? saved : 'build');
+    const target = TAB_ALIASES[saved] || saved;
+    switchTab(VALID_TABS.includes(target) ? target : 'build');
   }
+
+  // ---------------------------------------------------------------------
+  // Workspace sub-nav — sticky scroll-spy. Visible when active tab is
+  // 'workspace', hidden otherwise. Buttons jump to anchored sections
+  // via smooth-scroll; IntersectionObserver tracks which section is
+  // currently in view and highlights the matching button.
+  // ---------------------------------------------------------------------
+  function setupWorkspaceSubnav() {
+    const subnav = document.getElementById('workspace-subnav');
+    if (!subnav) return;
+    const buttons = Array.from(subnav.querySelectorAll('button[data-anchor]'));
+
+    // Show/hide based on current tab. switchTab() already toggles
+    // .active on tab-panels; mirror that on the subnav.
+    function syncVisibility() {
+      const active = document.querySelector('.tab-btn.active')?.dataset.tab;
+      subnav.classList.toggle('hidden', active !== 'workspace');
+    }
+    // Re-sync on every switchTab call.
+    const origSwitch = window.__ccsSwitchTab;
+    if (typeof origSwitch === 'function') {
+      window.__ccsSwitchTab = function(name) {
+        const r = origSwitch.apply(this, arguments);
+        syncVisibility();
+        return r;
+      };
+    }
+    document.querySelectorAll('.tab-btn').forEach(btn =>
+      btn.addEventListener('click', () => setTimeout(syncVisibility, 0)));
+    syncVisibility();
+
+    // Click → smooth-scroll to anchor. The main scroll container is
+    // <main class="main">; scrollTo(target) inside it.
+    const mainEl = document.getElementById('main');
+    buttons.forEach(b => {
+      b.addEventListener('click', () => {
+        const target = document.getElementById(b.dataset.anchor);
+        if (!target || !mainEl) return;
+        const top = target.getBoundingClientRect().top
+                  - mainEl.getBoundingClientRect().top
+                  + mainEl.scrollTop
+                  - subnav.offsetHeight - 8;
+        mainEl.scrollTo({ top, behavior: 'smooth' });
+      });
+    });
+
+    // IntersectionObserver — root is the main scroll container so
+    // visibility is judged inside it, not the viewport.
+    if (!mainEl || typeof IntersectionObserver !== 'function') return;
+    const targets = buttons.map(b => document.getElementById(b.dataset.anchor)).filter(Boolean);
+    const lookup = new Map();
+    targets.forEach(t => lookup.set(t.id, subnav.querySelector(`button[data-anchor="${t.id}"]`)));
+    let activeAnchor = null;
+    const observer = new IntersectionObserver((entries) => {
+      // Pick the entry highest in the viewport that's intersecting.
+      const visible = entries
+        .filter(e => e.isIntersecting)
+        .sort((a, b) => a.boundingClientRect.top - b.boundingClientRect.top);
+      if (visible.length === 0) return;
+      const id = visible[0].target.id;
+      if (id === activeAnchor) return;
+      activeAnchor = id;
+      buttons.forEach(b => b.classList.toggle('active', b.dataset.anchor === id));
+    }, {
+      root: mainEl,
+      // Trigger when the section's top is in the upper third of the
+      // scroll viewport (so the highlight matches what's visually "at
+      // the top of attention").
+      rootMargin: '0px 0px -66% 0px',
+      threshold: 0,
+    });
+    targets.forEach(t => observer.observe(t));
+  }
+  setupWorkspaceSubnav();
 
   // Expose tab-switch for chat-builder hint button
   window.__ccsSwitchTab = switchTab;
