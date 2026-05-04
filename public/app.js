@@ -3453,20 +3453,17 @@
   window.__ccsSwitchTab = switchTab;
 
   // Topbar cost badge — click to jump to Report tab.
-  const costBadge = document.getElementById('cost-badge');
+  const costBadge = document.getElementById('cost-pill');
   if (costBadge) costBadge.addEventListener('click', () => switchTab('report'));
 
   // ---------------------------------------------------------------------
-  // AXIOM Simulator integration — receive postMessage from the embedded
-  // simulator iframe ({type: 'axiom-export', agents: [...]}) and pipe
-  // it into workload.agents, then re-render and switch the user back to
-  // the Components tab so they can see the imported agents.
+  // AXIOM Simulator integration — direct call from the inlined AXIOM
+  // pane (no iframe). The "Send agents to Cost Calculator" button calls
+  // window.__importFromSimulator(payload) directly.
   // ---------------------------------------------------------------------
-  window.addEventListener('message', (e) => {
-    const msg = e.data;
-    if (!msg || msg.type !== 'axiom-export' || !Array.isArray(msg.agents)) return;
-    // Replace agents wholesale — the simulator owns the topology.
-    workload.agents = msg.agents.map(a => ({
+  window.__importFromSimulator = function(payload) {
+    if (!payload || !Array.isArray(payload.agents)) return;
+    workload.agents = payload.agents.map(a => ({
       id: a.id || ('agent-' + Math.random().toString(36).slice(2, 8)),
       label: a.label || a.id || 'Agent',
       input_tokens: a.input_tokens || 0,
@@ -3483,14 +3480,13 @@
     if (typeof renderArchSummary === 'function') renderArchSummary();
     if (typeof window.__ccsRefreshComponents === 'function') window.__ccsRefreshComponents();
     switchTab('components');
-    // Brief toast feedback if available.
     const toast = document.getElementById('toast');
     if (toast) {
       toast.textContent = `Imported ${workload.agents.length} agents from AXIOM simulator`;
       toast.style.opacity = '1';
       setTimeout(() => { toast.style.opacity = '0'; }, 3000);
     }
-  });
+  };
 
   // -----------------------------------------------------------------
   // Chat-driven system builder
