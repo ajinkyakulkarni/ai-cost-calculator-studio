@@ -3416,7 +3416,7 @@
     document.querySelectorAll('.tab-btn').forEach(b => {
       b.classList.toggle('active', b.dataset.tab === name);
     });
-    document.querySelectorAll('.tab-panel').forEach(p => {
+    document.querySelectorAll('[data-tab-panel]').forEach(p => {
       p.classList.toggle('active', p.dataset.tabPanel === name);
     });
     try { localStorage.setItem(TAB_STORAGE_KEY, name); } catch (_) {}
@@ -3461,8 +3461,26 @@
   // pane (no iframe). The "Send agents to Cost Calculator" button calls
   // window.__importFromSimulator(payload) directly.
   // ---------------------------------------------------------------------
+  // payload.silent === true skips tab-switch and toast — used for the
+  // continuous auto-sync from AXIOM's onSlider(). The non-silent path
+  // is reserved for explicit imports (e.g., from a future "Apply
+  // template" button), but isn't currently used.
+  //
+  // renderPreview() is coalesced via rAF (see __schedulePreview) so
+  // dragging a slider doesn't thrash the heavy preview render.
+  let __previewScheduled = false;
+  function __schedulePreview() {
+    if (__previewScheduled) return;
+    __previewScheduled = true;
+    requestAnimationFrame(() => {
+      __previewScheduled = false;
+      if (typeof renderPreview === 'function') renderPreview();
+    });
+  }
+
   window.__importFromSimulator = function(payload) {
     if (!payload || !Array.isArray(payload.agents)) return;
+    const silent = payload.silent === true;
     workload.agents = payload.agents.map(a => ({
       id: a.id || ('agent-' + Math.random().toString(36).slice(2, 8)),
       label: a.label || a.id || 'Agent',
@@ -3474,6 +3492,13 @@
       hosting: a.hosting || 'api',
       description: a.description || '',
     }));
+    if (silent) {
+      // Auto-sync path: only re-render the cost preview (the topbar
+      // pill, the Report). Skip the editor re-render — it can stomp
+      // on whatever the user is currently editing in Components.
+      __schedulePreview();
+      return;
+    }
     if (typeof renderEditor === 'function')   renderEditor();
     if (typeof renderPreview === 'function')  renderPreview();
     if (typeof renderArchDiagram === 'function') renderArchDiagram();

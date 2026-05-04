@@ -34,7 +34,7 @@
     font-size: 14px;
     line-height: 1.5;
   }
-  .topbar {
+  .appbar {
     background: var(--ink);
     color: var(--paper);
     padding: 10px 18px;
@@ -45,19 +45,19 @@
     width: 100%;
     max-width: 100vw;
   }
-  .topbar h1 { white-space: nowrap; }
-  .topbar .pill { white-space: nowrap; }
-  .topbar h1 {
+  .appbar h1 { white-space: nowrap; }
+  .appbar .pill { white-space: nowrap; }
+  .appbar h1 {
     font-family: var(--serif);
     font-size: 19px; font-weight: 600;
     margin: 0; flex: 1;
   }
-  .topbar .pill {
+  .appbar .pill {
     font-family: var(--mono); font-size: 11px;
     padding: 3px 8px; border: 1px solid rgba(255,255,255,0.3);
     border-radius: 3px; color: rgba(255,255,255,0.85);
   }
-  .topbar button, .topbar select {
+  .appbar button, .appbar select {
     font-family: var(--sans); font-size: 12.5px;
     padding: 6px 12px;
     background: rgba(255,255,255,0.08);
@@ -66,8 +66,8 @@
     border-radius: 3px;
     cursor: pointer;
   }
-  .topbar button:hover, .topbar select:hover { background: rgba(255,255,255,0.16); }
-  .topbar button.primary {
+  .appbar button:hover, .appbar select:hover { background: rgba(255,255,255,0.16); }
+  .appbar button.primary {
     background: var(--accent);
     border-color: var(--accent);
     font-weight: 600;
@@ -142,7 +142,7 @@
     line-height: 1;
   }
   /* Topbar cost badge — live-updating headline number */
-  .topbar .cost-pill {
+  .appbar .cost-pill {
     display: flex;
     align-items: baseline;
     gap: 6px;
@@ -158,10 +158,10 @@
     color: var(--paper);
     white-space: nowrap;
   }
-  .topbar .cost-pill:hover { background: rgba(255,255,255,0.12); border-color: rgba(255,255,255,0.32); }
-  .topbar .cost-pill .cb-num { font-size: 13px; font-weight: 700; color: #ffd070; }
-  .topbar .cost-pill .cb-label { font-size: 9.5px; color: rgba(255,255,255,0.65); text-transform: uppercase; letter-spacing: 0.06em; }
-  .topbar .cost-pill .cb-suffix { font-size: 10px; color: rgba(255,255,255,0.55); }
+  .appbar .cost-pill:hover { background: rgba(255,255,255,0.12); border-color: rgba(255,255,255,0.32); }
+  .appbar .cost-pill .cb-num { font-size: 13px; font-weight: 700; color: #ffd070; }
+  .appbar .cost-pill .cb-label { font-size: 9.5px; color: rgba(255,255,255,0.65); text-transform: uppercase; letter-spacing: 0.06em; }
+  .appbar .cost-pill .cb-suffix { font-size: 10px; color: rgba(255,255,255,0.55); }
 
   @media (max-width: 720px) {
     /* Sidebar collapses to a horizontal scrolling icon strip on mobile */
@@ -1944,10 +1944,10 @@
 
     /* Topbar: tighten + wrap title, push the action buttons onto their
        own row, hide the secondary-info pill that takes up width. */
-    .topbar { padding: 8px 12px; gap: 8px; row-gap: 6px; }
-    .topbar h1 { font-size: 16px; flex: 1 1 100%; }
-    .topbar .pill { display: none; }
-    .topbar button, .topbar select {
+    .appbar { padding: 8px 12px; gap: 8px; row-gap: 6px; }
+    .appbar h1 { font-size: 16px; flex: 1 1 100%; }
+    .appbar .pill { display: none; }
+    .appbar button, .appbar select {
       font-size: 12px; padding: 5px 9px;
     }
 
@@ -1988,8 +1988,8 @@
   }
 
   @media (max-width: 480px) {
-    .topbar h1 { font-size: 15px; }
-    .topbar button, .topbar select { font-size: 11.5px; padding: 5px 8px; }
+    .appbar h1 { font-size: 15px; }
+    .appbar button, .appbar select { font-size: 11.5px; padding: 5px 8px; }
     .section-nav { padding: 8px 10px 6px; }
     .editor > section, .preview > section,
     .editor .section, .preview .section {
@@ -2008,11 +2008,10 @@
    * iframe). :root vars rewritten to .simulator-pane; body rules
    * rewritten to .simulator-pane.
    * ==================================================================== */
-  @scope (.simulator-pane) {
-
-@import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;600;700&family=Orbitron:wght@400;700;900&display=swap');
-*{box-sizing:border-box;margin:0;padding:0}
-.simulator-pane {
+  @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;600;700&family=Orbitron:wght@400;700;900&display=swap');
+/* AXIOM v9.6 styles — manually prefixed with .simulator-pane (no @scope) */
+.simulator-pane *{box-sizing:border-box;margin:0;padding:0}
+.simulator-pane{
   --ink:#04060c;--card:#0c1320;--card2:#08101a;--card3:#101828;
   --b:rgba(255,255,255,0.07);--b2:rgba(255,255,255,0.13);
   --cyan:#00d4ff;--green:#00e676;--amber:#ffab40;--red:#ff5252;
@@ -2022,158 +2021,151 @@
 }
 html,.simulator-pane{overflow-x:hidden;height:100%}
 .simulator-pane{background:var(--ink);color:var(--text-primary,#c8d8f0);font-family:'JetBrains Mono',Consolas,monospace;font-size:11px;line-height:1.5}
-::-webkit-scrollbar{width:3px;height:3px}::-webkit-scrollbar-thumb{background:rgba(0,212,255,.2);border-radius:2px}
-input[type=range]{-webkit-appearance:none;width:100%;height:3px;background:var(--track);border-radius:2px;outline:none;cursor:pointer}
-input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:13px;height:13px;border-radius:50%;background:var(--cyan);cursor:pointer;transition:transform .15s}
-input[type=range]::-webkit-slider-thumb:hover{transform:scale(1.3)}
-select,input[type=number]{background:var(--surface-hover,rgba(255,255,255,.04));border:1px solid var(--b2);border-radius:5px;color:var(--text-primary,#c8d8f0);font-family:inherit;font-size:9px;padding:3px 7px;outline:none;cursor:pointer}
-canvas#bg{position:fixed;inset:0;width:100%;height:100%;pointer-events:none;z-index:0}
-.root{position:relative;z-index:1;padding:10px;display:flex;flex-direction:column;gap:8px;min-height:100vh}
-.vfx{position:fixed;inset:0;pointer-events:none;z-index:998;overflow:hidden}
-.spark{position:absolute;font-size:9px;font-weight:700;pointer-events:none;animation:spk 1s ease-out forwards}
+.simulator-pane ::-webkit-scrollbar{width:3px;height:3px}
+.simulator-pane ::-webkit-scrollbar-thumb{background:rgba(0,212,255,.2);border-radius:2px}
+.simulator-pane input[type=range]{-webkit-appearance:none;width:100%;height:3px;background:var(--track);border-radius:2px;outline:none;cursor:pointer}
+.simulator-pane input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:13px;height:13px;border-radius:50%;background:var(--cyan);cursor:pointer;transition:transform .15s}
+.simulator-pane input[type=range]::-webkit-slider-thumb:hover{transform:scale(1.3)}
+.simulator-pane select,.simulator-pane input[type=number]{background:var(--surface-hover,rgba(255,255,255,.04));border:1px solid var(--b2);border-radius:5px;color:var(--text-primary,#c8d8f0);font-family:inherit;font-size:9px;padding:3px 7px;outline:none;cursor:pointer}
+.simulator-pane canvas#bg{position:fixed;inset:0;width:100%;height:100%;pointer-events:none;z-index:0}
+.simulator-pane .root{position:relative;z-index:1;padding:10px;display:flex;flex-direction:column;gap:8px;min-height:100vh}
+.simulator-pane .vfx{position:fixed;inset:0;pointer-events:none;z-index:998;overflow:hidden}
+.simulator-pane .spark{position:absolute;font-size:9px;font-weight:700;pointer-events:none;animation:spk 1s ease-out forwards}
 @keyframes spk{0%{opacity:1;transform:translateY(0) scale(1)}100%{opacity:0;transform:translateY(-50px) scale(.3)}}
-.scanline{position:absolute;left:0;right:0;height:1px;background:rgba(0,212,255,.05);animation:scn 7s linear infinite}
+.simulator-pane .scanline{position:absolute;left:0;right:0;height:1px;background:rgba(0,212,255,.05);animation:scn 7s linear infinite}
 @keyframes scn{0%{top:0}100%{top:100%}}
-.panel{background:var(--card);border:1px solid var(--b);border-radius:10px;overflow:hidden;display:flex;flex-direction:column}
-.ph{padding:7px 13px;border-bottom:1px solid var(--b);font-size:8px;letter-spacing:2px;color:var(--cyan);text-transform:uppercase;display:flex;align-items:center;justify-content:space-between;flex-shrink:0;gap:6px}
-.badge{background:rgba(0,212,255,.1);border:1px solid rgba(0,212,255,.2);border-radius:4px;padding:1px 6px;font-size:8px;color:var(--cyan);white-space:nowrap}
-.badge-warn{background:rgba(255,82,82,.12);border:1px solid rgba(255,82,82,.3);border-radius:4px;padding:1px 6px;font-size:8px;color:var(--red)}
-.badge-ok{background:rgba(0,230,118,.1);border:1px solid rgba(0,230,118,.25);border-radius:4px;padding:1px 6px;font-size:8px;color:var(--green)}
-.badge-rag{background:rgba(124,77,255,.15);border:1px solid rgba(124,77,255,.35);border-radius:4px;padding:1px 6px;font-size:8px;color:var(--rag)}
-.badge-reason{background:rgba(0,188,212,.12);border:1px solid rgba(0,188,212,.3);border-radius:4px;padding:1px 6px;font-size:8px;color:var(--reason)}
-.badge-guard{background:rgba(255,109,0,.12);border:1px solid rgba(255,109,0,.3);border-radius:4px;padding:1px 6px;font-size:8px;color:var(--guard)}
-
+.simulator-pane .panel{background:var(--card);border:1px solid var(--b);border-radius:10px;overflow:hidden;display:flex;flex-direction:column}
+.simulator-pane .ph{padding:7px 13px;border-bottom:1px solid var(--b);font-size:8px;letter-spacing:2px;color:var(--cyan);text-transform:uppercase;display:flex;align-items:center;justify-content:space-between;flex-shrink:0;gap:6px}
+.simulator-pane .badge{background:rgba(0,212,255,.1);border:1px solid rgba(0,212,255,.2);border-radius:4px;padding:1px 6px;font-size:8px;color:var(--cyan);white-space:nowrap}
+.simulator-pane .badge-warn{background:rgba(255,82,82,.12);border:1px solid rgba(255,82,82,.3);border-radius:4px;padding:1px 6px;font-size:8px;color:var(--red)}
+.simulator-pane .badge-ok{background:rgba(0,230,118,.1);border:1px solid rgba(0,230,118,.25);border-radius:4px;padding:1px 6px;font-size:8px;color:var(--green)}
+.simulator-pane .badge-rag{background:rgba(124,77,255,.15);border:1px solid rgba(124,77,255,.35);border-radius:4px;padding:1px 6px;font-size:8px;color:var(--rag)}
+.simulator-pane .badge-reason{background:rgba(0,188,212,.12);border:1px solid rgba(0,188,212,.3);border-radius:4px;padding:1px 6px;font-size:8px;color:var(--reason)}
+.simulator-pane .badge-guard{background:rgba(255,109,0,.12);border:1px solid rgba(255,109,0,.3);border-radius:4px;padding:1px 6px;font-size:8px;color:var(--guard)}
 /* TOPBAR */
-.topbar{background:var(--card);border:1px solid var(--b);border-radius:10px;padding:9px 15px;display:flex;align-items:center;justify-content:space-between;position:relative;overflow:hidden}
-.topbar::after{content:'';position:absolute;top:0;left:0;right:0;height:2px;background:linear-gradient(90deg,var(--cyan),var(--rag),var(--reason),var(--guard),var(--green),var(--cyan));background-size:400%;animation:hb 5s linear infinite}
+.simulator-pane .topbar{background:var(--card);border:1px solid var(--b);border-radius:10px;padding:9px 15px;display:flex;align-items:center;justify-content:space-between;position:relative;overflow:hidden}
+.simulator-pane .topbar::after{content:'';position:absolute;top:0;left:0;right:0;height:2px;background:linear-gradient(90deg,var(--cyan),var(--rag),var(--reason),var(--guard),var(--green),var(--cyan));background-size:400%;animation:hb 5s linear infinite}
 @keyframes hb{0%{background-position:0%}100%{background-position:400%}}
-.logo{font-family:'Orbitron',monospace;font-size:14px;font-weight:900;letter-spacing:3px;color:var(--cyan)}
-.logo sub{font-size:9px;color:var(--purple);vertical-align:super}
-.kpi-row{display:flex;gap:14px}
-.kpi{text-align:right}
-.kpi-val{font-size:16px;font-weight:700;letter-spacing:1px;line-height:1}
-.kpi-r{font-size:7px;color:var(--dimmer);margin-top:1px}
-.kpi-lbl{font-size:7px;letter-spacing:1px;color:var(--dim);text-transform:uppercase}
-.pulse{width:7px;height:7px;border-radius:50%;animation:bl 1.4s ease-in-out infinite;flex-shrink:0}
+.simulator-pane .logo{font-family:'Orbitron',monospace;font-size:14px;font-weight:900;letter-spacing:3px;color:var(--cyan)}
+.simulator-pane .logo sub{font-size:9px;color:var(--purple);vertical-align:super}
+.simulator-pane .kpi-row{display:flex;gap:14px}
+.simulator-pane .kpi{text-align:right}
+.simulator-pane .kpi-val{font-size:16px;font-weight:700;letter-spacing:1px;line-height:1}
+.simulator-pane .kpi-r{font-size:7px;color:var(--dimmer);margin-top:1px}
+.simulator-pane .kpi-lbl{font-size:7px;letter-spacing:1px;color:var(--dim);text-transform:uppercase}
+.simulator-pane .pulse{width:7px;height:7px;border-radius:50%;animation:bl 1.4s ease-in-out infinite;flex-shrink:0}
 @keyframes bl{0%,100%{opacity:1}50%{opacity:.15}}
-.abtn{padding:4px 10px;border-radius:5px;border:1px solid var(--b2);background:var(--surface-hover,rgba(255,255,255,.03));color:var(--dim);font-family:inherit;font-size:8px;cursor:pointer;transition:all .2s;text-transform:uppercase;letter-spacing:1px;white-space:nowrap}
-.abtn:hover{color:var(--text-primary,#c8d8f0);background:rgba(255,255,255,.06)}
-.abtn.cyan{border-color:rgba(0,212,255,.35);color:var(--cyan);background:rgba(0,212,255,.06)}
-.abtn.amber{border-color:rgba(255,171,64,.35);color:var(--amber);background:rgba(255,171,64,.05)}
-.sim-btn{padding:7px 16px;background:linear-gradient(135deg,rgba(0,212,255,.18),rgba(206,147,216,.1));border:1px solid rgba(0,212,255,.45);border-radius:7px;color:var(--cyan);font-family:inherit;font-size:9px;font-weight:700;letter-spacing:2px;cursor:pointer;text-transform:uppercase;transition:all .2s}
-.sim-btn.stop{border-color:rgba(255,82,82,.45);color:var(--red);background:rgba(255,82,82,.08)}
-.sr{padding:6px 10px;border-bottom:1px solid var(--b);border-right:1px solid var(--b)}
-.sr:nth-child(even){border-right:none}
-.sr:last-child,.sr:nth-last-child(-n+2){border-bottom:none}
-.sr-top{display:flex;justify-content:space-between;align-items:center;margin-bottom:3px}
-.sr-label{font-size:8px;letter-spacing:.4px;color:var(--dim);text-transform:uppercase}
-.sr-val{font-size:10px;font-weight:700;min-width:40px;text-align:right}
-.sr-hint{font-size:7px;color:var(--dimmer);margin-top:1px}
-.mcard{padding:8px 10px;border-radius:7px;border:1px solid var(--b);background:var(--card2)}
-.mlabel{font-size:7px;letter-spacing:1.5px;text-transform:uppercase;color:var(--dim);margin-bottom:3px}
-.mval{font-size:15px;font-weight:700;line-height:1}
-.msub{font-size:7px;color:var(--dim);margin-top:2px}
-
+.simulator-pane .abtn{padding:4px 10px;border-radius:5px;border:1px solid var(--b2);background:var(--surface-hover,rgba(255,255,255,.03));color:var(--dim);font-family:inherit;font-size:8px;cursor:pointer;transition:all .2s;text-transform:uppercase;letter-spacing:1px;white-space:nowrap}
+.simulator-pane .abtn:hover{color:var(--text-primary,#c8d8f0);background:rgba(255,255,255,.06)}
+.simulator-pane .abtn.cyan{border-color:rgba(0,212,255,.35);color:var(--cyan);background:rgba(0,212,255,.06)}
+.simulator-pane .abtn.amber{border-color:rgba(255,171,64,.35);color:var(--amber);background:rgba(255,171,64,.05)}
+.simulator-pane .sim-btn{padding:7px 16px;background:linear-gradient(135deg,rgba(0,212,255,.18),rgba(206,147,216,.1));border:1px solid rgba(0,212,255,.45);border-radius:7px;color:var(--cyan);font-family:inherit;font-size:9px;font-weight:700;letter-spacing:2px;cursor:pointer;text-transform:uppercase;transition:all .2s}
+.simulator-pane .sim-btn.stop{border-color:rgba(255,82,82,.45);color:var(--red);background:rgba(255,82,82,.08)}
+.simulator-pane .sr{padding:6px 10px;border-bottom:1px solid var(--b);border-right:1px solid var(--b)}
+.simulator-pane .sr:nth-child(even){border-right:none}
+.simulator-pane .sr:last-child,.simulator-pane .sr:nth-last-child(-n+2){border-bottom:none}
+.simulator-pane .sr-top{display:flex;justify-content:space-between;align-items:center;margin-bottom:3px}
+.simulator-pane .sr-label{font-size:8px;letter-spacing:.4px;color:var(--dim);text-transform:uppercase}
+.simulator-pane .sr-val{font-size:10px;font-weight:700;min-width:40px;text-align:right}
+.simulator-pane .sr-hint{font-size:7px;color:var(--dimmer);margin-top:1px}
+.simulator-pane .mcard{padding:8px 10px;border-radius:7px;border:1px solid var(--b);background:var(--card2)}
+.simulator-pane .mlabel{font-size:7px;letter-spacing:1.5px;text-transform:uppercase;color:var(--dim);margin-bottom:3px}
+.simulator-pane .mval{font-size:15px;font-weight:700;line-height:1}
+.simulator-pane .msub{font-size:7px;color:var(--dim);margin-top:2px}
 /* NAV */
-.nav{display:flex;gap:0;background:var(--card);border:1px solid var(--b);border-radius:10px;overflow:hidden;flex-shrink:0}
-.nav-btn{padding:8px 14px;font-size:8px;font-weight:700;letter-spacing:1.5px;cursor:pointer;color:var(--dim);transition:all .15s;background:none;border:none;border-right:1px solid var(--b);font-family:inherit;text-transform:uppercase;white-space:nowrap}
-.nav-btn:last-child{border-right:none}
-.nav-btn:hover{color:var(--cyan);background:rgba(0,212,255,.04)}
-.nav-btn.active{color:var(--cyan);background:rgba(0,212,255,.08);border-bottom:2px solid var(--cyan)}
-.tab-panel{display:none}
-.tab-panel.active{display:flex;flex-direction:column;gap:8px}
-.tab-panel.grid-2{display:none}
-.tab-panel.grid-2.active{display:grid;grid-template-columns:1fr 1fr;gap:8px}
-.tab-panel.grid-3{display:none}
-.tab-panel.grid-3.active{display:grid;grid-template-columns:270px 1fr 200px;gap:8px}
-
+.simulator-pane .nav{display:flex;gap:0;background:var(--card);border:1px solid var(--b);border-radius:10px;overflow:hidden;flex-shrink:0}
+.simulator-pane .nav-btn{padding:8px 14px;font-size:8px;font-weight:700;letter-spacing:1.5px;cursor:pointer;color:var(--dim);transition:all .15s;background:none;border:none;border-right:1px solid var(--b);font-family:inherit;text-transform:uppercase;white-space:nowrap}
+.simulator-pane .nav-btn:last-child{border-right:none}
+.simulator-pane .nav-btn:hover{color:var(--cyan);background:rgba(0,212,255,.04)}
+.simulator-pane .nav-btn.active{color:var(--cyan);background:rgba(0,212,255,.08);border-bottom:2px solid var(--cyan)}
+.simulator-pane .tab-panel{display:none}
+.simulator-pane .tab-panel.active{display:flex;flex-direction:column;gap:8px}
+.simulator-pane .tab-panel.grid-2{display:none}
+.simulator-pane .tab-panel.grid-2.active{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.simulator-pane .tab-panel.grid-3{display:none}
+.simulator-pane .tab-panel.grid-3.active{display:grid;grid-template-columns:270px 1fr 200px;gap:8px}
 /* ARCH DIAGRAM */
-#arch-canvas{width:100%;display:block;border-radius:0 0 10px 10px}
-
+.simulator-pane #arch-canvas{width:100%;display:block;border-radius:0 0 10px 10px}
 /* TOKEN LEDGER */
-.ledger-entry{display:flex;align-items:center;gap:6px;padding:4px 0;border-bottom:1px solid var(--b);animation:fi .3s ease-out}
+.simulator-pane .ledger-entry{display:flex;align-items:center;gap:6px;padding:4px 0;border-bottom:1px solid var(--b);animation:fi .3s ease-out}
 @keyframes fi{from{opacity:0;transform:translateX(-6px)}to{opacity:1;transform:translateX(0)}}
-.ledger-bar{height:6px;border-radius:3px;min-width:2px;transition:width .4s}
-.ledger-label{font-size:8px;color:var(--dim);width:110px;flex-shrink:0}
-.ledger-val{font-size:8px;font-weight:700;min-width:44px;text-align:right}
-
+.simulator-pane .ledger-bar{height:6px;border-radius:3px;min-width:2px;transition:width .4s}
+.simulator-pane .ledger-label{font-size:8px;color:var(--dim);width:110px;flex-shrink:0}
+.simulator-pane .ledger-val{font-size:8px;font-weight:700;min-width:44px;text-align:right}
 /* CHAT */
-.chat-area{flex:1;overflow-y:auto;padding:9px;display:flex;flex-direction:column;gap:6px;min-height:250px;max-height:310px}
-.msg{display:flex;gap:6px;animation:fi .3s ease-out}
-.msg.right{flex-direction:row-reverse}
-.msg-av{width:24px;height:24px;border-radius:5px;display:flex;align-items:center;justify-content:center;font-size:9px;font-weight:700;flex-shrink:0}
-.msg-body{max-width:82%}
-.msg-meta{font-size:8px;color:var(--dim);margin-bottom:2px;display:flex;align-items:center;gap:4px;flex-wrap:wrap}
-.msg.right .msg-meta{justify-content:flex-end;flex-direction:row-reverse}
-.msg-bubble{padding:6px 10px;border-radius:7px;font-size:10px;line-height:1.6}
-.chip{padding:1px 5px;border-radius:4px;font-size:7px;font-weight:700;display:inline-block}
-.msg-toks{font-size:7px;color:var(--dimmer);margin-top:2px}
-.typing{display:flex;gap:4px;align-items:center;padding:5px 8px}
-.td{width:5px;height:5px;border-radius:50%;background:var(--cyan);animation:tdot .9s ease-in-out infinite}
-.td:nth-child(2){animation-delay:.15s}.td:nth-child(3){animation-delay:.3s}
+.simulator-pane .chat-area{flex:1;overflow-y:auto;padding:9px;display:flex;flex-direction:column;gap:6px;min-height:250px;max-height:310px}
+.simulator-pane .msg{display:flex;gap:6px;animation:fi .3s ease-out}
+.simulator-pane .msg.right{flex-direction:row-reverse}
+.simulator-pane .msg-av{width:24px;height:24px;border-radius:5px;display:flex;align-items:center;justify-content:center;font-size:9px;font-weight:700;flex-shrink:0}
+.simulator-pane .msg-body{max-width:82%}
+.simulator-pane .msg-meta{font-size:8px;color:var(--dim);margin-bottom:2px;display:flex;align-items:center;gap:4px;flex-wrap:wrap}
+.simulator-pane .msg.right .msg-meta{justify-content:flex-end;flex-direction:row-reverse}
+.simulator-pane .msg-bubble{padding:6px 10px;border-radius:7px;font-size:10px;line-height:1.6}
+.simulator-pane .chip{padding:1px 5px;border-radius:4px;font-size:7px;font-weight:700;display:inline-block}
+.simulator-pane .msg-toks{font-size:7px;color:var(--dimmer);margin-top:2px}
+.simulator-pane .typing{display:flex;gap:4px;align-items:center;padding:5px 8px}
+.simulator-pane .td{width:5px;height:5px;border-radius:50%;background:var(--cyan);animation:tdot .9s ease-in-out infinite}
+.simulator-pane .td:nth-child(2){animation-delay:.15s}
+.simulator-pane .td:nth-child(3){animation-delay:.3s}
 @keyframes tdot{0%,100%{transform:translateY(0);opacity:.3}50%{transform:translateY(-5px);opacity:1}}
-
 /* CI DIST CANVAS */
-.dist-wrap{position:relative;height:80px}
-
+.simulator-pane .dist-wrap{position:relative;height:80px}
 /* BAR ROWS */
-.bar-row{display:flex;align-items:center;gap:5px;margin-bottom:3px}
-.bar-label{color:var(--dim);width:64px;flex-shrink:0;text-align:right;font-size:8px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.bar-track{flex:1;height:8px;background:var(--track);border-radius:3px;overflow:hidden;position:relative}
-.bar-fill{height:100%;border-radius:3px;transition:width .5s}
-.bar-ci{position:absolute;top:0;height:100%;background:rgba(255,255,255,.09);border-radius:0 3px 3px 0}
-.bar-num{min-width:52px;flex-shrink:0;text-align:right;font-size:8px}
-
-.cost-tbl{width:100%;border-collapse:collapse;font-size:8px}
-.cost-tbl th{padding:4px 5px;text-align:left;color:var(--dim);border-bottom:1px solid var(--b);font-weight:400;white-space:nowrap}
-.cost-tbl td{padding:3px 5px;border-bottom:1px solid var(--b);white-space:nowrap;vertical-align:middle}
-.cost-tbl tr:last-child td{border-bottom:none}
-.cost-tbl tr:hover td{background:rgba(255,255,255,.02)}
-.mpill{padding:1px 5px;border-radius:3px;font-size:7px;font-weight:700;display:inline-block}
-.warn-banner{padding:6px 10px;border-radius:6px;border:1px solid rgba(255,82,82,.3);background:rgba(255,82,82,.05);font-size:8px;color:var(--red);display:none}
-.warn-banner.show{display:block}
-.log-feed{display:flex;flex-direction:column;gap:2px;max-height:85px;overflow-y:auto;scrollbar-width:none}
-.log-entry{padding:3px 6px;border-left:2px solid;background:rgba(255,255,255,.02);border-radius:0 4px 4px 0;animation:fi .2s}
-.modal-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.75);z-index:1000;align-items:center;justify-content:center}
-.modal-overlay.show{display:flex}
-.modal{background:var(--card);border:1px solid var(--b2);border-radius:12px;padding:20px;width:700px;max-width:96vw;max-height:85vh;overflow-y:auto;position:relative}
-.modal-close{position:absolute;top:10px;right:14px;background:none;border:none;color:var(--dim);font-size:18px;cursor:pointer;font-family:inherit}
-.report-h{font-size:10px;font-weight:700;color:var(--cyan);letter-spacing:2px;text-transform:uppercase;margin:12px 0 6px}
-.report-row{display:flex;justify-content:space-between;padding:3px 0;border-bottom:1px solid var(--b);font-size:9px}
-
+.simulator-pane .bar-row{display:flex;align-items:center;gap:5px;margin-bottom:3px}
+.simulator-pane .bar-label{color:var(--dim);width:64px;flex-shrink:0;text-align:right;font-size:8px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.simulator-pane .bar-track{flex:1;height:8px;background:var(--track);border-radius:3px;overflow:hidden;position:relative}
+.simulator-pane .bar-fill{height:100%;border-radius:3px;transition:width .5s}
+.simulator-pane .bar-ci{position:absolute;top:0;height:100%;background:rgba(255,255,255,.09);border-radius:0 3px 3px 0}
+.simulator-pane .bar-num{min-width:52px;flex-shrink:0;text-align:right;font-size:8px}
+.simulator-pane .cost-tbl{width:100%;border-collapse:collapse;font-size:8px}
+.simulator-pane .cost-tbl th{padding:4px 5px;text-align:left;color:var(--dim);border-bottom:1px solid var(--b);font-weight:400;white-space:nowrap}
+.simulator-pane .cost-tbl td{padding:3px 5px;border-bottom:1px solid var(--b);white-space:nowrap;vertical-align:middle}
+.simulator-pane .cost-tbl tr:last-child td{border-bottom:none}
+.simulator-pane .cost-tbl tr:hover td{background:rgba(255,255,255,.02)}
+.simulator-pane .mpill{padding:1px 5px;border-radius:3px;font-size:7px;font-weight:700;display:inline-block}
+.simulator-pane .warn-banner{padding:6px 10px;border-radius:6px;border:1px solid rgba(255,82,82,.3);background:rgba(255,82,82,.05);font-size:8px;color:var(--red);display:none}
+.simulator-pane .warn-banner.show{display:block}
+.simulator-pane .log-feed{display:flex;flex-direction:column;gap:2px;max-height:85px;overflow-y:auto;scrollbar-width:none}
+.simulator-pane .log-entry{padding:3px 6px;border-left:2px solid;background:rgba(255,255,255,.02);border-radius:0 4px 4px 0;animation:fi .2s}
+.simulator-pane .modal-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.75);z-index:1000;align-items:center;justify-content:center}
+.simulator-pane .modal-overlay.show{display:flex}
+.simulator-pane .modal{background:var(--card);border:1px solid var(--b2);border-radius:12px;padding:20px;width:700px;max-width:96vw;max-height:85vh;overflow-y:auto;position:relative}
+.simulator-pane .modal-close{position:absolute;top:10px;right:14px;background:none;border:none;color:var(--dim);font-size:18px;cursor:pointer;font-family:inherit}
+.simulator-pane .report-h{font-size:10px;font-weight:700;color:var(--cyan);letter-spacing:2px;text-transform:uppercase;margin:12px 0 6px}
+.simulator-pane .report-row{display:flex;justify-content:space-between;padding:3px 0;border-bottom:1px solid var(--b);font-size:9px}
 /* SENSITIVITY */
-.sens-row{display:grid;grid-template-columns:120px 60px 1fr 60px;gap:4px;align-items:center;padding:3px 0;border-bottom:1px solid var(--b);font-size:8px}
-
+.simulator-pane .sens-row{display:grid;grid-template-columns:120px 60px 1fr 60px;gap:4px;align-items:center;padding:3px 0;border-bottom:1px solid var(--b);font-size:8px}
 /* STACKED TOK VIZ */
-.tok-stack{display:flex;flex-direction:column;gap:2px;margin-top:5px}
-.tok-seg{border-radius:3px;transition:width .5s,height .4s;display:flex;align-items:center;padding:0 6px;font-size:7px;font-weight:700;white-space:nowrap;overflow:hidden;min-height:14px}
-
+.simulator-pane .tok-stack{display:flex;flex-direction:column;gap:2px;margin-top:5px}
+.simulator-pane .tok-seg{border-radius:3px;transition:width .5s,height .4s;display:flex;align-items:center;padding:0 6px;font-size:7px;font-weight:700;white-space:nowrap;overflow:hidden;min-height:14px}
 /* AGENT CARD */
-.agent-card{border:1px solid var(--b);border-radius:7px;margin-bottom:4px;overflow:hidden;transition:border-color .2s}
-.agent-card.processing{animation:aglow 1s ease-in-out infinite alternate}
+.simulator-pane .agent-card{border:1px solid var(--b);border-radius:7px;margin-bottom:4px;overflow:hidden;transition:border-color .2s}
+.simulator-pane .agent-card.processing{animation:aglow 1s ease-in-out infinite alternate}
 @keyframes aglow{from{border-color:rgba(0,212,255,.15)}to{border-color:rgba(0,212,255,.6)}}
-.agent-header{padding:6px 8px;display:flex;align-items:center;gap:6px;cursor:pointer;user-select:none}
-.agent-av{width:26px;height:26px;border-radius:5px;display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:700;flex-shrink:0}
-.agent-cfg-panel{display:none;padding:6px 8px 8px;border-top:1px solid var(--b);background:var(--card2)}
-.agent-cfg-panel.open{display:block}
-.agent-settings-list{display:grid;grid-template-columns:repeat(auto-fit,minmax(315px,1fr));gap:8px}
-.agent-settings-list .agent-card{margin-bottom:0}
-.agent-edit-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(118px,1fr));gap:5px;margin-bottom:6px}
-.agent-detail-section{border:1px solid var(--b);border-radius:6px;background:rgba(255,255,255,.015);padding:6px;margin-top:5px;transition:opacity .15s,border-color .15s}
-.agent-section-title{font-size:7px;text-transform:uppercase;letter-spacing:1px;font-weight:700;margin-bottom:4px;display:flex;align-items:center;justify-content:space-between;gap:5px}
-.agent-mini-range{min-width:0}
-.agent-mini-range .mini-label{font-size:7px;color:var(--dim);display:flex;justify-content:space-between;gap:4px;margin-bottom:2px}
-.agent-mini-range .mini-val{font-weight:700;white-space:nowrap}
-.agent-editor-toolbar{display:flex;gap:5px;flex-wrap:wrap;align-items:center}
-.agent-summary-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(135px,1fr));gap:6px}
-.agent-shortcut-grid{display:grid;grid-template-columns:1.2fr 1fr;gap:8px;align-items:stretch}
-@media(max-width:900px){.agent-shortcut-grid{grid-template-columns:1fr}.agent-settings-list{grid-template-columns:1fr}}
-.tgl{padding:2px 6px;border-radius:4px;border:1px solid var(--b2);background:none;color:var(--dim);font-family:inherit;font-size:8px;cursor:pointer;transition:all .15s}
-.tgl.on{border-color:rgba(0,212,255,.4);color:var(--cyan);background:rgba(0,212,255,.08)}
-.tgl.rag-on{border-color:rgba(124,77,255,.4);color:var(--rag);background:rgba(124,77,255,.08)}
-.tgl.reason-on{border-color:rgba(0,188,212,.4);color:var(--reason);background:rgba(0,188,212,.08)}
-.tgl.guard-on{border-color:rgba(255,109,0,.4);color:var(--guard);background:rgba(255,109,0,.08)}
-
+.simulator-pane .agent-header{padding:6px 8px;display:flex;align-items:center;gap:6px;cursor:pointer;user-select:none}
+.simulator-pane .agent-av{width:26px;height:26px;border-radius:5px;display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:700;flex-shrink:0}
+.simulator-pane .agent-cfg-panel{display:none;padding:6px 8px 8px;border-top:1px solid var(--b);background:var(--card2)}
+.simulator-pane .agent-cfg-panel.open{display:block}
+.simulator-pane .agent-settings-list{display:grid;grid-template-columns:repeat(auto-fit,minmax(315px,1fr));gap:8px}
+.simulator-pane .agent-settings-list .agent-card{margin-bottom:0}
+.simulator-pane .agent-edit-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(118px,1fr));gap:5px;margin-bottom:6px}
+.simulator-pane .agent-detail-section{border:1px solid var(--b);border-radius:6px;background:rgba(255,255,255,.015);padding:6px;margin-top:5px;transition:opacity .15s,border-color .15s}
+.simulator-pane .agent-section-title{font-size:7px;text-transform:uppercase;letter-spacing:1px;font-weight:700;margin-bottom:4px;display:flex;align-items:center;justify-content:space-between;gap:5px}
+.simulator-pane .agent-mini-range{min-width:0}
+.simulator-pane .agent-mini-range .mini-label{font-size:7px;color:var(--dim);display:flex;justify-content:space-between;gap:4px;margin-bottom:2px}
+.simulator-pane .agent-mini-range .mini-val{font-weight:700;white-space:nowrap}
+.simulator-pane .agent-editor-toolbar{display:flex;gap:5px;flex-wrap:wrap;align-items:center}
+.simulator-pane .agent-summary-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(135px,1fr));gap:6px}
+.simulator-pane .agent-shortcut-grid{display:grid;grid-template-columns:1.2fr 1fr;gap:8px;align-items:stretch}
+@media(max-width:900px){
+.simulator-pane .agent-shortcut-grid{grid-template-columns:1fr}
+.simulator-pane .agent-settings-list{grid-template-columns:1fr}
+}
+.simulator-pane .tgl{padding:2px 6px;border-radius:4px;border:1px solid var(--b2);background:none;color:var(--dim);font-family:inherit;font-size:8px;cursor:pointer;transition:all .15s}
+.simulator-pane .tgl.on{border-color:rgba(0,212,255,.4);color:var(--cyan);background:rgba(0,212,255,.08)}
+.simulator-pane .tgl.rag-on{border-color:rgba(124,77,255,.4);color:var(--rag);background:rgba(124,77,255,.08)}
+.simulator-pane .tgl.reason-on{border-color:rgba(0,188,212,.4);color:var(--reason);background:rgba(0,188,212,.08)}
+.simulator-pane .tgl.guard-on{border-color:rgba(255,109,0,.4);color:var(--guard);background:rgba(255,109,0,.08)}
 /* ═══ THEME SYSTEM ═══ */
 .simulator-pane.theme-tactical{
   --ink:#04060c;--card:#0c1320;--card2:#08101a;--card3:#101828;
@@ -2202,13 +2194,12 @@ canvas#bg{position:fixed;inset:0;width:100%;height:100%;pointer-events:none;z-in
 .simulator-pane.theme-mission canvas#bg,.simulator-pane.theme-command canvas#bg{opacity:.12}
 .simulator-pane.theme-mission .chat-area,.simulator-pane.theme-command .chat-area{background:var(--card2)}
 .simulator-pane.theme-mission .msg-bubble,.simulator-pane.theme-command .msg-bubble{border:1px solid var(--b)!important}
-.theme-switcher{display:flex;gap:2px;align-items:center;background:var(--card2);border:1px solid var(--b2);border-radius:20px;padding:3px}
-.theme-btn{padding:3px 9px;border-radius:16px;border:none;font-family:inherit;font-size:8px;font-weight:700;cursor:pointer;letter-spacing:.8px;text-transform:uppercase;transition:all .2s;background:none;color:var(--dim)}
-.theme-btn.active{background:var(--cyan);color:#fff}
+.simulator-pane .theme-switcher{display:flex;gap:2px;align-items:center;background:var(--card2);border:1px solid var(--b2);border-radius:20px;padding:3px}
+.simulator-pane .theme-btn{padding:3px 9px;border-radius:16px;border:none;font-family:inherit;font-size:8px;font-weight:700;cursor:pointer;letter-spacing:.8px;text-transform:uppercase;transition:all .2s;background:none;color:var(--dim)}
+.simulator-pane .theme-btn.active{background:var(--cyan);color:#fff}
 .simulator-pane.theme-mission .theme-btn.active,.simulator-pane.theme-command .theme-btn.active{color:#fff}
-.conv-banner{padding:8px 14px;border-radius:8px;border:1px solid rgba(0,200,120,.4);background:rgba(0,200,120,.08);font-size:9px;display:none;align-items:center;gap:10px;flex-shrink:0}
-.conv-banner.show{display:flex}
-
+.simulator-pane .conv-banner{padding:8px 14px;border-radius:8px;border:1px solid rgba(0,200,120,.4);background:rgba(0,200,120,.08);font-size:9px;display:none;align-items:center;gap:10px;flex-shrink:0}
+.simulator-pane .conv-banner.show{display:flex}
 /* ── LIGHT THEME ELEMENT OVERRIDES ── */
 .simulator-pane.theme-mission,.simulator-pane.theme-command{
   color:var(--text-primary);
@@ -2235,8 +2226,7 @@ canvas#bg{position:fixed;inset:0;width:100%;height:100%;pointer-events:none;z-in
 .simulator-pane.theme-mission .report-row,.simulator-pane.theme-command .report-row{color:var(--text-primary);}
 .simulator-pane.theme-mission .report-h,.simulator-pane.theme-command .report-h{color:var(--cyan);}
 .simulator-pane.theme-mission .warn-banner,.simulator-pane.theme-command .warn-banner{background:rgba(180,0,0,.06);}
-.simulator-pane.theme-mission select,.simulator-pane.theme-command select,
-.simulator-pane.theme-mission input[type=number],.simulator-pane.theme-command input[type=number]{
+.simulator-pane.theme-mission select,.simulator-pane.theme-command select,.simulator-pane.theme-mission input[type=number],.simulator-pane.theme-command input[type=number]{
   background:#fff;border-color:var(--b2);color:var(--text-primary);
 }
 .simulator-pane.theme-mission .badge,.simulator-pane.theme-command .badge{
@@ -2250,14 +2240,12 @@ canvas#bg{position:fixed;inset:0;width:100%;height:100%;pointer-events:none;z-in
   background:var(--card3);border-color:var(--b2);
 }
 /* topbar subtitle */
-.simulator-pane.theme-mission .topbar > div > div:last-child,
-.simulator-pane.theme-command .topbar > div > div:last-child{color:var(--dim);}
+.simulator-pane.theme-mission .topbar > div > div:last-child,.simulator-pane.theme-command .topbar > div > div:last-child{color:var(--dim);}
 /* SR values inherit color from their parent span which has inline style - fine */
 /* chat area */
 .simulator-pane.theme-mission .chat-area,.simulator-pane.theme-command .chat-area{background:var(--card3);}
 /* scrollbars for light */
-.simulator-pane.theme-mission ::-webkit-scrollbar-thumb,
-.simulator-pane.theme-command ::-webkit-scrollbar-thumb{background:rgba(0,100,200,.2);}
+.simulator-pane.theme-mission ::-webkit-scrollbar-thumb,.simulator-pane.theme-command ::-webkit-scrollbar-thumb{background:rgba(0,100,200,.2);}
 /* token stack legend */
 .simulator-pane.theme-mission #tok-stack-legend span,.simulator-pane.theme-command #tok-stack-legend span{
   color:var(--text-primary)!important;
@@ -2269,13 +2257,12 @@ canvas#bg{position:fixed;inset:0;width:100%;height:100%;pointer-events:none;z-in
 /* What-if cards */
 .simulator-pane.theme-mission .mcard .mlabel,.simulator-pane.theme-command .mcard .mlabel{color:var(--dim);}
 
-  }
 
 </style>
 </head>
 <body>
 
-<div class="topbar">
+<div class="appbar">
   <h1>AI Cost Calculator</h1>
   <select id="example-loader" title="Load a preset workload">
     <option value="">Load preset…</option>
@@ -4297,23 +4284,13 @@ function updateTokenCards(){
   document.getElementById('tt-tools').textContent=Math.round(c.toolSchemaOH+c.toolResultOH).toLocaleString();
   const ragTokEl=document.getElementById('rag-tok-summary');if(ragTokEl)ragTokEl.textContent=Math.round(c.ragTokPerTurn).toLocaleString();
   const ragPctEl=document.getElementById('rag-pct');if(ragPctEl)ragPctEl.textContent=c.turnIn>0?Math.round(c.ragTokPerTurn/c.turnIn*100)+'%':'0%';
-  const ragCostEl=document.getElementById('rag-embed-cost');if(ragCostEl)ragCostEl.textContent='
-</html>
-+(c.ragEmbedCost||0).toFixed(5);
+  const ragCostEl=document.getElementById('rag-embed-cost');if(ragCostEl)ragCostEl.textContent='$'+(c.ragEmbedCost||0).toFixed(5);
   const rTokEl=document.getElementById('reason-tok-summary');if(rTokEl)rTokEl.textContent=Math.round(c.reasonTokPerTurn).toLocaleString();
-  const rCostEl=document.getElementById('reason-cost');if(rCostEl)rCostEl.textContent='
-</html>
-+(c.reasonCost||0).toFixed(5);
+  const rCostEl=document.getElementById('reason-cost');if(rCostEl)rCostEl.textContent='$'+(c.reasonCost||0).toFixed(5);
   const gTokEl=document.getElementById('guard-tok-summary');if(gTokEl)gTokEl.textContent=Math.round(c.guardTokPerTurn).toLocaleString();
-  const gCostEl=document.getElementById('guard-cost');if(gCostEl)gCostEl.textContent='
-</html>
-+(c.totalGuardCost||0).toFixed(5);
-  const gWasteEl=document.getElementById('guard-waste');if(gWasteEl)gWasteEl.textContent='
-</html>
-+(c.guardWaste||0).toFixed(5);
-  const tf=document.getElementById('tool-fee-cost');if(tf)tf.textContent='
-</html>
-+(c.toolFeeCost||0).toFixed(5);
+  const gCostEl=document.getElementById('guard-cost');if(gCostEl)gCostEl.textContent='$'+(c.totalGuardCost||0).toFixed(5);
+  const gWasteEl=document.getElementById('guard-waste');if(gWasteEl)gWasteEl.textContent='$'+(c.guardWaste||0).toFixed(5);
+  const tf=document.getElementById('tool-fee-cost');if(tf)tf.textContent='$'+(c.toolFeeCost||0).toFixed(5);
 }
 
 let charts={};
@@ -4338,19 +4315,9 @@ function buildCIChart(){
   const maxY=Math.max(...yVals);
   const p90v=p90(base),p99v=p99(base);
   const bgColors=xVals.map(x=>x<=base?'rgba(0,230,118,.4)':x<=p90v?'rgba(255,171,64,.4)':'rgba(255,82,82,.35)');
-  charts.ci=new Chart(ctx.getContext('2d'),{type:'bar',data:{labels:xVals.map(x=>'
-</html>
-+x.toFixed(4)),datasets:[{data:yVals,backgroundColor:bgColors,borderWidth:0,barPercentage:1,categoryPercentage:1}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{x:{display:false},y:{display:false}}}});
+  charts.ci=new Chart(ctx.getContext('2d'),{type:'bar',data:{labels:xVals.map(x=>'$'+x.toFixed(4)),datasets:[{data:yVals,backgroundColor:bgColors,borderWidth:0,barPercentage:1,categoryPercentage:1}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{x:{display:false},y:{display:false}}}});
   const stats=document.getElementById('ci-stats');
-  if(stats)stats.innerHTML=[['p50 (expected)','
-</html>
-+p50(base).toFixed(5),'var(--green)'],['p75','
-</html>
-+lnPct(base,.674).toFixed(5),'var(--teal)'],['p90 (budget risk)','
-</html>
-+p90v.toFixed(5),'var(--amber)'],['p99 (heuristic tail)','
-</html>
-+p99v.toFixed(5),'var(--red)'],['CV (variance)',( cv*100).toFixed(0)+'%','var(--dimmer)']].map(([l,v,c])=>`<span style="color:${c}">${l}: <b>${v}</b></span>`).join(' &nbsp;·&nbsp; ');
+  if(stats)stats.innerHTML=[['p50 (expected)','$'+p50(base).toFixed(5),'var(--green)'],['p75','$'+lnPct(base,.674).toFixed(5),'var(--teal)'],['p90 (budget risk)','$'+p90v.toFixed(5),'var(--amber)'],['p99 (heuristic tail)','$'+p99v.toFixed(5),'var(--red)'],['CV (variance)',( cv*100).toFixed(0)+'%','var(--dimmer)']].map(([l,v,c])=>`<span style="color:${c}">${l}: <b>${v}</b></span>`).join(' &nbsp;·&nbsp; ');
 }
 
 /* ═══════ COST PANEL ═══════ */
@@ -4417,74 +4384,24 @@ function updateCostPanel(){renderPerAgentCost();
     return `<div class="bar-row"><span class="bar-label">${l}</span><div class="bar-track"><div class="bar-fill" style="width:${Math.max(2,pct)}%;background:${c}cc"></div></div><span class="bar-num" style="color:${c}">${v>=0?'+':''}\${v.toFixed(5)}</span></div>`;
   }).join('');
   document.getElementById('cost-breakdown').innerHTML=[
-    ['Model API cost','
-</html>
-+(sc.baseCost||0).toFixed(5),'var(--dim)'],['RAG token share','
-</html>
-+(sc.ragCost||0).toFixed(5),'#7c4dff'],['RAG embedding','+
-</html>
-+(sc.ragEmbedCost||0).toFixed(5),'#7c4dff'],
-    ['Reasoning token share','
-</html>
-+(sc.reasonCost||0).toFixed(5),'#00bcd4'],['Guardrail cost','+
-</html>
-+(sc.totalGuardCost||0).toFixed(5),'#ff6d00'],['Tool token share','
-</html>
-+(sc.toolOHCost||0).toFixed(5),'#ce93d8'],
-    ['External tool fees','+
-</html>
-+(sc.toolFeeCost||0).toFixed(5),'#ab47bc'],['Retry waste','+
-</html>
-+(sc.retryWaste||0).toFixed(5),'#ff5252'],['Summarisation','+
-</html>
-+(sc.summarisationCost||0).toFixed(5),'#42a5f5'],
-    ['Burst penalty','+
-</html>
-+(sc.burstPenalty||0).toFixed(5),'#ffab40'],['Fixed monthly amort.','+
-</html>
-+(sc.fixedMonthly||0).toFixed(5),'#ffd54f'],['Cache read/write tokens',Math.round(sc.cacheReadTok).toLocaleString()+' read / '+Math.round(sc.cacheWriteTok).toLocaleString()+' write','#00e676'],
-    ['Cache savings vs list','
-</html>
-+(sc.cacheSave||0).toFixed(5),'#00e676'],['Batch savings vs list','
-</html>
-+(sc.batchSave||0).toFixed(5),'#c6ff00'],['NET per session','
-</html>
-+(sc.netCost||0).toFixed(5),'#00d4ff'],
-    ['Monthly p50','
-</html>
-+Math.round(sc.netCost*monthly).toLocaleString(),'#00e676'],['Monthly p90','
-</html>
-+Math.round(p90(sc.netCost*monthly)).toLocaleString(),'#ffab40'],['Monthly p99','
-</html>
-+Math.round(p99(sc.netCost*monthly)).toLocaleString(),'#ff5252'],
+    ['Model API cost','$'+(sc.baseCost||0).toFixed(5),'var(--dim)'],['RAG token share','$'+(sc.ragCost||0).toFixed(5),'#7c4dff'],['RAG embedding','+$'+(sc.ragEmbedCost||0).toFixed(5),'#7c4dff'],
+    ['Reasoning token share','$'+(sc.reasonCost||0).toFixed(5),'#00bcd4'],['Guardrail cost','+$'+(sc.totalGuardCost||0).toFixed(5),'#ff6d00'],['Tool token share','$'+(sc.toolOHCost||0).toFixed(5),'#ce93d8'],
+    ['External tool fees','+$'+(sc.toolFeeCost||0).toFixed(5),'#ab47bc'],['Retry waste','+$'+(sc.retryWaste||0).toFixed(5),'#ff5252'],['Summarisation','+$'+(sc.summarisationCost||0).toFixed(5),'#42a5f5'],
+    ['Burst penalty','+$'+(sc.burstPenalty||0).toFixed(5),'#ffab40'],['Fixed monthly amort.','+$'+(sc.fixedMonthly||0).toFixed(5),'#ffd54f'],['Cache read/write tokens',Math.round(sc.cacheReadTok).toLocaleString()+' read / '+Math.round(sc.cacheWriteTok).toLocaleString()+' write','#00e676'],
+    ['Cache savings vs list','$'+(sc.cacheSave||0).toFixed(5),'#00e676'],['Batch savings vs list','$'+(sc.batchSave||0).toFixed(5),'#c6ff00'],['NET per session','$'+(sc.netCost||0).toFixed(5),'#00d4ff'],
+    ['Monthly p50','$'+Math.round(sc.netCost*monthly).toLocaleString(),'#00e676'],['Monthly p90','$'+Math.round(p90(sc.netCost*monthly)).toLocaleString(),'#ffab40'],['Monthly p99','$'+Math.round(p99(sc.netCost*monthly)).toLocaleString(),'#ff5252'],
     ['── WORKFLOW EXTRAS ──','','var(--cyan)'],
-    ['Sequential chain','
-</html>
-+((sc.workflowExtra?.breakdown?.sequentialChainCost)||0).toFixed(5),'var(--cyan)'],
-    ['Document ingestion','
-</html>
-+((sc.workflowExtra?.breakdown?.documentIngestionCost)||0).toFixed(5),'#f48fb1'],
-    ['Partial rerun cost','
-</html>
-+((sc.workflowExtra?.breakdown?.partialRerunCost)||0).toFixed(5),'var(--amber)'],
-    ['Fact-check sidecar','
-</html>
-+((sc.workflowExtra?.breakdown?.factCheckSidecarCost)||0).toFixed(5),'var(--reason)'],
-    ['Template amortization','
-</html>
-+((sc.workflowExtra?.breakdown?.templateAmortDelta)||0).toFixed(5),'var(--green)'],
-    ['HITL pause storage','
-</html>
-+((sc.workflowExtra?.breakdown?.hitlPauseCost)||0).toFixed(7),'var(--gold)'],
+    ['Sequential chain','$'+((sc.workflowExtra?.breakdown?.sequentialChainCost)||0).toFixed(5),'var(--cyan)'],
+    ['Document ingestion','$'+((sc.workflowExtra?.breakdown?.documentIngestionCost)||0).toFixed(5),'#f48fb1'],
+    ['Partial rerun cost','$'+((sc.workflowExtra?.breakdown?.partialRerunCost)||0).toFixed(5),'var(--amber)'],
+    ['Fact-check sidecar','$'+((sc.workflowExtra?.breakdown?.factCheckSidecarCost)||0).toFixed(5),'var(--reason)'],
+    ['Template amortization','$'+((sc.workflowExtra?.breakdown?.templateAmortDelta)||0).toFixed(5),'var(--green)'],
+    ['HITL pause storage','$'+((sc.workflowExtra?.breakdown?.hitlPauseCost)||0).toFixed(7),'var(--gold)'],
     ['── DAG TOPOLOGY ──','','var(--purple)'],
     ['Concurrent usage',((sc.workflowExtra?.concurrency?.breakdown?.concurrentUsage)||0)+' / '+(parseInt(document.getElementById('s-concurrent-quota')?.value)||0)+' quota','var(--purple)'],
     ['Quota utilization',((sc.workflowExtra?.concurrency?.breakdown?.quotaUtilization)||0)+'%','var(--purple)'],
-    ['Rate limit overage','
-</html>
-+((sc.workflowExtra?.concurrency?.breakdown?.rateLimitOverageCost)||0).toFixed(5),'var(--red)'],
-    ['Quota exceeded penalty','
-</html>
-+((sc.workflowExtra?.concurrency?.breakdown?.quotaExceededCost)||0).toFixed(5),'var(--red)'],
+    ['Rate limit overage','$'+((sc.workflowExtra?.concurrency?.breakdown?.rateLimitOverageCost)||0).toFixed(5),'var(--red)'],
+    ['Quota exceeded penalty','$'+((sc.workflowExtra?.concurrency?.breakdown?.quotaExceededCost)||0).toFixed(5),'var(--red)'],
   ].map(([l,v,c])=>`<div style="display:flex;justify-content:space-between;padding:2px 0;border-bottom:1px solid var(--b)"><span style="color:var(--dim)">${l}</span><span style="color:${c};font-weight:700">${v}</span></div>`).join('');
   const budget=parseFloat(document.getElementById('budget-input').value)||999999;
   const projMo=sc.netCost*monthly;
@@ -4505,9 +4422,7 @@ function buildProjChart(){
     ds.push({label:l+' p50',data:p50d,borderColor:m.color,backgroundColor:m.color+'12',borderWidth:2,tension:.35,fill:false,pointRadius:3});
     ds.push({label:l+' p90',data:p90d,borderColor:m.color+'66',borderDash:[4,3],borderWidth:1,tension:.35,fill:false,pointRadius:0});
   });
-  charts.proj=new Chart(ctx.getContext('2d'),{type:'line',data:{labels,datasets:ds},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{x:{grid:{color:getChartColors().grid},ticks:{color:getChartColors().tick,font:{size:8}}},y:{grid:{color:getChartColors().grid},ticks:{color:getChartColors().tick,font:{size:8},callback:v=>'
-</html>
-+v.toLocaleString()}}},interaction:{mode:'index',intersect:false}}});
+  charts.proj=new Chart(ctx.getContext('2d'),{type:'line',data:{labels,datasets:ds},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{x:{grid:{color:getChartColors().grid},ticks:{color:getChartColors().tick,font:{size:8}}},y:{grid:{color:getChartColors().grid},ticks:{color:getChartColors().tick,font:{size:8},callback:v=>'$'+v.toLocaleString()}}},interaction:{mode:'index',intersect:false}}});
   const leg=document.getElementById('proj-legend');
   if(leg)leg.innerHTML=topM.map(([k,l])=>`<span style="color:${MODELS[k].color}">${l}: p50 solid · p90 dashed</span>`).join(' &nbsp;');
 }
@@ -4590,9 +4505,7 @@ function renderModelSelector(){
   const mb=document.getElementById('model-sel-badge');if(mb)mb.textContent=selectedModel;
   const mi=document.getElementById('model-info-bar');
   const sm=MODELS[selectedModel];
-  if(mi&&sm){const cached=sm.cacheRead!=null?('
-</html>
-+sm.cacheRead+'/1M cached input'):'no published cache read discount';mi.textContent=`${sm.label||selectedModel} (${sm.api_id||selectedModel}) · ctx:${(sm.ctx/1000).toFixed(0)}k · input:${sm.in}/1M · output:${sm.out}/1M · ${cached} · batch disc:${Math.round((sm.bd||0)*100)}%${sm.longThreshold?' · long tier >'+Math.round(sm.longThreshold/1000)+'k ctx':''} · verified:${MODEL_PRICE_VERIFIED}`;}
+  if(mi&&sm){const cached=sm.cacheRead!=null?('$'+sm.cacheRead+'/1M cached input'):'no published cache read discount';mi.textContent=`${sm.label||selectedModel} (${sm.api_id||selectedModel}) · ctx:${(sm.ctx/1000).toFixed(0)}k · input:${sm.in}/1M · output:${sm.out}/1M · ${cached} · batch disc:${Math.round((sm.bd||0)*100)}%${sm.longThreshold?' · long tier >'+Math.round(sm.longThreshold/1000)+'k ctx':''} · verified:${MODEL_PRICE_VERIFIED}`;}
 }
 function selectModel(k){selectedModel=k;renderModelSelector();onSlider();}
 
@@ -4737,9 +4650,7 @@ function runArchPipeline(turnData){
     ()=>{if(turnData.toolTok>0){activateNode('tools',turnData.toolTok);archAnim.activeEdges=['model-tools','tools-model'];fireParticle('model','tools','#ce93d8',turnData.toolTok+'t');setTimeout(()=>fireParticle('tools','model','#ab47bc',turnData.toolResultTok+'t'),300);document.getElementById('arch-active-node').textContent='Tool Calls';document.getElementById('arch-active-detail').textContent=cfg('s-tools')+' calls · schema:'+turnData.toolTok+'t · results:'+turnData.toolResultTok+'t';}},
     ()=>{if(turnData.guardOutTok>0){activateNode('guard_out',turnData.guardOutTok);archAnim.activeEdges=['model-guard_out','guard_out-output'];fireParticle('model','guard_out','#e65100',turnData.guardOutTok+'t');}else{archAnim.activeEdges=['model-ia_route'];fireParticle('model','ia_route','#4dd0e1','');}},
     ()=>{activateNode('ia_route',turnData.iaTok);archAnim.activeEdges=['ia_route-model'];fireParticle('model','ia_route','#4dd0e1',turnData.iaTok+'t');document.getElementById('arch-active-node').textContent='IA Router';document.getElementById('arch-active-detail').textContent='Agent handoff: '+turnData.iaTok+'t overhead';},
-    ()=>{activateNode('output',turnData.outTok);archAnim.activeEdges=['guard_out-output'];fireParticle('guard_out','output','#00e676',turnData.outTok+'t');document.getElementById('arch-active-node').textContent='Response Output';document.getElementById('arch-active-detail').textContent='Complete: net 
-</html>
-+turnData.cost.toFixed(5);document.getElementById('arch-stage').textContent='Complete';document.getElementById('arch-status').textContent='Done';archAnim.activeEdges=[];},
+    ()=>{activateNode('output',turnData.outTok);archAnim.activeEdges=['guard_out-output'];fireParticle('guard_out','output','#00e676',turnData.outTok+'t');document.getElementById('arch-active-node').textContent='Response Output';document.getElementById('arch-active-detail').textContent='Complete: net $'+turnData.cost.toFixed(5);document.getElementById('arch-stage').textContent='Complete';document.getElementById('arch-status').textContent='Done';archAnim.activeEdges=[];},
   ];
   let si=0;
   const next=()=>{if(si<stages.length){stages[si]();si++;setTimeout(next,400);}};
@@ -4810,9 +4721,7 @@ function agentCardHtml(a,scope){
         <div><div style="font-size:7px;color:var(--dim);margin-bottom:2px">Provider</div><select onchange="setAP(${a.id},'provider',this.value)" style="width:100%;font-size:8px">${providerSelect}</select></div>
         <div><div style="font-size:7px;color:var(--dim);margin-bottom:2px">Task bias</div>${taskBiasSelect(a)}</div>
       </div>
-      <div style="font-size:7px;color:var(--dimmer);margin-bottom:6px">${provider.note}${provider.fixed_mo>0?' - 
-</html>
-+provider.fixed_mo.toLocaleString()+'/mo fixed':''}</div>
+      <div style="font-size:7px;color:var(--dimmer);margin-bottom:6px">${provider.note}${provider.fixed_mo>0?' - $'+provider.fixed_mo.toLocaleString()+'/mo fixed':''}</div>
       <div class="agent-edit-grid">
         ${agentRangeCtl(a,scope,'turnsShare','Turn share x',0.2,3,0.1,'#00d4ff','float')}
         ${agentRangeCtl(a,scope,'cache_rate','Cache hit rate',0,95,5,'#00e676')}
@@ -4841,9 +4750,7 @@ function renderAgentSettingsSummary(){
   const text=`${n} agents - ${modelCount} models - RAG ${rag}/${n}, tools ${tools}/${n}, reasoning ${think}/${n}, guard ${guard}/${n}. Fleet p50: ${(sc.netCost||0).toFixed(5)}/session.`;
   const summary=document.getElementById('agent-editor-summary');if(summary)summary.textContent=text;
   const mini=document.getElementById('agent-config-mini-summary');
-  if(mini)mini.innerHTML=[['Agents',n,'var(--cyan)'],['Models',modelCount,'var(--purple)'],['p50 / session','
-</html>
-+(sc.netCost||0).toFixed(5),'var(--green)'],['RAG agents',rag+'/'+n,'var(--rag)'],['Thinking agents',think+'/'+n,'var(--reason)'],['Guard agents',guard+'/'+n,'var(--guard)']].map(([l,v,c])=>`<div class="mcard"><div class="mlabel">${l}</div><div class="mval" style="font-size:13px;color:${c}">${v}</div></div>`).join('');
+  if(mini)mini.innerHTML=[['Agents',n,'var(--cyan)'],['Models',modelCount,'var(--purple)'],['p50 / session','$'+(sc.netCost||0).toFixed(5),'var(--green)'],['RAG agents',rag+'/'+n,'var(--rag)'],['Thinking agents',think+'/'+n,'var(--reason)'],['Guard agents',guard+'/'+n,'var(--guard)']].map(([l,v,c])=>`<div class="mcard"><div class="mlabel">${l}</div><div class="mval" style="font-size:13px;color:${c}">${v}</div></div>`).join('');
   const mb=document.getElementById('agent-config-mini-badge');if(mb)mb.textContent=n+' agents';
   const eb=document.getElementById('agent-editor-badge');if(eb)eb.textContent=n+' agents';
   const sb=document.getElementById('agent-count-badge');if(sb)sb.textContent=n;
@@ -4968,19 +4875,11 @@ function updateKPIs(){
   const tot=sim.totalIn+sim.totalOut;
   document.getElementById('kpi-tokens').textContent=tot.toLocaleString();
   document.getElementById('kpi-tr').textContent='p90:'+Math.round(p90(tot)).toLocaleString();
-  document.getElementById('kpi-cost').textContent='
-</html>
-+sim.totalCost.toFixed(4);
-  document.getElementById('kpi-cr').textContent='p90:
-</html>
-+p90(sim.totalCost).toFixed(4);
+  document.getElementById('kpi-cost').textContent='$'+sim.totalCost.toFixed(4);
+  document.getElementById('kpi-cr').textContent='p90:$'+p90(sim.totalCost).toFixed(4);
   const monthly=sim.totalCost*(cfg('s-sessions')*30/Math.max(sim.apiCalls,1));
-  document.getElementById('kpi-monthly').textContent='
-</html>
-+Math.round(monthly).toLocaleString();
-  document.getElementById('kpi-mr').textContent='p90:
-</html>
-+Math.round(p90(monthly)).toLocaleString();
+  document.getElementById('kpi-monthly').textContent='$'+Math.round(monthly).toLocaleString();
+  document.getElementById('kpi-mr').textContent='p90:$'+Math.round(p90(monthly)).toLocaleString();
   document.getElementById('kpi-rag').textContent=sim.ragTok.toLocaleString();
   document.getElementById('kpi-reason').textContent=sim.reasonTok.toLocaleString();
   document.getElementById('kpi-guard').textContent=sim.guardTok.toLocaleString();
@@ -5007,9 +4906,7 @@ function onSlider(){
   sv('images',v=>v);sv('audio',v=>v+'s');sv('pdf',v=>v);sv('codeinterp',v=>v);
   sv('fewshot',v=>v);sv('jsonschema',v=>v);sv('citations',v=>v);sv('memory',v=>v);
   sv('websearch-calls',v=>v);sv('filesearch-calls',v=>v);sv('container-sessions',v=>v);
-  const gmp=[0,0.20,0.25,0.75,1.00,3.00];const el=document.getElementById('v-guard-model-cost');if(el)el.textContent='
-</html>
-+gmp[cfg('s-guard-model')];
+  const gmp=[0,0.20,0.25,0.75,1.00,3.00];const el=document.getElementById('v-guard-model-cost');if(el)el.textContent='$'+gmp[cfg('s-guard-model')];
   renderLedger();updateCostPanel();updateKPIs();updateSensitivity();
   if(sim.agents.length!==cfg('s-agents')){buildAgents();buildUsers();renderAgents();}
   else{renderAgentSettingsSummary();}
@@ -5026,17 +4923,13 @@ function onSlider(){
   if(document.getElementById('s-fc-in')) document.getElementById('v-fc-in').textContent = cfg('s-fc-in');
   if(document.getElementById('s-fc-price')){
     const fcPrices=[0,0.20,0.80,1.50,3.00,5.00];
-    document.getElementById('v-fc-price').textContent = '
-</html>
-+fcPrices[cfg('s-fc-price')]?.toFixed(2);
+    document.getElementById('v-fc-price').textContent = '$'+fcPrices[cfg('s-fc-price')]?.toFixed(2);
   }
   if(document.getElementById('s-pause-hrs')) document.getElementById('v-pause-hrs').textContent = cfg('s-pause-hrs')+'h';
   if(document.getElementById('s-pauses')) document.getElementById('v-pauses').textContent = cfg('s-pauses');
   if(document.getElementById('s-storage-rate')){
     const storageRates=[0,0.00005,0.0001,0.0005,0.001,0.005,0.01,0.02,0.03,0.04,0.05];
-    document.getElementById('v-storage-rate').textContent = '
-</html>
-+(storageRates[cfg('s-storage-rate')]||0).toFixed(5);
+    document.getElementById('v-storage-rate').textContent = '$'+(storageRates[cfg('s-storage-rate')]||0).toFixed(5);
   }
   if(document.getElementById('s-parallel-branches')) document.getElementById('v-parallel-branches').textContent = cfg('s-parallel-branches');
   if(document.getElementById('s-concurrent-quota')) document.getElementById('v-concurrent-quota').textContent = cfg('s-concurrent-quota');
@@ -5062,37 +4955,7 @@ function openReport(){
     <div style="font-size:15px;font-weight:700;color:var(--cyan);letter-spacing:3px;margin-bottom:3px">AXIOM v9.4 - Token Intelligence Report</div>
     <div style="font-size:8px;color:var(--dim);margin-bottom:14px">${new Date().toUTCString()} · Model: ${selectedModel}</div>
     <div class="report-h">Token Cost Summary (p50 / p90 / p99)</div>
-    ${[['Net cost / session','
-</html>
-+(sc.netCost||0).toFixed(5)+' / 
-</html>
-+p90(sc.netCost).toFixed(5)+' / 
-</html>
-+p99(sc.netCost).toFixed(5),'var(--green)'],['Monthly (sessions/day='+sess+')','
-</html>
-+Math.round(monthly).toLocaleString()+' / 
-</html>
-+Math.round(p90(monthly)).toLocaleString()+' / 
-</html>
-+Math.round(p99(monthly)).toLocaleString(),'var(--amber)'],['RAG token share','
-</html>
-+(sc.ragCost||0).toFixed(5)+'  ('+Math.round(sc.ragTokPerTurn)+' tok/turn)','var(--rag)'],['RAG embedding cost','+
-</html>
-+(sc.ragEmbedCost||0).toFixed(5),'var(--rag)'],['Reasoning token share','
-</html>
-+(sc.reasonCost||0).toFixed(5)+'  ('+Math.round(sc.reasonTokPerTurn)+' tok/turn)','var(--reason)'],['Guardrail cost','+
-</html>
-+(sc.totalGuardCost||0).toFixed(5)+'  waste:
-</html>
-+(sc.guardWaste||0).toFixed(5),'var(--guard)'],['Tool token share','
-</html>
-+(sc.toolOHCost||0).toFixed(5),'var(--purple)'],['External tool fees','+
-</html>
-+(sc.toolFeeCost||0).toFixed(5),'var(--purple)'],['Cache savings vs list','
-</html>
-+(sc.cacheSave||0).toFixed(5),'var(--green)'],['Retry waste/sess','+
-</html>
-+(sc.retryWaste||0).toFixed(5),'var(--red)']].map(([l,v,c])=>`<div class="report-row"><span>${l}</span><span style="color:${c};font-weight:700">${v}</span></div>`).join('')}
+    ${[['Net cost / session','$'+(sc.netCost||0).toFixed(5)+' / $'+p90(sc.netCost).toFixed(5)+' / $'+p99(sc.netCost).toFixed(5),'var(--green)'],['Monthly (sessions/day='+sess+')','$'+Math.round(monthly).toLocaleString()+' / $'+Math.round(p90(monthly)).toLocaleString()+' / $'+Math.round(p99(monthly)).toLocaleString(),'var(--amber)'],['RAG token share','$'+(sc.ragCost||0).toFixed(5)+'  ('+Math.round(sc.ragTokPerTurn)+' tok/turn)','var(--rag)'],['RAG embedding cost','+$'+(sc.ragEmbedCost||0).toFixed(5),'var(--rag)'],['Reasoning token share','$'+(sc.reasonCost||0).toFixed(5)+'  ('+Math.round(sc.reasonTokPerTurn)+' tok/turn)','var(--reason)'],['Guardrail cost','+$'+(sc.totalGuardCost||0).toFixed(5)+'  waste:$'+(sc.guardWaste||0).toFixed(5),'var(--guard)'],['Tool token share','$'+(sc.toolOHCost||0).toFixed(5),'var(--purple)'],['External tool fees','+$'+(sc.toolFeeCost||0).toFixed(5),'var(--purple)'],['Cache savings vs list','$'+(sc.cacheSave||0).toFixed(5),'var(--green)'],['Retry waste/sess','+$'+(sc.retryWaste||0).toFixed(5),'var(--red)']].map(([l,v,c])=>`<div class="report-row"><span>${l}</span><span style="color:${c};font-weight:700">${v}</span></div>`).join('')}
     <div class="report-h" style="margin-top:12px">All Model Comparison</div>
     ${MK.map(k=>{const c=computeCost(k);const m=MODELS[k];const mo=Math.round(c.netCost*monthly/sc.netCost);return `<div class="report-row"><span style="color:${m.color}">${k}</span><span>p50:${(c.netCost||0).toFixed(5)} p90:${p90(c.netCost).toFixed(5)} · mo-p50:${Math.round(c.netCost*sess*30).toLocaleString()} mo-p99:${Math.round(p99(c.netCost*sess*30)).toLocaleString()} · lat:${m.lat}ms</span></div>`;}).join('')}
     <div class="report-h" style="margin-top:12px">Methodology</div>
@@ -5155,18 +5018,10 @@ function showConvergence(){
   parts.push('<div>');
   parts.push('<div style="font-weight:700;color:var(--green)">Simulation converged — cost estimate stable within &plusmn;2%</div>');
   parts.push('<div style="font-size:8px;margin-top:2px">');
-  parts.push('p50: <b style="color:var(--green)">
-</html>
- + (sc.netCost||0).toFixed(5) + '</b>');
-  parts.push(' &nbsp;&middot;&nbsp; p90: <b style="color:var(--amber)">
-</html>
- + p90(sc.netCost).toFixed(5) + '</b>');
-  parts.push(' &nbsp;&middot;&nbsp; p99: <b style="color:var(--red)">
-</html>
- + p99(sc.netCost).toFixed(5) + '</b>');
-  parts.push(' &nbsp;&middot;&nbsp; Monthly: <b style="color:var(--cyan)">
-</html>
- + Math.round(sc.netCost*sess*30).toLocaleString() + '</b>');
+  parts.push('p50: <b style="color:var(--green)">$' + (sc.netCost||0).toFixed(5) + '</b>');
+  parts.push(' &nbsp;&middot;&nbsp; p90: <b style="color:var(--amber)">$' + p90(sc.netCost).toFixed(5) + '</b>');
+  parts.push(' &nbsp;&middot;&nbsp; p99: <b style="color:var(--red)">$' + p99(sc.netCost).toFixed(5) + '</b>');
+  parts.push(' &nbsp;&middot;&nbsp; Monthly: <b style="color:var(--cyan)">$' + Math.round(sc.netCost*sess*30).toLocaleString() + '</b>');
   parts.push('</div></div>');
   parts.push('<button id="conv-close" style="margin-left:auto;background:none;border:none;color:var(--dim);cursor:pointer;font-size:16px;padding:0 4px">&#215;</button>');
   b.innerHTML = parts.join('');
@@ -5230,14 +5085,10 @@ function updateRoutingDisplay(){
   const baseline=computeCost('claude-sonnet-4.6').netCost;
   const savings=((baseline-blended)/baseline*100);
   const sess=cfg('s-sessions');
-  const rc=document.getElementById('routed-cost');if(rc)rc.textContent='
-</html>
-+blended.toFixed(5);
+  const rc=document.getElementById('routed-cost');if(rc)rc.textContent='$'+blended.toFixed(5);
   const rs=document.getElementById('routed-savings');
   if(rs){rs.textContent=(savings>0?'-':'+')+Math.abs(savings).toFixed(1)+'%';rs.style.color=savings>0?'var(--green)':'var(--red)';}
-  const rm=document.getElementById('routed-monthly');if(rm)rm.textContent='
-</html>
-+Math.round(blended*sess*30).toLocaleString();
+  const rm=document.getElementById('routed-monthly');if(rm)rm.textContent='$'+Math.round(blended*sess*30).toLocaleString();
   buildRoutingChart(blended,baseline);
 }
 function buildRoutingChart(routed,single){
@@ -5250,9 +5101,7 @@ function buildRoutingChart(routed,single){
       datasets:[{label:'Cost/sess',data:[single,routed],backgroundColor:['rgba(0,212,255,.5)','rgba(0,230,118,.5)'],borderColor:['rgba(0,212,255,.9)','rgba(0,230,118,.9)'],borderWidth:1}]},
     options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},
       scales:{x:{grid:{color:getChartColors().grid},ticks:{color:getChartColors().tick,font:{size:9}}},
-        y:{grid:{color:getChartColors().grid},ticks:{color:getChartColors().tick,font:{size:8},callback:v=>'
-</html>
-+v.toFixed(4)}}}}
+        y:{grid:{color:getChartColors().grid},ticks:{color:getChartColors().tick,font:{size:8},callback:v=>'$'+v.toFixed(4)}}}}
   });
 }
 
@@ -5612,68 +5461,56 @@ setTimeout(()=>{onSlider();renderRoutingSliders();},100);
     }
     addButton();
   }
-  function addButton() {
-    if (document.getElementById('send-to-calc-btn')) return;
-    const btn = document.createElement('button');
-    btn.id = 'send-to-calc-btn';
-    btn.textContent = '→ Send agents to Cost Calculator';
-    btn.style.cssText = [
-      'position:fixed', 'top:10px', 'right:10px', 'z-index:99999',
-      'padding:9px 16px', 'background:#00d4ff', 'color:#04060c',
-      'border:none', 'border-radius:6px',
-      'font-family:JetBrains Mono,Consolas,monospace',
-      'font-weight:700', 'font-size:11px', 'letter-spacing:0.04em',
-      'cursor:pointer', 'box-shadow:0 4px 12px rgba(0,212,255,.4)',
-      'transition:transform .15s,box-shadow .15s',
-    ].join(';');
-    btn.onmouseover = () => { btn.style.transform = 'translateY(-1px)'; btn.style.boxShadow = '0 6px 18px rgba(0,212,255,.55)'; };
-    btn.onmouseout  = () => { btn.style.transform = ''; btn.style.boxShadow = '0 4px 12px rgba(0,212,255,.4)'; };
-    btn.onclick = function() {
-      try {
-        const c = computeCost();
-        const breakdown = (c && c.agentBreakdown) || [];
-        if (breakdown.length === 0) {
-          btn.textContent = '! No agents to send';
-          setTimeout(resetText, 2500);
-          return;
-        }
-        const agents = breakdown.map((a, idx) => ({
-          id: (a.name || ('agent-' + (idx + 1)))
-                  .toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, ''),
-          label: a.name + (a.role ? ' (' + a.role + ')' : ''),
-          model: a.model,
-          input_tokens:    Math.max(1, Math.round((a.totalIn  || 0) / Math.max(1, a.turns || 1))),
-          output_tokens:   Math.max(1, Math.round((a.totalOut || 0) / Math.max(1, a.turns || 1))),
-          calls_per_query: Math.max(1, Math.round(a.turns || 1)),
-          cache_eligible:  ((a.cacheReadTok || 0) + (a.cacheWriteTok || 0)) > 0,
-          hosting: 'api',
-          description: 'Imported from AXIOM simulator' + (a.role ? ' · ' + a.role : ''),
-        }));
-        const payload = {
-          type: 'axiom-export',
-          source: 'AXIOM v9.6 simulator',
-          timestamp: new Date().toISOString(),
-          agents,
-          summary: { agentCount: agents.length, modelsTouched: c.modelsTouched || [] },
-        };
-        if (typeof window.__importFromSimulator === 'function') {
-        window.__importFromSimulator(payload);
-        btn.textContent = '✓ Sent ' + agents.length + ' agents → switch to Components tab';
-        setTimeout(resetText, 3000);
-      } else {
-        console.log('[axiom→calc] payload (standalone):', payload);
-        alert('Cost calculator not detected. (Payload logged to console.)');
-      }
-      } catch (e) {
-        console.error('[axiom→calc] export failed:', e);
-        btn.textContent = '✗ ' + (e.message || 'export failed').slice(0, 40);
-        setTimeout(resetText, 3500);
-      }
+  function buildPayload() {
+    const c = computeCost();
+    const breakdown = (c && c.agentBreakdown) || [];
+    if (breakdown.length === 0) return null;
+    const agents = breakdown.map((a, idx) => ({
+      id: (a.name || ('agent-' + (idx + 1)))
+              .toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, ''),
+      label: a.name + (a.role ? ' (' + a.role + ')' : ''),
+      model: a.model,
+      input_tokens:    Math.max(1, Math.round((a.totalIn  || 0) / Math.max(1, a.turns || 1))),
+      output_tokens:   Math.max(1, Math.round((a.totalOut || 0) / Math.max(1, a.turns || 1))),
+      calls_per_query: Math.max(1, Math.round(a.turns || 1)),
+      cache_eligible:  ((a.cacheReadTok || 0) + (a.cacheWriteTok || 0)) > 0,
+      hosting: 'api',
+      description: 'Imported from AXIOM simulator' + (a.role ? ' · ' + a.role : ''),
+    }));
+    return {
+      type: 'axiom-export',
+      source: 'AXIOM v9.6 simulator',
+      agents,
+      summary: { agentCount: agents.length, modelsTouched: c.modelsTouched || [] },
     };
-    function resetText() { btn.textContent = '→ Send agents to Cost Calculator'; }
-    document.body.appendChild(btn);
   }
-  ready();
+
+  // Auto-sync: AXIOM is the source of truth for agent topology + token
+  // math. Every onSlider() pulse rebuilds the payload and pushes to
+  // workload.agents via the silent import path. No button, no toast,
+  // no tab-switch — just live propagation. Calc's renderPreview is
+  // rAF-coalesced on the receiving side.
+  function autoSync() {
+    if (typeof window.__importFromSimulator !== 'function') return;
+    const payload = buildPayload();
+    if (!payload) return;
+    payload.silent = true;
+    window.__importFromSimulator(payload);
+  }
+
+  // Wrap AXIOM's global onSlider so every slider/agent change auto-syncs.
+  function installAutoSync() {
+    if (typeof window.onSlider !== 'function') return setTimeout(installAutoSync, 200);
+    const origOnSlider = window.onSlider;
+    window.onSlider = function() {
+      const r = origOnSlider.apply(this, arguments);
+      try { autoSync(); } catch (e) { console.warn('[autosync] failed:', e); }
+      return r;
+    };
+    // Also sync once on first install (covers initial agent build).
+    autoSync();
+  }
+  installAutoSync();
 })();
   </script>
 
