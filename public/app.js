@@ -914,6 +914,11 @@
     // Build hover formulas for every key number so users can see the derivation inline
     const totalEl = document.getElementById('prev-total');
     totalEl.textContent = fmt$(tcoValue);
+    // Live-update the topbar cost badge — visible across all tabs.
+    const cbNum = document.getElementById('cb-num');
+    const cbSuffix = document.getElementById('cb-suffix');
+    if (cbNum) cbNum.textContent = fmt$(tcoValue);
+    if (cbSuffix) cbSuffix.textContent = tcoPeriod === 'annual' ? '/yr' : (tcoPeriod === '3yr' ? '/3yr' : '/mo');
     const llmLabel = opts.hosting === 'self' ? 'Self-host' : (opts.hosting === 'hybrid' ? 'Hybrid' : 'API LLM');
     totalEl.title =
       `${tcoLabel} = headline monthly × ${tcoPeriod === 'annual' ? '12' : tcoPeriod === '3yr' ? '36' : '1'}\n` +
@@ -3417,32 +3422,39 @@
     try { localStorage.setItem(TAB_STORAGE_KEY, name); } catch (_) {}
   }
 
+  // Tabs that exist after the layout redesign. Used to validate
+  // the localStorage-restored tab so an old 'estimator' value
+  // doesn't strand the user on a dead pane.
+  const VALID_TABS = ['build', 'components', 'simulator', 'prices', 'benchmarks', 'report'];
+
   function setupTabs() {
-    // Move the wizard from Section 2 into the Estimator tab panel
+    // The Token Estimator tab is gone (replaced by the AXIOM Simulator).
+    // Hide the legacy wizard if it's still in the DOM and route the
+    // old CTA to the Simulator tab instead.
     const wizard = document.getElementById('token-wizard');
-    const host = document.getElementById('wizard-host');
-    if (wizard && host) {
-      wizard.style.display = 'block'; // always visible inside its own tab
-      host.appendChild(wizard);
-    }
-    // Hide the now-orphaned CTA inside Section 2 — replace it with a tab pointer.
+    if (wizard) wizard.style.display = 'none';
     const cta = document.getElementById('wizard-toggle');
     if (cta) {
-      cta.innerHTML = '<strong>→ Open the Token Estimator tab</strong> <span style="color: var(--muted); font-weight: 400; font-size: 12px;">5 plain-English questions, no engineering required</span>';
-      cta.addEventListener('click', () => switchTab('estimator'));
+      cta.innerHTML = '<strong>→ Open the Simulator tab</strong> <span style="color: var(--muted); font-weight: 400; font-size: 12px;">configure agent topology + simulate per-agent token usage</span>';
+      cta.addEventListener('click', () => switchTab('simulator'));
     }
 
     document.querySelectorAll('.tab-btn').forEach(btn => {
       btn.addEventListener('click', () => switchTab(btn.dataset.tab));
     });
 
-    // Restore last-used tab (default = build)
+    // Restore last-used tab — fall back to 'build' if saved value is
+    // a tab that no longer exists.
     const saved = (() => { try { return localStorage.getItem(TAB_STORAGE_KEY); } catch (_) { return null; } })();
-    switchTab(saved || 'build');
+    switchTab(VALID_TABS.includes(saved) ? saved : 'build');
   }
 
   // Expose tab-switch for chat-builder hint button
   window.__ccsSwitchTab = switchTab;
+
+  // Topbar cost badge — click to jump to Report tab.
+  const costBadge = document.getElementById('cost-badge');
+  if (costBadge) costBadge.addEventListener('click', () => switchTab('report'));
 
   // ---------------------------------------------------------------------
   // AXIOM Simulator integration — receive postMessage from the embedded
@@ -3909,7 +3921,7 @@ Rules:
         `<div class="sug-title">Suggestions to refine</div>${sugHtml}` +
         `<div style="margin-top:8px; display:flex; gap:6px; flex-wrap:wrap;">
            <button class="hint-link" data-jump="components">Open Components ↗</button>
-           <button class="hint-link" data-jump="estimator">Tweak token sizing ↗</button>
+           <button class="hint-link" data-jump="simulator">Tweak token sizing in Simulator ↗</button>
          </div>`;
       suggestionsEl.querySelectorAll('[data-jump]').forEach(btn => {
         btn.addEventListener('click', () => {
