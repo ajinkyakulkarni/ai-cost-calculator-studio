@@ -3444,6 +3444,42 @@
   // Expose tab-switch for chat-builder hint button
   window.__ccsSwitchTab = switchTab;
 
+  // ---------------------------------------------------------------------
+  // AXIOM Simulator integration — receive postMessage from the embedded
+  // simulator iframe ({type: 'axiom-export', agents: [...]}) and pipe
+  // it into workload.agents, then re-render and switch the user back to
+  // the Components tab so they can see the imported agents.
+  // ---------------------------------------------------------------------
+  window.addEventListener('message', (e) => {
+    const msg = e.data;
+    if (!msg || msg.type !== 'axiom-export' || !Array.isArray(msg.agents)) return;
+    // Replace agents wholesale — the simulator owns the topology.
+    workload.agents = msg.agents.map(a => ({
+      id: a.id || ('agent-' + Math.random().toString(36).slice(2, 8)),
+      label: a.label || a.id || 'Agent',
+      input_tokens: a.input_tokens || 0,
+      output_tokens: a.output_tokens || 0,
+      calls_per_query: a.calls_per_query || 1,
+      model: a.model || null,
+      cache_eligible: !!a.cache_eligible,
+      hosting: a.hosting || 'api',
+      description: a.description || '',
+    }));
+    if (typeof renderEditor === 'function')   renderEditor();
+    if (typeof renderPreview === 'function')  renderPreview();
+    if (typeof renderArchDiagram === 'function') renderArchDiagram();
+    if (typeof renderArchSummary === 'function') renderArchSummary();
+    if (typeof window.__ccsRefreshComponents === 'function') window.__ccsRefreshComponents();
+    switchTab('components');
+    // Brief toast feedback if available.
+    const toast = document.getElementById('toast');
+    if (toast) {
+      toast.textContent = `Imported ${workload.agents.length} agents from AXIOM simulator`;
+      toast.style.opacity = '1';
+      setTimeout(() => { toast.style.opacity = '0'; }, 3000);
+    }
+  });
+
   // -----------------------------------------------------------------
   // Chat-driven system builder
   //

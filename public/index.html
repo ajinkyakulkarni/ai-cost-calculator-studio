@@ -1983,6 +1983,7 @@
       <button class="tab-btn active" data-tab="build"><span class="tab-icon">🛠️</span>Build</button>
       <button class="tab-btn" data-tab="components"><span class="tab-icon">🔧</span>Components</button>
       <button class="tab-btn" data-tab="estimator"><span class="tab-icon">🪙</span>Token Estimator</button>
+      <button class="tab-btn" data-tab="simulator"><span class="tab-icon">🧪</span>Simulator</button>
       <button class="tab-btn" data-tab="prices"><span class="tab-icon">💲</span>Prices</button>
       <button class="tab-btn" data-tab="benchmarks"><span class="tab-icon">📊</span>Benchmarks</button>
     </div>
@@ -2668,6 +2669,21 @@
       </div>
       <div id="wizard-host"></div>
     </div><!-- /.tab-panel estimator -->
+
+    <!-- TAB: SIMULATOR — AXIOM v9.6 multi-agent token simulator -->
+    <div class="tab-panel simulator-panel" data-tab-panel="simulator" style="padding:0;">
+      <div class="simulator-header" style="padding: 14px 18px; border-bottom: 1px solid var(--rule); background: var(--paper);">
+        <h2 style="margin:0 0 4px 0;">🧪 Multi-Agent Token Simulator <span class="pill" style="margin-left:8px;font-size:10px;background:#04060c;color:#00d4ff;border:1px solid rgba(0,212,255,0.3);">AXIOM v9.6</span></h2>
+        <p style="margin:0;color:var(--muted);font-size:12px;">Configure a heterogeneous multi-agent topology, simulate per-agent token usage with caching/reasoning/RAG/guardrails, then click <strong>"Send agents to Cost Calculator"</strong> (top-right inside the simulator) to push the per-agent breakdown into your workload's <strong>Components → Section 3 (Agents)</strong>.</p>
+      </div>
+      <iframe
+        id="simulator-frame"
+        src="simulator/"
+        style="width:100%; height: calc(100vh - 200px); min-height: 600px; border: 0; display: block; background: #04060c;"
+        loading="lazy"
+        title="AXIOM Multi-Agent Token Simulator">
+      </iframe>
+    </div><!-- /.tab-panel simulator -->
 
     <!-- TAB: BENCHMARKS — published cost studies, your calc compared to citations -->
     <div class="tab-panel benchmarks-panel" data-tab-panel="benchmarks">
