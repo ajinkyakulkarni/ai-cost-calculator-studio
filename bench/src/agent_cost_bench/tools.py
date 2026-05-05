@@ -88,6 +88,93 @@ TOOL_SCHEMAS: list[dict[str, Any]] = [
             },
         },
     },
+    # ---- EIE-shape tools — used by the data-discovery scenario.
+    # These mirror the canonical 6-tool flow used in production
+    # domain-data-discovery agents (parse_datetime → geocode →
+    # search_collections → select_collection → search_items →
+    # compute_stats). Tool-state pattern: large payloads (geometry,
+    # item lists) stay out of the LLM context — only summaries and
+    # IDs are returned to the model. This is the optimization a
+    # naïve cost simulator misses.
+    {
+        "type": "function",
+        "function": {
+            "name": "parse_datetime",
+            "description": "Validate an ISO-8601 datetime range. Returns pending_confirmation for user to verify.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "value": {"type": "string", "description": "ISO-8601 range YYYY-MM-DD/YYYY-MM-DD"},
+                },
+                "required": ["value"],
+            },
+        },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "geocode",
+            "description": "Resolve a place name to a bbox + small bounding-polygon geometry. Returns pending_confirmation for user to verify location.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "query": {"type": "string", "description": "Place name, e.g. 'Houston TX' or 'California'"},
+                },
+                "required": ["query"],
+            },
+        },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "search_collections",
+            "description": "Semantic search over a domain catalog. Returns top-K candidate collections with cosine_similarity, spatial/temporal overlap, available variables. Returns pending_confirmation when multiple match.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "query": {"type": "string", "description": "Topic, e.g. 'NO2 air quality'"},
+                    "top_k": {"type": "integer", "default": 5},
+                },
+                "required": ["query"],
+            },
+        },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "select_collection",
+            "description": "Record the user's collection (and optional variable) selection.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "collection_id": {"type": "string"},
+                    "variable": {"type": "string"},
+                },
+                "required": ["collection_id"],
+            },
+        },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "search_items",
+            "description": "Search an item catalog (e.g. STAC) for a previously selected collection over the bbox + datetime. Returns up to 15 items with id, datetime, asset URL.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "limit": {"type": "integer", "default": 15},
+                },
+            },
+        },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "compute_stats",
+            "description": "Compute zonal/raster statistics for the items selected. Returns per-item per-band mean/min/max plus valid_percent.",
+            "parameters": {"type": "object", "properties": {}},
+        },
+    },
 ]
 
 
@@ -198,6 +285,161 @@ def query_db(sql: str) -> dict:
     }
 
 
+# --- EIE-shape tools (data-discovery scenario) -------------------
+
+# Module-level shared "tool state" — mirrors the EIE pattern where
+# large payloads (geometry, item lists, collection metadata) are
+# kept out of LLM context and only summaries are returned. The LLM
+# never sees the raw geometry; just the bbox + name.
+_eie_state: dict[str, Any] = {
+    "datetime_range": None,
+    "place": None,
+    "bbox": None,
+    "selected_collection": None,
+    "selected_variable": None,
+    "items": None,
+}
+
+
+def parse_datetime(value: str) -> dict:
+    """Validate an ISO-8601 range; return pending_confirmation for user."""
+    parts = value.split("/")
+    if len(parts) != 2:
+        return {"status": "error", "error": f"Invalid format '{value}', expected YYYY-MM-DD/YYYY-MM-DD"}
+    _eie_state["datetime_range"] = value
+    return {
+        "status": "pending_confirmation",
+        "datetime": value,
+        "message": f"Date range set to {value}. Please confirm this is correct.",
+    }
+
+
+def geocode(query: str) -> dict:
+    """Resolve place name → bbox + small polygon. The LLM only sees the
+    bbox polygon (~100 tokens), never the full geometry."""
+    rng = random.Random(hash(query) & 0xFFFFFFFF)
+    # Realistic-ish bbox for a city/region
+    w = round(rng.uniform(-125, -70), 4)
+    s = round(rng.uniform(25, 48), 4)
+    e = round(w + rng.uniform(0.1, 2.0), 4)
+    n = round(s + rng.uniform(0.1, 2.0), 4)
+    bbox = [w, s, e, n]
+    bbox_poly = {
+        "type": "Polygon",
+        "coordinates": [[[w, s], [e, s], [e, n], [w, n], [w, s]]],
+    }
+    _eie_state["place"] = query
+    _eie_state["bbox"] = bbox
+    return {
+        "status": "pending_confirmation",
+        "place": query,
+        "bbox": bbox,
+        "geometry": bbox_poly,
+        "message": f"Location resolved to '{query}'. Please confirm.",
+    }
+
+
+def search_collections(query: str, top_k: int = 5) -> dict:
+    """Top-K collection candidates with realistic metadata."""
+    rng = random.Random(hash(query) & 0xFFFFFFFF)
+    n = max(1, min(5, top_k))
+    options = []
+    for i in range(n):
+        cos = round(0.92 - i * 0.07, 3)
+        options.append({
+            "id": f"COLL-{rng.randrange(100, 999)}",
+            "title": rng.choice(_PAPER_TITLES),
+            "cosine_similarity": cos,
+            "match_strength": "High" if cos > 0.85 else "Moderate" if cos > 0.7 else "Weak",
+            "spatial_overlap": True,
+            "temporal_overlap": True,
+            "is_cmr_backed": rng.random() < 0.3,
+            "available_variables": rng.choice([
+                ["NO2_total_column"],
+                ["AOT_550", "AOT_660", "AOT_865"],
+                ["LST_day", "LST_night"],
+                [],
+            ]),
+        })
+    if n == 1:
+        return {"status": "complete", "matches": options,
+                "message": f"Found 1 matching collection: {options[0]['title']}"}
+    return {
+        "status": "pending_confirmation",
+        "matches": options,
+        "options": [{"id": o["id"], "label": o["title"]} for o in options],
+        "message": f"Found {n} matching collections. Please select one.",
+    }
+
+
+def select_collection(collection_id: str, variable: str | None = None) -> dict:
+    """Record the user's selection."""
+    _eie_state["selected_collection"] = collection_id
+    if variable:
+        _eie_state["selected_variable"] = variable
+    return {
+        "status": "complete",
+        "selected_collection_id": collection_id,
+        "selected_variable": variable,
+        "message": f"Selected collection '{collection_id}'"
+        + (f" with variable '{variable}'" if variable else ""),
+    }
+
+
+def search_items(limit: int = 15) -> dict:
+    """Return up to 15 items for the selected collection — realistic
+    payload size (~2-3K tokens) but only IDs + datetimes shown to LLM."""
+    if not _eie_state.get("selected_collection"):
+        return {"status": "error", "error": "No collection selected — call select_collection first"}
+    if not _eie_state.get("bbox"):
+        return {"status": "error", "error": "No bbox — call geocode first"}
+    rng = random.Random(hash(_eie_state["selected_collection"]) & 0xFFFFFFFF)
+    n = rng.randint(8, max(8, min(15, limit)))
+    items = []
+    for i in range(n):
+        items.append({
+            "id": f"ITEM-{rng.randrange(10000, 99999)}",
+            "datetime": f"2021-{rng.randint(1,12):02d}-{rng.randint(1,28):02d}T00:00:00Z",
+            "asset_url": f"s3://veda-data-store/{_eie_state['selected_collection']}/item-{i}.tif",
+        })
+    _eie_state["items"] = items
+    return {
+        "status": "complete",
+        "item_count": n,
+        "items": items,
+        "message": f"Found {n} items for the selected collection.",
+    }
+
+
+def compute_stats() -> dict:
+    """Per-item per-band statistics — realistic payload."""
+    items = _eie_state.get("items")
+    if not items:
+        return {"status": "error", "error": "No items — call search_items first"}
+    rng = random.Random(42)
+    results = []
+    for it in items:
+        valid_pct = round(rng.uniform(70, 100), 1)
+        results.append({
+            "id": it["id"],
+            "datetime": it["datetime"],
+            "stats": {
+                "b1": {
+                    "mean": round(rng.uniform(0.5, 4.5), 4),
+                    "min": round(rng.uniform(0.0, 0.5), 4),
+                    "max": round(rng.uniform(4.5, 8.0), 4),
+                    "valid_percent": valid_pct,
+                },
+            },
+        })
+    return {
+        "status": "complete",
+        "result_count": len(results),
+        "results": results,
+        "message": f"Statistics computed for {len(results)} items.",
+    }
+
+
 def execute_tool_call(name: str, arguments: dict[str, Any]) -> str:
     """Dispatch a function call coming from the LLM. Returns the JSON
     string the LLM will see as the tool result."""
@@ -207,6 +449,27 @@ def execute_tool_call(name: str, arguments: dict[str, Any]) -> str:
         result = fetch_doc(**arguments)
     elif name == "query_db":
         result = query_db(**arguments)
+    elif name == "parse_datetime":
+        result = parse_datetime(**arguments)
+    elif name == "geocode":
+        result = geocode(**arguments)
+    elif name == "search_collections":
+        result = search_collections(**arguments)
+    elif name == "select_collection":
+        result = select_collection(**arguments)
+    elif name == "search_items":
+        result = search_items(**arguments)
+    elif name == "compute_stats":
+        result = compute_stats(**arguments)
     else:
         result = {"error": f"unknown tool: {name}"}
     return json.dumps(result)
+
+
+def reset_eie_state() -> None:
+    """Clear the EIE-shape tool state — call between scenario runs."""
+    _eie_state.clear()
+    _eie_state.update({
+        "datetime_range": None, "place": None, "bbox": None,
+        "selected_collection": None, "selected_variable": None, "items": None,
+    })

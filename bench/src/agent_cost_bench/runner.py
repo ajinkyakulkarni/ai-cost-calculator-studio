@@ -29,7 +29,7 @@ from langgraph.graph.message import add_messages
 
 from .provider import call_llm
 from .scenario import AgentSpec, Scenario
-from .tools import TOOL_SCHEMAS, execute_tool_call
+from .tools import TOOL_SCHEMAS, execute_tool_call, reset_eie_state
 from .tracing import init_tracing, reset_collected_spans, write_trace_artifact
 
 
@@ -324,6 +324,9 @@ def run_scenario(scenario: Scenario, *, output_dir: Path) -> Path:
     # the same trace buffer. The variance comparator uses run_idx
     # tagging on each span to compute mean/stdev across runs.
     for run_idx in range(scenario.repeat):
+        # Reset stateful tools (e.g. EIE-shape geocode/select pipeline)
+        # so each repeat starts from a clean slate.
+        reset_eie_state()
         state: RunState = {"messages": [], "turn_idx": 0, "total_cost_usd": 0.0}
         for i, turn in enumerate(scenario.turns):
             if cumulative_cost >= scenario.max_cost_usd:
