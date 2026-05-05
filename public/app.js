@@ -2380,14 +2380,17 @@
       document.getElementById('section-search'),
       document.getElementById('section-search-side'),
     ].filter(Boolean);
-    if (pillContainers.length === 0) return;
 
+    // Section IDs + collapsible h2 click handlers — wire these BEFORE
+    // the pill-container check below. Pills (the old top-of-page filter
+    // UI) were removed during the Workspace merger, but section
+    // expand/collapse is still the primary interaction pattern. If
+    // we early-return when pillContainers is empty (as the original
+    // code did), section h2 clicks silently no-op.
     const sections = Array.from(document.querySelectorAll('.editor-body .section'));
     sections.forEach((s, i) => {
       if (!s.id) s.id = 'sec-' + (i + 1);
     });
-
-    // Wire collapsible h2's once (idempotent via dataset.bound)
     sections.forEach(s => {
       const h2 = s.querySelector('h2');
       if (!h2 || h2.dataset.bound) return;
@@ -2396,6 +2399,8 @@
         s.classList.toggle('open');
       });
     });
+
+    if (pillContainers.length === 0) return;
 
     function rebuildPills() {
       pillContainers.forEach(pills => {
@@ -3533,12 +3538,103 @@
   }
   setupWorkspaceSubnav();
 
+  // ---------------------------------------------------------------------
+  // Quick Start chat strip — auto-collapse after first interaction
+  // anywhere downstream (a Components section opened, an AXIOM slider
+  // moved, an arch-diagram box clicked). User can click the collapsed
+  // bar to expand again. Choice persists in localStorage.
+  // ---------------------------------------------------------------------
+  function setupQuickStartCollapse() {
+    const arch = document.getElementById('arch-header');
+    if (!arch) return;
+    const KEY = 'ccs-quickstart-collapsed';
+    const saved = (() => { try { return localStorage.getItem(KEY); } catch (_) { return null; } })();
+    if (saved === '1') arch.classList.add('collapsed');
+
+    const toggle = (collapsed) => {
+      arch.classList.toggle('collapsed', collapsed);
+      try { localStorage.setItem(KEY, collapsed ? '1' : '0'); } catch (_) {}
+    };
+    arch.addEventListener('click', (e) => {
+      // Only the ::before pseudo bar triggers expand. Real-element clicks
+      // inside an expanded panel shouldn't toggle.
+      if (!arch.classList.contains('collapsed')) return;
+      // The pseudo-element click bubbles from the .arch-header itself,
+      // not from a real child. If target === arch, we're on the bar.
+      if (e.target === arch) toggle(false);
+    });
+
+    // Auto-collapse: any interaction downstream of the chat folds it.
+    // Listen on the main scroll container so we don't bind handlers
+    // to every slider individually.
+    const main = document.getElementById('main');
+    if (!main) return;
+    let firstInteractionFired = false;
+    const onInteract = () => {
+      if (firstInteractionFired) return;
+      // Don't collapse on clicks/inputs inside the arch-header itself —
+      // user is mid-typing into the chat.
+      // (This handler is debounced via firstInteractionFired so the
+      // first downstream interaction wins.)
+      firstInteractionFired = true;
+      // Only auto-collapse if the strip is open AND we haven't
+      // explicitly forced a state.
+      if (!arch.classList.contains('collapsed')) toggle(true);
+    };
+    // Section header clicks, slider input, AXIOM canvas — anything
+    // below arch-header counts.
+    main.addEventListener('click', (e) => {
+      if (arch.contains(e.target)) return;
+      onInteract();
+    }, { capture: true });
+    main.addEventListener('input', (e) => {
+      if (arch.contains(e.target)) return;
+      onInteract();
+    }, { capture: true });
+  }
+  setupQuickStartCollapse();
+
   // Expose tab-switch for chat-builder hint button
   window.__ccsSwitchTab = switchTab;
 
   // Topbar cost badge — click to jump to Report tab.
   const costBadge = document.getElementById('cost-pill');
   if (costBadge) costBadge.addEventListener('click', () => switchTab('report'));
+
+  // ---------------------------------------------------------------------
+  // Appbar Share/Export dropdown — open on trigger click, close on
+  // outside click / Escape / item click. The actual buttons inside
+  // (Excel, Copy link, Import, Export JSON) keep their original IDs
+  // so existing handlers in app.js bind to them unchanged.
+  // ---------------------------------------------------------------------
+  (function setupShareMenu() {
+    const menu = document.getElementById('appbar-share-menu');
+    const trigger = document.getElementById('appbar-share-trigger');
+    if (!menu || !trigger) return;
+    const open = () => {
+      menu.dataset.open = '1';
+      trigger.setAttribute('aria-expanded', 'true');
+    };
+    const close = () => {
+      delete menu.dataset.open;
+      trigger.setAttribute('aria-expanded', 'false');
+    };
+    trigger.addEventListener('click', (e) => {
+      e.stopPropagation();
+      menu.dataset.open ? close() : open();
+    });
+    document.addEventListener('click', (e) => {
+      if (!menu.contains(e.target)) close();
+    });
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape') close();
+    });
+    // Auto-close after picking a menu item — let the original handler
+    // run first (microtask), then collapse.
+    menu.querySelectorAll('.appbar-menu-item').forEach(b =>
+      b.addEventListener('click', () => setTimeout(close, 0))
+    );
+  })();
 
   // ---------------------------------------------------------------------
   // AXIOM Simulator integration — direct call from the inlined AXIOM
