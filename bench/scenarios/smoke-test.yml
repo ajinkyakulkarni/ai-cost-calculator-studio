@@ -9,7 +9,7 @@
 name: smoke-test
 description: 3-turn smoke test on gpt-4o-mini. Confirms the bench plumbing works end-to-end before running expensive scenarios.
 topology: single
-repeat: 1
+repeat: 3
 max_cost_usd: 0.05
 
 agents:

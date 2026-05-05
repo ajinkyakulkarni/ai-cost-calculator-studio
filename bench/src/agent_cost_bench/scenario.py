@@ -38,6 +38,10 @@ class AgentSpec:
     temperature: float = 0.2
     max_output_tokens: int = 1000
     tools: list[dict[str, Any]] = field(default_factory=list)
+    # Streaming captures time-to-first-token + output-rate, the
+    # latency metrics that matter for production agent UX. Total
+    # token count is identical streamed vs blocking.
+    stream: bool = False
 
 
 @dataclass
@@ -101,6 +105,7 @@ def load_scenario(path: Path) -> Scenario:
             temperature=a.get("temperature", 0.2),
             max_output_tokens=a.get("max_output_tokens", 1000),
             tools=a.get("tools", []),
+            stream=bool(a.get("stream", False)),
         )
         for a in raw.get("agents", [])
     ]

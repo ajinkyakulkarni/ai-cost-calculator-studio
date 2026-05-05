@@ -26,7 +26,12 @@ from .tracing import llm_call_span, record_usage
 @dataclass
 class CallResult:
     """Outcome of a single LLM call. Used by the LangGraph runner to
-    drive scenario state forward without coupling to LiteLLM types."""
+    drive scenario state forward without coupling to LiteLLM types.
+
+    Streaming-specific fields (time_to_first_token_ms, output_rate_tps)
+    are populated only when stream=True. Non-streaming calls leave
+    them at zero. This shape lets the variance comparator validate
+    AXIOM's currently-unmodeled streaming overhead coefficient."""
 
     content: str
     input_tokens: int
@@ -36,6 +41,9 @@ class CallResult:
     latency_ms: float
     request_id: str | None
     raw_response: Any
+    streamed: bool = False
+    time_to_first_token_ms: float = 0.0
+    output_rate_tps: float = 0.0  # tokens per second (streaming only)
 
 
 def _detect_system(model: str) -> str:
@@ -66,6 +74,7 @@ def call_llm(
     max_tokens: int | None = None,
     tools: list[dict[str, Any]] | None = None,
     cache_control: bool = True,
+    stream: bool = False,
 ) -> CallResult:
     """Make a single LLM call with full trace capture.
 
@@ -114,51 +123,131 @@ def call_llm(
             params["max_tokens"] = max_tokens
         if tools:
             params["tools"] = tools
+        if stream:
+            params["stream"] = True
+            # Ask the provider to include usage data on the final
+            # streaming chunk (OpenAI behavior — Anthropic always
+            # streams it). LiteLLM normalizes this where supported.
+            params["stream_options"] = {"include_usage": True}
 
-        response = litellm.completion(**params)
+        if not stream:
+            response = litellm.completion(**params)
+            latency_ms = (time.perf_counter() - started) * 1000
+            span.set_attribute("duration_ms", latency_ms)
+            record_usage(span, response)
+            content = ""
+            try:
+                content = response.choices[0].message.content or ""
+            except (AttributeError, IndexError):
+                pass
+            cost_usd = _extract_cost(response)
+            request_id = getattr(response, "id", None) or response.get("id")
+            return CallResult(
+                content=content,
+                input_tokens=_usage_field(response, "prompt_tokens"),
+                output_tokens=_usage_field(response, "completion_tokens"),
+                cached_tokens=_usage_field(response, "cached_tokens")
+                or _usage_field(response, "prompt_tokens_cached"),
+                cost_usd=cost_usd,
+                latency_ms=latency_ms,
+                request_id=request_id,
+                raw_response=response,
+            )
 
-        latency_ms = (time.perf_counter() - started) * 1000
+        # ---- Streaming path ----
+        # Time-to-first-token (TTFT) and output rate are the latency
+        # metrics that matter in production agent UX. Capture both.
+        # The provider only sends `usage` on the final chunk (when
+        # stream_options.include_usage is set), so we accumulate
+        # delta content + parse the last chunk's usage object.
+        first_token_at: float | None = None
+        last_chunk = None
+        chunks: list[Any] = []
+        content_parts: list[str] = []
+        request_id = None
+
+        for chunk in litellm.completion(**params):
+            chunks.append(chunk)
+            if first_token_at is None:
+                # Some providers emit a metadata-only first chunk.
+                # The TTFT we want is the moment first content arrives.
+                try:
+                    delta = chunk.choices[0].delta
+                    if getattr(delta, "content", None):
+                        first_token_at = time.perf_counter()
+                        if not request_id:
+                            request_id = getattr(chunk, "id", None)
+                except (AttributeError, IndexError):
+                    pass
+            try:
+                d = chunk.choices[0].delta.content
+                if d:
+                    content_parts.append(d)
+            except (AttributeError, IndexError):
+                pass
+            last_chunk = chunk
+
+        ended = time.perf_counter()
+        latency_ms = (ended - started) * 1000
+        ttft_ms = ((first_token_at - started) * 1000) if first_token_at else 0.0
         span.set_attribute("duration_ms", latency_ms)
+        span.set_attribute("gen_ai.streaming.time_to_first_token_ms", ttft_ms)
+        span.set_attribute("gen_ai.streaming.chunks", len(chunks))
 
-        record_usage(span, response)
+        # Final usage lives on the last chunk (when include_usage was
+        # honored). LiteLLM normalizes shape across providers.
+        record_usage(span, last_chunk) if last_chunk else None
 
-        # Extract content — LiteLLM normalizes the response shape but
-        # streaming and tool-call cases need careful handling.
-        content = ""
-        try:
-            content = response.choices[0].message.content or ""
-        except (AttributeError, IndexError):
-            pass
-
-        usage = getattr(response, "usage", None) or response.get("usage", {})
-
-        def _u(k: str) -> int:
-            if hasattr(usage, k):
-                return int(getattr(usage, k) or 0)
-            if isinstance(usage, dict):
-                return int(usage.get(k, 0) or 0)
-            return 0
-
-        # LiteLLM often computes per-call cost using its own pricing
-        # table; otherwise fall back to a calculated estimate from
-        # `_hidden_params`. Keep the raw response around for audits.
-        cost_usd = 0.0
-        hidden = getattr(response, "_hidden_params", {}) or {}
-        if isinstance(hidden, dict):
-            cost_usd = float(hidden.get("response_cost") or 0)
-
-        request_id = getattr(response, "id", None) or response.get("id")
+        out_tokens = _usage_field(last_chunk, "completion_tokens") if last_chunk else 0
+        # Output rate over the streaming interval (excluding TTFT).
+        stream_secs = max(0.001, (ended - (first_token_at or started)))
+        output_rate_tps = out_tokens / stream_secs if out_tokens else 0.0
+        span.set_attribute("gen_ai.streaming.output_rate_tps", output_rate_tps)
 
         return CallResult(
-            content=content,
-            input_tokens=_u("prompt_tokens"),
-            output_tokens=_u("completion_tokens"),
-            cached_tokens=_u("cached_tokens") or _u("prompt_tokens_cached"),
-            cost_usd=cost_usd,
+            content="".join(content_parts),
+            input_tokens=_usage_field(last_chunk, "prompt_tokens") if last_chunk else 0,
+            output_tokens=out_tokens,
+            cached_tokens=(
+                _usage_field(last_chunk, "cached_tokens")
+                or _usage_field(last_chunk, "prompt_tokens_cached")
+            )
+            if last_chunk
+            else 0,
+            cost_usd=_extract_cost(last_chunk) if last_chunk else 0.0,
             latency_ms=latency_ms,
             request_id=request_id,
-            raw_response=response,
+            raw_response=chunks,
+            streamed=True,
+            time_to_first_token_ms=ttft_ms,
+            output_rate_tps=output_rate_tps,
         )
+
+
+def _usage_field(response: Any, key: str) -> int:
+    """Read a usage field from any LiteLLM response shape (object or dict)."""
+    if response is None:
+        return 0
+    usage = getattr(response, "usage", None)
+    if usage is None and isinstance(response, dict):
+        usage = response.get("usage", {})
+    if usage is None:
+        return 0
+    if hasattr(usage, key):
+        return int(getattr(usage, key) or 0)
+    if isinstance(usage, dict):
+        return int(usage.get(key, 0) or 0)
+    return 0
+
+
+def _extract_cost(response: Any) -> float:
+    """Pull LiteLLM's computed cost from `_hidden_params.response_cost`."""
+    if response is None:
+        return 0.0
+    hidden = getattr(response, "_hidden_params", {}) or {}
+    if isinstance(hidden, dict):
+        return float(hidden.get("response_cost") or 0)
+    return 0.0
 
 
 def _add_anthropic_cache_control(

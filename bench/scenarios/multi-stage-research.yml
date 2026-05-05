@@ -24,7 +24,7 @@
 name: multi-stage-research
 description: 5-stage sequential research pipeline. Mirrors the LangGraph state-machine topology used in production multi-agent systems (e.g., NASA-IMPACT akd-services). Validates handoff overhead and cumulative-context cost.
 topology: sequential
-repeat: 1
+repeat: 3
 max_cost_usd: 0.50
 
 meta:

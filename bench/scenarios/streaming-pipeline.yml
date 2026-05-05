@@ -1,0 +1,67 @@
+# streaming-pipeline — streaming SSE-style response capture.
+#
+# Captures time-to-first-token (TTFT) and output rate (tok/sec) on
+# every call. Same token totals as a blocking call; the difference is
+# the latency profile, which is what matters for production agent UX
+# and what AXIOM currently doesn't model at all.
+#
+# Mirrors the SSE streaming pattern used by production agent
+# frameworks (e.g., NASA-IMPACT/akd-services emits StreamEvent
+# tokens via FastAPI StreamingResponse).
+#
+# What this validates in AXIOM (or rather: surfaces as a *new*
+# coefficient AXIOM doesn't yet have):
+#   - time_to_first_token (median, p90, p99)
+#   - output_rate_tps     (median across providers)
+#   - whether streaming changes per-call total cost (it should not,
+#     but provider quirks sometimes leak)
+
+name: streaming-pipeline
+description: 3-stage sequential pipeline with streaming on every call. Validates TTFT + output-rate metrics that AXIOM doesn't currently model.
+topology: sequential
+repeat: 3
+max_cost_usd: 0.20
+
+meta:
+  validates_axiom_coefficients:
+    - time_to_first_token_ms
+    - output_rate_tokens_per_sec
+  emits_metrics_axiom_should_track:
+    - "p50/p90/p99 latency profile under streaming"
+    - "output rate variance across providers"
+
+agents:
+  - id: drafter
+    role: drafter
+    model: gpt-4o-mini
+    temperature: 0.4
+    max_output_tokens: 400
+    stream: true
+    system_prompt: |
+      You are a drafter. Given a question, write a 2-paragraph first draft
+      answer. Don't worry about being perfect; the editor will refine.
+
+  - id: editor
+    role: editor
+    model: gpt-4o-mini
+    temperature: 0.2
+    max_output_tokens: 500
+    stream: true
+    system_prompt: |
+      You are an editor. Given a draft answer, sharpen it: tighten weak
+      phrasing, remove hedging, add specificity where the draft was vague.
+      Keep the same general shape but make every sentence earn its place.
+
+  - id: reviewer
+    role: reviewer
+    model: gpt-4o-mini
+    temperature: 0.2
+    max_output_tokens: 300
+    stream: true
+    system_prompt: |
+      You are a reviewer. The previous stages produced a draft and an
+      edit. Your job is to flag any remaining weaknesses in 3 bullet
+      points and give a final 1-sentence verdict on the answer's quality.
+
+turns:
+  - user: "Why does prompt caching matter for production agentic workflows?"

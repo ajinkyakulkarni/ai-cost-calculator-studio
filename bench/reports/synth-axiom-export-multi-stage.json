@@ -1,0 +1,23 @@
+{
+  "_comment": "Synthesized AXIOM simulator export for the multi-stage-research scenario. Mirrors what calc.ajinkya.ai would produce if you set up a 5-stage sequential pipeline with default coefficients. Used to demonstrate the variance comparator end-to-end.",
+  "schemaVersion": "1.0",
+  "deployment": {
+    "name": "Multi-stage research pipeline",
+    "agency": "Generic"
+  },
+  "anchor_query": {
+    "input_tokens": 5000,
+    "output_tokens": 800,
+    "cache_rate_baseline": 0.84,
+    "session_baseline_turns": 5,
+    "example": "5-stage sequential research pipeline (analyst → feasibility → architect → implementer → reviewer)"
+  },
+  "agents": [
+    {"id": "analyst",     "role": "gap-analysis",  "model": "gpt-4o-mini", "input_tokens": 200,  "output_tokens": 600},
+    {"id": "feasibility", "role": "feasibility",   "model": "gpt-4o-mini", "input_tokens": 800,  "output_tokens": 700},
+    {"id": "architect",   "role": "specification", "model": "gpt-4o-mini", "input_tokens": 1500, "output_tokens": 800},
+    {"id": "implementer", "role": "implementation","model": "gpt-4o-mini", "input_tokens": 2300, "output_tokens": 800},
+    {"id": "reviewer",    "role": "analysis",      "model": "gpt-4o-mini", "input_tokens": 3100, "output_tokens": 700}
+  ],
+  "axiom_session_cost_usd": 0.0028
+}

@@ -1,0 +1,67 @@
+# tool-chain — single agent with real OpenAI function calling.
+#
+# Mirrors the production pattern where an agent dispatches to MCP
+# servers / REST APIs / databases. Three tools cover the production
+# patterns that matter for cost:
+#
+#   search(query)         — typical MCP/web-search call
+#   fetch_doc(doc_id)     — typical document retrieval
+#   query_db(sql)         — typical metadata-catalog query
+#
+# These are real local function executions (in src/agent_cost_bench/
+# tools.py) — no mocks, no API stubs — so the LLM does actual back-
+# and-forth and we measure the resulting tool-call token cost.
+#
+# What this validates in AXIOM:
+#   - tool_schema_overhead_tokens (currently a guess at ~150 tok)
+#   - tool_result_tokens          (currently a guess at ~200 tok/call)
+#   - tools_per_query             (currently 2 by default)
+#   - extra LLM calls per turn from tool-loop iteration
+#
+# Cost: ~$0.005-0.010 per run on gpt-4o-mini (3 turns × ~3-4 LLM
+# calls each due to tool loops × ~$0.001 each). Use repeat: 3 for
+# variance estimation.
+
+name: tool-chain
+description: Single agent with real function calling. Validates tool-schema and tool-result token coefficients via real local tool execution.
+topology: single
+repeat: 3
+max_cost_usd: 0.30
+
+meta:
+  inspired_by: "MCP-style tool dispatch (NASA-IMPACT/akd-services pattern)"
+  validates_axiom_coefficients:
+    - tool_schema_overhead_tokens
+    - tool_result_tokens
+    - tools_per_query
+    - tool_loop_iterations
+
+agents:
+  - id: researcher
+    role: research-assistant
+    model: gpt-4o-mini
+    temperature: 0.2
+    max_output_tokens: 600
+    # Bare-string tool refs resolve to schemas in tools.TOOL_SCHEMAS.
+    # Three tools that mirror the production pattern: search,
+    # fetch_doc, query_db.
+    tools:
+      - search
+      - fetch_doc
+      - query_db
+    system_prompt: |
+      You are a research assistant. You have three tools:
+
+        - search(query, max_results): search a literature index
+        - fetch_doc(doc_id): retrieve full text of a paper
+        - query_db(sql): run a read-only SQL query against the catalog
+
+      Use the tools when you need them. For a typical research
+      question, expect to make 1-3 tool calls before answering.
+      Always cite the source of any data you reference.
+
+# Three turns, each requires tool use.
+turns:
+  - user: "What's the published evidence on satellite NO2 trends over US cities since 2014?"
+  - user: "Pick the strongest paper from those results and summarize its methodology in detail."
+  - user: "Compare the methodology of that paper to what's in the metadata catalog for similar studies — query the database to find them."
