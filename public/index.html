@@ -191,9 +191,12 @@
     display: flex;
     flex-direction: column;
   }
-  /* Workspace tab: two panels (Simulator + Components) share the same
-     data-tab-panel="workspace" so they render together on a single
-     scroll. Simulator (AXIOM) goes first via flex order. */
+  /* Workspace tab: arch-header (Quick Start chat + deployment diagram)
+     pinned at the top via order:-2, then the sticky sub-nav (order:-1
+     in its own selector below), then AXIOM (Simulator panel) at order:0,
+     then Components at order:1. All four share data-tab-panel="workspace"
+     so switchTab() shows/hides them as a group. */
+  .arch-header[data-tab-panel="workspace"] { order: -2; }
   .tab-panel[data-tab-panel="workspace"].simulator-panel { order: 0; }
   .tab-panel[data-tab-panel="workspace"].components-panel { order: 1; }
   /* Sticky scroll-spy nav at the top of the main scroll container. */
@@ -2424,8 +2427,7 @@ html,.simulator-pane{overflow-x:hidden;height:100%}
 <div class="layout" id="layout">
   <!-- Sidebar — vertical icon-and-label tab buttons -->
   <nav class="sidebar" id="sidebar">
-    <button class="tab-btn active" data-tab="build"><span class="tab-icon">🛠️</span>Build</button>
-    <button class="tab-btn" data-tab="workspace"><span class="tab-icon">🧪</span>Workspace</button>
+    <button class="tab-btn active" data-tab="workspace"><span class="tab-icon">🛠️</span>Workspace</button>
     <button class="tab-btn" data-tab="prices"><span class="tab-icon">💲</span>Prices</button>
     <button class="tab-btn" data-tab="benchmarks"><span class="tab-icon">📊</span>Benchmarks</button>
     <button class="tab-btn" data-tab="report"><span class="tab-icon">📑</span>Report</button>
@@ -2434,10 +2436,11 @@ html,.simulator-pane{overflow-x:hidden;height:100%}
   <!-- Main content — full-width per active tab -->
   <main class="main" id="main">
 
-    <!-- TAB: BUILD (chat + diagram visualization) -->
-    <div class="tab-panel active" data-tab-panel="build">
-    <!-- Architecture diagram pinned at top of build column -->
-    <div class="arch-header" id="arch-header">
+    <!-- WORKSPACE TOP — Quick Start chat + your-deployment diagram.
+         Used to live in a separate Build tab; now it's the first thing
+         a user sees on the unified Workspace. data-tab-panel="workspace"
+         + flex order: -2 puts it above the sub-nav. -->
+    <div class="arch-header tab-panel active" id="arch-header" data-tab-panel="workspace">
       <div class="chat-builder" id="chat-builder">
         <div class="chat-header-row">
           <strong>📝 Describe your AI system in plain English</strong>
@@ -2473,14 +2476,12 @@ html,.simulator-pane{overflow-x:hidden;height:100%}
           <button class="zoom-btn" id="arch-zoom-in" title="Zoom in">+</button>
         </div>
       </div>
-      <!-- Preset buttons removed — architecture is read-only and driven by the chat builder above. -->
-      <p style="font-size: 11px; color: var(--muted); margin: 0 0 8px; font-style: italic;">Architecture is built from your chat description. Components highlighted below appear in the Components tab.</p>
+      <p style="font-size: 11px; color: var(--muted); margin: 0 0 8px; font-style: italic;">Architecture is built from your chat description. Components highlighted below appear in the Workspace sections.</p>
       <div class="arch-diagram-wrap" id="arch-diagram-wrap">
         <svg id="arch-diagram" viewBox="0 0 720 620" xmlns="http://www.w3.org/2000/svg" preserveAspectRatio="xMidYMid meet"></svg>
       </div>
       <div class="arch-summary" id="arch-summary"></div>
     </div>
-    </div><!-- /.tab-panel build -->
 
     <!-- WORKSPACE SUB-NAV — sticky scroll-spy. Visible only when the
          Workspace tab is active. Buttons jump to anchor sections;

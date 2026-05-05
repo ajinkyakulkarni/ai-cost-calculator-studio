@@ -3413,6 +3413,9 @@
   const TAB_STORAGE_KEY = 'ccs-active-tab';
 
   function switchTab(name) {
+    // Apply aliases centrally so callers using legacy tab names
+    // (build/components/simulator) still resolve to 'workspace'.
+    if (TAB_ALIASES[name]) name = TAB_ALIASES[name];
     document.querySelectorAll('.tab-btn').forEach(b => {
       b.classList.toggle('active', b.dataset.tab === name);
     });
@@ -3425,10 +3428,11 @@
   // Tabs that exist after the layout redesign. Used to validate
   // the localStorage-restored tab so an old 'estimator' value
   // doesn't strand the user on a dead pane.
-  // Workspace replaces the old separate Components + Simulator tabs (one
-  // continuous scroll). Old saved values get migrated below.
-  const VALID_TABS = ['build', 'workspace', 'prices', 'benchmarks', 'report'];
-  const TAB_ALIASES = { components: 'workspace', simulator: 'workspace' };
+  // Workspace replaces Build, Components, and Simulator (one continuous
+  // scroll: chat + deployment diagram + AXIOM + TCO sections). Old
+  // saved values get aliased so returning users land on Workspace.
+  const VALID_TABS = ['workspace', 'prices', 'benchmarks', 'report'];
+  const TAB_ALIASES = { build: 'workspace', components: 'workspace', simulator: 'workspace' };
 
   function setupTabs() {
     // The Token Estimator tab is gone (replaced by the AXIOM Simulator).
@@ -3446,13 +3450,13 @@
       btn.addEventListener('click', () => switchTab(btn.dataset.tab));
     });
 
-    // Restore last-used tab — fall back to 'build' if saved value is
-    // a tab that no longer exists. Migrate aliases (components/simulator
-    // → workspace) so users coming back after the merger don't get
-    // stranded on a dead pane.
+    // Restore last-used tab — fall back to 'workspace' if saved value
+    // is a tab that no longer exists. Migrate aliases (build /
+    // components / simulator → workspace) so users coming back after
+    // the unification don't get stranded on a dead pane.
     const saved = (() => { try { return localStorage.getItem(TAB_STORAGE_KEY); } catch (_) { return null; } })();
     const target = TAB_ALIASES[saved] || saved;
-    switchTab(VALID_TABS.includes(target) ? target : 'build');
+    switchTab(VALID_TABS.includes(target) ? target : 'workspace');
   }
 
   // ---------------------------------------------------------------------
