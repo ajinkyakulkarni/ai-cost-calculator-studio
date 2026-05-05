@@ -306,8 +306,9 @@
   /* Components-half sections that AXIOM now owns. Hidden from the UI
      but kept in the DOM so cost-engine.js can still read their state.
      If a future user wants to edit token math directly, they go to
-     AXIOM's Configuration tab. */
-  #sec-anchor, #sec-shapes, #sec-agents, #sec-mix { display: none; }
+     AXIOM's Configuration tab. sec-segments folded into AXIOM's
+     Audience sub-tab. */
+  #sec-anchor, #sec-shapes, #sec-agents, #sec-mix, #sec-segments { display: none; }
   /* Reorder visible sections to match the scroll-spy sub-nav flow:
      Audience → Hosting → Infrastructure → Compliance → People → Reference.
      Two meta sections (sec-scenario, sec-deployment) stay at the very
@@ -3347,6 +3348,7 @@ html,.simulator-pane{overflow-x:hidden;height:100%}
 <div style="display:flex;align-items:center;justify-content:space-between;flex-shrink:0;gap:8px;background:var(--card);border:1px solid var(--b);border-radius:10px;padding:2px 8px 2px 2px">
 <div class="nav" id="main-nav" style="border:none;border-radius:0;background:none;flex:1;flex-shrink:0">
   <button class="nav-btn active" onclick="showTab('config')">Configuration</button>
+  <button class="nav-btn" onclick="showTab('audience')">Audience</button>
   <button class="nav-btn" onclick="showTab('agents')">Agent Settings</button>
   <button class="nav-btn" onclick="showTab('arch')">Architecture</button>
   <button class="nav-btn" onclick="showTab('tokens')">Token Analysis</button>
@@ -3523,6 +3525,34 @@ html,.simulator-pane{overflow-x:hidden;height:100%}
   </div>
 </div>
 
+
+<!-- ═══ TAB: AUDIENCE ═══
+     Edits workload.segments[]: each row is a user cohort with MAU,
+     sessions/day, questions/session. Lives here (vs in Components)
+     because volume × per-session-cost is the calculation that
+     produces AXIOM's monthly KPI — they belong together. -->
+<div id="tab-audience" class="tab-panel">
+  <div class="panel">
+    <div class="ph">User Segments <span class="badge" id="audience-count-badge">0 cohorts</span>
+      <button class="abtn cyan" id="audience-add-btn" style="margin-left:auto" type="button">+ Add segment</button>
+    </div>
+    <div style="padding:10px 13px">
+      <p style="font-size:9px;color:var(--dim);margin:0 0 8px;line-height:1.5">
+        Each row is a cohort of users hitting your system. Monthly queries =
+        <strong>MAU × sessions/day × questions/session × 30</strong>. Cost =
+        per-session token cost (from Configuration / Agent Settings) × queries
+        across all segments. Edits here update Components → Audience and the
+        topbar pill in real time.
+      </p>
+      <div id="audience-rows" style="display:flex;flex-direction:column;gap:6px"></div>
+      <div id="audience-totals" style="margin-top:10px;padding:8px 10px;background:var(--card2);border:1px solid var(--b);border-radius:6px;font-size:9px;color:var(--dim);display:flex;gap:14px;flex-wrap:wrap">
+        <span>Total MAU: <strong id="audience-total-mau" style="color:var(--cyan)">0</strong></span>
+        <span>Total sessions/day: <strong id="audience-total-sessions" style="color:var(--green)">0</strong></span>
+        <span>Total queries/month: <strong id="audience-total-queries" style="color:var(--amber)">0</strong></span>
+      </div>
+    </div>
+  </div>
+</div>
 
 <!-- TAB: AGENTS -->
 <div id="tab-agents" class="tab-panel">
@@ -5239,7 +5269,7 @@ function onSlider(){
 
 /* ═══════ TAB NAV ═══════ */
 function showTab(name){
-  ['config','agents','arch','tokens','cost','routing','methodology','sensitivity','sim'].forEach(t=>{
+  ['config','audience','agents','arch','tokens','cost','routing','methodology','sensitivity','sim'].forEach(t=>{
     const p=document.getElementById('tab-'+t);const g=document.getElementById('tab-'+t+'-grid');
     const btn=document.querySelector(`.nav-btn[onclick="showTab('${t}')"]`);
     if(p){p.className='tab-panel'+(t===name?' active':'');}
@@ -5247,6 +5277,7 @@ function showTab(name){
     if(btn)btn.classList.toggle('active',t===name);
   });
   if(name==='arch')drawArch();
+  if(name==='audience' && typeof renderAudience==='function')renderAudience();
 }
 
 /* ═══════ REPORT ═══════ */
@@ -5830,6 +5861,112 @@ setTimeout(()=>{onSlider();renderRoutingSliders();},100);
     autoSync();
   }
   installAutoSync();
+
+  // ===================================================================
+  // Audience editor — renders workload.segments[] in AXIOM's Audience
+  // sub-tab. Each row binds to one segment; edits write back to
+  // window.workload.segments and trigger renderPreview() (calc
+  // topbar pill + Components mirror) plus onSlider() (AXIOM KPIs).
+  // ===================================================================
+  function getWorkload() {
+    // window.workload is defined inside app.js's IIFE. Expose-or-access
+    // via a known global; if not yet ready, render later.
+    return (window.workload && Array.isArray(window.workload.segments)) ? window.workload : null;
+  }
+
+  function audienceTriggerRecompute() {
+    if (typeof window.renderPreview === 'function') window.renderPreview();
+    if (typeof onSlider === 'function') onSlider();
+  }
+
+  function renderAudience() {
+    const w = getWorkload();
+    const rowsEl = document.getElementById('audience-rows');
+    if (!w || !rowsEl) return;
+    rowsEl.innerHTML = '';
+    w.segments.forEach((seg, idx) => {
+      const row = document.createElement('div');
+      row.style.cssText = 'display:grid;grid-template-columns:1fr 90px 90px 90px 28px;gap:6px;align-items:center;padding:6px 8px;background:var(--card2);border:1px solid var(--b);border-radius:5px';
+      const labelI    = `<input type="text"   data-aud="label" data-i="${idx}" value="${(seg.label||'').replace(/"/g,'&quot;')}" placeholder="Cohort name" style="font-size:10px;padding:4px 6px">`;
+      const mauI      = `<input type="number" data-aud="mau"   data-i="${idx}" value="${seg.mau||0}" min="0" step="100" style="font-size:10px;padding:4px 6px" title="MAU">`;
+      const sessI     = `<input type="number" data-aud="sessions_per_day" data-i="${idx}" value="${seg.sessions_per_day||0}" min="0" step="0.1" style="font-size:10px;padding:4px 6px" title="sessions/day">`;
+      const qI        = `<input type="number" data-aud="questions_per_session" data-i="${idx}" value="${seg.questions_per_session||0}" min="0" step="1" style="font-size:10px;padding:4px 6px" title="questions/session">`;
+      const removeBtn = `<button class="abtn" data-aud-remove="${idx}" type="button" title="Remove" style="padding:2px 6px;color:var(--red);border-color:rgba(255,82,82,.3)">×</button>`;
+      row.innerHTML = labelI + mauI + sessI + qI + removeBtn;
+      rowsEl.appendChild(row);
+    });
+    // Header row above the cohort rows.
+    if (!document.getElementById('audience-header-row')) {
+      const hdr = document.createElement('div');
+      hdr.id = 'audience-header-row';
+      hdr.style.cssText = 'display:grid;grid-template-columns:1fr 90px 90px 90px 28px;gap:6px;font-size:8px;color:var(--dim);text-transform:uppercase;letter-spacing:1px;padding:0 8px;margin-bottom:2px';
+      hdr.innerHTML = '<span>Cohort label</span><span style="text-align:right">MAU</span><span style="text-align:right">Sess/day</span><span style="text-align:right">Q/sess</span><span></span>';
+      rowsEl.parentElement.insertBefore(hdr, rowsEl);
+    }
+    updateAudienceTotals();
+  }
+
+  function updateAudienceTotals() {
+    const w = getWorkload();
+    if (!w) return;
+    let mau = 0, sess = 0, q = 0;
+    w.segments.forEach(s => {
+      mau  += +s.mau || 0;
+      sess += (+s.mau || 0) * (+s.sessions_per_day || 0);
+      q    += (+s.mau || 0) * (+s.sessions_per_day || 0) * (+s.questions_per_session || 0) * 30;
+    });
+    const fmt = n => n.toLocaleString(undefined, { maximumFractionDigits: 0 });
+    const set = (id, v) => { const el = document.getElementById(id); if (el) el.textContent = v; };
+    set('audience-total-mau', fmt(mau));
+    set('audience-total-sessions', fmt(sess));
+    set('audience-total-queries', fmt(q));
+    const badge = document.getElementById('audience-count-badge');
+    if (badge) badge.textContent = w.segments.length + ' cohort' + (w.segments.length === 1 ? '' : 's');
+  }
+
+  // Event delegation — survives renderAudience() rebuilds.
+  document.addEventListener('input', (e) => {
+    const t = e.target;
+    if (!t || !t.dataset || !t.dataset.aud) return;
+    const w = getWorkload();
+    if (!w) return;
+    const i = parseInt(t.dataset.i, 10);
+    if (!w.segments[i]) return;
+    const k = t.dataset.aud;
+    if (k === 'label') w.segments[i].label = t.value;
+    else w.segments[i][k] = parseFloat(t.value) || 0;
+    updateAudienceTotals();
+    audienceTriggerRecompute();
+  });
+  document.addEventListener('click', (e) => {
+    const t = e.target;
+    if (!t) return;
+    if (t.dataset && t.dataset.audRemove != null) {
+      const w = getWorkload(); if (!w) return;
+      w.segments.splice(+t.dataset.audRemove, 1);
+      renderAudience();
+      audienceTriggerRecompute();
+    }
+    if (t.id === 'audience-add-btn') {
+      const w = getWorkload(); if (!w) return;
+      w.segments.push({
+        id: 'cohort-' + Math.random().toString(36).slice(2, 7),
+        label: 'New cohort', mau: 1000, sessions_per_day: 0.5,
+        questions_per_session: 5, applyBotFactor: false,
+      });
+      renderAudience();
+      audienceTriggerRecompute();
+    }
+  });
+
+  // Render once on first availability of window.workload.
+  function audienceFirstRender() {
+    if (!getWorkload()) return setTimeout(audienceFirstRender, 200);
+    renderAudience();
+  }
+  audienceFirstRender();
+  // Expose for showTab() to call on tab activation.
+  window.renderAudience = renderAudience;
 })();
   </script>
 

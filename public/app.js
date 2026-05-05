@@ -23,6 +23,10 @@
   // State + bind helpers
   // -----------------------------------------------------------------
   let workload = makeBlank();
+  // Expose workload + renderPreview to the AXIOM-side script so the
+  // Audience editor (defined in the inlined integration script) can
+  // read/write segments and trigger recomputation.
+  window.workload = workload;
 
   function makeBlank() {
     return {
@@ -1596,7 +1600,7 @@
         const resp = await fetch(`examples/${slug}.json`);
         if (!resp.ok) throw new Error('Could not load example');
         const data = await resp.json();
-        workload = ensureFields(data);
+        workload = ensureFields(data); window.workload = workload;
         renderEditor();
         renderPreview();
       } catch (err) {
@@ -1623,7 +1627,7 @@
         const reader = new FileReader();
         reader.onload = ev => {
           try {
-            workload = ensureFields(JSON.parse(ev.target.result));
+            workload = ensureFields(JSON.parse(ev.target.result)); window.workload = workload;
             renderEditor();
             renderPreview();
           } catch (err) { alert('Invalid JSON: ' + err.message); }
@@ -1639,7 +1643,7 @@
     // Apply raw JSON edit
     document.getElementById('apply-json').addEventListener('click', () => {
       try {
-        workload = ensureFields(JSON.parse(document.getElementById('raw-json').value));
+        workload = ensureFields(JSON.parse(document.getElementById('raw-json').value)); window.workload = workload;
         renderEditor();
         renderPreview();
       } catch (err) { alert('Invalid JSON: ' + err.message); }
@@ -2534,7 +2538,7 @@
       const json = decodeURIComponent(atob(m[1]));
       const parsed = JSON.parse(json);
       if (parsed && parsed.deployment && parsed.shapes) {
-        workload = ensureFields(parsed);
+        workload = ensureFields(parsed); window.workload = workload;
         return true;
       }
     } catch (_) {}
@@ -2736,12 +2740,12 @@
     if (!loadFromHash()) {
       try {
         const resp = await fetch('examples/nasa-eie.json');
-        if (resp.ok) workload = ensureFields(await resp.json());
+        if (resp.ok) { workload = ensureFields(await resp.json()); window.workload = workload; }
       } catch (_) { /* fall back to blank */ }
     } else {
       // hash-loaded; ensureFields was already called inside loadFromHash
     }
-    if (!workload.self_host) workload = ensureFields(workload);
+    if (!workload.self_host) { workload = ensureFields(workload); window.workload = workload; }
     renderEditor();
     renderPreview();
     setupTabs();        // must run before setupWizard so wizard moves first
@@ -3596,6 +3600,9 @@
 
   // Expose tab-switch for chat-builder hint button
   window.__ccsSwitchTab = switchTab;
+  // Expose renderPreview for AXIOM-side editors (Audience etc.) to
+  // trigger calc TCO refresh after edits.
+  window.renderPreview = renderPreview;
 
   // Topbar cost badge — click to jump to Report tab.
   const costBadge = document.getElementById('cost-pill');
