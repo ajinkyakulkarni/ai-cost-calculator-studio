@@ -1,0 +1,150 @@
+# multi-stage-research — 5-stage sequential research pipeline.
+#
+# Production-shape mirror of the akd-services LangGraph workflow
+# (NASA-IMPACT/akd-services). Each stage is a distinct specialist
+# agent; output of stage N feeds into stage N+1's context.
+#
+# This is the realistic shape for any "agentic research workflow" —
+# AKD calls them gap → feasibility → specification → implementation
+# → analysis. We use generic role names so any team running a
+# multi-stage research pipeline (federal, startup, enterprise)
+# recognizes themselves in it.
+#
+# What this scenario validates in AXIOM:
+#   - sequential multi-agent handoff overhead (per-stage prompt
+#     duplication + cumulative context growth)
+#   - per-stage structured-output token cost
+#   - end-to-end cost of a single workflow query
+#   - cache hit rate on the shared base context across stages
+#
+# Cost: ~$0.15-0.30 per run on gpt-4o-mini, ~$1.50-3.00 on gpt-5.2.
+# Default uses gpt-4o-mini for OpenAI-only setups; bump to a
+# frontier model for paper-grade calibration.
+
+name: multi-stage-research
+description: 5-stage sequential research pipeline. Mirrors the LangGraph state-machine topology used in production multi-agent systems (e.g., NASA-IMPACT akd-services). Validates handoff overhead and cumulative-context cost.
+topology: sequential
+repeat: 1
+max_cost_usd: 0.50
+
+meta:
+  inspired_by: "NASA-IMPACT/akd-services LangGraph workflow"
+  pipeline_stages: 5
+  validates_axiom_coefficients:
+    - sequential_handoff_overhead_tokens
+    - cumulative_context_per_stage
+    - structured_output_overhead
+    - per_stage_input_tokens
+    - per_stage_output_tokens
+
+agents:
+  # Stage 1 — analyst. Reads the user's research question and produces
+  # a structured "gaps in current understanding" output.
+  - id: analyst
+    role: gap-analysis
+    model: gpt-4o-mini
+    temperature: 0.3
+    max_output_tokens: 600
+    system_prompt: |
+      You are a research analyst. Given a research question, your job is to
+      identify the key knowledge gaps that need to be addressed.
+
+      Output a JSON-flavored structure with three sections:
+        1. open_questions: 3-5 specific empirical questions
+        2. assumptions: 2-3 things commonly taken for granted that may not hold
+        3. priority_areas: ranked list of which gaps to address first
+
+      Be specific and cite concepts by name. If the question is too broad,
+      decompose it into sub-questions before answering.
+
+  # Stage 2 — feasibility mapper. Takes the gap analysis and determines
+  # which gaps can actually be addressed with available data/methods.
+  - id: feasibility
+    role: feasibility-mapping
+    model: gpt-4o-mini
+    temperature: 0.3
+    max_output_tokens: 700
+    system_prompt: |
+      You are a feasibility analyst. The previous stage identified knowledge
+      gaps. Your job is to map each gap to:
+
+        1. Required data sources (and whether they're publicly available)
+        2. Methods needed to address it (and their maturity level)
+        3. Estimated effort in person-months
+        4. Risk of inconclusive results (low / medium / high)
+
+      Be honest about which gaps cannot be addressed with current methods.
+      Flag any that require capabilities that don't exist yet.
+
+  # Stage 3 — specification writer. Turns feasible gaps into concrete
+  # work specifications.
+  - id: architect
+    role: specification
+    model: gpt-4o-mini
+    temperature: 0.2
+    max_output_tokens: 800
+    system_prompt: |
+      You are a technical architect. Given a list of feasibility-mapped
+      research gaps, write concrete work specifications for each:
+
+        - Objective: one-sentence what we're trying to achieve
+        - Inputs: data sources, prior work
+        - Method: specific approach (algorithm, statistical test, etc.)
+        - Outputs: deliverables (paper section, dashboard, dataset)
+        - Acceptance criteria: how we know we succeeded
+        - Dependencies: what must be done first
+
+      Be implementation-precise. A junior researcher should be able to
+      execute from your specification without further clarification.
+
+  # Stage 4 — implementer. Walks through executing the specification,
+  # surfacing concrete issues that arise.
+  - id: implementer
+    role: implementation
+    model: gpt-4o-mini
+    temperature: 0.4
+    max_output_tokens: 900
+    system_prompt: |
+      You are a senior research engineer. Given a work specification,
+      walk through what implementing it would actually look like.
+
+      For each step:
+        1. Concrete steps in execution order
+        2. Tools / libraries / APIs needed
+        3. Expected challenges and how you'd handle them
+        4. Validation checks at each milestone
+        5. What "shipped" looks like
+
+      Be skeptical. If a step has hidden complexity, name it. If a
+      validation will be hard, say what would convince a reviewer.
+
+  # Stage 5 — analyzer. Reviews the full pipeline and produces an
+  # executive summary + risks register.
+  - id: reviewer
+    role: analysis
+    model: gpt-4o-mini
+    temperature: 0.2
+    max_output_tokens: 700
+    system_prompt: |
+      You are a senior reviewer. The previous stages produced a gap
+      analysis, feasibility map, work specification, and implementation
+      walkthrough. Your job is to synthesize into a final report:
+
+        1. Executive summary (3-5 sentences for a busy stakeholder)
+        2. Top 3 risks (with mitigation suggestions)
+        3. Recommended next 30-day actions
+        4. What we don't yet know and why it matters
+        5. Confidence level (low/medium/high) on the overall plan
+
+      Be honest about uncertainty. A briefing that overstates confidence
+      is worse than one that flags gaps the team can address.
+
+# Single user query — feeds into stage 1, output flows through stages
+# 2-5 sequentially. This is the "one workflow run" pattern. To
+# benchmark multi-query workloads, increase `repeat`.
+turns:
+  - user: |
+      I want to understand whether monthly satellite-derived NO2 over
+      major US cities can serve as a reliable proxy for ground-level
+      air quality regulatory compliance. What's the actual research
+      question I should be asking, and how would I go about answering it?
