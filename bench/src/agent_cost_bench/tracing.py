@@ -30,6 +30,8 @@ from opentelemetry.sdk.trace.export import (
     BatchSpanProcessor,
     ConsoleSpanExporter,
     SimpleSpanProcessor,
+    SpanExporter,
+    SpanExportResult,
 )
 
 # Captured spans accumulate here for the trace.json artifact. Populated
@@ -37,24 +39,24 @@ from opentelemetry.sdk.trace.export import (
 _collected_spans: list[dict[str, Any]] = []
 
 
-class InMemorySpanCollector:
-    """Custom span processor that stores spans for later JSON export.
+class InMemorySpanCollector(SpanExporter):
+    """Custom OTEL span exporter that stores spans for local JSON export.
 
     OTEL exporters typically push to a remote collector. We keep a
     local copy too, since the variance comparator runs offline against
-    the trace.json artifact.
+    the trace.json artifact. Wrapped in SimpleSpanProcessor in
+    init_tracing() so the SDK calls export() on each finished span.
     """
 
-    def on_start(self, span, parent_context=None):
+    def export(self, spans) -> SpanExportResult:
+        for span in spans:
+            _collected_spans.append(_span_to_dict(span))
+        return SpanExportResult.SUCCESS
+
+    def shutdown(self) -> None:
         pass
 
-    def on_end(self, span):
-        _collected_spans.append(_span_to_dict(span))
-
-    def shutdown(self):
-        pass
-
-    def force_flush(self, timeout_millis: int | None = None) -> bool:
+    def force_flush(self, timeout_millis: int = 30000) -> bool:
         return True
 
 

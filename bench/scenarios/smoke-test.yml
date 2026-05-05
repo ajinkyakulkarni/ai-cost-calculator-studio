@@ -1,0 +1,27 @@
+# smoke-test — minimum viable scenario for first-run validation.
+#
+# 3 turns, gpt-4o-mini, costs roughly $0.001. Use this once after
+# install to confirm the LiteLLM/LangGraph/OTEL plumbing works
+# before spending real money on long-chat or rag-pgvector.
+#
+#   agent-cost-bench run scenarios/smoke-test.yml
+
+name: smoke-test
+description: 3-turn smoke test on gpt-4o-mini. Confirms the bench plumbing works end-to-end before running expensive scenarios.
+topology: single
+repeat: 1
+max_cost_usd: 0.05
+
+agents:
+  - id: smoke
+    role: specialist
+    model: gpt-4o-mini
+    temperature: 0.2
+    max_output_tokens: 150
+    system_prompt: |
+      You are a concise assistant. Answer in one sentence per question.
+
+turns:
+  - user: "What is the capital of France?"
+  - user: "What language is spoken there?"
+  - user: "Roughly how many people live in that city?"

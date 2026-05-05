@@ -31,6 +31,24 @@ from .scenario import AgentSpec, Scenario
 from .tracing import init_tracing, reset_collected_spans, write_trace_artifact
 
 
+def _msg_attr(m, key: str):
+    """Read a field from either a dict or a LangChain BaseMessage object.
+
+    LangGraph's add_messages reducer may upgrade plain dicts into
+    LangChain message objects (HumanMessage, AIMessage). We need to
+    handle both shapes when serializing back to provider-API format.
+    """
+    if isinstance(m, dict):
+        return m.get(key)
+    # LangChain BaseMessage: role lives on .type ('human'/'ai'/'system');
+    # content on .content; tool_calls on .tool_calls (AIMessage only).
+    if key == "role":
+        t = getattr(m, "type", None)
+        return {"human": "user", "ai": "assistant", "system": "system",
+                "tool": "tool"}.get(t, t)
+    return getattr(m, key, None)
+
+
 class RunState(TypedDict):
     """LangGraph state. `messages` is appended to per turn; the
     accumulator-style annotation is LangGraph's idiomatic pattern for
@@ -56,7 +74,19 @@ def _build_agent_node(agent: AgentSpec, tracer):
         msgs: list[dict] = []
         if agent.system_prompt:
             msgs.append({"role": "system", "content": agent.system_prompt})
-        msgs.extend(state["messages"])
+        # Copy only role + content (and tool fields when populated) from
+        # historical messages. LangGraph's add_messages reducer can
+        # attach extras like an empty tool_calls list, which OpenAI
+        # rejects with "Invalid 'tool_calls': empty array."
+        for m in state["messages"]:
+            clean: dict = {"role": _msg_attr(m, "role"), "content": _msg_attr(m, "content")}
+            tc = _msg_attr(m, "tool_calls")
+            if tc:
+                clean["tool_calls"] = tc
+            tcid = _msg_attr(m, "tool_call_id")
+            if tcid:
+                clean["tool_call_id"] = tcid
+            msgs.append(clean)
 
         result = call_llm(
             tracer,

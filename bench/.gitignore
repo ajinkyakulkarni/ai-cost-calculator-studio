@@ -1,3 +1,7 @@
+# Secrets — never commit
+.env
+.env.local
+
 # Generated trace + variance artifacts. Re-runnable; not source.
 reports/*-trace.json
 reports/*-variance.md

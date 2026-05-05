@@ -3,15 +3,26 @@
 from __future__ import annotations
 
 import json
+import os
 from pathlib import Path
 
 import typer
+from dotenv import load_dotenv
 from rich.console import Console
 from rich.table import Table
 
 from .compare import compute_variance
 from .runner import run_scenario
 from .scenario import config_hash, load_scenario
+
+# Load .env from the current working directory or the bench project
+# root so users don't have to `export` every key. Real env vars take
+# precedence over the file.
+_dotenv_search = [Path.cwd() / ".env", Path(__file__).resolve().parents[3] / ".env"]
+for _p in _dotenv_search:
+    if _p.is_file():
+        load_dotenv(_p, override=False)
+        break
 
 app = typer.Typer(
     help="Production-shaped benchmark harness for multi-agent LLM systems.",

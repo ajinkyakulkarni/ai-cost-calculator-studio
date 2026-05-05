@@ -26,6 +26,8 @@ dependencies = [
     # CLI ergonomics.
     "typer>=0.15.0",
     "rich>=13.9.0",
+    # Loads .env so users don't have to export every variable.
+    "python-dotenv>=1.0.0",
 ]
 
 [project.optional-dependencies]
