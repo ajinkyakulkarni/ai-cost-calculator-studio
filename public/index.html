@@ -307,8 +307,9 @@
      but kept in the DOM so cost-engine.js can still read their state.
      If a future user wants to edit token math directly, they go to
      AXIOM's Configuration tab. sec-segments folded into AXIOM's
-     Audience sub-tab. */
-  #sec-anchor, #sec-shapes, #sec-agents, #sec-mix, #sec-segments { display: none; }
+     Audience sub-tab; sec-embeddings folded into AXIOM's RAG section. */
+  #sec-anchor, #sec-shapes, #sec-agents, #sec-mix,
+  #sec-segments, #sec-embeddings { display: none; }
   /* Reorder visible sections to match the scroll-spy sub-nav flow:
      Audience → Hosting → Infrastructure → Compliance → People → Reference.
      Two meta sections (sec-scenario, sec-deployment) stay at the very
@@ -3413,6 +3414,29 @@ html,.simulator-pane{overflow-x:hidden;height:100%}
           <div style="margin-top:5px;padding:5px 8px;background:rgba(124,77,255,.06);border:1px solid rgba(124,77,255,.15);border-radius:5px;font-size:8px;color:var(--dim)">
             RAG tokens/turn: <span id="rag-tok-summary" style="color:var(--rag);font-weight:700">0</span> &nbsp;·&nbsp; Embed cost/sess: <span id="rag-embed-cost" style="color:var(--rag)">$0</span> &nbsp;·&nbsp; Retrieval augments input by <span id="rag-pct" style="color:var(--rag)">0%</span>
           </div>
+          <!-- Embedding corpus — folded in from calc's sec-embeddings.
+               One-time + recurring embedding cost for the documents in the
+               vector DB (separate from per-query embedding tokens above). -->
+          <div style="margin-top:8px;padding:7px 9px;background:var(--card2);border:1px solid var(--b);border-radius:6px">
+            <div class="mlabel" style="color:var(--rag);margin-bottom:5px;display:flex;align-items:center;gap:6px">
+              <input type="checkbox" id="emb-enabled" data-emb="enabled" style="accent-color:var(--rag)">
+              <label for="emb-enabled" style="cursor:pointer">Embedding corpus (RAG ingest)</label>
+            </div>
+            <div id="emb-controls" style="display:grid;grid-template-columns:1fr 1fr;gap:6px;font-size:8px">
+              <div>
+                <div style="color:var(--dim);margin-bottom:2px">Corpus size (tokens)</div>
+                <input type="number" id="emb-corpus" data-emb="corpus_size_tokens" value="50000000" step="1000000" style="width:100%;font-size:9px;padding:3px 5px">
+              </div>
+              <div>
+                <div style="color:var(--dim);margin-bottom:2px">Re-embed every (months)</div>
+                <input type="number" id="emb-reembed" data-emb="reembed_frequency_months" value="6" min="1" max="60" step="1" style="width:100%;font-size:9px;padding:3px 5px">
+              </div>
+            </div>
+            <div style="margin-top:5px;font-size:8px;color:var(--dim)">
+              Monthly amortized: <span id="emb-monthly-amort" style="color:var(--rag);font-weight:700">$0</span>
+              <span style="opacity:.6">&nbsp;·&nbsp; per-query embedding tokens are set on the slider above</span>
+            </div>
+          </div>
         </div>
         <div>
           <div class="mlabel" style="color:var(--pink)">Multimodal Inputs</div>
@@ -5967,6 +5991,70 @@ setTimeout(()=>{onSlider();renderRoutingSliders();},100);
   audienceFirstRender();
   // Expose for showTab() to call on tab activation.
   window.renderAudience = renderAudience;
+
+  // ===================================================================
+  // Embeddings editor — small toggle-able panel inside AXIOM's RAG
+  // section. Reads/writes workload.embedding. Re-renders on every
+  // workload load so values stay in sync with imported scenarios.
+  // ===================================================================
+  function renderEmbedding() {
+    const w = getWorkload();
+    if (!w || !w.embedding) return;
+    const e = w.embedding;
+    const set = (id, v) => { const el = document.getElementById(id); if (el && document.activeElement !== el) el.value = v; };
+    const checked = (id, v) => { const el = document.getElementById(id); if (el) el.checked = !!v; };
+    checked('emb-enabled', e.enabled);
+    set('emb-corpus', e.corpus_size_tokens || 0);
+    set('emb-reembed', e.reembed_frequency_months || 6);
+    // Hide controls when disabled (visual cue, doesn't lock state).
+    const ctrl = document.getElementById('emb-controls');
+    if (ctrl) ctrl.style.opacity = e.enabled ? '1' : '0.45';
+    updateEmbeddingMonthly();
+  }
+
+  function updateEmbeddingMonthly() {
+    const w = getWorkload();
+    const el = document.getElementById('emb-monthly-amort');
+    if (!w || !w.embedding || !el) return;
+    if (!w.embedding.enabled) { el.textContent = '$0'; return; }
+    // Quick amortization: corpus_size_tokens × $0.02/M (gpt-3-small rate)
+    // ÷ reembed_frequency_months. This is a UI hint only — cost-engine
+    // computes the canonical number with the configured embedding model.
+    const corpus = +w.embedding.corpus_size_tokens || 0;
+    const months = Math.max(1, +w.embedding.reembed_frequency_months || 6);
+    const monthly = (corpus / 1e6) * 0.02 / months;
+    el.textContent = monthly < 1 ? '$' + monthly.toFixed(3) : '$' + Math.round(monthly).toLocaleString();
+  }
+
+  document.addEventListener('input', (e) => {
+    const t = e.target;
+    if (!t || !t.dataset || !t.dataset.emb) return;
+    const w = getWorkload();
+    if (!w) return;
+    if (!w.embedding) w.embedding = { enabled: false, model: 'text-embedding-3-small', corpus_size_tokens: 0, reembed_frequency_months: 6, query_embedding_tokens: 8 };
+    const k = t.dataset.emb;
+    if (k === 'enabled') w.embedding.enabled = !!t.checked;
+    else w.embedding[k] = parseFloat(t.value) || 0;
+    renderEmbedding();
+    if (typeof window.renderPreview === 'function') window.renderPreview();
+  });
+  document.addEventListener('change', (e) => {
+    const t = e.target;
+    if (!t || !t.dataset || !t.dataset.emb || t.dataset.emb !== 'enabled') return;
+    // Checkbox change uses 'change' rather than 'input' in some browsers.
+    const w = getWorkload();
+    if (!w || !w.embedding) return;
+    w.embedding.enabled = !!t.checked;
+    renderEmbedding();
+    if (typeof window.renderPreview === 'function') window.renderPreview();
+  });
+
+  function embeddingFirstRender() {
+    if (!getWorkload()) return setTimeout(embeddingFirstRender, 200);
+    renderEmbedding();
+  }
+  embeddingFirstRender();
+  window.renderEmbedding = renderEmbedding;
 })();
   </script>
 
