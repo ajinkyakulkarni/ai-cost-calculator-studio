@@ -1,0 +1,54 @@
+[project]
+name = "agent-cost-bench"
+version = "0.1.0"
+description = "Production-shaped benchmark harness for multi-agent LLM systems. Validates cost-calculator-studio's AXIOM simulator against real provider usage data."
+readme = "README.md"
+requires-python = ">=3.11"
+license = { text = "MIT" }
+authors = [{ name = "Ajinkya Kulkarni", email = "claude@ajinkyakulkarni.com" }]
+keywords = ["llm", "agents", "cost", "benchmark", "langgraph", "litellm", "opentelemetry"]
+
+dependencies = [
+    # LangGraph for multi-agent orchestration — production-default for
+    # state-machine-based agent flows.
+    "langgraph>=0.2.50",
+    "langchain-core>=0.3.0",
+    # LiteLLM is the de-facto provider abstraction. One client, every
+    # major provider, consistent usage reporting (cached_tokens etc).
+    "litellm>=1.55.0",
+    # OpenTelemetry — emits GenAI-semconv spans so traces are
+    # consumable by Langfuse, Arize, Phoenix, Datadog, etc.
+    "opentelemetry-api>=1.29.0",
+    "opentelemetry-sdk>=1.29.0",
+    "opentelemetry-exporter-otlp-proto-http>=1.29.0",
+    # Scenario specs are YAML — readable by humans, diff-friendly.
+    "pyyaml>=6.0",
+    # CLI ergonomics.
+    "typer>=0.15.0",
+    "rich>=13.9.0",
+]
+
+[project.optional-dependencies]
+# RAG-pgvector scenario needs Chroma. Optional because not all
+# scenarios require a vector store.
+rag = ["chromadb>=0.5.0"]
+# MCP tool-chain scenario needs the MCP client SDK.
+mcp = ["mcp>=0.9.0"]
+dev = ["pytest>=8.0", "ruff>=0.7.0", "mypy>=1.13.0"]
+
+[project.scripts]
+agent-cost-bench = "agent_cost_bench.cli:main"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/agent_cost_bench"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py311"
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "B", "UP"]

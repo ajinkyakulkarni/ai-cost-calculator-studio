@@ -1,0 +1,107 @@
+# long-chat — 30-turn analytical dialog with prompt caching enabled.
+#
+# Validates the most consequential AXIOM coefficient: cache_hit_rate.
+# A long sustained dialog exposes how providers actually cache the
+# system prompt + early conversation history. AXIOM's default
+# cache_hit_rate (0.84) was a guess; this scenario produces an
+# empirical replacement.
+#
+# Cost: ~$0.40-0.80 depending on cache behavior. The whole point of
+# caching is that this should cost LESS than 30 fresh calls.
+
+name: long-chat
+description: 30-turn analytical Q&A dialog. Tests prompt-cache savings + sysprompt amortization on a deliberately long shared system prompt.
+topology: single
+repeat: 1
+max_cost_usd: 2.50
+
+meta:
+  paper_section: "S4.2 — cache hit rate calibration"
+  validates_axiom_coefficients:
+    - cache_hit_rate
+    - sysprompt_tokens
+    - per_turn_input_tokens
+    - per_turn_output_tokens
+
+agents:
+  - id: analyst
+    role: specialist
+    # Anthropic's prompt caching is opt-in and explicit, so it gives
+    # the cleanest signal for cache-hit-rate validation. The bench
+    # also runs nicely against gpt-5.2 (automatic caching) — swap
+    # the model and re-run to compare provider behavior.
+    model: claude-sonnet-4.6
+    temperature: 0.2
+    max_output_tokens: 600
+
+    # A long, realistic system prompt — long enough that caching it
+    # actually matters financially. ~800 tokens, similar to what
+    # production deployments ship.
+    system_prompt: |
+      You are a senior data analyst at a federal Earth-science agency.
+      Your job is to answer questions about NASA Earth observation
+      datasets in clear, plain English.
+
+      You have access to monthly aggregates of:
+        - MODIS land surface temperature (MOD11A1)
+        - OMI/TROPOMI tropospheric NO2
+        - GRACE total water storage anomalies
+        - VIIRS active fire detections
+        - Arctic and Antarctic sea-ice extent
+        - Atmospheric CO2 (OCO-2)
+
+      Style guidelines:
+        1. Lead with the answer in 1-2 sentences.
+        2. Cite the specific dataset and time range used.
+        3. If the user's question can't be answered from the listed
+           datasets, say so explicitly — never invent a value.
+        4. Numbers come with units. Trends come with start and end
+           dates.
+        5. Acknowledge uncertainty: 'satellite-derived,' 'monthly
+           aggregate,' 'subject to retrieval algorithm changes.'
+
+      Tone: helpful but precise. You're talking to a federal scientist
+      who will use your answer in a briefing — accuracy beats
+      friendliness.
+
+      Output format:
+        - Plain prose, no bullet lists unless explicitly asked
+        - Numerical values with units and dates
+        - End with one suggested follow-up question the user might
+          want to ask next, prefixed with "Suggested follow-up:"
+
+# 30 turns — enough to amortize the system prompt and exercise
+# multi-turn cache behavior. Mix of independent questions (no
+# context dependency) and follow-up questions (context-heavy) to
+# expose realistic cache patterns.
+turns:
+  - user: "How did monthly mean NO2 over New York City change from October to December 2021?"
+  - user: "Was that change typical for that time of year, or unusual?"
+  - user: "Compare it to the same months in 2019 — pre-pandemic."
+  - user: "What about NO2 over Houston for the same window?"
+  - user: "Could COVID-19 lockdowns explain part of the 2021 difference?"
+  - user: "Switch topics: Arctic sea ice extent in September 2023 — what was it?"
+  - user: "Was that a record low?"
+  - user: "How does it compare to the 1981-2010 climatological mean?"
+  - user: "What about Antarctic sea ice — has it shown the same trend?"
+  - user: "Tell me about atmospheric CO2 levels at Mauna Loa in 2024."
+  - user: "What's the current annual growth rate?"
+  - user: "How does that compare to the average growth rate of the last decade?"
+  - user: "Switch to fires: how many active VIIRS detections in California during August 2023?"
+  - user: "Was that an above-average month?"
+  - user: "What about the same month in 2020?"
+  - user: "Compare California fire counts to Oregon for August 2023."
+  - user: "Land surface temperature — what was the Pacific Northwest July 2021 anomaly?"
+  - user: "That was the heat dome event — quantify it relative to climatology."
+  - user: "Did the Arctic also show high LST anomalies that month?"
+  - user: "Total water storage from GRACE — what's happening to the High Plains aquifer?"
+  - user: "What's the long-term trend, in mm equivalent water height per year?"
+  - user: "Is the trend accelerating or holding steady?"
+  - user: "Switch to OCO-2: any notable CO2 hot spots in the latest year of data?"
+  - user: "What about regional emissions signatures — fossil fuel vs biospheric?"
+  - user: "How well-resolved are point sources like power plants in OCO-2?"
+  - user: "How does TROPOMI NO2 spatial resolution compare to OCO-2 CO2?"
+  - user: "Which dataset would you recommend for monitoring a single industrial facility?"
+  - user: "What are the limitations of all of these datasets for monthly time series?"
+  - user: "If I'm building a dashboard summarizing these for the public, which datasets should I prioritize?"
+  - user: "Final question: which of the trends we've discussed has the strongest scientific consensus, and which has the most ongoing debate?"
