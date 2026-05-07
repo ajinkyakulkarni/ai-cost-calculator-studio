@@ -140,14 +140,33 @@ def _msg_attr(m, key: str):
     return getattr(m, key, None)
 
 
+def _sum_costs(a: float, b: float) -> float:
+    """Reducer for total_cost_usd — when parallel specialists each
+    return a partial cost increment, LangGraph needs a deterministic
+    way to merge them. Sum is the right semantics."""
+    return (a or 0) + (b or 0)
+
+
+def _take_last(a, b):
+    """Reducer for scalar fields where any of the parallel branches'
+    value is fine to keep — turn_idx is an example."""
+    return b if b is not None else a
+
+
 class RunState(TypedDict):
     """LangGraph state. `messages` is appended to per turn; the
     accumulator-style annotation is LangGraph's idiomatic pattern for
-    chat history."""
+    chat history.
+
+    `total_cost_usd` uses a sum reducer so parallel specialists in
+    fan-out topologies can each return their own cost contribution
+    and they get added together (rather than failing with
+    InvalidConcurrentGraphUpdate).
+    """
 
     messages: Annotated[list[dict], add_messages]
-    turn_idx: int
-    total_cost_usd: float
+    turn_idx: Annotated[int, _take_last]
+    total_cost_usd: Annotated[float, _sum_costs]
 
 
 def _build_agent_node(agent: AgentSpec, tracer):
@@ -243,9 +262,14 @@ def _build_agent_node(agent: AgentSpec, tracer):
         # Final assistant message (after any tool loop).
         appended_messages.append({"role": "assistant", "content": result.content})
 
+        # Return the cost INCREMENT only — LangGraph's _sum_costs
+        # reducer adds it to the running total. This is the only
+        # shape that's correct for parallel topologies (the
+        # alternative — return the accumulated total — would
+        # double-count when multiple branches merge).
         return {
             "messages": appended_messages,
-            "total_cost_usd": state["total_cost_usd"] + cost,
+            "total_cost_usd": cost,
         }
 
     return node

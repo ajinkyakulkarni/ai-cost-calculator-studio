@@ -1,0 +1,144 @@
+# parallel-fan-out — orchestrator + 3 parallel specialists + synthesizer.
+#
+# Production-shape mirror of the parallel multi-source discovery
+# pattern used by NASA-IMPACT/akd-services (orchestrator dispatches
+# in parallel to code_search + ads_search + cmr_care, then research
+# report generator synthesizes). Same pattern shows up in:
+#   - federated search agents (search 3 indices simultaneously)
+#   - multi-modal classifiers (text + image + audio in parallel)
+#   - any "ask N specialists, merge their answers" architecture
+#
+# Why this matters for AXIOM: the multi-stage-research scenario
+# already validated SEQUENTIAL handoff overhead. The parallel-fan-out
+# pattern has a different cost shape:
+#   - all specialists see the SAME orchestrator output (high prefix
+#     cache reuse opportunity if the system prompt is shared)
+#   - no cumulative-context growth (each specialist sees only the
+#     orchestrator's output, not other specialists')
+#   - the synthesizer at the end DOES see all specialist outputs
+#     (so handoff overhead concentrates there)
+#
+# What this scenario validates in AXIOM:
+#   - parallel handoff overhead (vs sequential)
+#   - synthesizer fan-in cost (one big merge call)
+#   - cache reuse across simultaneous specialist calls (when system
+#     prompts are shared)
+
+name: parallel-fan-out
+description: Orchestrator → 3 parallel specialists → synthesizer. Mirrors AKD's multi-source discovery pattern. Validates parallel handoff overhead and synthesizer fan-in cost.
+topology: orchestrator-specialists
+repeat: 2
+max_cost_usd: 0.50
+
+meta:
+  inspired_by: "akd-services parallel multi-source pattern"
+  validates_axiom_coefficients:
+    - parallel_handoff_overhead
+    - synthesizer_fan_in_input_tokens
+    - cache_reuse_across_parallel_calls
+
+agents:
+  # Orchestrator — first agent (per the runner's
+  # orchestrator-specialists topology). Produces a tasking message
+  # that downstream specialists will all see as their input.
+  - id: orchestrator
+    role: dispatcher
+    model: gpt-4o-mini
+    temperature: 0.2
+    max_output_tokens: 350
+    system_prompt: |
+      You are a research dispatcher. Given a user query about Earth
+      science data, decompose it into a structured set of search
+      tasks for three specialist sources:
+
+        1. literature search (peer-reviewed papers via ADS)
+        2. catalog search (NASA STAC / CMR collections)
+        3. code search (GitHub repositories implementing relevant
+           methods)
+
+      Output a JSON-flavored structure:
+        - query_summary: 1-sentence restatement
+        - lit_search_query: query string for the literature search
+        - catalog_search_query: query for the catalog
+        - code_search_query: query for code
+        - synthesis_focus: what the final report should emphasize
+
+      Be specific. Each downstream specialist will see your output
+      verbatim, so be precise enough that a specialist can act on it
+      without further clarification.
+
+  # Specialist 1 — literature search. Reads the orchestrator's output
+  # only (not other specialists').
+  - id: lit_searcher
+    role: literature
+    model: gpt-4o-mini
+    temperature: 0.3
+    max_output_tokens: 500
+    system_prompt: |
+      You are a literature-search specialist. Given a tasking from the
+      orchestrator, produce a concise summary of what the relevant
+      published papers would say about this topic.
+
+      Format:
+        - 3-5 paper-shaped findings with realistic citation patterns
+          (Author Year, Author Year)
+        - Methodology notes specific to the topic
+        - Open questions in the literature
+
+      Be technical but readable. You are writing for a senior
+      research engineer who will incorporate this into a synthesis
+      report.
+
+  # Specialist 2 — catalog search.
+  - id: catalog_searcher
+    role: catalog
+    model: gpt-4o-mini
+    temperature: 0.3
+    max_output_tokens: 500
+    system_prompt: |
+      You are a NASA data catalog specialist. Given a tasking from the
+      orchestrator, identify the most relevant STAC/CMR collections
+      that would address the question.
+
+      Format:
+        - 3-5 candidate collections (synthetic IDs OK) with:
+          - collection name
+          - dataset (MODIS LST, OMI NO2, GRACE TWS, VIIRS fires, etc.)
+          - spatial resolution and temporal coverage
+          - rough match strength (High/Moderate/Weak)
+        - Caveats specific to the requested time/space window
+
+      Use realistic-sounding NASA dataset names. Be honest about
+      mismatches.
+
+  # Specialist 3 — code search.
+  - id: code_searcher
+    role: code
+    model: gpt-4o-mini
+    temperature: 0.3
+    max_output_tokens: 500
+    system_prompt: |
+      You are a code search specialist. Given a tasking from the
+      orchestrator, identify open-source repositories and notebooks
+      that implement methods relevant to the question.
+
+      Format:
+        - 3-5 candidate repos/notebooks with:
+          - org/repo or notebook title
+          - language and primary library
+          - what method or analysis it provides
+          - relevance to the tasking
+
+      Use realistic-sounding GitHub orgs (NASA-IMPACT, NSIDC-data,
+      Pangeo etc). Be honest about coverage gaps.
+
+# Five queries — each one fans out: orchestrator → 3 parallel
+# specialists. The runner's orchestrator-specialists topology
+# wires this up automatically. Each turn produces 4 LLM calls:
+# 1 orchestrator + 3 specialists.
+turns:
+  - user: "Help me research how to monitor methane emissions from US natural-gas infrastructure using satellite data."
+  - user: "What about wildfire risk forecasting from MODIS LST plus precipitation deficit data?"
+  - user: "How do operational ocean-current models compare to satellite altimetry for the Gulf Stream?"
+  - user: "What's the best way to validate ground-level NO2 estimates from TROPOMI against EPA AQS?"
+  - user: "Where can I find code that does Sen-slope trend analysis on monthly time series of GRACE-FO data?"

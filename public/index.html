@@ -5991,21 +5991,31 @@ setTimeout(()=>{onSlider();renderRoutingSliders();},100);
       .then(r => r.ok ? r.json() : null)
       .then(c => {
         if (!c || !c.coefficients) return;
-        // Apply calibrated values to AXIOM's controls. Each apply is
-        // a no-op if the target slider/element doesn't exist (the
-        // calc evolves; we don't want a calibration value to break
-        // the page if a coefficient name changes).
-        const apply = (id, val) => {
+
+        const coef = c.coefficients;
+
+        // Apply calibrated values to AXIOM's existing sliders. Each
+        // apply is a no-op if the target doesn't exist — we don't
+        // want a calibration value to break the page if a slider
+        // gets renamed.
+        const applySlider = (id, val) => {
           const el = document.getElementById(id);
-          if (!el || val == null) return;
+          if (!el || val == null) return false;
           el.value = val;
           el.dispatchEvent(new Event('input', { bubbles: true }));
+          return true;
         };
-        const cache = c.coefficients.cache_hit_rate;
-        if (cache && typeof cache.value === 'number') {
-          // s-cache is on a 0-95% scale (integer percent).
-          apply('s-cache', Math.round(cache.value * 100));
+        const applies = [];
+        if (coef.cache_hit_rate?.value != null) {
+          if (applySlider('s-cache', Math.round(coef.cache_hit_rate.value * 100))) {
+            applies.push(`cache_hit_rate → ${(coef.cache_hit_rate.value * 100).toFixed(0)}%`);
+          }
         }
+        // (Other coefficients don't currently have AXIOM sliders —
+        // they're surfaced in the panel below. As AXIOM grows
+        // sliders for I/O ratio, handoff overhead, latency etc.,
+        // applySlider() calls land here.)
+
         // Add a small badge to the cost pill so users see the
         // calibration provenance. Click the badge to view full
         // coefficients.json in a new tab.
@@ -6015,7 +6025,7 @@ setTimeout(()=>{onSlider();renderRoutingSliders();},100);
           badge.id = 'cb-calibrated';
           badge.title =
             'AXIOM coefficients calibrated from agent-cost-bench traces. ' +
-            'Click to view coefficients.json.';
+            'Click for full provenance.';
           badge.textContent = '✓ measured';
           badge.style.cssText =
             'margin-left:8px;font-size:9px;letter-spacing:0.04em;' +
@@ -6024,13 +6034,21 @@ setTimeout(()=>{onSlider();renderRoutingSliders();},100);
             'text-transform:uppercase;font-weight:700';
           badge.addEventListener('click', (e) => {
             e.stopPropagation();
-            window.open('coefficients.json', '_blank');
+            renderMeasuredPanel(c);
           });
           pill.appendChild(badge);
         }
+
+        // Build a "Measured Coefficients" modal panel. Click the
+        // ✓ MEASURED badge to open it. Surfaces every empirical
+        // value with provenance (source scenario, sample size,
+        // provider, measured range) so a procurement reviewer can
+        // audit how each AXIOM constant was derived.
+        renderMeasuredPanel(c, /*openImmediately=*/false);
+
         console.log(
           '[bench] applied calibrated coefficients from /coefficients.json',
-          c.coefficients
+          { applied: applies, totals: c.totals }
         );
       })
       .catch(() => {
@@ -6038,6 +6056,91 @@ setTimeout(()=>{onSlider();renderRoutingSliders();},100);
         // calc shows its hand-tuned defaults. Not an error.
       });
   })();
+
+  // Modal panel listing every measured coefficient with provenance.
+  // Hidden by default; clicking the ✓ MEASURED badge opens it.
+  function renderMeasuredPanel(c, openImmediately) {
+    let panel = document.getElementById('measured-panel');
+    if (!panel) {
+      panel = document.createElement('div');
+      panel.id = 'measured-panel';
+      panel.style.cssText =
+        'position:fixed;top:60px;right:20px;width:540px;max-height:80vh;' +
+        'overflow-y:auto;background:var(--panel);color:var(--ink);' +
+        'border:1px solid var(--rule);border-radius:6px;' +
+        'box-shadow:0 8px 32px rgba(0,0,0,0.18);padding:16px 18px;' +
+        'z-index:200;display:none;font-family:var(--sans);font-size:12px';
+      document.body.appendChild(panel);
+    }
+    if (!c || !c.coefficients) return;
+
+    const fmt = (v, unit) => {
+      if (v == null) return '—';
+      if (typeof v === 'number') {
+        if (unit === 'fraction') return (v * 100).toFixed(1) + '%';
+        if (unit === 'milliseconds') return Math.round(v) + ' ms';
+        if (unit === 'tokens/sec') return Math.round(v) + ' t/s';
+        if (Math.abs(v) >= 1000) return Math.round(v).toLocaleString();
+        if (Math.abs(v) >= 10) return v.toFixed(0);
+        return v.toFixed(2);
+      }
+      return String(v);
+    };
+
+    const rows = Object.entries(c.coefficients).map(([key, info]) => {
+      const delta = info.previous_value != null && typeof info.value === 'number'
+        ? `<span style="color:#888;font-size:10px"> (was ${fmt(info.previous_value, info.unit)})</span>`
+        : '';
+      return `
+        <div style="border-bottom:1px solid var(--rule);padding:10px 0">
+          <div style="display:flex;justify-content:space-between;align-items:baseline">
+            <code style="font-family:var(--mono);font-size:11px;color:var(--accent);font-weight:700">${key}</code>
+            <span style="font-family:var(--mono);font-size:13px;font-weight:700">${fmt(info.value, info.unit)}${delta}</span>
+          </div>
+          <div style="margin-top:4px;color:var(--muted);font-size:11px">${info.description || ''}</div>
+          <div style="margin-top:4px;font-size:10px;color:var(--muted)">
+            <strong>${info.source_scenario}</strong> · n=${info.sample_size}
+            · ${info.provider}/${info.model || ''}
+          </div>
+        </div>
+      `;
+    }).join('');
+
+    const totals = c.totals || {};
+    panel.innerHTML = `
+      <div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:6px">
+        <strong style="font-size:13px;letter-spacing:0.04em;text-transform:uppercase">Measured Coefficients</strong>
+        <button id="measured-close" style="background:none;border:none;font-size:16px;cursor:pointer;color:var(--muted)" type="button">×</button>
+      </div>
+      <div style="font-size:10.5px;color:var(--muted);margin-bottom:8px">
+        v${c.schema_version || '1.0'} · ${c.generated_at || 'today'} ·
+        ${totals.calls || 0} calls across ${(totals.providers || []).join(', ') || '?'}
+        · total spend $${(totals.cost_usd || 0).toFixed(3)}
+      </div>
+      ${rows}
+      <div style="margin-top:10px;font-size:10.5px;color:var(--muted);line-height:1.5">
+        Each value above was measured by running the
+        <code>agent-cost-bench</code> harness against real provider APIs.
+        Source scenario YAMLs and trace artifacts are committed alongside.
+        <a href="coefficients.json" target="_blank" style="color:var(--accent)">Raw coefficients.json →</a>
+      </div>
+    `;
+    panel.querySelector('#measured-close')?.addEventListener('click', () => {
+      panel.style.display = 'none';
+    });
+    if (openImmediately) panel.style.display = 'block';
+    else if (panel.style.display === 'block') panel.style.display = 'block';
+
+    // Toggle behavior — clicking the badge opens, clicking again closes.
+    const badge = document.getElementById('cb-calibrated');
+    if (badge && !badge.dataset.toggleBound) {
+      badge.dataset.toggleBound = '1';
+      badge.addEventListener('click', (e) => {
+        e.stopPropagation();
+        panel.style.display = panel.style.display === 'block' ? 'none' : 'block';
+      });
+    }
+  }
 
   // ===================================================================
   // Audience editor — renders workload.segments[] in AXIOM's Audience

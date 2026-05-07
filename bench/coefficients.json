@@ -1,7 +1,7 @@
 {
   "_": "Empirically-validated coefficients for the AXIOM cost simulator inside calc.ajinkya.ai. Each value is derived from running agent-cost-bench scenarios and measuring actual provider behavior. Versioned — the calc fetches this file at startup and uses it to override its hand-tuned defaults.",
 
-  "schema_version": "1.0",
+  "schema_version": "1.1",
   "generated_at": "2026-05-06",
   "agent_cost_bench_version": "0.1.0",
 
@@ -16,7 +16,12 @@
       "provider": "openai",
       "model": "gpt-4o-mini",
       "measured_range": {"p10": 0.61, "median": 0.94, "p90": 0.97},
-      "notes": "Cold-start (turn 0) caches only ~61% (system prompt). Warm turns 1+ hold 94-97%. AXIOM should model this as a curve, not a flat coefficient — phase-2 enhancement."
+      "by_provider": {
+        "openai_auto_prefix":   {"value": 0.91, "model": "gpt-4o-mini",                  "sample": 18, "scenario": "cached-pipeline"},
+        "anthropic_explicit":   {"value": 0.77, "model": "claude-sonnet-4-5-20250929",   "sample": 18, "scenario": "cached-pipeline-anthropic"},
+        "parallel_fan_out":     {"value": 0.60, "model": "gpt-4o-mini",                  "sample": 40, "scenario": "parallel-fan-out"}
+      },
+      "notes": "Cold-start (turn 0) caches only ~61% (system prompt). Warm turns 1+ hold 94-97%. Provider behavior differs materially: OpenAI's automatic prefix-matching beats Anthropic's explicit cache_control on multi-turn chat patterns where conversation history grows. AXIOM should model cache as a curve, not a flat coefficient — phase-2 enhancement."
     },
 
     "input_output_ratio": {
@@ -35,7 +40,7 @@
     "sequential_handoff_overhead_tokens": {
       "value": 700,
       "previous_value": 200,
-      "unit": "tokens",
+      "unit": "tokens_per_stage",
       "description": "Per-stage cumulative-context growth in a sequential multi-agent pipeline. Each downstream stage sees prior stages' outputs concatenated.",
       "source_scenario": "multi-stage-research",
       "sample_size": 15,
@@ -45,13 +50,26 @@
       "notes": "Flat overhead constant is wrong; real growth is roughly linear in number of upstream stages times their average output size."
     },
 
+    "parallel_fan_out_synthesizer_input_tokens": {
+      "value": 1900,
+      "previous_value": null,
+      "unit": "tokens",
+      "description": "Input to a fan-in synthesizer that merges outputs from N parallel specialists. Grows with N.",
+      "source_scenario": "parallel-fan-out",
+      "sample_size": 40,
+      "provider": "openai",
+      "model": "gpt-4o-mini",
+      "measured_range": {"specialist_input": 250, "synthesizer_input": 1900, "ratio": "7.6x"},
+      "notes": "Parallel topology has different cost shape from sequential: specialists each see only the orchestrator's output (~250 tok); the synthesizer at the end sees all specialist outputs concatenated (~1900 tok with 3 specialists)."
+    },
+
     "median_latency_ms": {
       "value": 1700,
       "previous_value": null,
       "unit": "milliseconds",
       "description": "Median per-call latency on gpt-4o-mini (blocking, non-streaming).",
       "source_scenario": "multiple",
-      "sample_size": 87,
+      "sample_size": 116,
       "provider": "openai",
       "model": "gpt-4o-mini",
       "measured_range": {"p50": 1224, "p90": 3437, "max": 26326},
@@ -86,21 +104,23 @@
   },
 
   "scenarios_run": [
-    {"name": "smoke-test",            "calls": 9,  "input_tokens": 489,    "output_tokens": 99,   "cost_usd": 0.0001},
-    {"name": "multi-stage-research",  "calls": 15, "input_tokens": 19016,  "output_tokens": 8601, "cost_usd": 0.005},
-    {"name": "streaming-pipeline",    "calls": 9,  "input_tokens": 2536,   "output_tokens": 1579, "cost_usd": 0.001},
-    {"name": "tool-chain",            "calls": 21, "input_tokens": 54082,  "output_tokens": 5718, "cost_usd": 0.011},
-    {"name": "data-discovery",        "calls": 33, "input_tokens": 56409,  "output_tokens": 772,  "cost_usd": 0.009},
-    {"name": "data-discovery-gpt52",  "calls": 11, "input_tokens": 19024,  "output_tokens": 215,  "cost_usd": 0.098},
-    {"name": "cached-pipeline",       "calls": 18, "input_tokens": 39375,  "output_tokens": 3287, "cost_usd": 0.006, "cached_tokens": 35840, "cache_hit_rate": 0.910}
+    {"name": "smoke-test",                  "calls": 9,   "input_tokens": 489,    "output_tokens": 99,    "cost_usd": 0.0001, "provider": "openai"},
+    {"name": "multi-stage-research",        "calls": 15,  "input_tokens": 19016,  "output_tokens": 8601,  "cost_usd": 0.005,  "provider": "openai"},
+    {"name": "streaming-pipeline",          "calls": 9,   "input_tokens": 2536,   "output_tokens": 1579,  "cost_usd": 0.001,  "provider": "openai"},
+    {"name": "tool-chain",                  "calls": 21,  "input_tokens": 54082,  "output_tokens": 5718,  "cost_usd": 0.011,  "provider": "openai"},
+    {"name": "data-discovery",              "calls": 33,  "input_tokens": 56409,  "output_tokens": 772,   "cost_usd": 0.009,  "provider": "openai"},
+    {"name": "data-discovery-gpt52",        "calls": 11,  "input_tokens": 19024,  "output_tokens": 215,   "cost_usd": 0.098,  "provider": "openai"},
+    {"name": "cached-pipeline",             "calls": 18,  "input_tokens": 39375,  "output_tokens": 3287,  "cost_usd": 0.006,  "provider": "openai",     "cached_tokens": 35840, "cache_hit_rate": 0.910},
+    {"name": "cached-pipeline-anthropic",   "calls": 18,  "input_tokens": 44069,  "output_tokens": 3600,  "cost_usd": 0.063,  "provider": "anthropic",  "cached_tokens": 34102, "cache_hit_rate": 0.774},
+    {"name": "parallel-fan-out",            "calls": 40,  "input_tokens": 142855, "output_tokens": 16251, "cost_usd": 0.030,  "provider": "openai",     "cached_tokens": 85248, "cache_hit_rate": 0.597}
   ],
 
   "totals": {
-    "calls": 116,
-    "input_tokens": 190931,
-    "output_tokens": 20271,
-    "cost_usd": 0.131,
-    "providers": ["openai"],
-    "models": ["gpt-4o-mini", "gpt-5.2"]
+    "calls": 174,
+    "input_tokens": 377855,
+    "output_tokens": 40122,
+    "cost_usd": 0.224,
+    "providers": ["openai", "anthropic"],
+    "models": ["gpt-4o-mini", "gpt-5.2", "claude-sonnet-4-5-20250929"]
   }
 }
