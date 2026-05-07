@@ -1,68 +1,194 @@
-# Cost Calculator Studio
+# AI Cost Calculator Studio
 
-> A toolkit for building parameterized AI-agent cost calculators.
-> Define your workload as JSON; emit a single-file HTML calculator.
-> Like draw.io, but for LLM cost models.
+> **Live at [calc.ajinkya.ai](https://calc.ajinkya.ai)** — interactive,
+> procurement-grade cost calculator for multi-agent LLM deployments,
+> with empirically-validated coefficients.
 
-This repository turns the per-program cost-modeling work originally
-done for NASA's Earth Information Explorer (EIE) into a generalizable
-toolkit. Federal agencies, AI startups, and research programs can use
-it to produce procurement-grade cost estimates for their own AI agent
-deployments without rebuilding the calculator math from scratch.
+A multi-agent LLM cost calculator + an open-source benchmark harness
+that measures every coefficient against real provider APIs. Built for
+federal procurement reviews, AI-startup capacity planning, and
+research-grade cost-modeling papers — anywhere a number larger than
+"$X per million tokens × N tokens" is needed.
+
+What makes this different from generic per-token calculators:
+
+- **Three-layer cost model**: token math × volume + infrastructure +
+  compliance + people. The first layer alone is wrong by an order of
+  magnitude for production agent workloads.
+- **Empirically calibrated**: every coefficient has a measured value
+  from `bench/` runs against real OpenAI / Anthropic APIs. Click the
+  ✓ MEASURED badge in the live calc to see provenance.
+- **Production-shape benchmark**: the bench uses LiteLLM + LangGraph
+  + OpenTelemetry GenAI semconv — the same stack real teams deploy.
+
+> 🤖 **Picking this repo up cold (human or AI)?** Three things to
+> know:
+> 1. **What this is**: the source for [calc.ajinkya.ai](https://calc.ajinkya.ai)
+>    + a sibling Python benchmark in `bench/` that validates the
+>    calc's coefficients against real LLM APIs.
+> 2. **Auto-deploy**: `git push` to `main` → Cloudflare Pages
+>    auto-builds + serves `public/` from the `ai-cost-calculator-studio`
+>    Worker. ~30s end-to-end.
+> 3. **Cloudflare credentials**: API token at `~/.cloudflare/api-token`
+>    (gitignored). Source it before any `wrangler` command:
+>    `export CLOUDFLARE_API_TOKEN=$(cat ~/.cloudflare/api-token | tr -d '\n\r ')`.
+> 4. **Sister repos**: the personal-cloud monorepo at
+>    [`ajinkyakulkarni/ajinkya.ai`](https://github.com/ajinkyakulkarni/ajinkya.ai)
+>    hosts the API proxy at `api.ajinkya.ai`, the daily price scraper,
+>    and the operator digest. The calc here calls into that proxy
+>    for chat-builder + Q&A features.
 
 ## What's in here
 
 ```
-cost-calculator-studio/
-├── README.md                        # this file
-├── schema/
-│   └── workload-v1.schema.json      # JSON Schema for a "workload spec"
-├── lib/
-│   ├── cost-engine.js               # parameterized JS cost engine
-│   └── excel-generator.py           # builds .xlsx workbook from a workload
-├── templates/
-│   └── calculator-template.html     # HTML calculator with template slots
-├── studio/                          # in-browser authoring app
-│   ├── index.html                   # form-based editor + live preview
-│   ├── app.js
-│   └── styles.css
-├── examples/                        # 5 pre-built workload specs
-│   ├── nasa-eie.json
-│   ├── nih-clinical-trials.json
-│   ├── doe-grid-modeling.json
-│   ├── noaa-storm-tracking.json
-│   └── generic-startup-chatbot.json
-├── outputs/                         # generated calculator HTML files
-│   └── README.md
+ai-cost-calculator-studio/
+├── README.md                # this file
+├── wrangler.jsonc           # Cloudflare Workers Static Assets config
+├── package.json             # npm deps (wrangler only — no build step)
+├── public/                  # the live calculator (served at calc.ajinkya.ai)
+│   ├── index.html           # ~360KB, contains the AXIOM simulator + calc UI
+│   ├── app.js               # state management, segment editor, scroll-spy nav
+│   ├── cost-engine.js       # pure-function TCO calculator
+│   ├── coefficients.json    # bench-produced empirical coefficients
+│   ├── examples/            # preset workload JSONs (NASA EIE, NIH, etc.)
+│   └── prices/              # daily-refreshed model rate cards
+├── bench/                   # agent-cost-bench — Python harness
+│   ├── README.md            # full bench docs (LiteLLM + LangGraph + OTEL)
+│   ├── pyproject.toml
+│   ├── coefficients.json    # canonical source for public/coefficients.json
+│   ├── scenarios/           # YAML specs (smoke-test, multi-stage-research,
+│   │                        #  cached-pipeline, tool-chain, data-discovery,
+│   │                        #  parallel-fan-out, streaming-pipeline, …)
+│   └── src/agent_cost_bench/
+│       ├── runner.py        # LangGraph executor
+│       ├── provider.py      # LiteLLM wrapper
+│       ├── tracing.py       # OTEL GenAI semconv spans
+│       ├── tools.py         # function-calling tool implementations
+│       ├── compare.py       # variance reports
+│       └── cli.py           # `agent-cost-bench run|compare|estimate`
+├── docs/
+│   └── paper/
+│       └── validation-methodology.md   # paper section: empirical calibration
 ├── excel-template/
-│   ├── cost-model.xlsx              # pre-generated sophisticated workbook
-│   └── README.md                    # how to use the spreadsheet
-└── docs/
-    ├── getting-started.md           # 10-minute walkthrough
-    ├── workload-schema.md           # detailed schema documentation
-    ├── publishing.md                # how to deploy your calculator
-    ├── methodology.md               # the math, in plain language
-    └── faq.md
+│   └── cost-model.xlsx      # pre-generated procurement-friendly spreadsheet
+└── scripts/                 # build helpers, one-shot fixers
 ```
 
-## Three ways to use this toolkit
+## Deploy the calculator (calc.ajinkya.ai)
 
-**1. Build a calculator without writing code.**
-Open `studio/index.html` in a browser. Fill in the form fields for
-your traffic shapes, segments, models, and verification configuration.
-Live-preview the resulting calculator. Click *Generate* to download a
-single self-contained HTML file you can host anywhere.
+The calc is pure static assets served via Cloudflare Workers.
+**No build step** — `public/` is uploaded as-is.
 
-**2. Define your workload as JSON, then run the generator.**
-Copy any file from `examples/`, edit it for your program, and run
-the generator script to emit a calculator HTML. Suitable for CI
-pipelines and reproducible procurement reviews.
+```bash
+# One-time: set the Cloudflare API token (see callout above)
+export CLOUDFLARE_API_TOKEN=$(cat ~/.cloudflare/api-token | tr -d '\n\r ')
 
-**3. Use the Excel template.**
-Open `excel-template/cost-model.xlsx`. Paste your workload parameters
-into the input sheet. Read off the cost comparison from the output
-sheet. Suitable for budget reviews where Excel is the procurement
-language.
+# Deploy: pushes public/ to the ai-cost-calculator-studio Worker,
+# which serves calc.ajinkya.ai.
+cd ai-cost-calculator-studio
+npx wrangler deploy
+```
+
+Output:
+
+```
+✨ Read 17 files from the assets directory ai-cost-calculator-studio/public
+Uploaded N of M assets
+✨ Success! Uploaded N files (… already uploaded)
+Uploaded ai-cost-calculator-studio (X.XXs)
+```
+
+The `Authentication error [code: 10000]` line that sometimes appears
+at the very end is a known harmless artifact — wrangler tries to hit
+a routes API endpoint at the end of every deploy that the user-API
+token doesn't have scope for. **The actual asset upload completes
+before that line.** Look for `Uploaded ai-cost-calculator-studio` to
+confirm success.
+
+Most asset changes are visible at calc.ajinkya.ai within ~30 seconds.
+Hard-refresh (Cmd-Shift-R) to bypass browser cache.
+
+## Run the benchmark
+
+The bench is a separate Python package. See
+[`bench/README.md`](./bench/README.md) for the full design rationale,
+scenario library, and trace format.
+
+Quick start:
+
+```bash
+cd bench
+python3 -m venv .venv
+.venv/bin/pip install -e .
+
+# Set OpenAI / Anthropic API keys (gitignored)
+cp .env.example .env  # or edit existing .env
+# paste your keys
+
+# Run a scenario
+.venv/bin/agent-cost-bench run scenarios/smoke-test.yml --yes
+
+# Compare against AXIOM's predictions
+.venv/bin/agent-cost-bench compare \
+    reports/smoke-test-…-trace.json \
+    --simulator-export ./scenario-from-calc.json
+```
+
+Each scenario produces a JSON trace artifact (OTEL GenAI semconv
+attributes, per-call usage, request_ids) and the comparator emits a
+Markdown variance report. Coefficients drifting more than ±15% from
+their predicted values get flagged for calibration.
+
+## The calibration loop
+
+```
+agent-cost-bench (Python)
+  └─ runs scenarios against real OpenAI/Anthropic APIs
+     └─ produces bench/coefficients.json
+        └─ mirrored to public/coefficients.json
+           └─ calc.ajinkya.ai fetches it at page load
+              └─ AXIOM applies measured values to its sliders
+                 └─ ✓ MEASURED badge appears in the topbar
+                    └─ click → modal panel with full provenance
+                       (source scenario, sample size, provider,
+                        measured range)
+```
+
+This is what turns the calc from a model into a measurement. Every
+coefficient AXIOM publishes has a named source scenario, a sample
+size, and a provider — auditable down to the trace artifact in
+`bench/reports/`.
+
+The full methodology is documented in
+[`docs/paper/validation-methodology.md`](./docs/paper/validation-methodology.md).
+
+## How the calc UI is structured
+
+calc.ajinkya.ai is a single-page app with three navigation layers:
+
+1. **L1 sidebar** (left): top-level tabs — Workspace · Prices ·
+   Benchmarks · Report.
+2. **L2 sub-nav** (sticky): scoped to the Components-half of
+   Workspace — Hosting · Infrastructure · Compliance · People & Plan
+   · Reference. Visible once you scroll past the AXIOM simulator.
+3. **L3 AXIOM nav** (inside the simulator pane): Configuration ·
+   Audience · Agent Settings · Architecture · Token Analysis · Cost
+   Models · Sensitivity · Routing · Methodology · Simulation.
+
+All three navs share the same visual language (uppercase, letter-
+spaced, cyan accent on active). The design reasoning is documented
+in commit history; search for "design system" or "unify".
+
+The Workspace tab itself is a single continuous scroll:
+
+```
+[Quick Start chat — collapses after first interaction]
+[Your Deployment SVG diagram with $/mo on each box]
+[Sticky scroll-spy sub-nav]
+[AXIOM simulator (full multi-agent token modeller)]
+[Components-half — TCO inputs (Audience / Hosting / Infra /
+                  Compliance / People & Plan / Reference)]
+```
 
 ## Why this exists
 
@@ -81,40 +207,43 @@ procurement actually requires:
   optimistic-vs-realistic toggle
 - A same-budget fair comparison row that resolves the
   apples-to-oranges trap pervasive in API-vs-self-host analyses
+- **Empirical validation**: every coefficient measured against
+  real provider APIs
 
 The methodology is documented in the companion paper
 *Cost Modeling for Federal AI-Agent Deployment: A Worked Example with
-NASA's Earth Information Explorer*. This toolkit is the
-parameterized, generalizable form of the calculator built for that
-paper.
+NASA's Earth Information Explorer*. The validation methodology is
+documented separately at
+[`docs/paper/validation-methodology.md`](./docs/paper/validation-methodology.md).
 
-## Quick start
+## Companion blog posts
 
-```bash
-# Open the studio in your default browser
-open studio/index.html
-
-# Or generate a calculator from an existing example
-node lib/cost-engine.js examples/nasa-eie.json > outputs/nasa-eie.html
-
-# Or generate the Excel workbook
-python3 lib/excel-generator.py examples/nasa-eie.json -o my-calc.xlsx
-```
+- [The cost of running an AI agent: thirteen things everyone misses](https://ajinkya.ai/posts/cost-of-ai-the-things-everyone-misses.html)
+  — narrative walkthrough of what naïve calculators miss.
+- [At equal budget, self-hosting your AI saves you nothing](https://ajinkya.ai/posts/cost-calculator-launch.html)
+  — original launch post + the API-vs-self-host break-even.
+- [Cost analysis for AI agents: equations, methodology, and every term defined](https://ajinkya.ai/posts/cost-analysis-equations-and-glossary.html)
+  — the equations + bench validation + alphabetical glossary of
+  every term in the calculator.
 
 ## Status
 
-**Active. Initial release May 2026.** APIs are 0.x and may change.
-The JSON schema is versioned (`workload-v1`); breaking changes will
-bump the major version.
-
-## License
-
-MIT. See `LICENSE`.
+| Component | State |
+|---|---|
+| Calculator UI (`calc.ajinkya.ai`) | ✅ Live |
+| AXIOM simulator (multi-agent token math) | ✅ Live, inlined into the calc |
+| State unification (auto-sync AXIOM ↔ Components) | ✅ Live |
+| Theme system (Tactical / Mission / Command) | ✅ Live |
+| `coefficients.json` calibration loop | ✅ Live, fetched at page load |
+| `agent-cost-bench` v0.1.0 | ✅ 9 scenarios, 174 calls validated |
+| Anthropic provider in bench | ✅ Live (via LiteLLM) |
+| Self-host scenario | ⏸ planned (vLLM + open-weight model) |
+| Public benchmark page (`calc.ajinkya.ai/benchmarks`) | ⏸ planned |
+| Repo public on GitHub | ⏸ private, will flip after polish |
 
 ## Citing
 
-If you use this toolkit in published work or in a procurement
-document, please cite the methodology paper:
+If you use this toolkit in published work or a procurement document:
 
 ```bibtex
 @misc{kulkarni2026cost,
@@ -122,7 +251,7 @@ document, please cite the methodology paper:
   title  = {Cost Modeling for Federal {AI}-Agent Deployment:
             A Worked Example with {NASA}'s Earth Information Explorer},
   year   = {2026},
-  url    = {https://github.com/ajinkya-org/work-productivity}
+  url    = {https://github.com/ajinkyakulkarni/ai-cost-calculator-studio}
 }
 ```
 
@@ -131,7 +260,8 @@ document, please cite the methodology paper:
 - [CEBench (arXiv:2407.12797)](https://arxiv.org/abs/2407.12797) — a
   benchmarking toolkit for the cost-effectiveness of LLM pipelines.
   Complementary: CEBench produces empirical throughput numbers that a
-  calculator like this one consumes.
+  calculator like this one consumes; `agent-cost-bench` produces
+  per-coefficient calibration data for the simulator's defaults.
 - [A Cost-Benefit Analysis of On-Premise LLM Deployment
   (arXiv:2509.18101)](https://arxiv.org/abs/2509.18101) — closest
   academic companion. They estimate a single break-even point; we
@@ -144,3 +274,7 @@ document, please cite the methodology paper:
 - [FedRAMP AI prioritization](https://www.fedramp.gov/ai/) and the
   [GSA + NIST partnership](https://www.gsa.gov/about-us/newsroom/news-releases/gsa-and-nist-partner-to-boost-ai-evaluation-science-in-federal-procurement-03182026)
   for the federal procurement context this toolkit plugs into.
+
+## License
+
+MIT.
