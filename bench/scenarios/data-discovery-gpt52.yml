@@ -1,0 +1,117 @@
+# data-discovery — single agent with confirmation-gated tool pipeline.
+#
+# Mirrors the canonical pattern used by production domain-data-
+# discovery agents (e.g., NASA-IMPACT/eie-agent for VEDA STAC, but
+# the same shape applies to any catalog-search-with-human-in-the-loop
+# system: medical literature search, legal e-discovery, financial
+# regulatory data, etc.).
+#
+# Architecture replicated:
+#   - Single agent, long system prompt (~700 tokens)
+#   - 6 tools called in canonical sequence
+#   - 3 confirmation gates between tool calls (datetime, place,
+#     collection selection) — each pause is a separate "turn" from
+#     the agent's perspective
+#   - Tool-state pattern: large payloads (geometry, item lists)
+#     stay out of LLM context; only summaries fed back. THIS IS A
+#     PRODUCTION OPTIMIZATION AXIOM DOESN'T MODEL by default.
+#
+# What this scenario validates in AXIOM:
+#   - tool_schema_overhead_tokens (6 tool schemas in the prompt)
+#   - tool_result_tokens (varies wildly: 100 for bbox, 500 for
+#     collection list, 2000 for items, 1000 for stats)
+#   - tools_per_query (the EIE flow does ~5 tool calls per session)
+#   - per-turn token growth as confirmation history accumulates
+#   - cost effect of tool-state-bypass for big payloads
+#
+# Cost: ~$0.005-0.010 per run on gpt-4o-mini.
+
+name: data-discovery-gpt52
+description: Single agent with 6-tool catalog-search pipeline (datetime → geocode → search → select → items → stats). Mirrors the production human-in-the-loop pattern used by domain-data-discovery agents. Validates tool-overhead and confirmation-gate cost dynamics.
+topology: single
+repeat: 1
+max_cost_usd: 1.50
+
+meta:
+  inspired_by: "Confirmation-gated tool pipeline (NASA-IMPACT/eie-agent shape)"
+  validates_axiom_coefficients:
+    - tool_schema_overhead_tokens
+    - tool_result_tokens
+    - tools_per_query
+    - per_turn_input_tokens (with growing confirmation history)
+
+agents:
+  - id: discoverer
+    role: data-discovery
+    model: gpt-5.2
+    temperature: 0.2
+    max_output_tokens: 600
+    tools:
+      - parse_datetime
+      - geocode
+      - search_collections
+      - select_collection
+      - search_items
+      - compute_stats
+    # ~700 token system prompt — mirrors EIE's structure (ROLE /
+    # OBJECTIVE / TOOLS / PROCESS) generically. Long prompts are
+    # the realistic shape for production agents — short test
+    # prompts undersell the per-call input cost.
+    system_prompt: |
+      ROLE
+      You are a domain-data-discovery agent. You help users find and
+      summarize data from a catalog of geospatial collections. You can
+      ONLY help with data discovery and analysis tasks using your tools;
+      you must NOT answer general knowledge questions.
+
+      OBJECTIVE
+      Given a user's natural-language question, orchestrate the canonical
+      6-tool pipeline:
+
+        1. parse_datetime — validate the time range
+        2. geocode — resolve the place to a bbox
+        3. search_collections — find candidate collections
+        4. select_collection — record the user's choice
+        5. search_items — list catalog items in the AOI + time
+        6. compute_stats — produce per-item descriptive statistics
+
+      Each of the first three tools triggers a CONFIRMATION GATE — the
+      user must confirm the value before the pipeline proceeds. Output
+      the tool's `message` field exactly as written and STOP. Do NOT
+      call subsequent tools until the user responds.
+
+      RULES
+      - Be strictly sequential. Do not skip tools.
+      - After receiving stats, simply say "Statistics retrieved." and
+        STOP. Do NOT print numerical values, summaries, or analysis.
+      - Never speculate. If a step fails, halt the pipeline and explain
+        why.
+      - When status='pending_confirmation', emit the message verbatim
+        and wait for the user to confirm.
+      - When status='complete', proceed to the next step in the
+        pipeline.
+
+      OUTPUT STYLE
+      - For the first three tools, just the message.
+      - For the final stats step, just "Statistics retrieved."
+      - Use "match strength" not "relevance" when describing collection
+        results. Use "semantic similarity" not "vector match".
+
+      You are deterministic, reproducible in regards to tool outputs,
+      non-speculative. You are not predictive and not interpretive.
+
+# Five-turn flow simulating the human-in-the-loop confirmation pattern:
+#   Turn 1: initial query → triggers parse_datetime (pending)
+#   Turn 2: user confirms datetime → triggers geocode (pending)
+#   Turn 3: user confirms place → triggers search_collections (pending)
+#   Turn 4: user picks a collection → triggers select + search_items
+#           + compute_stats (no more confirmations)
+#   Turn 5: any follow-up clarification
+#
+# Each turn the agent makes 1-3 LLM calls (request + tool-result-loop).
+turns:
+  - user: "Show me NO2 air quality data for Houston, Texas from January through June 2020."
+  - user: "Yes, that date range is correct."
+  - user: "Yes, that location is correct."
+  - user: "I'll go with the first option (highest semantic similarity)."
+  - user: "Perfect, thanks. Can you confirm how many items it found?"

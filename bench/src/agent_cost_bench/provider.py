@@ -225,7 +225,12 @@ def call_llm(
 
 
 def _usage_field(response: Any, key: str) -> int:
-    """Read a usage field from any LiteLLM response shape (object or dict)."""
+    """Read a usage field from any LiteLLM response shape (object or dict).
+
+    OpenAI nests cached_tokens under `usage.prompt_tokens_details.
+    cached_tokens`; Anthropic exposes it as a top-level attribute.
+    Check both shapes so cache validation works across providers.
+    """
     if response is None:
         return 0
     usage = getattr(response, "usage", None)
@@ -233,10 +238,33 @@ def _usage_field(response: Any, key: str) -> int:
         usage = response.get("usage", {})
     if usage is None:
         return 0
+
+    # Top-level read first (Anthropic, LiteLLM-normalized values).
+    val = 0
     if hasattr(usage, key):
-        return int(getattr(usage, key) or 0)
-    if isinstance(usage, dict):
-        return int(usage.get(key, 0) or 0)
+        val = int(getattr(usage, key) or 0)
+    elif isinstance(usage, dict):
+        val = int(usage.get(key, 0) or 0)
+    if val:
+        return val
+
+    # OpenAI nests cache info under prompt_tokens_details. Look there
+    # for cached_tokens / prompt_tokens_cached / audio_tokens / etc.
+    details = (
+        getattr(usage, "prompt_tokens_details", None)
+        if hasattr(usage, "prompt_tokens_details")
+        else (usage.get("prompt_tokens_details") if isinstance(usage, dict) else None)
+    )
+    if details is None:
+        return 0
+    nested_key = key
+    # Map LiteLLM-normalized name → OpenAI-nested name.
+    if key == "prompt_tokens_cached":
+        nested_key = "cached_tokens"
+    if hasattr(details, nested_key):
+        return int(getattr(details, nested_key) or 0)
+    if isinstance(details, dict):
+        return int(details.get(nested_key, 0) or 0)
     return 0
 
 

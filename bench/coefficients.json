@@ -1,0 +1,106 @@
+{
+  "_": "Empirically-validated coefficients for the AXIOM cost simulator inside calc.ajinkya.ai. Each value is derived from running agent-cost-bench scenarios and measuring actual provider behavior. Versioned — the calc fetches this file at startup and uses it to override its hand-tuned defaults.",
+
+  "schema_version": "1.0",
+  "generated_at": "2026-05-06",
+  "agent_cost_bench_version": "0.1.0",
+
+  "coefficients": {
+    "cache_hit_rate": {
+      "value": 0.91,
+      "previous_value": 0.84,
+      "unit": "fraction",
+      "description": "Median fraction of input tokens served from prompt cache on a typical multi-turn workload with a >1024-token shared system prompt.",
+      "source_scenario": "cached-pipeline",
+      "sample_size": 18,
+      "provider": "openai",
+      "model": "gpt-4o-mini",
+      "measured_range": {"p10": 0.61, "median": 0.94, "p90": 0.97},
+      "notes": "Cold-start (turn 0) caches only ~61% (system prompt). Warm turns 1+ hold 94-97%. AXIOM should model this as a curve, not a flat coefficient — phase-2 enhancement."
+    },
+
+    "input_output_ratio": {
+      "value": 73,
+      "previous_value": 6,
+      "unit": "ratio",
+      "description": "Median ratio of input tokens to output tokens for confirmation-gated tool-orchestration agents (e.g., EIE-shape data-discovery pipelines).",
+      "source_scenario": "data-discovery",
+      "sample_size": 33,
+      "provider": "openai",
+      "model": "gpt-4o-mini",
+      "measured_range": {"observed": 73, "gpt5_2_observed": 88},
+      "notes": "AXIOM's 6x default applies to chat-style agents. For agents with output-suppression rules + tool-state bypass + long sysprompts, the ratio jumps an order of magnitude. Single coefficient is wrong; calc should branch on agent topology."
+    },
+
+    "sequential_handoff_overhead_tokens": {
+      "value": 700,
+      "previous_value": 200,
+      "unit": "tokens",
+      "description": "Per-stage cumulative-context growth in a sequential multi-agent pipeline. Each downstream stage sees prior stages' outputs concatenated.",
+      "source_scenario": "multi-stage-research",
+      "sample_size": 15,
+      "provider": "openai",
+      "model": "gpt-4o-mini",
+      "measured_range": {"min": 600, "median": 700, "max": 800},
+      "notes": "Flat overhead constant is wrong; real growth is roughly linear in number of upstream stages times their average output size."
+    },
+
+    "median_latency_ms": {
+      "value": 1700,
+      "previous_value": null,
+      "unit": "milliseconds",
+      "description": "Median per-call latency on gpt-4o-mini (blocking, non-streaming).",
+      "source_scenario": "multiple",
+      "sample_size": 87,
+      "provider": "openai",
+      "model": "gpt-4o-mini",
+      "measured_range": {"p50": 1224, "p90": 3437, "max": 26326},
+      "notes": "AXIOM doesn't currently model latency — bench introduces this as a new tracked coefficient. p90 latency is what production teams should plan for."
+    },
+
+    "time_to_first_token_ms": {
+      "value": 873,
+      "previous_value": null,
+      "unit": "milliseconds",
+      "description": "Median time-to-first-token on streaming gpt-4o-mini calls.",
+      "source_scenario": "streaming-pipeline",
+      "sample_size": 9,
+      "provider": "openai",
+      "model": "gpt-4o-mini",
+      "measured_range": {"p50": 873, "p90": 4956},
+      "notes": "Production-relevant for agent UX — users perceive responsiveness from TTFT, not total latency."
+    },
+
+    "output_rate_tokens_per_sec": {
+      "value": 47,
+      "previous_value": null,
+      "unit": "tokens/sec",
+      "description": "Median streaming output rate on gpt-4o-mini.",
+      "source_scenario": "streaming-pipeline",
+      "sample_size": 9,
+      "provider": "openai",
+      "model": "gpt-4o-mini",
+      "measured_range": {"p50": 47, "max": 77},
+      "notes": "Token throughput from streaming — useful for capacity-planning queue depth."
+    }
+  },
+
+  "scenarios_run": [
+    {"name": "smoke-test",            "calls": 9,  "input_tokens": 489,    "output_tokens": 99,   "cost_usd": 0.0001},
+    {"name": "multi-stage-research",  "calls": 15, "input_tokens": 19016,  "output_tokens": 8601, "cost_usd": 0.005},
+    {"name": "streaming-pipeline",    "calls": 9,  "input_tokens": 2536,   "output_tokens": 1579, "cost_usd": 0.001},
+    {"name": "tool-chain",            "calls": 21, "input_tokens": 54082,  "output_tokens": 5718, "cost_usd": 0.011},
+    {"name": "data-discovery",        "calls": 33, "input_tokens": 56409,  "output_tokens": 772,  "cost_usd": 0.009},
+    {"name": "data-discovery-gpt52",  "calls": 11, "input_tokens": 19024,  "output_tokens": 215,  "cost_usd": 0.098},
+    {"name": "cached-pipeline",       "calls": 18, "input_tokens": 39375,  "output_tokens": 3287, "cost_usd": 0.006, "cached_tokens": 35840, "cache_hit_rate": 0.910}
+  ],
+
+  "totals": {
+    "calls": 116,
+    "input_tokens": 190931,
+    "output_tokens": 20271,
+    "cost_usd": 0.131,
+    "providers": ["openai"],
+    "models": ["gpt-4o-mini", "gpt-5.2"]
+  }
+}

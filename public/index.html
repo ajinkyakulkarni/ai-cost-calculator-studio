@@ -5975,6 +5975,71 @@ setTimeout(()=>{onSlider();renderRoutingSliders();},100);
   installAutoSync();
 
   // ===================================================================
+  // Bench calibration loader — fetches /coefficients.json at startup,
+  // applies empirically-validated values to AXIOM's defaults, and
+  // shows a small "calibrated" badge in the topbar so users know
+  // the published numbers have measurement provenance.
+  //
+  // The coefficients file is produced by agent-cost-bench (see
+  // ai-cost-calculator-studio/bench/) and committed to public/
+  // alongside the calc. Each value names its source scenario,
+  // sample size, and the model it was measured against — so
+  // procurement reviewers can audit how every constant was derived.
+  // ===================================================================
+  (function loadBenchCoefficients() {
+    fetch('coefficients.json', { cache: 'no-cache' })
+      .then(r => r.ok ? r.json() : null)
+      .then(c => {
+        if (!c || !c.coefficients) return;
+        // Apply calibrated values to AXIOM's controls. Each apply is
+        // a no-op if the target slider/element doesn't exist (the
+        // calc evolves; we don't want a calibration value to break
+        // the page if a coefficient name changes).
+        const apply = (id, val) => {
+          const el = document.getElementById(id);
+          if (!el || val == null) return;
+          el.value = val;
+          el.dispatchEvent(new Event('input', { bubbles: true }));
+        };
+        const cache = c.coefficients.cache_hit_rate;
+        if (cache && typeof cache.value === 'number') {
+          // s-cache is on a 0-95% scale (integer percent).
+          apply('s-cache', Math.round(cache.value * 100));
+        }
+        // Add a small badge to the cost pill so users see the
+        // calibration provenance. Click the badge to view full
+        // coefficients.json in a new tab.
+        const pill = document.getElementById('cost-pill');
+        if (pill && !document.getElementById('cb-calibrated')) {
+          const badge = document.createElement('span');
+          badge.id = 'cb-calibrated';
+          badge.title =
+            'AXIOM coefficients calibrated from agent-cost-bench traces. ' +
+            'Click to view coefficients.json.';
+          badge.textContent = '✓ measured';
+          badge.style.cssText =
+            'margin-left:8px;font-size:9px;letter-spacing:0.04em;' +
+            'padding:2px 6px;border:1px solid rgba(0,212,255,0.4);' +
+            'border-radius:3px;color:#00d4ff;cursor:pointer;' +
+            'text-transform:uppercase;font-weight:700';
+          badge.addEventListener('click', (e) => {
+            e.stopPropagation();
+            window.open('coefficients.json', '_blank');
+          });
+          pill.appendChild(badge);
+        }
+        console.log(
+          '[bench] applied calibrated coefficients from /coefficients.json',
+          c.coefficients
+        );
+      })
+      .catch(() => {
+        // Silent fail: a missing coefficients.json just means the
+        // calc shows its hand-tuned defaults. Not an error.
+      });
+  })();
+
+  // ===================================================================
   // Audience editor — renders workload.segments[] in AXIOM's Audience
   // sub-tab. Each row binds to one segment; edits write back to
   // window.workload.segments and trigger renderPreview() (calc

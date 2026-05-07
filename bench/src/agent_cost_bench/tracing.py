@@ -162,17 +162,39 @@ def record_usage(span, response: Any) -> None:
 
     LiteLLM normalizes provider-specific usage shapes into a common
     structure. We map those to GenAI semconv attributes.
+
+    OpenAI nests `cached_tokens` inside `usage.prompt_tokens_details`
+    rather than as a top-level field, so we look there too. This is
+    where the bench's cache-hit-rate signal comes from for the
+    OpenAI provider — without this fallback, every span reports
+    cached=0 even when caching is firing.
     """
     usage = getattr(response, "usage", None) or response.get("usage", {})
     if not usage:
         return
 
     def _u(key: str, default: int = 0) -> int:
-        # usage may be a Pydantic model (object attrs) or a dict.
+        # Top-level read first (Anthropic, LiteLLM-normalized values).
+        val = default
         if hasattr(usage, key):
-            return int(getattr(usage, key) or default)
-        if isinstance(usage, dict):
-            return int(usage.get(key, default) or default)
+            val = int(getattr(usage, key) or default)
+        elif isinstance(usage, dict):
+            val = int(usage.get(key, default) or default)
+        if val:
+            return val
+        # OpenAI nests cache info under prompt_tokens_details.
+        details = (
+            getattr(usage, "prompt_tokens_details", None)
+            if hasattr(usage, "prompt_tokens_details")
+            else (usage.get("prompt_tokens_details") if isinstance(usage, dict) else None)
+        )
+        if details is None:
+            return default
+        nested_key = "cached_tokens" if key == "prompt_tokens_cached" else key
+        if hasattr(details, nested_key):
+            return int(getattr(details, nested_key) or default)
+        if isinstance(details, dict):
+            return int(details.get(nested_key, default) or default)
         return default
 
     input_tokens = _u("prompt_tokens")
