@@ -15,21 +15,119 @@
     "example": "Why was I charged twice on my last invoice and how can I get a refund?"
   },
   "shapes": {
-    "faq":      { "input_factor": 0.30, "output_factor": 0.60, "cache_eligible": true,  "description": "FAQ lookup; common topics" },
-    "support":  { "input_factor": 1.00, "output_factor": 1.00, "cache_eligible": true,  "description": "Multi-turn support interaction (anchor)" },
-    "escalate": { "input_factor": 0.40, "output_factor": 0.30, "cache_eligible": true,  "description": "Hand-off to a human agent" },
-    "refusal":  { "input_factor": 0.05, "output_factor": 0.10, "cache_eligible": false, "description": "Out-of-scope refusal" }
+    "faq": {
+      "input_factor": 0.3,
+      "output_factor": 0.6,
+      "cache_eligible": true,
+      "description": "FAQ lookup; common topics"
+    },
+    "support": {
+      "input_factor": 1.0,
+      "output_factor": 1.0,
+      "cache_eligible": true,
+      "description": "Multi-turn support interaction (anchor)"
+    },
+    "escalate": {
+      "input_factor": 0.4,
+      "output_factor": 0.3,
+      "cache_eligible": true,
+      "description": "Hand-off to a human agent"
+    },
+    "refusal": {
+      "input_factor": 0.05,
+      "output_factor": 0.1,
+      "cache_eligible": false,
+      "description": "Out-of-scope refusal"
+    }
   },
   "mix": {
-    "default": { "label": "Default support mix (60/25/10/5)", "weights": { "faq": 0.60, "support": 0.25, "escalate": 0.10, "refusal": 0.05 } }
+    "default": {
+      "label": "Default support mix (60/25/10/5)",
+      "weights": {
+        "faq": 0.6,
+        "support": 0.25,
+        "escalate": 0.1,
+        "refusal": 0.05
+      }
+    }
   },
   "segments": [
-    { "id": "users",     "label": "Logged-in customers",   "mau":  50000, "sessions_per_day": 0.05, "questions_per_session": 4, "applyBotFactor": false },
-    { "id": "anonymous", "label": "Anonymous web visitors", "mau": 250000, "sessions_per_day": 0.02, "questions_per_session": 2, "applyBotFactor": true }
+    {
+      "id": "users",
+      "label": "Logged-in customers",
+      "mau": 50000,
+      "sessions_per_day": 0.05,
+      "questions_per_session": 4,
+      "applyBotFactor": false
+    },
+    {
+      "id": "anonymous",
+      "label": "Anonymous web visitors",
+      "mau": 250000,
+      "sessions_per_day": 0.02,
+      "questions_per_session": 2,
+      "applyBotFactor": true
+    }
   ],
-  "verification": { "enabled": false, "coverage": 0, "atoms_per_response": 6, "variant": "fr1", "atomizer_tokens": { "input": 1200, "output": 350 }, "reviser_tokens": { "input": 500, "output": 30 }, "nli_tokens": { "input": 1000, "output": 20 }, "retrieval": "wikipedia", "nli_hosting": "api", "service_pod_monthly": 0 },
-  "rate_limit":   { "strategy": "edge", "monthly_cost": 15, "bot_ceiling": 2.5 },
-  "daily_cap":    { "enabled": true, "amount_usd": 800, "burst_days": 4, "burst_factor": 2.0 },
-  "infrastructure": { "Compute platform": 179, "RDS Postgres": 150, "ALB": 35, "CloudFront": 40, "CloudWatch + X-Ray": 100 },
-  "defaults": { "model": "gpt-5-mini", "tier": "standard", "mix": "default", "rate_limit": "edge", "hosting": "api", "cost_mode": "realistic" }
+  "verification": {
+    "enabled": false,
+    "coverage": 0,
+    "atoms_per_response": 6,
+    "variant": "fr1",
+    "atomizer_tokens": {
+      "input": 1200,
+      "output": 350
+    },
+    "reviser_tokens": {
+      "input": 500,
+      "output": 30
+    },
+    "nli_tokens": {
+      "input": 1000,
+      "output": 20
+    },
+    "retrieval": "wikipedia",
+    "nli_hosting": "api",
+    "service_pod_monthly": 0
+  },
+  "rate_limit": {
+    "strategy": "edge",
+    "monthly_cost": 15,
+    "bot_ceiling": 2.5
+  },
+  "daily_cap": {
+    "enabled": true,
+    "amount_usd": 800,
+    "burst_days": 4,
+    "burst_factor": 2.0
+  },
+  "infrastructure": {
+    "Runtime \u00b7 compute platform (Fargate)": 179,
+    "RDS Postgres": 150,
+    "ElastiCache Redis": 35,
+    "Pinecone Starter (FAQ vectors)": 70,
+    "S3 artifacts": 30,
+    "ALB": 35,
+    "CloudFront": 40,
+    "NAT Gateway": 33,
+    "Route 53": 1,
+    "CloudWatch / Datadog hybrid": 120,
+    "Auth0 / Okta SSO": 240,
+    "Sentry (error tracking)": 80,
+    "Postmark / SendGrid (transactional email)": 50,
+    "Mixpanel / Amplitude (analytics)": 200,
+    "GitHub Actions CI / CD": 40,
+    "WAF (Cloudflare basic)": 20,
+    "Secrets Manager + KMS": 8,
+    "AWS Backup": 60,
+    "ECR + platform baseline": 50
+  },
+  "defaults": {
+    "model": "gpt-5-mini",
+    "tier": "standard",
+    "mix": "default",
+    "rate_limit": "edge",
+    "hosting": "api",
+    "cost_mode": "realistic"
+  }
 }

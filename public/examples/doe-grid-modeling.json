@@ -15,32 +15,124 @@
     "example": "What's the impact on the West Coast grid if we trip the 500kV line between Diablo and Path 15 during today's evening peak?"
   },
   "shapes": {
-    "diagnostic":  { "input_factor": 0.50, "output_factor": 0.70, "cache_eligible": true,  "description": "Diagnostic question with chart explanation" },
-    "scenario":    { "input_factor": 1.00, "output_factor": 1.00, "cache_eligible": true,  "description": "Long-context scenario walkthrough (anchor)" },
-    "deep_dive":   { "input_factor": 1.50, "output_factor": 1.40, "cache_eligible": true,  "description": "Multi-turn deep dive on a contingency" },
-    "lookup":      { "input_factor": 0.20, "output_factor": 0.30, "cache_eligible": true,  "description": "Quick parameter or status lookup" }
+    "diagnostic": {
+      "input_factor": 0.5,
+      "output_factor": 0.7,
+      "cache_eligible": true,
+      "description": "Diagnostic question with chart explanation"
+    },
+    "scenario": {
+      "input_factor": 1.0,
+      "output_factor": 1.0,
+      "cache_eligible": true,
+      "description": "Long-context scenario walkthrough (anchor)"
+    },
+    "deep_dive": {
+      "input_factor": 1.5,
+      "output_factor": 1.4,
+      "cache_eligible": true,
+      "description": "Multi-turn deep dive on a contingency"
+    },
+    "lookup": {
+      "input_factor": 0.2,
+      "output_factor": 0.3,
+      "cache_eligible": true,
+      "description": "Quick parameter or status lookup"
+    }
   },
   "mix": {
-    "default": { "label": "Operator workflow (heavy long-context)", "weights": { "diagnostic": 0.20, "scenario": 0.50, "deep_dive": 0.20, "lookup": 0.10 } },
-    "training": { "label": "Training / drills (mostly scenarios)", "weights": { "diagnostic": 0.10, "scenario": 0.70, "deep_dive": 0.15, "lookup": 0.05 } }
+    "default": {
+      "label": "Operator workflow (heavy long-context)",
+      "weights": {
+        "diagnostic": 0.2,
+        "scenario": 0.5,
+        "deep_dive": 0.2,
+        "lookup": 0.1
+      }
+    },
+    "training": {
+      "label": "Training / drills (mostly scenarios)",
+      "weights": {
+        "diagnostic": 0.1,
+        "scenario": 0.7,
+        "deep_dive": 0.15,
+        "lookup": 0.05
+      }
+    }
   },
   "segments": [
-    { "id": "operators", "label": "Grid operators / engineers", "mau": 500, "sessions_per_day": 1.5, "questions_per_session": 15, "applyBotFactor": false, "description": "Authenticated expert users; long sessions; high cache hit rates from reused modeling prompts." }
+    {
+      "id": "operators",
+      "label": "Grid operators / engineers",
+      "mau": 500,
+      "sessions_per_day": 1.5,
+      "questions_per_session": 15,
+      "applyBotFactor": false,
+      "description": "Authenticated expert users; long sessions; high cache hit rates from reused modeling prompts."
+    }
   ],
   "verification": {
     "enabled": true,
     "coverage": 1.0,
     "atoms_per_response": 10,
     "variant": "fr2",
-    "atomizer_tokens": { "input": 2000, "output": 500 },
-    "reviser_tokens":  { "input":  600, "output":  40 },
-    "nli_tokens":      { "input": 1500, "output":  25 },
+    "atomizer_tokens": {
+      "input": 2000,
+      "output": 500
+    },
+    "reviser_tokens": {
+      "input": 600,
+      "output": 40
+    },
+    "nli_tokens": {
+      "input": 1500,
+      "output": 25
+    },
     "retrieval": "wikipedia",
     "nli_hosting": "ec2-g6",
     "service_pod_monthly": 36
   },
-  "rate_limit":   { "strategy": "none", "monthly_cost": 0, "bot_ceiling": 1.0 },
-  "daily_cap":    { "enabled": false, "amount_usd": 0, "burst_days": 0, "burst_factor": 1.0 },
-  "infrastructure": { "Compute platform": 471, "RDS Postgres": 580, "ElastiCache Redis": 95, "S3 artifacts": 200, "ALB": 35, "NAT Gateway": 66, "CloudWatch + X-Ray": 450, "Hidden K8s FTE": 5333 },
-  "defaults": { "model": "gpt-5.4", "tier": "standard", "mix": "default", "rate_limit": "none", "hosting": "api", "cost_mode": "realistic" }
+  "rate_limit": {
+    "strategy": "none",
+    "monthly_cost": 0,
+    "bot_ceiling": 1.0
+  },
+  "daily_cap": {
+    "enabled": false,
+    "amount_usd": 0,
+    "burst_days": 0,
+    "burst_factor": 1.0
+  },
+  "infrastructure": {
+    "Runtime \u00b7 compute platform (EKS, multi-AZ)": 471,
+    "RDS Postgres (encrypted, multi-AZ)": 580,
+    "ElastiCache Redis": 95,
+    "OpenSearch (telemetry index)": 220,
+    "S3 artifacts (KMS encrypted)": 200,
+    "EBS storage (encrypted)": 35,
+    "ALB": 35,
+    "NAT Gateway (multi-AZ)": 66,
+    "AWS Direct Connect (1 Gbps to ops network)": 220,
+    "Site-to-Site VPN (backup link)": 72,
+    "Route 53 (private + public zones)": 6,
+    "CloudWatch + X-Ray": 450,
+    "CloudTrail (audit logs)": 25,
+    "AWS Config (compliance monitoring)": 35,
+    "GuardDuty (threat detection)": 90,
+    "Security Hub": 55,
+    "AWS Shield Advanced (DDoS)": 3000,
+    "Splunk Cloud / SIEM (DoD-grade)": 1800,
+    "Secrets Manager + KMS": 25,
+    "AWS Backup (multi-region)": 220,
+    "VPC Flow Logs (long retention)": 60,
+    "ECR + platform baseline": 184
+  },
+  "defaults": {
+    "model": "gpt-5.4",
+    "tier": "standard",
+    "mix": "default",
+    "rate_limit": "none",
+    "hosting": "api",
+    "cost_mode": "realistic"
+  }
 }

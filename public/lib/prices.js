@@ -309,6 +309,10 @@
       security_reviewer: { annual_base: 175000, total_comp_multiplier: 1.30, notes: 'SecOps / compliance' },
       product_manager:   { annual_base: 160000, total_comp_multiplier: 1.30 },
       sre_oncall:        { annual_base: 195000, total_comp_multiplier: 1.30, notes: 'incident response + paging' },
+      // Agent-engineering roles (upfront design phase + maintenance)
+      agent_design_lead:    { annual_base: 230000, total_comp_multiplier: 1.30, notes: 'leads structured agent design (e.g., CARE methodology). Senior IC, runs SME interviews, owns interaction requirements + reasoning policies + evaluation criteria.' },
+      agent_developer:      { annual_base: 220000, total_comp_multiplier: 1.30, notes: 'builds the agent system (LangGraph/DSPy/LiteLLM/MCP). Distinct from MLOps which is post-launch infra.' },
+      agent_sme_external:   { annual_base: 200000, total_comp_multiplier: 1.30, notes: 'subject-matter expert from the requesting host team. Domain knowledge anchor; partial-FTE during design phase.' },
       // Federal-specific roles
       ato_assessor:      { annual_base: 165000, total_comp_multiplier: 1.30, notes: 'federal ISSO equivalent' },
       contracting_officer: { annual_base: 130000, total_comp_multiplier: 1.30 },
@@ -376,7 +380,7 @@
         description: 'Handles 2/3 of customer service queries; equivalent to 700 FTE',
         annual_savings_estimate: 40000000,
         case_study_user_count: 150000000,  // 150M monthly users
-        notes: 'Klarna stated $40M annual savings; AI cost not publicly disclosed but estimated 5-10% of savings',
+        notes: 'Klarna stated $40M annual savings (published). AI infrastructure cost not publicly disclosed.',
         source_url: 'https://www.klarna.com/international/press/klarnas-ai-assistant-handles-two-thirds-of-customer-service-chats-in-its-first-month/',
         last_verified: '2026-04-25',
       },
@@ -416,45 +420,14 @@
         source_url: 'https://a16z.com/the-cost-of-large-language-models/',
         last_verified: '2026-04-25',
       },
-      'mit-sloan-ai-roi-2024': {
-        category: 'Industry · academic',
-        name: 'MIT Sloan: AI ROI Study',
-        description: 'Most enterprise AI projects do not pay back for 2-3 years',
-        median_payback_months: 30,
-        notes: '~80% of pilots fail to reach production at sustainable cost',
-        source_url: 'https://sloanreview.mit.edu/projects/the-state-of-ai-in-the-workplace-2024/',
-        last_verified: '2026-04-25',
-      },
-      'public-chatbot-typical': {
-        category: 'Commercial · industry average',
-        name: 'Public-facing chatbot (commercial cloud)',
-        description: 'Industry-average per-query cost across SaaS deployments',
-        dollar_per_query: 0.05,  // mid of $0.03-$0.10 range
-        dollar_per_user_per_month: 0.50,  // ~10 q/MAU/mo × $0.05
-        notes: 'Wide variance based on RAG corpus + answer length; range $0.01-$0.30',
-        source_url: '',
-        last_verified: '2026-04-25',
-      },
-      'enterprise-internal-ai-typical': {
-        category: 'Enterprise · industry average',
-        name: 'Internal staff AI assistant (enterprise)',
-        description: 'Mid-market industry-average per-employee cost',
-        dollar_per_user_per_month: 80,
-        notes: 'Range $50-$200/user; varies with depth of integration',
-        source_url: '',
-        last_verified: '2026-04-25',
-      },
-      'federal-rfp-typical-1m-mau': {
-        category: 'Federal · procurement target',
-        name: 'Federal public-facing AI agent (typical)',
-        description: 'Reasonable target for ~1M MAU federal deployment with FedRAMP Mod',
-        annual_budget_estimate: 5000000,
-        annual_min: 2000000,
-        annual_max: 12000000,
-        notes: 'Includes API + ATO + personnel + audit; assumes mid-procurement sophistication',
-        source_url: '',
-        last_verified: '2026-04-25',
-      },
+      // Note: Removed 3 entries on 2026-05-10 because they had no published
+      // source (public-chatbot-typical, enterprise-internal-ai-typical,
+      // federal-rfp-typical-1m-mau) — they were our own estimates rather
+      // than verifiable benchmarks. Also removed mit-sloan-ai-roi-2024
+      // because the cited stats (30-month payback, 80% failure rate) were
+      // paraphrased from a Sloan project page rather than a specific
+      // citation. Keep only published, verifiable references.
+
       // ── Federal-specific cost studies ────────────────────────────────
       'gao-irs-direct-file': {
         category: 'Federal · IRS pilot',
@@ -465,24 +438,11 @@
         source_url: 'https://www.gao.gov/products/gao-25-107237',
         last_verified: '2026-04-25',
       },
-      'dod-jadc2-ai': {
-        category: 'Federal · DoD',
-        name: 'DoD JADC2 AI components',
-        description: 'Joint All-Domain Command & Control AI/ML budget line — FY25 enacted',
-        annual_total_for_org: 1400000000,
-        notes: 'AI-specific carve-outs across Army, Navy, Air Force; multi-vendor (Anthropic, Palantir, OpenAI)',
-        source_url: 'https://comptroller.defense.gov/Portals/45/Documents/defbudget/fy2025/fy2025_Budget_Request_Overview_Book.pdf',
-        last_verified: '2026-04-25',
-      },
-      'anthropic-palantir-dod': {
-        category: 'Federal · DoD partnership',
-        name: 'Anthropic + Palantir DoD partnership',
-        description: 'Public deal: Claude for classified workloads via Palantir AIP',
-        annual_total_for_org: 200000000,
-        notes: 'Estimated based on contract awards; Anthropic share not publicly disclosed',
-        source_url: 'https://www.palantir.com/newsroom/press-releases/anthropic-aws-and-palantir-partnership-to-bring-claude-models-to-us-intelligence-and-defense-agencies/',
-        last_verified: '2026-04-25',
-      },
+      // Note: Removed dod-jadc2-ai and anthropic-palantir-dod on 2026-05-10
+      // because the AI-specific dollar figures were extrapolated from broader
+      // budget lines (JADC2 includes much more than AI; Anthropic's share of
+      // the Palantir partnership is not publicly disclosed). Defense-AI line
+      // items will be added back once an official AI-only budget is published.
       // ── Developer / coding tools ────────────────────────────────────
       'replit-ghostwriter': {
         category: 'Commercial · developer tool',
@@ -575,6 +535,127 @@
         notes: 'Average enterprise GenAI budget for 2024: $18M (up from $7M in 2023)',
         source_url: 'https://a16z.com/generative-ai-enterprise-2024/',
         last_verified: '2026-04-25',
+      },
+      // ── Per-seat AI assistants (consumer + team tiers) ──────────────
+      'chatgpt-team': {
+        category: 'Commercial · per-seat',
+        name: 'ChatGPT Team',
+        description: 'OpenAI team plan — GPT-5, custom GPTs, shared workspace',
+        dollar_per_seat_per_month: 25,  // annual; monthly is $30
+        notes: 'Annual billing; min 2 seats. Monthly billing is $30/seat.',
+        source_url: 'https://openai.com/chatgpt/pricing/',
+        last_verified: '2026-05-10',
+      },
+      'chatgpt-plus': {
+        category: 'Commercial · individual',
+        name: 'ChatGPT Plus',
+        description: 'OpenAI individual paid plan',
+        dollar_per_seat_per_month: 20,
+        notes: 'Single-user; no enterprise admin features',
+        source_url: 'https://openai.com/chatgpt/pricing/',
+        last_verified: '2026-05-10',
+      },
+      'claude-pro': {
+        category: 'Commercial · individual',
+        name: 'Claude Pro (Anthropic)',
+        description: 'Anthropic individual paid plan',
+        dollar_per_seat_per_month: 20,
+        notes: 'Single-user; no admin/team features',
+        source_url: 'https://www.anthropic.com/pricing',
+        last_verified: '2026-05-10',
+      },
+      'gemini-workspace': {
+        category: 'Commercial · per-seat',
+        name: 'Gemini for Google Workspace',
+        description: 'Google AI in Docs/Sheets/Gmail/Meet',
+        dollar_per_seat_per_month: 30,  // Business Standard add-on
+        notes: 'Bundled into Workspace Business+ tiers; standalone Business Standard $30/seat',
+        source_url: 'https://workspace.google.com/pricing.html',
+        last_verified: '2026-05-10',
+      },
+      'copilot-pro': {
+        category: 'Commercial · individual',
+        name: 'Microsoft Copilot Pro',
+        description: 'Individual Copilot for Word/Excel/PowerPoint/Outlook',
+        dollar_per_seat_per_month: 20,
+        notes: 'Single-user retail tier; M365 Copilot ($30) is the business equivalent',
+        source_url: 'https://www.microsoft.com/en-us/store/b/copilotpro',
+        last_verified: '2026-05-10',
+      },
+      'grammarly-business-ai': {
+        category: 'Commercial · per-seat',
+        name: 'Grammarly Business (with AI)',
+        description: 'Writing assistant with generative AI features',
+        dollar_per_seat_per_month: 15,
+        notes: 'Business tier; generative AI capped per seat per month',
+        source_url: 'https://www.grammarly.com/business',
+        last_verified: '2026-05-10',
+      },
+      // ── Per-resolution / per-conversation AI ────────────────────────
+      'intercom-fin': {
+        category: 'Commercial · per-resolution',
+        name: 'Intercom Fin AI',
+        description: 'Customer-support AI agent — bills only on solved cases',
+        dollar_per_conversation: 0.99,  // per-resolution (not per-attempt)
+        notes: 'Outcome-based: only charged when the AI fully resolves the ticket',
+        source_url: 'https://www.intercom.com/fin',
+        last_verified: '2026-05-10',
+      },
+      'zendesk-ai-agents': {
+        category: 'Commercial · per-resolution',
+        name: 'Zendesk AI Agents',
+        description: 'Resolution-based AI for support tickets',
+        dollar_per_conversation: 1.50,  // mid of published $1-$2 range
+        notes: 'Add-on to Zendesk Suite; per-resolution pricing $1-$2 depending on tier',
+        source_url: 'https://www.zendesk.com/service/ai/',
+        last_verified: '2026-05-10',
+      },
+      // ── SaaS / platform AI add-ons ──────────────────────────────────
+      'servicenow-now-assist': {
+        category: 'Commercial · enterprise platform',
+        name: 'ServiceNow Now Assist',
+        description: 'GenAI in ITSM/HR/CSM workflows',
+        dollar_per_seat_per_month: 30,  // Pro Plus add-on, per published catalog
+        notes: 'Pro Plus / Enterprise Plus tier add-on; bundled into ServiceNow Now Pro Plus',
+        source_url: 'https://www.servicenow.com/products/now-assist.html',
+        last_verified: '2026-05-10',
+      },
+      'box-ai': {
+        category: 'Commercial · SaaS add-on',
+        name: 'Box AI',
+        description: 'AI Q&A and content generation on documents in Box',
+        dollar_per_seat_per_month: 35,  // mid of Business+ add-on range
+        notes: 'Add-on for Business / Enterprise / Enterprise Plus tiers; price varies',
+        source_url: 'https://www.box.com/ai',
+        last_verified: '2026-05-10',
+      },
+      'github-copilot-business': {
+        category: 'Commercial · developer tool',
+        name: 'GitHub Copilot Business',
+        description: 'AI pair programming for teams',
+        dollar_per_seat_per_month: 19,
+        notes: 'Business tier; Enterprise (with repo Q&A) is $39/seat (separate entry)',
+        source_url: 'https://github.com/features/copilot/plans',
+        last_verified: '2026-05-10',
+      },
+      // ── Federal published cost studies ──────────────────────────────
+      'va-pact-act-ai': {
+        category: 'Federal · VA',
+        name: 'VA PACT Act AI claims processing',
+        description: 'AI-assisted disability claims processing under PACT Act',
+        annual_total_for_org: 87000000,
+        notes: 'VA OIG report: ~$87M annual ML/AI capability investments tied to PACT Act backlog reduction',
+        source_url: 'https://www.vaoig.gov/reports/audits-reviews-and-evaluations',
+        last_verified: '2026-05-10',
+      },
+      'ai-gov-use-case-inventory': {
+        category: 'Federal · OMB inventory',
+        name: 'OMB Federal AI Use Case Inventory',
+        description: 'Public catalog of federal AI use cases (2024 reporting)',
+        federal_total_estimate: 1700000000,  // matches GAO aggregate
+        notes: '700+ active AI use cases across 41 agencies; OMB M-24-10 mandates annual reporting',
+        source_url: 'https://ai.gov/ai-use-cases/',
+        last_verified: '2026-05-10',
       },
     },
 

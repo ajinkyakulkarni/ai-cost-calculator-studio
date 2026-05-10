@@ -313,22 +313,16 @@
     const hostMult = hostingMultiplier(w);
     const grossWithHost = totalCost * hostMult;
 
-    // Daily-cap clamping (operates on real dollars, post-multiplier)
-    const cap = w.daily_cap;
-    let cappedWithHost = grossWithHost;
-    let monthlyRefused = 0;
-    if (cap && cap.enabled && cap.amount_usd > 0) {
-      const dailyAvg = grossWithHost / 30;
-      const burstDays = cap.burst_days || 0;
-      const steadyDays = 30 - burstDays;
-      const dailyBurst = dailyAvg * (cap.burst_factor || 1);
-      const dailySteadyCapped = Math.min(dailyAvg, cap.amount_usd);
-      const dailyBurstCapped = Math.min(dailyBurst, cap.amount_usd);
-      cappedWithHost = steadyDays * dailySteadyCapped + burstDays * dailyBurstCapped;
-      const refusedFraction = grossWithHost > 0 ? Math.max(0, (grossWithHost - cappedWithHost) / grossWithHost) : 0;
-      monthlyRefused = queries.total * refusedFraction;
-    }
-    const monthlyCapped = cappedWithHost / (hostMult || 1);  // pre-multiplier view for transparency
+    // Daily-cap math removed — was a misleading abstraction for procurement.
+    // Real cloud LLM contracts don't refuse queries at a $-cap; they just
+    // bill what was used. Cap-based clipping was masking slider sensitivity
+    // (when cap was binding, no input changes moved the headline). The
+    // procurement question "what's the max scale on $X budget?" is answered
+    // by the inverse Budget Solver panel instead. We keep the field names
+    // so downstream consumers don't have to change.
+    const cappedWithHost = grossWithHost;
+    const monthlyRefused = 0;
+    const monthlyCapped = cappedWithHost / (hostMult || 1);  // pre-multiplier view
 
     return {
       monthly_gross: grossWithHost,
@@ -751,19 +745,11 @@
 
     // ── 4. LLM total + cap + multiplier ──
     out += '──────────────────────────────────────────────────\n';
-    out += '4) LLM MONTHLY COST (with hosting multiplier + daily cap)\n';
+    out += '4) LLM MONTHLY COST (with hosting multiplier)\n';
     out += '──────────────────────────────────────────────────\n';
-    out += `Pre-multiplier monthly: ${num(r.queries.total)} q × per-segment per-query = ${$(r.api.monthly_gross_pre_federal)}\n`;
+    out += `Pre-multiplier monthly: ${num(r.queries.total)} queries × ${$4(r.api.per_query_blended)}/q (blended per-query above) = ${$(r.api.monthly_gross_pre_federal)}\n`;
     out += `Hosting multiplier: FedRAMP=${w.federal?.fedramp_tier || 'none'} × multi-region=${w.federal?.multi_region || 'single'} = ${(r.api.hosting_multiplier).toFixed(2)}×\n`;
-    out += `Post-multiplier monthly (gross): ${$(r.api.monthly_gross_pre_federal)} × ${(r.api.hosting_multiplier).toFixed(2)} = ${$(r.api.monthly_gross)}\n`;
-    if (w.daily_cap?.enabled) {
-      out += `Daily cap: ${$(w.daily_cap.amount_usd)}/day (operates on real-dollar post-multiplier spend)\n`;
-      out += `  Daily avg: ${$(r.api.monthly_gross / 30)}/day  →  cap binding: ${r.api.cap_active ? 'YES' : 'no'}\n`;
-      out += `  Burst days: ${w.daily_cap.burst_days || 0}/mo at ${w.daily_cap.burst_factor || 1}× factor\n`;
-      out += `  Capped monthly: ${$(r.api.monthly_capped)} (refused queries: ${num(r.api.monthly_refused_queries)})\n`;
-    } else {
-      out += `Daily cap: disabled — capped == gross = ${$(r.api.monthly_capped)}\n`;
-    }
+    out += `Post-multiplier monthly: ${$(r.api.monthly_gross_pre_federal)} × ${(r.api.hosting_multiplier).toFixed(2)} = ${$(r.api.monthly_gross)}\n`;
     out += '\n';
 
     // ── 5. Self-host (if applicable) ──

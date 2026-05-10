@@ -3,7 +3,7 @@
   "deployment": {
     "name": "Storm Tracking Explainer",
     "agency": "NOAA",
-    "description": "Public-facing conversational agent that explains tropical cyclones, storm surge forecasts, and hurricane warnings during active events. Public users — including non-experts making evacuation decisions — ask questions about specific storms, areas, and forecast confidence.",
+    "description": "Public-facing conversational agent that explains tropical cyclones, storm surge forecasts, and hurricane warnings during active events. Public users \u2014 including non-experts making evacuation decisions \u2014 ask questions about specific storms, areas, and forecast confidence.",
     "publicFacing": true,
     "fedrampTier": "moderate"
   },
@@ -15,32 +15,121 @@
     "example": "How will the storm surge from this hurricane affect Tampa Bay tomorrow morning?"
   },
   "shapes": {
-    "warning_lookup":   { "input_factor": 0.30, "output_factor": 0.50, "cache_eligible": true,  "description": "Lookup of specific warning text" },
-    "forecast_explain": { "input_factor": 1.00, "output_factor": 1.00, "cache_eligible": true,  "description": "Forecast explanation with chart context (anchor)" },
-    "what_if":          { "input_factor": 1.20, "output_factor": 1.30, "cache_eligible": true,  "description": "Scenario / what-if reasoning" },
-    "refusal":          { "input_factor": 0.05, "output_factor": 0.10, "cache_eligible": false, "description": "Out-of-scope (e.g., medical or legal)" }
+    "warning_lookup": {
+      "input_factor": 0.3,
+      "output_factor": 0.5,
+      "cache_eligible": true,
+      "description": "Lookup of specific warning text"
+    },
+    "forecast_explain": {
+      "input_factor": 1.0,
+      "output_factor": 1.0,
+      "cache_eligible": true,
+      "description": "Forecast explanation with chart context (anchor)"
+    },
+    "what_if": {
+      "input_factor": 1.2,
+      "output_factor": 1.3,
+      "cache_eligible": true,
+      "description": "Scenario / what-if reasoning"
+    },
+    "refusal": {
+      "input_factor": 0.05,
+      "output_factor": 0.1,
+      "cache_eligible": false,
+      "description": "Out-of-scope (e.g., medical or legal)"
+    }
   },
   "mix": {
-    "active_storm": { "label": "Active storm (RAG-heavy with explanations)", "weights": { "warning_lookup": 0.55, "forecast_explain": 0.35, "what_if": 0.05, "refusal": 0.05 } },
-    "quiet_period": { "label": "Quiet period (educational queries)", "weights": { "warning_lookup": 0.20, "forecast_explain": 0.55, "what_if": 0.20, "refusal": 0.05 } }
+    "active_storm": {
+      "label": "Active storm (RAG-heavy with explanations)",
+      "weights": {
+        "warning_lookup": 0.55,
+        "forecast_explain": 0.35,
+        "what_if": 0.05,
+        "refusal": 0.05
+      }
+    },
+    "quiet_period": {
+      "label": "Quiet period (educational queries)",
+      "weights": {
+        "warning_lookup": 0.2,
+        "forecast_explain": 0.55,
+        "what_if": 0.2,
+        "refusal": 0.05
+      }
+    }
   },
   "segments": [
-    { "id": "public", "label": "Public visitors during active event", "mau": 200000, "sessions_per_day": 0.05, "questions_per_session": 2, "applyBotFactor": true, "description": "Anonymous public; extreme burst factor during named storms." }
+    {
+      "id": "public",
+      "label": "Public visitors during active event",
+      "mau": 200000,
+      "sessions_per_day": 0.05,
+      "questions_per_session": 2,
+      "applyBotFactor": true,
+      "description": "Anonymous public; extreme burst factor during named storms."
+    }
   ],
   "verification": {
     "enabled": true,
     "coverage": 1.0,
     "atoms_per_response": 8,
     "variant": "fr2",
-    "atomizer_tokens": { "input": 1500, "output": 400 },
-    "reviser_tokens":  { "input":  500, "output":  30 },
-    "nli_tokens":      { "input": 1200, "output":  20 },
+    "atomizer_tokens": {
+      "input": 1500,
+      "output": 400
+    },
+    "reviser_tokens": {
+      "input": 500,
+      "output": 30
+    },
+    "nli_tokens": {
+      "input": 1200,
+      "output": 20
+    },
     "retrieval": "wikipedia",
     "nli_hosting": "ec2-g6",
     "service_pod_monthly": 36
   },
-  "rate_limit":   { "strategy": "botcontrol", "monthly_cost": 110, "bot_ceiling": 1.2 },
-  "daily_cap":    { "enabled": true, "amount_usd": 5000, "burst_days": 7, "burst_factor": 8.0 },
-  "infrastructure": { "Compute platform": 565, "RDS Postgres": 292, "ElastiCache Redis": 95, "S3 artifacts": 200, "ALB": 35, "CloudFront": 200, "NAT Gateway": 66, "CloudWatch + X-Ray": 350 },
-  "defaults": { "model": "gpt-5.2", "tier": "standard", "mix": "active_storm", "rate_limit": "botcontrol", "hosting": "api", "cost_mode": "realistic" }
+  "rate_limit": {
+    "strategy": "botcontrol",
+    "monthly_cost": 110,
+    "bot_ceiling": 1.2
+  },
+  "daily_cap": {
+    "enabled": true,
+    "amount_usd": 5000,
+    "burst_days": 7,
+    "burst_factor": 8.0
+  },
+  "infrastructure": {
+    "Runtime \u00b7 compute platform (Fargate, autoscaled)": 565,
+    "RDS Postgres (advisory metadata)": 292,
+    "Pinecone Serverless (advisory vectors, burst-tolerant)": 180,
+    "ElastiCache Redis (semantic cache, large)": 200,
+    "S3 artifacts (advisory archives)": 200,
+    "ALB (with autoscaling)": 35,
+    "CloudFront (heavy public CDN, burst-priced)": 350,
+    "NAT Gateway (multi-AZ)": 66,
+    "Route 53 (latency routing)": 3,
+    "CloudWatch + X-Ray": 350,
+    "AWS Shield Advanced (DDoS \u2014 required for federal public)": 3000,
+    "WAF + Bot Control": 220,
+    "CloudTrail": 18,
+    "AWS Config": 20,
+    "GuardDuty": 60,
+    "Secrets Manager + KMS": 15,
+    "AWS Backup + cross-region replication": 150,
+    "Edge cache prewarming (scheduled jobs)": 25,
+    "ECR + platform baseline": 184
+  },
+  "defaults": {
+    "model": "gpt-5.2",
+    "tier": "standard",
+    "mix": "active_storm",
+    "rate_limit": "botcontrol",
+    "hosting": "api",
+    "cost_mode": "realistic"
+  }
 }

@@ -15,33 +15,130 @@
     "example": "Are there phase III trials recruiting in Boston for triple-negative breast cancer?"
   },
   "shapes": {
-    "structured_lookup": { "input_factor": 0.30, "output_factor": 0.60, "cache_eligible": true,  "description": "Database lookup with summarization" },
-    "open_ended":        { "input_factor": 1.00, "output_factor": 1.00, "cache_eligible": true,  "description": "Open-ended explanation, full pipeline" },
-    "follow_up":         { "input_factor": 0.40, "output_factor": 0.50, "cache_eligible": true,  "description": "Multi-turn follow-up question" },
-    "refusal":           { "input_factor": 0.05, "output_factor": 0.10, "cache_eligible": false, "description": "Out-of-scope (e.g., medical advice)" }
+    "structured_lookup": {
+      "input_factor": 0.3,
+      "output_factor": 0.6,
+      "cache_eligible": true,
+      "description": "Database lookup with summarization"
+    },
+    "open_ended": {
+      "input_factor": 1.0,
+      "output_factor": 1.0,
+      "cache_eligible": true,
+      "description": "Open-ended explanation, full pipeline"
+    },
+    "follow_up": {
+      "input_factor": 0.4,
+      "output_factor": 0.5,
+      "cache_eligible": true,
+      "description": "Multi-turn follow-up question"
+    },
+    "refusal": {
+      "input_factor": 0.05,
+      "output_factor": 0.1,
+      "cache_eligible": false,
+      "description": "Out-of-scope (e.g., medical advice)"
+    }
   },
   "mix": {
-    "default": { "label": "Default (60/25/10/5)", "weights": { "structured_lookup": 0.60, "open_ended": 0.25, "follow_up": 0.10, "refusal": 0.05 } },
-    "research-heavy": { "label": "Research-heavy (more open-ended)", "weights": { "structured_lookup": 0.30, "open_ended": 0.50, "follow_up": 0.15, "refusal": 0.05 } }
+    "default": {
+      "label": "Default (60/25/10/5)",
+      "weights": {
+        "structured_lookup": 0.6,
+        "open_ended": 0.25,
+        "follow_up": 0.1,
+        "refusal": 0.05
+      }
+    },
+    "research-heavy": {
+      "label": "Research-heavy (more open-ended)",
+      "weights": {
+        "structured_lookup": 0.3,
+        "open_ended": 0.5,
+        "follow_up": 0.15,
+        "refusal": 0.05
+      }
+    }
   },
   "segments": [
-    { "id": "researchers", "label": "Researchers / clinicians", "mau":  2000, "sessions_per_day": 0.5, "questions_per_session": 8, "applyBotFactor": false, "description": "Authenticated experts with longer sessions." },
-    { "id": "patients",    "label": "Patients (anonymous)",     "mau": 50000, "sessions_per_day": 0.1, "questions_per_session": 3, "applyBotFactor": true,  "description": "Anonymous patients with short urgent queries." }
+    {
+      "id": "researchers",
+      "label": "Researchers / clinicians",
+      "mau": 2000,
+      "sessions_per_day": 0.5,
+      "questions_per_session": 8,
+      "applyBotFactor": false,
+      "description": "Authenticated experts with longer sessions."
+    },
+    {
+      "id": "patients",
+      "label": "Patients (anonymous)",
+      "mau": 50000,
+      "sessions_per_day": 0.1,
+      "questions_per_session": 3,
+      "applyBotFactor": true,
+      "description": "Anonymous patients with short urgent queries."
+    }
   ],
   "verification": {
     "enabled": true,
     "coverage": 1.0,
     "atoms_per_response": 6,
     "variant": "fr2",
-    "atomizer_tokens": { "input": 1200, "output": 350 },
-    "reviser_tokens":  { "input":  500, "output":  30 },
-    "nli_tokens":      { "input": 1000, "output":  20 },
+    "atomizer_tokens": {
+      "input": 1200,
+      "output": 350
+    },
+    "reviser_tokens": {
+      "input": 500,
+      "output": 30
+    },
+    "nli_tokens": {
+      "input": 1000,
+      "output": 20
+    },
     "retrieval": "wikipedia",
     "nli_hosting": "ec2-g6",
     "service_pod_monthly": 36
   },
-  "rate_limit":   { "strategy": "session", "monthly_cost": 35, "bot_ceiling": 1.8 },
-  "daily_cap":    { "enabled": true, "amount_usd": 2500, "burst_days": 5, "burst_factor": 1.5 },
-  "infrastructure": { "Compute platform": 565, "RDS Postgres": 292, "ElastiCache Redis": 47, "S3 artifacts": 80, "ALB": 35, "CloudFront": 60, "NAT Gateway": 33, "CloudWatch + X-Ray": 250 },
-  "defaults": { "model": "gpt-5.2", "tier": "standard", "mix": "default", "rate_limit": "session", "hosting": "api", "cost_mode": "realistic" }
+  "rate_limit": {
+    "strategy": "session",
+    "monthly_cost": 35,
+    "bot_ceiling": 1.8
+  },
+  "daily_cap": {
+    "enabled": true,
+    "amount_usd": 2500,
+    "burst_days": 5,
+    "burst_factor": 1.5
+  },
+  "infrastructure": {
+    "Runtime \u00b7 compute platform (Fargate)": 565,
+    "RDS Postgres (480K trial records mirror)": 292,
+    "pgvector (protocol-summary embeddings)": 150,
+    "OpenSearch (trial full-text search)": 200,
+    "ElastiCache Redis": 47,
+    "S3 artifacts": 80,
+    "ALB": 35,
+    "CloudFront": 60,
+    "NAT Gateway": 33,
+    "Route 53": 1,
+    "CloudWatch + X-Ray": 250,
+    "CloudTrail (FedRAMP Moderate audit)": 18,
+    "AWS Config": 20,
+    "GuardDuty": 60,
+    "Login.gov / Identity Provider integration": 50,
+    "WAF (basic public protection)": 12,
+    "Secrets Manager + KMS": 15,
+    "AWS Backup": 90,
+    "ECR + platform baseline": 184
+  },
+  "defaults": {
+    "model": "gpt-5.2",
+    "tier": "standard",
+    "mix": "default",
+    "rate_limit": "session",
+    "hosting": "api",
+    "cost_mode": "realistic"
+  }
 }
