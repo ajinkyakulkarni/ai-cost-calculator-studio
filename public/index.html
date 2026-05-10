@@ -492,6 +492,84 @@
   .editor-body > :not(.section):not(.simulator-panel) { order: 99; }
 
   /* =====================================================================
+     PRINT / PDF EXPORT
+     User clicks "Print / Save as PDF" → window.print() → browser dialog →
+     they pick "Save as PDF" as destination. The rules below collapse the
+     interactive UI (nav, sidebar, AXIOM simulator, all the live controls)
+     and expand the report sections so every value renders inline. The
+     resulting PDF is one self-contained procurement deliverable.
+     ===================================================================== */
+  @media print {
+    @page { size: letter; margin: 0.6in; }
+    html, body { background: #fff !important; color: #000 !important; }
+    /* Hide app chrome, navigation, interactive panels */
+    .appbar,
+    .wizard-tabs,
+    .sidebar,
+    nav.sidebar,
+    .tab-panel[data-tab-panel="workspace"].simulator-panel,
+    .editor-body > .simulator-panel,
+    .ix-tabs,
+    .topbar,
+    .nav-group-header,
+    .tab-btn,
+    .appbar-menu,
+    .appbar-menu-panel,
+    .help-pill,
+    .topology-cards,
+    #benchmark-chart-wrap .bench-tab,
+    .math-trace-toolbar,
+    .math-copy-btn,
+    .tip,
+    [data-tip],
+    .js-tooltip {
+      display: none !important;
+    }
+    /* But keep data-tip elements' label text — strip the tooltip glyph only */
+    .tip { display: none !important; }
+    /* Force every collapsible section open so nothing hides in print */
+    .section { break-inside: avoid; page-break-inside: avoid; margin-bottom: 12px; }
+    .section .section-body,
+    .section.collapsed .section-body { display: block !important; max-height: none !important; }
+    .section .chev { display: none !important; }
+    /* Editor / report layout: stack everything vertically full-width */
+    .editor-body,
+    .editor-grid,
+    .root-grid,
+    main {
+      display: block !important;
+      grid-template-columns: 1fr !important;
+      width: 100% !important;
+      padding: 0 !important;
+      margin: 0 !important;
+    }
+    /* SVG charts: fit inline */
+    svg { max-width: 100% !important; height: auto !important; }
+    /* Tables: avoid breaking mid-row */
+    table, tr, td, th { page-break-inside: avoid; }
+    /* Print-only header at the top of the document */
+    body::before {
+      content: "AI Cost Calculator · Procurement Report";
+      display: block;
+      font-size: 14pt;
+      font-weight: 700;
+      margin-bottom: 12px;
+      padding-bottom: 6px;
+      border-bottom: 1.5pt solid #000;
+    }
+    /* URLs after links so the PDF preserves citations */
+    a[href]::after {
+      content: " (" attr(href) ")";
+      font-size: 9pt;
+      color: #555;
+      word-break: break-all;
+    }
+    /* Don't print URL after internal anchors or javascript: */
+    a[href^="#"]::after,
+    a[href^="javascript:"]::after { content: ""; }
+  }
+
+  /* =====================================================================
      TYPOGRAPHY UNIFICATION
      The page started with five competing font stacks: Source Serif 4
      (calc h1 / helper), Source Sans 3 (sidebar / labels), JetBrains Mono
@@ -3040,6 +3118,7 @@ body.config-basic .simulator-pane .block-advanced { display: none !important; }
     </button>
     <div class="appbar-menu-panel" role="menu" hidden>
       <button id="excel-btn" class="primary appbar-menu-item" title="Download as Excel workbook">⬇ Download as Excel</button>
+      <button id="pdf-btn" class="appbar-menu-item" title="Open browser print dialog — choose 'Save as PDF' as the destination">🖨 Print / Save as PDF</button>
       <button id="csv-btn"   class="appbar-menu-item" onclick="exportCSV()" title="Export per-agent token + cost breakdown as CSV">⬇ Export CSV</button>
       <button id="share-btn" class="appbar-menu-item" title="Copy a shareable link to this configuration">⌘ Copy shareable link</button>
       <button id="export-btn" class="appbar-menu-item" title="Export workload JSON">⬇ Export JSON</button>

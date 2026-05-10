@@ -2560,6 +2560,19 @@
     // Generate calculator HTML — defers to a generator module loaded
     // separately. For now, we trigger a download with the workload
     // embedded plus a notice.
+    // PDF / Print — opens the browser print dialog. The @media print
+    // stylesheet hides nav/sidebar/AXIOM and expands every section so
+    // the resulting PDF is a clean self-contained procurement report.
+    document.getElementById('pdf-btn')?.addEventListener('click', () => {
+      // Force every collapsible section open so the print snapshot
+      // captures all content (the print CSS also covers this, but
+      // doing it in JS first makes the on-screen state match what
+      // the PDF will look like, so users can preview).
+      document.querySelectorAll('.section').forEach(s => s.classList.add('open'));
+      // Slight delay so any reflow / chart re-render happens before printing.
+      setTimeout(() => window.print(), 50);
+    });
+
     // Share link — copies a self-contained URL with the workload encoded in the hash.
     document.getElementById('share-btn').addEventListener('click', () => {
       try {
