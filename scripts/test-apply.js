@@ -7,7 +7,10 @@ const fs   = require('fs');
 const path = require('path');
 const vm   = require('vm');
 
-const SRC = path.resolve(__dirname, '..', 'lib', 'prices.js');
+// prices.js lives at public/lib/prices.js after the static-asset reorg;
+// fall back to lib/prices.js for older layouts.
+let SRC = path.resolve(__dirname, '..', 'public', 'lib', 'prices.js');
+if (!fs.existsSync(SRC)) SRC = path.resolve(__dirname, '..', 'lib', 'prices.js');
 const original = fs.readFileSync(SRC, 'utf8');
 
 // Pull applyEditsToSource out of the script via vm — re-exec with a

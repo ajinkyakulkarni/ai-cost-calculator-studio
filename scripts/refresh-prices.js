@@ -41,7 +41,13 @@ const ONLY_KEY      = arg('key');
 const LIMIT         = arg('limit') ? parseInt(arg('limit'), 10) : Infinity;
 const MODEL         = arg('model') || 'gpt-4o-mini';
 
-const PRICES_PATH = path.resolve(__dirname, '..', 'lib', 'prices.js');
+// prices.js lives at public/lib/prices.js after the static-asset reorg,
+// but earlier layouts had it at lib/prices.js. Try both so the script
+// keeps working regardless of where the file is on disk.
+let PRICES_PATH = path.resolve(__dirname, '..', 'public', 'lib', 'prices.js');
+if (!fs.existsSync(PRICES_PATH)) {
+  PRICES_PATH = path.resolve(__dirname, '..', 'lib', 'prices.js');
+}
 const Prices      = require(PRICES_PATH);
 
 const OPENAI_API_KEY = process.env.OPENAI_API_KEY;
