@@ -950,6 +950,16 @@
   .appbar .cost-pill .cb-suffix { font-size: 10px; color: rgba(255,255,255,0.55); }
 
   @media (max-width: 720px) {
+    /* Hard caps so flex children with min-content widths can't widen the
+       document past the viewport. Without these the simulator-pane and
+       wide tables push the body to ~1100px on a 375px phone. */
+    html, body { overflow-x: hidden; max-width: 100vw; }
+    .layout, main, .main, .editor-body, .tab-panel, .section, .simulator-panel,
+    .root, .panel { min-width: 0; max-width: 100%; }
+    /* SVG / table containers can scroll inside themselves */
+    #benchmark-chart, #cost-over-time-chart, #model-compare-tbl,
+    #sensitivity-tbl, .math-trace { max-width: 100%; overflow-x: auto; }
+
     /* Sidebar collapses to a horizontal scrolling icon strip on mobile */
     .layout { flex-direction: column; }
     .sidebar {
@@ -960,6 +970,10 @@
       padding: 0;
       overflow-x: auto;
       overflow-y: hidden;
+      position: sticky;
+      top: 0;
+      z-index: 50;
+      background: var(--paper, #fff);
     }
     .tab-btn {
       flex-direction: row;
@@ -972,6 +986,75 @@
     }
     .tab-btn.active { border-left: none; border-bottom-color: var(--accent); }
     .tab-btn .tab-icon { font-size: 14px; }
+    .nav-group-header { display: none; }
+
+    /* Appbar — wrap on narrow screens */
+    .appbar {
+      flex-wrap: wrap;
+      padding: 8px 10px;
+      gap: 6px;
+    }
+    .appbar h1 { font-size: 14px; }
+    .appbar-menu-trigger { font-size: 11px; padding: 4px 6px; }
+
+    /* Editor body padding tightens */
+    .editor-body { padding: 10px 12px 60px; }
+
+    /* AXIOM 3-column grid → 1 column */
+    .root > div[style*="grid-template-columns:1fr 1fr 1fr"],
+    .root > div[style*="grid-template-columns: 1fr 1fr 1fr"] {
+      grid-template-columns: 1fr !important;
+    }
+    /* Generic 2-col inline grids → 1 col */
+    .row.grid-2 { grid-template-columns: 1fr !important; }
+
+    /* Hosting cards — tighter wrap */
+    .hosting-cards { grid-template-columns: 1fr 1fr !important; }
+    .hosting-card { font-size: 10.5px; }
+    .hosting-card .hc-detail { display: none; } /* keep title/cost only on phone */
+
+    /* Tooltip widget — fit narrow viewports */
+    .js-tooltip { width: min(92vw, 320px); font-size: 11.5px; }
+
+    /* Compare / sensitivity / cost-time SVGs scale via viewBox already */
+    /* but force min-width:0 on hosts so they don't push horizontal scroll */
+    #benchmark-chart, #cost-over-time-chart, #sensitivity-tbl {
+      min-width: 0;
+    }
+
+    /* Bench-chart metric tabs wrap */
+    #bench-chart-tabs { flex-wrap: wrap; }
+
+    /* Report panel tighter padding */
+    .tab-panel[data-tab-panel="report"],
+    .estimator-panel,
+    .benchmarks-panel { padding: 12px 14px 60px; }
+
+    /* Make the cost pill smaller on phone */
+    .appbar .cost-pill { padding: 4px 8px; }
+    .appbar .cost-pill .cb-num { font-size: 11px; }
+    .appbar .cost-pill .cb-label { display: none; }
+  }
+
+  @media (max-width: 480px) {
+    /* Phone — even tighter */
+    .hosting-cards { grid-template-columns: 1fr !important; }
+    .appbar h1 { display: none; } /* save space; logo/title not load-bearing */
+    .root > .panel,
+    .root > div > .panel { padding: 8px; }
+    /* Per-component cost bars: shrink labels */
+    .cb-num { font-size: 10px; }
+    /* Sidebar pills compress */
+    .tab-btn .step-num, .tab-btn .step-bullet { display: none; }
+  }
+
+  /* Tablet landscape (721-980): keep sidebar but narrow it */
+  @media (min-width: 721px) and (max-width: 980px) {
+    .sidebar { width: 200px; }
+    .root > div[style*="grid-template-columns:1fr 1fr 1fr"],
+    .root > div[style*="grid-template-columns: 1fr 1fr 1fr"] {
+      grid-template-columns: 1fr 1fr !important;
+    }
   }
   /* Single-page flow: every L1 tab panel is always visible, stacked
      vertically. Sidebar clicks scroll to the panel; scroll-spy
