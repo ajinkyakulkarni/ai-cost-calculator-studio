@@ -3213,6 +3213,9 @@ body.config-basic .simulator-pane .block-advanced { display: none !important; }
       <button id="reset-btn" class="appbar-menu-item" onclick="resetDefaults()" title="Reset all sliders and per-agent settings to defaults" style="color:#c62828">↺ Reset to defaults</button>
     </div>
   </div>
+  <!-- "?" help button — re-opens the first-visit welcome overlay so users
+       who dismissed it can see the orientation again. -->
+  <button id="help-btn" class="appbar-menu-trigger" title="Open the welcome tour" aria-label="Help" style="margin-right:6px;padding:4px 10px;font-weight:600">?</button>
   <!-- Global theme switcher — themes apply to the whole app (calc + AXIOM).
        Mission is default (light, cool); Command is light/warm; Tactical is
        dark. Buttons use AXIOM's setTheme() defined in the inlined script. -->
@@ -8123,6 +8126,218 @@ setTimeout(()=>{
   window.addEventListener('resize', hide);
   // Hide on focus shift / Escape.
   document.addEventListener('keydown', (e) => { if (e.key === 'Escape') hide(); });
+})();
+</script>
+
+<!-- ====================================================================
+     Welcome overlay — shown on first visit (or when user clicks the ?
+     button). Explains what the calc is, who it's for, and a 3-step
+     quickstart. Dismissed state persists in localStorage so return
+     visitors never see it.
+     ==================================================================== -->
+<style>
+  .welcome-backdrop {
+    position: fixed; inset: 0;
+    background: rgba(0,0,0,0.55);
+    z-index: 100000;
+    display: flex; align-items: center; justify-content: center;
+    padding: 16px;
+  }
+  .welcome-card {
+    background: var(--paper, #fff);
+    color: var(--ink, #111);
+    border-radius: 10px;
+    max-width: 640px;
+    width: 100%;
+    max-height: 90vh;
+    overflow-y: auto;
+    padding: 28px 32px;
+    box-shadow: 0 20px 60px rgba(0,0,0,0.4);
+    font-family: var(--sans, -apple-system, "Segoe UI", system-ui, sans-serif);
+  }
+  .welcome-card h2 {
+    margin: 0 0 6px;
+    font-size: 22px;
+    font-family: var(--serif, Georgia, serif);
+    color: var(--ink);
+  }
+  .welcome-card .welcome-sub {
+    color: var(--muted, #666);
+    font-size: 13px;
+    margin-bottom: 18px;
+    line-height: 1.55;
+  }
+  .welcome-card h3 {
+    font-size: 12.5px;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--muted);
+    margin: 18px 0 8px;
+    font-weight: 700;
+  }
+  .welcome-card ul { margin: 6px 0 0; padding-left: 22px; line-height: 1.6; font-size: 13px; }
+  .welcome-card ul li { margin: 3px 0; }
+  .welcome-card .step {
+    display: flex;
+    gap: 12px;
+    padding: 10px 0;
+    border-bottom: 1px solid var(--rule, #eee);
+    font-size: 13px;
+    line-height: 1.5;
+  }
+  .welcome-card .step:last-of-type { border-bottom: none; }
+  .welcome-card .step-num {
+    flex-shrink: 0;
+    width: 28px; height: 28px;
+    border-radius: 50%;
+    background: var(--accent, #0077cc);
+    color: #fff;
+    font-weight: 700;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 12.5px;
+  }
+  .welcome-card .step-body strong { color: var(--ink); }
+  .welcome-card .step-body em { font-style: normal; color: var(--accent); font-weight: 600; }
+  .welcome-actions {
+    margin-top: 20px;
+    display: flex; gap: 10px; align-items: center; flex-wrap: wrap;
+    justify-content: space-between;
+  }
+  .welcome-cta {
+    background: var(--accent, #0077cc);
+    color: #fff;
+    border: none;
+    border-radius: 6px;
+    padding: 10px 18px;
+    font-size: 13px;
+    font-weight: 600;
+    font-family: inherit;
+    cursor: pointer;
+  }
+  .welcome-cta:hover { filter: brightness(1.1); }
+  .welcome-cta.secondary {
+    background: transparent;
+    color: var(--muted);
+    font-weight: 500;
+  }
+  .welcome-cta.secondary:hover { color: var(--ink); }
+  .welcome-card .audience-grid {
+    display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 8px;
+    font-size: 12px;
+  }
+  .welcome-card .audience-grid > div {
+    padding: 9px 11px;
+    border-left: 3px solid var(--accent);
+    background: rgba(0,119,204,0.05);
+    border-radius: 0 4px 4px 0;
+  }
+  .welcome-card .audience-grid strong { color: var(--ink); font-size: 12.5px; }
+  @media (max-width: 520px) {
+    .welcome-card { padding: 20px 18px; }
+    .welcome-card h2 { font-size: 18px; }
+    .welcome-card .audience-grid { grid-template-columns: 1fr; }
+  }
+</style>
+
+<div id="welcome-overlay" class="welcome-backdrop" style="display:none" role="dialog" aria-labelledby="welcome-title">
+  <div class="welcome-card">
+    <h2 id="welcome-title">Welcome to the AI Cost Calculator</h2>
+    <p class="welcome-sub">
+      A procurement-grade calculator for multi-agent LLM deployments.
+      Every coefficient is empirically calibrated against real OpenAI /
+      Anthropic API runs (see the bench/ harness). Use it to size a budget,
+      compare hosting strategies, or defend a procurement decision with
+      citations.
+    </p>
+
+    <h3>Built for</h3>
+    <div class="audience-grid">
+      <div><strong>Federal procurement reviewers</strong><br>FedRAMP &amp; ATO modeling, audit trail in the report.</div>
+      <div><strong>AI capacity planners</strong><br>Cache, retry, growth, hosting tradeoffs in one place.</div>
+      <div><strong>Research &amp; policy teams</strong><br>Cited benchmarks, derivation trace, share-via-URL.</div>
+      <div><strong>Startup CFOs</strong><br>Budget solver: "how many users at $X/mo?".</div>
+    </div>
+
+    <h3>60-second tour</h3>
+    <div class="step">
+      <div class="step-num">1</div>
+      <div class="step-body">
+        Click the <strong>"Load example…"</strong> dropdown at the top to drop in a real
+        scenario (NASA Earth Information Explorer, NIH ClinicalTrials,
+        NOAA Storm Tracking, DOE Grid Modeling, or a generic startup).
+        This populates ~50 sliders with realistic values.
+      </div>
+    </div>
+    <div class="step">
+      <div class="step-num">2</div>
+      <div class="step-body">
+        Tweak the <em>Traffic &amp; efficiency</em> sliders (MAU, sessions,
+        cache hit rate, retry rate) for your real workload. The headline
+        cost at the top updates live. Hover any label for a plain-English
+        explanation.
+      </div>
+    </div>
+    <div class="step">
+      <div class="step-num">3</div>
+      <div class="step-body">
+        Scroll to the <em>output sections</em>: Budget solver (inverse calc — "given $X
+        budget, how many users?"), Model comparison, Sensitivity, Cost over time,
+        Side-by-side, and the Benchmark chart. Export to PDF or share via URL when done.
+      </div>
+    </div>
+
+    <p style="font-size:11.5px;color:var(--muted);margin-top:14px;line-height:1.55">
+      The whole calculator runs in your browser — nothing leaves the page.
+      Source &amp; benchmark harness:
+      <a href="https://github.com/ajinkyakulkarni/ai-cost-calculator-studio" target="_blank" rel="noopener" style="color:var(--accent)">github.com/ajinkyakulkarni/ai-cost-calculator-studio</a>
+    </p>
+
+    <div class="welcome-actions">
+      <button class="welcome-cta secondary" id="welcome-skip" type="button">Skip the tour</button>
+      <button class="welcome-cta" id="welcome-start" type="button">Start with NASA example →</button>
+    </div>
+  </div>
+</div>
+
+<script>
+(function(){
+  const KEY = 'ccs_welcome_seen_v1';
+  const ov = document.getElementById('welcome-overlay');
+  const show = () => { if (ov) ov.style.display = 'flex'; };
+  const hide = () => { if (ov) ov.style.display = 'none'; };
+  const dismiss = () => {
+    try { localStorage.setItem(KEY, '1'); } catch (_) {}
+    hide();
+  };
+  // First-visit logic: only auto-show if no seen flag AND no scenario in
+  // the URL hash (a shared link goes straight to its scenario, no tour).
+  function shouldAutoShow() {
+    try { if (localStorage.getItem(KEY)) return false; } catch (_) {}
+    if (location.hash && location.hash.startsWith('#w=')) return false;
+    return true;
+  }
+  // Skip → just dismiss.
+  document.getElementById('welcome-skip')?.addEventListener('click', dismiss);
+  // Start → load NASA preset and dismiss.
+  document.getElementById('welcome-start')?.addEventListener('click', () => {
+    const loader = document.getElementById('example-loader');
+    if (loader) {
+      loader.value = 'nasa-eie';
+      loader.dispatchEvent(new Event('change', { bubbles: true }));
+    }
+    dismiss();
+  });
+  // Click on the backdrop dismisses (but not on the card itself).
+  ov?.addEventListener('click', (e) => { if (e.target === ov) dismiss(); });
+  // Escape dismisses too.
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape' && ov && ov.style.display !== 'none') dismiss();
+  });
+  // "?" button always re-opens (regardless of seen flag).
+  document.getElementById('help-btn')?.addEventListener('click', show);
+  // Auto-show on first visit, slightly delayed so the rest of the page
+  // has settled and the user isn't startled.
+  if (shouldAutoShow()) setTimeout(show, 350);
 })();
 </script>
 
