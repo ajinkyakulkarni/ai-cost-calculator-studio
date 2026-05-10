@@ -21,6 +21,47 @@ What makes this different from generic per-token calculators:
 - **Production-shape benchmark**: the bench uses LiteLLM + LangGraph
   + OpenTelemetry GenAI semconv — the same stack real teams deploy.
 
+### What you get out of the box
+
+- **8 realistic preset scenarios** spanning federal (NASA Earth Information
+  Explorer, NIH ClinicalTrials, NOAA Storm Tracking, DOE Grid Modeling)
+  and commercial (HIPAA patient portal, litigation discovery, bank
+  compliance Q&A, startup support chatbot). Click "Load example…" in the
+  top bar — populates ~50 sliders with realistic values.
+- **AS-IS vs proposed**: enter what you're paying today (or what an
+  incumbent quoted you) and the calculator shows annual delta, payback
+  timeline, and a procurement-shaped verdict.
+- **Multi-year migration timeline**: phase Year 1 API pilot → Year 2
+  committed-spend → Year 3 hybrid self-host. Bar chart of phased cost.
+- **Sensitivity panel + budget solver**: tornado chart on ±20% MAU /
+  ±10pp cache / ±15% rates; inverse calc "given $X/mo, how many users?".
+- **Cited benchmark chart**: log-axis dot plot of 24+ published reference
+  prices (OpenAI Enterprise, Microsoft Copilot, Anthropic Claude
+  Enterprise, GAO federal AI reports, etc.) with your scenario plotted
+  alongside. No uncited estimates.
+- **Print / PDF export**: clean print stylesheet hides the live UI for
+  a self-contained procurement deliverable.
+- **Auditable derivation**: copy-pasteable line-by-line math trace that
+  reconciles to the headline. Drop into any LLM and ask "verify this".
+
+### First-time visit
+
+Land on [calc.ajinkya.ai](https://calc.ajinkya.ai) → an overlay walks you
+through what the tool is, who it's for, and a 3-step quickstart. Dismiss
+once and it remembers. Click the **?** button in the appbar anytime to
+re-open the tour.
+
+### Run the tests
+
+```bash
+npm test
+```
+
+Runs two suites: `test-engine-smoke.js` (50 invariants across all 8
+presets — finite cost, FedRAMP multipliers, MAU linearity, headline
+reconciliation, per-query > 0) and `test-apply.js` (regex-replacement
+unit tests for the price-book refresher).
+
 > 🤖 **Picking this repo up cold (human or AI)?** Three things to
 > know:
 > 1. **What this is**: the source for [calc.ajinkya.ai](https://calc.ajinkya.ai)
