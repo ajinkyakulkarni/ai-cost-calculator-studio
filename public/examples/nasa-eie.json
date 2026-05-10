@@ -89,5 +89,33 @@
     "rate_limit": "edge",
     "hosting": "api",
     "cost_mode": "optimistic"
+  },
+
+  "migration": {
+    "enabled": true,
+    "phases": [
+      {
+        "label": "Year 1 — pilot on API",
+        "months": 12,
+        "hosting": "api",
+        "reservation_type": "none",
+        "description": "Low-risk start. Validate workload + cache hit rate against real usage before committing to spend."
+      },
+      {
+        "label": "Year 2 — committed-spend reservation",
+        "months": 12,
+        "hosting": "api",
+        "reservation_type": "openai-enterprise-commit",
+        "description": "Lock in a discount with Azure PTU or OpenAI Enterprise commit once volume is steady."
+      },
+      {
+        "label": "Year 3 — hybrid 50/50",
+        "months": 12,
+        "hosting": "hybrid",
+        "apiSplit": 0.5,
+        "reservation_type": "none",
+        "description": "Stand up Llama-based self-host for steady baseline traffic; keep API for spikes and tail queries."
+      }
+    ]
   }
 }
