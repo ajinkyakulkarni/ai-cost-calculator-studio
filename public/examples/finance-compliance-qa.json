@@ -1,0 +1,141 @@
+{
+  "schemaVersion": "1.0",
+  "deployment": {
+    "name": "Compliance Q&A Assistant",
+    "agency": "Top-25 US Bank · Compliance Department",
+    "description": "Internal RAG-heavy assistant that answers compliance officers' questions about banking regulations (FDIC, OCC, FinCEN, state banking codes, internal policy). Indexed corpus is 500K pages of regs, policy memos, and prior interpretive letters. Production-critical: wrong answers can be career-ending, so verification coverage is set high and the system always shows citations.",
+    "publicFacing": false,
+    "fedrampTier": "none"
+  },
+  "anchor_query": {
+    "input_tokens": 18000,
+    "output_tokens": 950,
+    "cache_rate_baseline": 0.74,
+    "session_baseline_turns": 4,
+    "example": "Does Regulation E coverage extend to a P2P transfer that the customer initiated through a third-party app integrated into our online banking?"
+  },
+  "shapes": {
+    "reg_lookup": {
+      "input_factor": 0.6,
+      "output_factor": 0.7,
+      "cache_eligible": true,
+      "description": "Find the controlling section + cite"
+    },
+    "interpretive": {
+      "input_factor": 1.2,
+      "output_factor": 1.4,
+      "cache_eligible": true,
+      "description": "Open-ended interpretation — full RAG, multiple sources"
+    },
+    "comparison": {
+      "input_factor": 1.5,
+      "output_factor": 1.2,
+      "cache_eligible": true,
+      "description": "Compare federal vs state requirements"
+    },
+    "refusal": {
+      "input_factor": 0.1,
+      "output_factor": 0.2,
+      "cache_eligible": false,
+      "description": "Outside scope (legal advice, customer-specific facts)"
+    }
+  },
+  "mix": {
+    "default": {
+      "label": "Default (50/30/15/5)",
+      "weights": {
+        "reg_lookup": 0.50,
+        "interpretive": 0.30,
+        "comparison": 0.15,
+        "refusal": 0.05
+      }
+    },
+    "exam-prep": {
+      "label": "Exam prep (more comparison + interpretive)",
+      "weights": {
+        "reg_lookup": 0.30,
+        "interpretive": 0.40,
+        "comparison": 0.25,
+        "refusal": 0.05
+      }
+    }
+  },
+  "segments": [
+    {
+      "id": "compliance_officers",
+      "label": "Compliance officers",
+      "mau": 850,
+      "sessions_per_day": 1.5,
+      "questions_per_session": 6,
+      "applyBotFactor": false,
+      "description": "Daily users, authenticated, mix of quick lookups + deep questions"
+    },
+    {
+      "id": "auditors",
+      "label": "Internal audit + risk staff",
+      "mau": 320,
+      "sessions_per_day": 0.6,
+      "questions_per_session": 4,
+      "applyBotFactor": false,
+      "description": "Periodic users — exam season spike, otherwise lighter"
+    }
+  ],
+  "verification": {
+    "enabled": true,
+    "coverage": 1.0,
+    "atoms_per_response": 8,
+    "variant": "fr2",
+    "atomizer_tokens": { "input": 1500, "output": 400 },
+    "reviser_tokens":   { "input": 500,  "output": 30 },
+    "nli_tokens":       { "input": 1200, "output": 20 },
+    "retrieval": "internal_reg_corpus",
+    "nli_hosting": "ec2-g6",
+    "service_pod_monthly": 36
+  },
+  "rate_limit": {
+    "strategy": "user",
+    "monthly_cost": 30,
+    "bot_ceiling": 1.0
+  },
+  "infrastructure": {
+    "Runtime · compute platform (Fargate)": 360,
+    "RDS Postgres (audit trail)": 280,
+    "pgvector (500K-page reg corpus embeddings)": 720,
+    "OpenSearch (full-text reg lookup)": 480,
+    "ElastiCache Redis": 47,
+    "S3 artifacts": 85,
+    "ALB": 30,
+    "CloudFront (internal)": 0,
+    "NAT Gateway": 33,
+    "Route 53": 1,
+    "CloudWatch + X-Ray": 220,
+    "CloudTrail (audit retention for examiner review)": 110,
+    "AWS Config": 20,
+    "GuardDuty": 55,
+    "Okta SSO + RSA SecurID for elevated access": 380,
+    "WAF (internal API)": 12,
+    "Secrets Manager + KMS (HSM-backed for SOX)": 95,
+    "AWS Backup": 110,
+    "ECR + platform baseline": 184
+  },
+  "defaults": {
+    "model": "gpt-5.2",
+    "tier": "standard",
+    "mix": "default",
+    "rate_limit": "user",
+    "hosting": "api",
+    "cost_mode": "realistic"
+  },
+  "federal": {
+    "fedramp_tier": "none",
+    "multi_region": "active-passive",
+    "ato_monthly": 0,
+    "egress_gb_per_query": 0.0015,
+    "egress_cost_per_gb": 0.09,
+    "audit_log_kb_per_query": 12,
+    "audit_retention_years": 7,
+    "audit_storage_per_gb_month": 0.005,
+    "retrieval_infra_monthly": 0,
+    "pii_redaction_per_million_tokens": 0
+  }
+}

@@ -1,0 +1,133 @@
+{
+  "schemaVersion": "1.0",
+  "deployment": {
+    "name": "Patient Portal AI Assistant",
+    "agency": "Regional Health System",
+    "description": "HIPAA-covered patient-facing assistant inside a hospital patient portal. Answers questions about appointments, medication refills, lab results, and visit prep. Authenticated users only; routes anything clinical to a nurse triage queue. Handles PHI so PII redaction + audit logging are non-negotiable.",
+    "publicFacing": false,
+    "fedrampTier": "none"
+  },
+  "anchor_query": {
+    "input_tokens": 4500,
+    "output_tokens": 280,
+    "cache_rate_baseline": 0.82,
+    "session_baseline_turns": 5,
+    "example": "When is my next cardiology appointment and what should I bring?"
+  },
+  "shapes": {
+    "lookup": {
+      "input_factor": 0.4,
+      "output_factor": 0.6,
+      "cache_eligible": true,
+      "description": "Pulls a record from the EHR via MCP and summarizes"
+    },
+    "informational": {
+      "input_factor": 1.0,
+      "output_factor": 1.0,
+      "cache_eligible": true,
+      "description": "Open-ended question; full RAG against approved patient-education corpus"
+    },
+    "triage_handoff": {
+      "input_factor": 0.5,
+      "output_factor": 0.4,
+      "cache_eligible": true,
+      "description": "Routes to a nurse; short summary for the triage queue"
+    },
+    "refusal": {
+      "input_factor": 0.05,
+      "output_factor": 0.1,
+      "cache_eligible": false,
+      "description": "Clinical question the AI is not permitted to answer (e.g., dosing advice)"
+    }
+  },
+  "mix": {
+    "default": {
+      "label": "Default (55/25/15/5)",
+      "weights": {
+        "lookup": 0.55,
+        "informational": 0.25,
+        "triage_handoff": 0.15,
+        "refusal": 0.05
+      }
+    },
+    "post-launch-spike": {
+      "label": "Post-launch spike (more refusals as patients test the system)",
+      "weights": {
+        "lookup": 0.45,
+        "informational": 0.20,
+        "triage_handoff": 0.20,
+        "refusal": 0.15
+      }
+    }
+  },
+  "segments": [
+    {
+      "id": "patients",
+      "label": "Active patients",
+      "mau": 120000,
+      "sessions_per_day": 0.15,
+      "questions_per_session": 4,
+      "applyBotFactor": false,
+      "description": "Authenticated portal users; bot factor 1.0 because SSO + patient login gates traffic."
+    }
+  ],
+  "verification": {
+    "enabled": true,
+    "coverage": 0.20,
+    "atoms_per_response": 5,
+    "variant": "fr1",
+    "atomizer_tokens": { "input": 1200, "output": 350 },
+    "reviser_tokens":   { "input": 500,  "output": 30 },
+    "nli_tokens":       { "input": 1000, "output": 20 },
+    "retrieval": "patient_education_corpus",
+    "nli_hosting": "ec2-g6",
+    "service_pod_monthly": 36
+  },
+  "rate_limit": {
+    "strategy": "session",
+    "monthly_cost": 25,
+    "bot_ceiling": 1.0
+  },
+  "infrastructure": {
+    "Runtime · compute platform (Fargate)": 320,
+    "RDS Postgres (patient sessions + audit)": 220,
+    "ElastiCache Redis": 35,
+    "pgvector (patient education corpus)": 120,
+    "S3 artifacts (HIPAA-eligible bucket)": 95,
+    "ALB": 30,
+    "CloudFront": 25,
+    "NAT Gateway": 33,
+    "Route 53": 1,
+    "CloudWatch + X-Ray": 180,
+    "CloudTrail (HIPAA audit retention 6+ years)": 145,
+    "AWS Config": 18,
+    "GuardDuty": 55,
+    "Macie (PHI detection on S3)": 80,
+    "AWS BAA + dedicated AWS support": 0,
+    "Okta SSO (patient portal SSO)": 220,
+    "WAF (clinical-app ruleset)": 35,
+    "Secrets Manager + KMS (PHI key separation)": 22,
+    "AWS Backup": 80,
+    "ECR + platform baseline": 184
+  },
+  "defaults": {
+    "model": "gpt-5.2",
+    "tier": "standard",
+    "mix": "default",
+    "rate_limit": "session",
+    "hosting": "api",
+    "cost_mode": "realistic"
+  },
+  "federal": {
+    "fedramp_tier": "none",
+    "multi_region": "active-passive",
+    "ato_monthly": 0,
+    "egress_gb_per_query": 0.0008,
+    "egress_cost_per_gb": 0.09,
+    "audit_log_kb_per_query": 8,
+    "audit_retention_years": 7,
+    "audit_storage_per_gb_month": 0.005,
+    "retrieval_infra_monthly": 0,
+    "pii_redaction_per_million_tokens": 22
+  }
+}

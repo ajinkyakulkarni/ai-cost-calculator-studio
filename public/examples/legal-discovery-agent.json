@@ -1,0 +1,142 @@
+{
+  "schemaVersion": "1.0",
+  "deployment": {
+    "name": "Litigation Discovery Triage Agent",
+    "agency": "AmLaw 100 Litigation Practice",
+    "description": "Internal AI assistant that triages and summarizes documents during e-discovery. Junior associates upload large doc sets; the agent flags responsive material, drafts privilege-review memos, and produces deposition prep packs. Heavy use of long-context models (Opus / GPT-5.4) because docs commonly run 50-200 pages. Internal-only behind firm VPN.",
+    "publicFacing": false,
+    "fedrampTier": "none"
+  },
+  "anchor_query": {
+    "input_tokens": 38000,
+    "output_tokens": 1800,
+    "cache_rate_baseline": 0.68,
+    "session_baseline_turns": 7,
+    "example": "Summarize the relevant communications between executives A and B about the 2024 acquisition discussions. Flag any privilege concerns."
+  },
+  "shapes": {
+    "doc_triage": {
+      "input_factor": 1.0,
+      "output_factor": 1.0,
+      "cache_eligible": true,
+      "description": "Read N docs, score responsiveness, summarize"
+    },
+    "privilege_review": {
+      "input_factor": 0.7,
+      "output_factor": 0.8,
+      "cache_eligible": true,
+      "description": "Privilege-log style summary; shorter output"
+    },
+    "depo_prep": {
+      "input_factor": 1.3,
+      "output_factor": 1.5,
+      "cache_eligible": true,
+      "description": "Deposition prep pack — long outputs with quoted exhibits"
+    },
+    "narrow_lookup": {
+      "input_factor": 0.3,
+      "output_factor": 0.4,
+      "cache_eligible": true,
+      "description": "Targeted Q&A against a single doc"
+    }
+  },
+  "mix": {
+    "default": {
+      "label": "Default (40/30/20/10)",
+      "weights": {
+        "doc_triage": 0.40,
+        "privilege_review": 0.30,
+        "depo_prep": 0.20,
+        "narrow_lookup": 0.10
+      }
+    },
+    "trial-prep": {
+      "label": "Trial-prep crunch (more depo-prep)",
+      "weights": {
+        "doc_triage": 0.20,
+        "privilege_review": 0.15,
+        "depo_prep": 0.55,
+        "narrow_lookup": 0.10
+      }
+    }
+  },
+  "segments": [
+    {
+      "id": "associates",
+      "label": "Litigation associates",
+      "mau": 180,
+      "sessions_per_day": 2.0,
+      "questions_per_session": 12,
+      "applyBotFactor": false,
+      "description": "Daily users, deep sessions, all authenticated"
+    },
+    {
+      "id": "paralegals",
+      "label": "Paralegals + e-discovery staff",
+      "mau": 90,
+      "sessions_per_day": 1.5,
+      "questions_per_session": 8,
+      "applyBotFactor": false,
+      "description": "Lighter use, more lookup-style queries"
+    }
+  ],
+  "verification": {
+    "enabled": true,
+    "coverage": 0.50,
+    "atoms_per_response": 10,
+    "variant": "fr2",
+    "atomizer_tokens": { "input": 2000, "output": 600 },
+    "reviser_tokens":   { "input": 800,  "output": 50 },
+    "nli_tokens":       { "input": 1500, "output": 30 },
+    "retrieval": "case_doc_corpus",
+    "nli_hosting": "ec2-g6",
+    "service_pod_monthly": 36
+  },
+  "rate_limit": {
+    "strategy": "user",
+    "monthly_cost": 30,
+    "bot_ceiling": 1.0
+  },
+  "infrastructure": {
+    "Runtime · compute platform (Fargate)": 280,
+    "RDS Postgres (matter / privilege metadata)": 220,
+    "pgvector (case-specific doc embeddings)": 380,
+    "S3 artifacts (encrypted case-matter buckets)": 450,
+    "ElastiCache Redis": 35,
+    "ALB": 30,
+    "CloudFront (internal-only)": 0,
+    "NAT Gateway": 33,
+    "Route 53": 1,
+    "CloudWatch + X-Ray": 220,
+    "CloudTrail (legal-hold retention)": 95,
+    "AWS Config": 18,
+    "GuardDuty": 55,
+    "Macie (PII detection across matter buckets)": 120,
+    "Okta SSO + Yubikey enforcement": 320,
+    "Firm VPN gateway": 240,
+    "WAF (internal API)": 12,
+    "Secrets Manager + KMS (per-matter CMK)": 65,
+    "AWS Backup (litigation hold)": 180,
+    "ECR + platform baseline": 184
+  },
+  "defaults": {
+    "model": "claude-opus-4.7",
+    "tier": "standard",
+    "mix": "default",
+    "rate_limit": "user",
+    "hosting": "api",
+    "cost_mode": "realistic"
+  },
+  "federal": {
+    "fedramp_tier": "none",
+    "multi_region": "active-passive",
+    "ato_monthly": 0,
+    "egress_gb_per_query": 0.002,
+    "egress_cost_per_gb": 0.09,
+    "audit_log_kb_per_query": 15,
+    "audit_retention_years": 10,
+    "audit_storage_per_gb_month": 0.005,
+    "retrieval_infra_monthly": 0,
+    "pii_redaction_per_million_tokens": 18
+  }
+}
