@@ -96,6 +96,48 @@ For each entry, the script:
 - **OpenAI rate limiting** — script is sequential; no built-in retry.
   For a large run, pre-filter with `--category=` and run in chunks.
 
+## verify-aws-instances.js — AWS GPU price refresher (no LLM)
+
+`refresh-prices.js` works on plain HTML pricing pages but stalls on AWS
+because:
+
+- `aws.amazon.com/ec2/instance-types/<family>/` pages are spec sheets,
+  not pricing — they don't carry hourly rates at all.
+- `aws.amazon.com/ec2/pricing/on-demand/` is a JS-heavy SPA that pulls
+  prices from a JSON API at runtime; raw HTML scraping returns mostly
+  empty shells.
+- The official AWS Price List Bulk API
+  (`pricing.us-east-1.amazonaws.com`) is too heavy for casual use:
+  the EC2 us-east-1 file alone is ~470 MB.
+
+This script side-steps the problem by using
+`https://instances.vantage.sh/aws/ec2/<instance-type>` — a public mirror
+of AWS pricing with plain HTML pages that have the on-demand hourly rate
+inline. Regex-extracted, no LLM call, no token cost.
+
+```bash
+node scripts/verify-aws-instances.js          # dry-run
+node scripts/verify-aws-instances.js --apply  # write changes back
+node scripts/verify-aws-instances.js --verbose
+```
+
+It also runs a sanity check: if the scraped price is implausibly low
+relative to the current entry (e.g. $1.84 for an 8-GPU instance), the
+drift is flagged "⚠ SUSPICIOUS — manual verify" and excluded from
+`--apply`. Vantage occasionally has mislabeled markup on newer instance
+types where the "On Demand" label is paired with a Spot or per-GPU rate.
+
+### Other providers
+
+- **Azure** has a public Retail Prices API
+  (`https://prices.azure.com/api/retail/prices`) returning JSON. A
+  parallel `verify-azure.js` script following the same pattern is the
+  natural extension.
+- **GCP** has a Cloud Billing Catalog API but it requires a GCP service
+  account; not currently scraped.
+- **OpenAI / Anthropic / GitHub Copilot / Cursor / etc.** all use plain
+  HTML pricing pages and work via `refresh-prices.js` directly.
+
 ## test-apply.js
 
 Unit-test for the in-place regex replacement logic in `refresh-prices.js`.
