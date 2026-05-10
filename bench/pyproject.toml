@@ -15,7 +15,15 @@ dependencies = [
     "langchain-core>=0.3.0",
     # LiteLLM is the de-facto provider abstraction. One client, every
     # major provider, consistent usage reporting (cached_tokens etc).
-    "litellm>=1.55.0",
+    # Pin litellm>=1.62 so the openai responses-API import path resolves
+    # on current openai>=1.40 — older litellm tries to import
+    # `openai.types.responses` which moved in openai 1.40+. If you see
+    # `ModuleNotFoundError: No module named 'openai.types.responses'`,
+    # `pip install -U litellm` will fix it.
+    "litellm>=1.62.0",
+    # Keep openai pinned to a compatible major to match litellm's
+    # internal import expectations.
+    "openai>=1.40,<2.0",
     # OpenTelemetry — emits GenAI-semconv spans so traces are
     # consumable by Langfuse, Arize, Phoenix, Datadog, etc.
     "opentelemetry-api>=1.29.0",
