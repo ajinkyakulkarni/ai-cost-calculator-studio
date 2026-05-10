@@ -1793,6 +1793,9 @@
 
     // Cost-over-time projection (uses AXIOM s-growth slider).
     renderCostOverTime(headlineTotal);
+
+    // Side-by-side preset compare — uses cached preset JSONs + the live opts.
+    renderPresetCompare(opts).catch(() => {});
   }
 
   // Inverse calculator: given a target budget, what's the maximum MAU the
@@ -2245,6 +2248,183 @@
       `;
     }
   }
+
+  // -----------------------------------------------------------------
+  // Side-by-side preset compare — fetch the preset JSON, run it through
+  // CostEngine, and diff against another preset (or the live scenario).
+  // Cached so flipping selectors doesn't re-fetch.
+  // -----------------------------------------------------------------
+  const _presetCache = {};
+  async function loadPresetWorkload(slug) {
+    if (slug === '__current__') return null;  // caller handles live scenario
+    if (_presetCache[slug]) return _presetCache[slug];
+    try {
+      const resp = await fetch(`examples/${slug}.json`);
+      if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+      const w = ensureFields(await resp.json());
+      _presetCache[slug] = w;
+      return w;
+    } catch (e) {
+      console.warn('preset load failed', slug, e);
+      return null;
+    }
+  }
+
+  // Compute the snapshot of a workload+opts combo: queries, headline,
+  // per-MAU, annual, and the lever inputs we want to surface in the diff.
+  function computeScenarioSnapshot(w, o) {
+    let r;
+    try { r = CostEngine.compute(w, o); } catch (e) { return null; }
+    const apiCapped = r.api?.monthly_capped || 0;
+    const fixed = r.fixed_costs?.total || 0;
+    const verif = r.verification?.monthly || 0;
+    const fed = r.federal?.additive_total || 0;
+    const emb = (r.embedding?.enabled ? r.embedding.monthly : 0) || 0;
+    const pers = (r.personnel?.enabled ? r.personnel.monthly : 0) || 0;
+    let llm;
+    if (o.hosting === 'self') llm = r.self_host?.total || 0;
+    else if (o.hosting === 'hybrid' && r.hybrid) llm = r.hybrid.total;
+    else if (o.hosting === 'onprem') llm = parseFloat(w.on_prem_monthly) || 0;
+    else if (r.reservation?.enabled) llm = r.reservation.effective_monthly;
+    else llm = apiCapped;
+    const headline = llm + fixed + verif + fed + emb + pers;
+    const queries = r.queries?.total || 0;
+    const totalMau = (w.segments || []).reduce((a, s) => a + (s.mau || 0), 0);
+    const seg0 = w.segments?.[0] || {};
+    return {
+      name: w.deployment?.name || '(unnamed)',
+      agency: w.deployment?.agency || '',
+      mau: totalMau,
+      sessionsPerDay: seg0.sessions_per_day || 0,
+      turns: seg0.questions_per_session || 0,
+      botFactor: r.queries?.botEffective || 1,
+      model: o.model,
+      hosting: o.hosting,
+      fedrampTier: w.federal?.fedramp_tier || 'none',
+      hostingMultiplier: r.api?.hosting_multiplier || 1,
+      queries,
+      perQueryBlended: r.api?.per_query_blended || 0,
+      llm,
+      federal_additive: fed,
+      fixed,
+      headline,
+      perMau: totalMau > 0 ? headline / totalMau : 0,
+      annual: headline * 12,
+      tco3yr: headline * 36,
+    };
+  }
+
+  async function renderPresetCompare(currentOpts) {
+    const host = document.getElementById('preset-compare-result');
+    if (!host) return;
+    const aSel = document.getElementById('cmp-preset-a');
+    const bSel = document.getElementById('cmp-preset-b');
+    if (!aSel || !bSel) return;
+    const aSlug = aSel.value;
+    const bSlug = bSel.value;
+
+    // Resolve each side: either the live scenario or a fetched preset.
+    const resolveSide = async (slug) => {
+      if (slug === '__current__') {
+        return computeScenarioSnapshot(workload, currentOpts);
+      }
+      const w = await loadPresetWorkload(slug);
+      if (!w) return null;
+      // Build a default opts for this preset using its own defaults
+      const o = {
+        hosting: w.defaults?.hosting || 'api',
+        model: w.defaults?.model || 'gpt-5.2',
+        tier: w.defaults?.tier || 'standard',
+        mix: w.defaults?.mix || 'mixed',
+        costMode: w.defaults?.cost_mode || 'optimistic',
+        botFactor: 1.5,
+        cacheRate: w.anchor_query?.cache_rate_baseline || 0.7,
+        verifCoverage: w.verification?.coverage || 0,
+      };
+      return computeScenarioSnapshot(w, o);
+    };
+    const [A, B] = await Promise.all([resolveSide(aSlug), resolveSide(bSlug)]);
+    if (!A || !B) {
+      host.innerHTML = '<p style="color:var(--muted);font-size:12px">Could not load both scenarios.</p>';
+      return;
+    }
+
+    // Diff helpers
+    const fmt$ = (n) => '$' + Math.round(n).toLocaleString();
+    const fmt$4 = (n) => '$' + (n || 0).toFixed(4);
+    const fmtN = (n) => Math.round(n).toLocaleString();
+    const pctDiff = (a, b) => {
+      if (!isFinite(a) || !isFinite(b) || a === 0) return null;
+      return (b - a) / a;
+    };
+    const fmtPct = (p) => p == null ? '—' : (p > 0 ? '+' : '') + (p * 100).toFixed(1) + '%';
+    const pctClass = (p) => p == null ? '' : Math.abs(p) < 0.05 ? 'cmp-small' : p > 0 ? 'cmp-up' : 'cmp-down';
+
+    // Rows: [label, A-display, B-display, % diff (numeric only)]
+    const rows = [
+      ['Scenario name',         A.name,                              B.name,                              null],
+      ['Agency / org',          A.agency || '—',                     B.agency || '—',                     null],
+      ['MAU',                   fmtN(A.mau),                          fmtN(B.mau),                          pctDiff(A.mau, B.mau)],
+      ['Sessions / user / day', A.sessionsPerDay.toFixed(2),          B.sessionsPerDay.toFixed(2),          pctDiff(A.sessionsPerDay, B.sessionsPerDay)],
+      ['Turns / session',       A.turns.toString(),                   B.turns.toString(),                   pctDiff(A.turns, B.turns)],
+      ['Bot factor',            A.botFactor.toFixed(2) + '×',         B.botFactor.toFixed(2) + '×',         pctDiff(A.botFactor, B.botFactor)],
+      ['Model',                 A.model,                              B.model,                              null],
+      ['Hosting',               A.hosting,                            B.hosting,                            null],
+      ['FedRAMP tier',          A.fedrampTier,                        B.fedrampTier,                        null],
+      ['Queries / month',       fmtN(A.queries),                      fmtN(B.queries),                      pctDiff(A.queries, B.queries)],
+      ['$ / query (blended)',   fmt$4(A.perQueryBlended),             fmt$4(B.perQueryBlended),             pctDiff(A.perQueryBlended, B.perQueryBlended)],
+      ['LLM monthly',           fmt$(A.llm),                          fmt$(B.llm),                          pctDiff(A.llm, B.llm)],
+      ['Federal additive',      fmt$(A.federal_additive),             fmt$(B.federal_additive),             pctDiff(A.federal_additive, B.federal_additive)],
+      ['Fixed monthly',         fmt$(A.fixed),                        fmt$(B.fixed),                        pctDiff(A.fixed, B.fixed)],
+      ['Headline monthly',      fmt$(A.headline),                     fmt$(B.headline),                     pctDiff(A.headline, B.headline)],
+      ['$ / MAU / month',       '$' + A.perMau.toFixed(2),            '$' + B.perMau.toFixed(2),            pctDiff(A.perMau, B.perMau)],
+      ['Annual',                fmt$(A.annual),                       fmt$(B.annual),                       pctDiff(A.annual, B.annual)],
+      ['3-year TCO',            fmt$(A.tco3yr),                       fmt$(B.tco3yr),                       pctDiff(A.tco3yr, B.tco3yr)],
+    ];
+
+    const rowsHtml = rows.map(([label, a, b, p]) => {
+      const cls = pctClass(p);
+      const colorStyle = cls === 'cmp-up' ? 'color:#b3333d;font-weight:700' : cls === 'cmp-down' ? 'color:#2a8c3a;font-weight:700' : cls === 'cmp-small' ? 'color:var(--muted)' : 'color:var(--muted)';
+      return `<tr style="border-bottom:1px solid var(--rule)">
+        <td style="padding:7px 10px;color:var(--ink);font-size:11.5px">${escapeHtml(label)}</td>
+        <td style="padding:7px 10px;text-align:right;font-variant-numeric:tabular-nums;font-size:11.5px">${escapeHtml(String(a))}</td>
+        <td style="padding:7px 10px;text-align:right;font-variant-numeric:tabular-nums;font-size:11.5px">${escapeHtml(String(b))}</td>
+        <td style="padding:7px 10px;text-align:right;font-variant-numeric:tabular-nums;font-size:11px;${colorStyle}">${fmtPct(p)}</td>
+      </tr>`;
+    }).join('');
+
+    host.innerHTML = `
+      <div style="overflow-x:auto">
+        <table style="width:100%;border-collapse:collapse;font-size:12px">
+          <thead>
+            <tr style="text-align:left;border-bottom:1.5px solid var(--rule);background:rgba(0,0,0,0.02)">
+              <th style="padding:9px 10px;font-weight:600">Field</th>
+              <th style="padding:9px 10px;text-align:right;font-weight:600;color:#0077cc">Scenario A</th>
+              <th style="padding:9px 10px;text-align:right;font-weight:600;color:#7c4dff">Scenario B</th>
+              <th style="padding:9px 10px;text-align:right;font-weight:600">B vs A</th>
+            </tr>
+          </thead>
+          <tbody>${rowsHtml}</tbody>
+        </table>
+      </div>
+      <p class="helper" style="margin-top:8px;font-size:11px;color:var(--muted)">B-vs-A column: red = B costs more than A; green = B costs less. Comparing presets uses each preset's bundled defaults (model, hosting, mix). Comparing against <strong>Current</strong> uses your live AXIOM slider settings.</p>
+    `;
+  }
+
+  // Wire the compare selectors (one-time bind on first DOM load)
+  function bindPresetCompareSelectors() {
+    const aSel = document.getElementById('cmp-preset-a');
+    const bSel = document.getElementById('cmp-preset-b');
+    if (!aSel || !bSel || aSel.dataset.bound === '1') return;
+    aSel.dataset.bound = '1';
+    const handler = () => {
+      // Re-trigger renderPreview so renderPresetCompare runs with the latest opts
+      if (typeof renderPreview === 'function') renderPreview();
+    };
+    aSel.addEventListener('change', handler);
+    bSel.addEventListener('change', handler);
+  }
+  setTimeout(bindPresetCompareSelectors, 0);
 
   // -----------------------------------------------------------------
   // Wire add buttons + topbar buttons
