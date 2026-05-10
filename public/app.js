@@ -2314,12 +2314,18 @@
     };
   }
 
+  // Generation counter: every renderPresetCompare invocation increments
+  // this. After the awaits resolve, only the latest generation is allowed
+  // to write to the DOM — earlier in-flight calls discard their results
+  // so a stale fetch can't overwrite a newer selection.
+  let _presetCmpGen = 0;
   async function renderPresetCompare(currentOpts) {
     const host = document.getElementById('preset-compare-result');
     if (!host) return;
     const aSel = document.getElementById('cmp-preset-a');
     const bSel = document.getElementById('cmp-preset-b');
     if (!aSel || !bSel) return;
+    const myGen = ++_presetCmpGen;
     const aSlug = aSel.value;
     const bSlug = bSel.value;
 
@@ -2344,6 +2350,9 @@
       return computeScenarioSnapshot(w, o);
     };
     const [A, B] = await Promise.all([resolveSide(aSlug), resolveSide(bSlug)]);
+    // Stale-write guard: if a newer call has started since this one began,
+    // discard our result so the newer one wins.
+    if (myGen !== _presetCmpGen) return;
     if (!A || !B) {
       host.innerHTML = '<p style="color:var(--muted);font-size:12px">Could not load both scenarios.</p>';
       return;
@@ -2354,11 +2363,25 @@
     const fmt$4 = (n) => '$' + (n || 0).toFixed(4);
     const fmtN = (n) => Math.round(n).toLocaleString();
     const pctDiff = (a, b) => {
-      if (!isFinite(a) || !isFinite(b) || a === 0) return null;
+      if (!isFinite(a) || !isFinite(b)) return null;
+      // Both zero — unchanged.
+      if (a === 0 && b === 0) return 0;
+      // A is zero but B isn't — flag as 'new line item appearing'.
+      // Returning Infinity (positive when B>A, negative when B<A) lets the
+      // formatter render "+∞%" so reviewers see the change instead of "—".
+      if (a === 0) return b > 0 ? Infinity : -Infinity;
       return (b - a) / a;
     };
-    const fmtPct = (p) => p == null ? '—' : (p > 0 ? '+' : '') + (p * 100).toFixed(1) + '%';
-    const pctClass = (p) => p == null ? '' : Math.abs(p) < 0.05 ? 'cmp-small' : p > 0 ? 'cmp-up' : 'cmp-down';
+    const fmtPct = (p) => {
+      if (p == null) return '—';
+      if (!isFinite(p)) return p > 0 ? '+∞%' : '−∞%';
+      return (p > 0 ? '+' : '') + (p * 100).toFixed(1) + '%';
+    };
+    const pctClass = (p) => {
+      if (p == null) return '';
+      if (!isFinite(p)) return p > 0 ? 'cmp-up' : 'cmp-down';
+      return Math.abs(p) < 0.05 ? 'cmp-small' : p > 0 ? 'cmp-up' : 'cmp-down';
+    };
 
     // Rows: [label, A-display, B-display, % diff (numeric only)]
     const rows = [

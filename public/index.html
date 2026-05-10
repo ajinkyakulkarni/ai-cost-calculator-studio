@@ -523,12 +523,14 @@
     .math-trace-toolbar,
     .math-copy-btn,
     .tip,
-    [data-tip],
     .js-tooltip {
       display: none !important;
     }
-    /* But keep data-tip elements' label text — strip the tooltip glyph only */
-    .tip { display: none !important; }
+    /* NOTE: do NOT add bare `[data-tip]` to the hide list — many slider
+       labels carry data-tip on the same span that holds their visible
+       text (e.g. <span class="sr-label" data-tip="...">Cache hit rate
+       </span>). Hiding [data-tip] would remove the label text from the
+       printed report. The .tip rule above already hides the ⓘ circles. */
     /* Force every collapsible section open so nothing hides in print */
     .section { break-inside: avoid; page-break-inside: avoid; margin-bottom: 12px; }
     .section .section-body,
@@ -6814,6 +6816,40 @@ function onSlider(){
   // single agent via the per-agent editor — but the next slider move
   // re-broadcasts. Tradeoff: simple + responsive over fine-grained.
   if (Array.isArray(sim?.agents)) {
+    // Field map: slider id → agent field. Broadcast happens only when a
+    // slider's value has CHANGED since the last broadcast. This preserves
+    // genuine per-agent edits made via the per-agent editor — moving an
+    // unrelated slider (e.g. batch %) no longer clobbers Agent 2's
+    // hand-tuned RAG chunk count.
+    if (!window._sliderBcastPrev) window._sliderBcastPrev = {};
+    const fields = [
+      ['s-rag-chunks',     'rag_chunks'],
+      ['s-rag-chunk-size', 'rag_size'],
+      ['s-rag-calls',      'rag_calls'],
+      ['s-tools',          'tools_per'],
+      ['s-schema',         'schema'],
+      ['s-toolresult',     'result'],
+      ['s-think-tokens',   'think_tok'],
+      ['s-think-pct',      'think_pct'],
+      ['s-cot',            'cot'],
+      ['s-factcheck',      'factcheck'],
+      ['s-guard-in',       'guard_in'],
+      ['s-guard-out',      'guard_out'],
+      ['s-guard-pii',      'guard_pii'],
+      ['s-guard-policy',   'guard_policy'],
+    ];
+    const changed = {};
+    for (const [sid, field] of fields) {
+      const v = cfg(sid);
+      if (window._sliderBcastPrev[sid] !== v) {
+        changed[field] = v;
+        window._sliderBcastPrev[sid] = v;
+      }
+    }
+    // On/off gates flip true whenever the relevant slider group is non-zero.
+    // These don't need change-tracking — they're additive (turning a slider
+    // on enables the feature; turning it back to 0 doesn't auto-disable it
+    // since the flag may have been set deliberately).
     const ragChunks   = cfg('s-rag-chunks');
     const ragSize     = cfg('s-rag-chunk-size');
     const ragCalls    = cfg('s-rag-calls');
@@ -6821,7 +6857,6 @@ function onSlider(){
     const schemaTok   = cfg('s-schema');
     const toolResult  = cfg('s-toolresult');
     const thinkTok    = cfg('s-think-tokens');
-    const thinkPct    = cfg('s-think-pct');
     const cotN        = cfg('s-cot');
     const factcheckN  = cfg('s-factcheck');
     const guardIn     = cfg('s-guard-in');
@@ -6837,21 +6872,9 @@ function onSlider(){
       if (toolsGlobal)  a.toolsOn  = true;
       if (reasonGlobal) a.reasonOn = true;
       if (guardGlobal)  a.guardOn  = true;
-      // Broadcast slider values so they actually drive the math.
-      a.rag_chunks   = ragChunks;
-      a.rag_size     = ragSize;
-      a.rag_calls    = ragCalls;
-      a.tools_per    = toolsPer;
-      a.schema       = schemaTok;
-      a.result       = toolResult;
-      a.think_tok    = thinkTok;
-      a.think_pct    = thinkPct;
-      a.cot          = cotN;
-      a.factcheck    = factcheckN;
-      a.guard_in     = guardIn;
-      a.guard_out    = guardOut;
-      a.guard_pii    = guardPii;
-      a.guard_policy = guardPolicy;
+      // Only write fields whose underlying slider just moved. Per-agent
+      // edits to other fields are preserved.
+      for (const k of Object.keys(changed)) a[k] = changed[k];
     }
   }
 
@@ -7951,14 +7974,31 @@ setTimeout(()=>{
       .replace(/'/g,'&#39;');
   }
   function renderInline(s){
-    // Order matters: code first (so its contents aren't re-parsed), then
-    // links, then bold, then italic.
-    let out = escapeHtml(s);
+    // Pull links out FIRST and stash them as placeholders, so the URL
+    // doesn't get double-escaped (escapeHtml turning '&' into '&amp;'
+    // would otherwise corrupt query-string ampersands inside hrefs).
+    const linkStash = [];
+    let work = String(s).replace(/\[([^\]]+)\]\((https?:\/\/[^)]+)\)/g, (_, t, u) => {
+      const idx = linkStash.length;
+      linkStash.push({ text: t, url: u });
+      return `LINK${idx}`;
+    });
+    // Now safe to escape the rest of the prose.
+    let out = escapeHtml(work);
+    // Backtick `code` — captured content is already escapeHtml'd.
     out = out.replace(/`([^`]+)`/g, (_,c)=>`<code>${c}</code>`);
-    out = out.replace(/\[([^\]]+)\]\((https?:\/\/[^)]+)\)/g,
-      (_,t,u)=>`<a href="${u}" target="_blank" rel="noopener">${t}</a>`);
+    // Bold + italic.
     out = out.replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>');
     out = out.replace(/(^|[^*])\*([^*]+)\*/g, '$1<em>$2</em>');
+    // Re-inject links, escaping the visible text but keeping the raw URL
+    // (which we did NOT pass through escapeHtml, so & survives intact).
+    out = out.replace(/LINK(\d+)/g, (_, i) => {
+      const { text, url } = linkStash[Number(i)];
+      // Defensive: still escape the visible text + url-quote for the href
+      // attribute boundary so a stray '"' in a URL can't break the tag.
+      const safeUrl = String(url).replace(/"/g, '%22');
+      return `<a href="${safeUrl}" target="_blank" rel="noopener">${escapeHtml(text)}</a>`;
+    });
     return out;
   }
   function renderMarkdown(text){
