@@ -1796,6 +1796,9 @@
 
     // Side-by-side preset compare — uses cached preset JSONs + the live opts.
     renderPresetCompare(opts).catch(() => {});
+
+    // AS-IS vs proposed — compare against the user's current contract spend.
+    renderAsIsCompare(headlineTotal);
   }
 
   // Inverse calculator: given a target budget, what's the maximum MAU the
@@ -2448,6 +2451,113 @@
     bSel.addEventListener('change', handler);
   }
   setTimeout(bindPresetCompareSelectors, 0);
+
+  // -----------------------------------------------------------------
+  // AS-IS vs proposed — compare the calculator's headline annual cost
+  // against the user's current contract spend. Surfaces the delta with
+  // payback timeline when there's a migration cost.
+  // -----------------------------------------------------------------
+  function renderAsIsCompare(proposedMonthly) {
+    const host = document.getElementById('asis-result');
+    if (!host) return;
+    const asisEl = document.getElementById('asis-annual');
+    const migEl = document.getElementById('asis-migration');
+    const asisAnnual = asisEl ? parseFloat(asisEl.value) : NaN;
+    const migration = migEl ? (parseFloat(migEl.value) || 0) : 0;
+    if (!Number.isFinite(asisAnnual) || asisAnnual <= 0) {
+      host.innerHTML = '<p class="helper" style="color:var(--muted);font-size:12px;margin:0">Enter your current annual contract above to see the comparison.</p>';
+      return;
+    }
+    const proposedAnnual = proposedMonthly * 12;
+    const annualDelta = proposedAnnual - asisAnnual;          // positive = costs more
+    const monthlyDelta = annualDelta / 12;
+    const pct = asisAnnual > 0 ? annualDelta / asisAnnual : 0;
+    const isSavings = annualDelta < 0;
+    const absDelta = Math.abs(annualDelta);
+    const fmt$ = (n) => '$' + Math.round(n).toLocaleString();
+    const fmt$2 = (n) => '$' + Math.round(n).toLocaleString();
+
+    // Payback: only meaningful when proposed is cheaper AND there's
+    // a migration cost. Months until cumulative savings = migration.
+    let paybackHtml = '';
+    if (isSavings && migration > 0) {
+      const monthlySavings = -monthlyDelta;  // positive
+      const paybackMonths = migration / monthlySavings;
+      const paybackYears = paybackMonths / 12;
+      paybackHtml = `
+        <div style="padding:10px 12px;background:rgba(42,140,58,0.08);border-left:3px solid #2a8c3a;border-radius:4px;margin-top:10px">
+          <strong>Payback timeline:</strong> at ${fmt$(monthlySavings)}/mo savings, the
+          ${fmt$(migration)} migration investment pays back in
+          <strong>${paybackMonths.toFixed(1)} months</strong> (≈ ${paybackYears.toFixed(1)} years).
+          ${paybackMonths < 18
+            ? ' Well inside a typical 3-year procurement cycle.'
+            : paybackMonths < 36
+              ? ' Inside the typical procurement cycle but the case depends on the contract length.'
+              : ' Longer than a typical 3-year cycle — consider whether the migration cost can be reduced.'}
+        </div>`;
+    } else if (isSavings && migration === 0) {
+      paybackHtml = `
+        <div style="padding:10px 12px;background:rgba(42,140,58,0.08);border-left:3px solid #2a8c3a;border-radius:4px;margin-top:10px">
+          <strong>No migration cost entered.</strong> Annual savings of ${fmt$(absDelta)} flow through from month 1.
+          If there's a real migration cost, add it in the field above.
+        </div>`;
+    } else if (!isSavings && migration > 0) {
+      paybackHtml = `
+        <div style="padding:10px 12px;background:rgba(179,51,61,0.08);border-left:3px solid #b3333d;border-radius:4px;margin-top:10px">
+          <strong>Overrun + migration cost stack up.</strong> Proposed is ${fmt$(absDelta)}/yr
+          more expensive AND there's ${fmt$(migration)} of migration cost. Difficult to
+          justify without a non-cost reason (capability uplift, vendor lock-in escape, compliance).
+        </div>`;
+    }
+
+    const deltaColor = isSavings ? '#2a8c3a' : '#b3333d';
+    const deltaWord = isSavings ? 'SAVINGS' : 'OVERRUN';
+    const arrow = isSavings ? '↓' : '↑';
+    const verdict = isSavings
+      ? `Proposed deployment <strong>saves ${fmt$(absDelta)}/yr</strong> (${(pct * -100).toFixed(1)}% less than current).`
+      : `Proposed deployment <strong>costs ${fmt$(absDelta)}/yr more</strong> (+${(pct * 100).toFixed(1)}% over current).`;
+
+    host.innerHTML = `
+      <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px">
+        <div style="padding:10px 12px;background:rgba(0,0,0,0.04);border-radius:4px">
+          <div style="font-size:10.5px;color:var(--muted);text-transform:uppercase;letter-spacing:0.05em">Current (AS-IS)</div>
+          <div style="font-size:18px;font-weight:700;font-family:var(--mono)">${fmt$(asisAnnual)}</div>
+          <div style="font-size:10.5px;color:var(--muted)">per year</div>
+        </div>
+        <div style="padding:10px 12px;background:rgba(0,119,204,0.06);border-left:3px solid var(--accent);border-radius:0 4px 4px 0">
+          <div style="font-size:10.5px;color:var(--muted);text-transform:uppercase;letter-spacing:0.05em">Proposed</div>
+          <div style="font-size:18px;font-weight:700;font-family:var(--mono);color:var(--accent)">${fmt$(proposedAnnual)}</div>
+          <div style="font-size:10.5px;color:var(--muted)">per year (from this calculator)</div>
+        </div>
+        <div style="padding:10px 12px;background:${isSavings ? 'rgba(42,140,58,0.08)' : 'rgba(179,51,61,0.08)'};border-left:3px solid ${deltaColor};border-radius:0 4px 4px 0">
+          <div style="font-size:10.5px;color:${deltaColor};text-transform:uppercase;letter-spacing:0.05em;font-weight:700">${deltaWord} ${arrow}</div>
+          <div style="font-size:18px;font-weight:700;font-family:var(--mono);color:${deltaColor}">${fmt$(absDelta)}</div>
+          <div style="font-size:10.5px;color:${deltaColor}">${(Math.abs(pct) * 100).toFixed(1)}% vs current · ${fmt$(monthlyDelta < 0 ? -monthlyDelta : monthlyDelta)}/mo</div>
+        </div>
+      </div>
+      <p class="helper" style="margin-top:10px;font-size:12.5px;line-height:1.5">${verdict}</p>
+      ${paybackHtml}
+      <p class="helper" style="margin-top:10px;font-size:11.5px;color:var(--muted)">
+        For procurement defense: put the proposed annual ($${proposedAnnual.toLocaleString()})
+        and the AS-IS annual ($${asisAnnual.toLocaleString()}) side-by-side in your justification
+        package. Cite this calculator's <strong>Derivation</strong> section for the proposed-state
+        breakdown — every line item is traced to inputs.
+      </p>
+    `;
+  }
+
+  // Bind the AS-IS inputs so they trigger renderPreview (which calls
+  // renderAsIsCompare with the latest headline).
+  function bindAsIsInputs() {
+    const a = document.getElementById('asis-annual');
+    const m = document.getElementById('asis-migration');
+    if (!a || a.dataset.bound === '1') return;
+    a.dataset.bound = '1';
+    const handler = () => { if (typeof renderPreview === 'function') renderPreview(); };
+    a.addEventListener('input', handler);
+    if (m) m.addEventListener('input', handler);
+  }
+  setTimeout(bindAsIsInputs, 0);
 
   // -----------------------------------------------------------------
   // Wire add buttons + topbar buttons

@@ -472,6 +472,11 @@
   #sec-cost-over-time { order: 27; }
   /* Side-by-side preset compare — pick two scenarios, see the diff. */
   #sec-preset-compare { order: 28; }
+  /* AS-IS vs proposed — enter today's actual annual contract cost and
+     see the delta against the proposed deployment. Federal procurements
+     almost always replace something; reviewers need the savings (or
+     overrun) number. */
+  #sec-as-is-compare { order: 29; }
   /* Infrastructure + traffic safeguards */
   #sec-infra      { order: 30; }
   #sec-safeguards { order: 31; }
@@ -3248,7 +3253,8 @@ body.config-basic .simulator-pane .block-advanced { display: none !important; }
     <button class="tab-btn"        data-wiz="sensitivity"  data-wiz-anchor="sec-sensitivity"><span class="nav-icon">⇕</span><span class="step-num">7</span>Sensitivity</button>
     <button class="tab-btn"        data-wiz="cost-time"    data-wiz-anchor="sec-cost-over-time"><span class="nav-icon">↗</span><span class="step-num">8</span>Cost over time</button>
     <button class="tab-btn"        data-wiz="compare"      data-wiz-anchor="sec-preset-compare"><span class="nav-icon">⫷</span><span class="step-num">9</span>Side-by-side</button>
-    <button class="tab-btn"        data-wiz="people"       data-wiz-anchor="sec-personnel"><span class="nav-icon">◍</span><span class="step-num">10</span>Personnel</button>
+    <button class="tab-btn"        data-wiz="as-is"        data-wiz-anchor="sec-as-is-compare"><span class="nav-icon">⇆</span><span class="step-num">10</span>AS-IS vs proposed</button>
+    <button class="tab-btn"        data-wiz="people"       data-wiz-anchor="sec-personnel"><span class="nav-icon">◍</span><span class="step-num">11</span>Personnel</button>
 
     <div class="nav-group-header">Report</div>
     <button class="tab-btn"        data-wiz="report"       data-wiz-anchor="sec-report"><span class="nav-icon">▤</span><span class="step-bullet">•</span>Report</button>
@@ -5193,6 +5199,29 @@ Procurement reviewers often work backwards: 'we have $50K/mo approved — how ma
         </div>
       </div>
       <div id="preset-compare-result" style="margin-top:14px"></div>
+      </div>
+    </div>
+
+    <!-- AS-IS vs proposed — most procurements replace a current contract.
+         Enter today's annual spend and the calculator shows the delta:
+         savings, overrun, payback timeline. -->
+    <div class="section" data-cat="output" id="sec-as-is-compare">
+      <h2><span class="chev">▶</span><span class="lead">AS-IS vs proposed</span> <em>compare against your current contract</em></h2>
+      <div class="section-body">
+      <p class="helper">Enter what you're paying today (or what an incumbent vendor quoted you). The calculator surfaces the delta vs the proposed deployment: savings or overrun, plus the payback window if there's a one-time migration cost.</p>
+      <div class="row grid-2" style="gap:14px;margin-top:8px">
+        <div>
+          <label style="font-size:11px;text-transform:uppercase;letter-spacing:0.05em;color:var(--muted);font-weight:600">Current annual contract ($)</label>
+          <input type="number" id="asis-annual" min="0" step="1000" placeholder="e.g. 240000" style="width:100%;font-family:var(--mono);font-size:14px;margin-top:3px">
+          <p class="helper" style="font-size:10.5px;margin-top:4px;color:var(--muted)">Today's annual spend on whatever this deployment replaces. Vendor invoice, internal cost-allocation, or incumbent quote.</p>
+        </div>
+        <div>
+          <label style="font-size:11px;text-transform:uppercase;letter-spacing:0.05em;color:var(--muted);font-weight:600">One-time migration cost ($, optional)</label>
+          <input type="number" id="asis-migration" min="0" step="1000" placeholder="e.g. 50000" style="width:100%;font-family:var(--mono);font-size:14px;margin-top:3px">
+          <p class="helper" style="font-size:10.5px;margin-top:4px;color:var(--muted)">Switching cost — data migration, training, parallel running, contract exit fees. Use 0 if greenfield.</p>
+        </div>
+      </div>
+      <div id="asis-result" style="margin-top:14px"></div>
       </div>
     </div>
 
