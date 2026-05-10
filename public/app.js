@@ -1790,6 +1790,9 @@
     // Sensitivity panel — tornado chart of headline shifts under ±perturbation
     // on the top drivers (MAU, cache, rates, bot, turns).
     renderSensitivity(opts, headlineTotal);
+
+    // Cost-over-time projection (uses AXIOM s-growth slider).
+    renderCostOverTime(headlineTotal);
   }
 
   // Inverse calculator: given a target budget, what's the maximum MAU the
@@ -2121,6 +2124,126 @@
         </td>
       </tr>`;
     }).join('');
+  }
+
+  // -----------------------------------------------------------------
+  // Cost-over-time projection — line chart of monthly + cumulative
+  // cost across 36 months given the AXIOM s-growth rate. Shows three
+  // markers: month 1, month 12 (annual), month 36 (3-year cumulative).
+  // -----------------------------------------------------------------
+  function renderCostOverTime(baselineMonthly) {
+    const host = document.getElementById('cost-over-time-chart');
+    const summary = document.getElementById('cost-over-time-summary');
+    if (!host) return;
+    const growthEl = document.getElementById('s-growth');
+    const growthPct = growthEl ? parseFloat(growthEl.value) : 0;
+    const growthRate = (Number.isFinite(growthPct) ? growthPct : 0) / 100;
+    if (!(baselineMonthly > 0)) {
+      host.innerHTML = '<p style="color:var(--muted);font-size:12px;text-align:center;padding:32px 0">Configure traffic above to see the projection.</p>';
+      if (summary) summary.innerHTML = '';
+      return;
+    }
+    const months = 36;
+    const monthlyData = [];
+    let cumulative = 0;
+    for (let m = 1; m <= months; m++) {
+      const monthly = baselineMonthly * Math.pow(1 + growthRate, m - 1);
+      cumulative += monthly;
+      monthlyData.push({ month: m, monthly, cumulative });
+    }
+    const m12 = monthlyData[11];
+    const m36 = monthlyData[35];
+
+    // Layout
+    const W = 880, H = 260, padL = 70, padR = 80, padT = 18, padB = 38;
+    const plotW = W - padL - padR;
+    const plotH = H - padT - padB;
+
+    // Two y-axes: left for monthly, right for cumulative
+    const monthlyMax = Math.max(...monthlyData.map(d => d.monthly));
+    const cumMax = m36.cumulative;
+    const xFor = (mi) => padL + ((mi - 1) / (months - 1)) * plotW;
+    const yMonthlyFor = (v) => padT + plotH - (v / monthlyMax) * plotH;
+    const yCumFor = (v) => padT + plotH - (v / cumMax) * plotH;
+
+    // Build line paths
+    const monthlyPath = monthlyData.map((d, i) => `${i === 0 ? 'M' : 'L'}${xFor(d.month).toFixed(1)},${yMonthlyFor(d.monthly).toFixed(1)}`).join(' ');
+    const cumPath = monthlyData.map((d, i) => `${i === 0 ? 'M' : 'L'}${xFor(d.month).toFixed(1)},${yCumFor(d.cumulative).toFixed(1)}`).join(' ');
+
+    // Cumulative area fill (light tint)
+    const cumAreaPath = cumPath + ` L${xFor(months).toFixed(1)},${(padT + plotH).toFixed(1)} L${xFor(1).toFixed(1)},${(padT + plotH).toFixed(1)} Z`;
+
+    // Y-axis ticks (left = monthly, right = cumulative)
+    const monthlyTicks = [0, 0.25, 0.5, 0.75, 1].map(f => f * monthlyMax);
+    const cumTicks = [0, 0.25, 0.5, 0.75, 1].map(f => f * cumMax);
+    const fmtBig = (v) => v >= 1e9 ? '$' + (v/1e9).toFixed(1) + 'B' : v >= 1e6 ? '$' + (v/1e6).toFixed(1) + 'M' : v >= 1e3 ? '$' + Math.round(v/1e3) + 'K' : '$' + Math.round(v);
+
+    const leftAxisSvg = monthlyTicks.map(v => {
+      const y = yMonthlyFor(v);
+      return `<line x1="${padL}" y1="${y}" x2="${padL + plotW}" y2="${y}" stroke="#eee" stroke-width="1"/>
+              <text x="${padL - 6}" y="${y + 3}" text-anchor="end" fill="#666" font-size="10" font-family="var(--mono, monospace)">${fmtBig(v)}</text>`;
+    }).join('');
+    const rightAxisSvg = cumTicks.map(v => {
+      const y = yCumFor(v);
+      return `<text x="${padL + plotW + 6}" y="${y + 3}" fill="#888" font-size="10" font-family="var(--mono, monospace)">${fmtBig(v)}</text>`;
+    }).join('');
+
+    // X-axis ticks: month 1, 6, 12, 18, 24, 30, 36
+    const xTicks = [1, 6, 12, 18, 24, 30, 36];
+    const xAxisSvg = xTicks.map(mi => {
+      const x = xFor(mi);
+      return `<line x1="${x}" y1="${padT + plotH}" x2="${x}" y2="${padT + plotH + 4}" stroke="#999" stroke-width="1"/>
+              <text x="${x}" y="${padT + plotH + 18}" text-anchor="middle" fill="#666" font-size="10">M${mi}</text>`;
+    }).join('');
+
+    // Highlight markers at M12 and M36
+    const markerSvg = [
+      { d: m12, label: '12mo', y: yMonthlyFor(m12.monthly) },
+      { d: m36, label: '36mo', y: yMonthlyFor(m36.monthly) },
+    ].map(({ d, label, y }) => {
+      const x = xFor(d.month);
+      return `<line x1="${x}" y1="${padT}" x2="${x}" y2="${padT + plotH}" stroke="#bbb" stroke-width="1" stroke-dasharray="3,3"/>
+              <circle cx="${x}" cy="${y}" r="5" fill="#0077cc" stroke="#fff" stroke-width="1.5"/>
+              <text x="${x}" y="${y - 10}" text-anchor="middle" fill="#0077cc" font-size="11" font-weight="700">${escapeHtml(fmtBig(d.monthly))}</text>`;
+    }).join('');
+
+    host.innerHTML = `
+      <svg viewBox="0 0 ${W} ${H}" width="100%" height="${H}" style="display:block;font-family:var(--sans, sans-serif)">
+        ${leftAxisSvg}
+        ${xAxisSvg}
+        <text x="${padL - 6}" y="${padT + 4}" text-anchor="end" fill="#0077cc" font-size="10" font-weight="700">Monthly $</text>
+        <text x="${padL + plotW + 6}" y="${padT + 4}" fill="#999" font-size="10" font-weight="700">Cumulative $</text>
+        <path d="${cumAreaPath}" fill="rgba(127,127,127,0.10)" stroke="none"/>
+        <path d="${cumPath}" stroke="#999" stroke-width="1.4" fill="none" stroke-dasharray="4,3"/>
+        <path d="${monthlyPath}" stroke="#0077cc" stroke-width="2.5" fill="none"/>
+        ${markerSvg}
+        <text x="${W - padR}" y="${padT + plotH + 32}" text-anchor="end" fill="#666" font-size="10.5">Growth ${(growthRate * 100).toFixed(1)}%/mo · solid blue = monthly · gray dashed = 36-mo cumulative</text>
+      </svg>
+    `;
+
+    if (summary) {
+      const fmt$ = (v) => '$' + Math.round(v).toLocaleString();
+      summary.innerHTML = `
+        <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:10px">
+          <div style="padding:8px 10px;background:rgba(0,119,204,0.06);border-left:3px solid #0077cc;border-radius:4px">
+            <div style="font-size:10.5px;color:var(--muted);text-transform:uppercase;letter-spacing:0.05em">Month 1</div>
+            <div style="font-size:14px;font-weight:700">${fmt$(baselineMonthly)}</div>
+          </div>
+          <div style="padding:8px 10px;background:rgba(0,119,204,0.06);border-left:3px solid #0077cc;border-radius:4px">
+            <div style="font-size:10.5px;color:var(--muted);text-transform:uppercase;letter-spacing:0.05em">Month 12</div>
+            <div style="font-size:14px;font-weight:700">${fmt$(m12.monthly)}/mo</div>
+          </div>
+          <div style="padding:8px 10px;background:rgba(0,119,204,0.06);border-left:3px solid #0077cc;border-radius:4px">
+            <div style="font-size:10.5px;color:var(--muted);text-transform:uppercase;letter-spacing:0.05em">Year 1 cumulative</div>
+            <div style="font-size:14px;font-weight:700">${fmt$(monthlyData.slice(0,12).reduce((s,d) => s + d.monthly, 0))}</div>
+          </div>
+          <div style="padding:8px 10px;background:rgba(127,127,127,0.06);border-left:3px solid #888;border-radius:4px">
+            <div style="font-size:10.5px;color:var(--muted);text-transform:uppercase;letter-spacing:0.05em">3-year cumulative</div>
+            <div style="font-size:14px;font-weight:700">${fmt$(m36.cumulative)}</div>
+          </div>
+        </div>
+      `;
+    }
   }
 
   // -----------------------------------------------------------------
