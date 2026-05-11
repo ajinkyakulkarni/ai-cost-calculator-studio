@@ -1414,15 +1414,29 @@
       ].filter(c => c.value > 0);
       const total = components.reduce((a, c) => a + c.value, 0);
       if (total > 0) {
-        const segments = components.map(c => {
+        // Show small slices with real precision (e.g. "0.4%", "<0.1%")
+        // instead of misleading "0%". When the dominant slice is the
+        // only material one, drop its inline "100%" label — pairing
+        // "100%" inside the bar with "0%" rows below looked wrong.
+        const fmtPct = (pct) => {
+          if (pct >= 1)   return Math.round(pct) + '%';
+          if (pct >= 0.1) return pct.toFixed(1) + '%';
+          if (pct > 0)    return '<0.1%';
+          return '0%';
+        };
+        const dominantIdx = components.reduce((bi, c, i, arr) => c.value > arr[bi].value ? i : bi, 0);
+        const dominantPct = (components[dominantIdx].value / total) * 100;
+        const dominantIsOnlyMaterial = dominantPct >= 99.5;
+        const segments = components.map((c, i) => {
           const pct = (c.value / total) * 100;
-          return `<div class="seg" style="background:${c.color}; width:${pct}%;" title="${c.label}: ${fmt$(c.value)}">${pct >= 8 ? Math.round(pct)+'%' : ''}</div>`;
+          const showInline = pct >= 8 && !(dominantIsOnlyMaterial && i === dominantIdx);
+          return `<div class="seg" style="background:${c.color}; width:${pct}%;" title="${c.label}: ${fmt$(c.value)} (${fmtPct(pct)})">${showInline ? Math.round(pct)+'%' : ''}</div>`;
         }).join('');
         const legend = components.map(c => `
           <div class="legend-item">
             <span class="swatch" style="background:${c.color};"></span>
             <span class="legend-label">${c.label}</span>
-            <span class="legend-val">${fmt$(c.value)} · ${Math.round(c.value/total*100)}%</span>
+            <span class="legend-val">${fmt$(c.value)} · ${fmtPct((c.value/total)*100)}</span>
           </div>`).join('');
         compEl.innerHTML = `<div class="stack-bar">${segments}</div><div class="legend">${legend}</div>`;
       } else {
@@ -1763,7 +1777,7 @@
           <button class="math-copy-btn" id="math-copy-btn">📋 Copy entire derivation</button>
           <span class="math-trace-hint">Paste into any AI (ChatGPT, Claude, Gemini) and ask "verify this math". Every formula and intermediate value is shown.</span>
         </div>
-        <pre class="math-trace" id="math-trace-pre">${escapeHtml(trace)}</pre>
+        <pre class="math-trace" id="math-trace-pre">${colorizeTrace(trace)}</pre>
       `;
       const copyBtn = document.getElementById('math-copy-btn');
       if (copyBtn) {
@@ -2213,12 +2227,16 @@
               <text x="${x}" y="${y - 10}" text-anchor="middle" fill="#0077cc" font-size="11" font-weight="700">${escapeHtml(fmtBig(d.monthly))}</text>`;
     }).join('');
 
+    // Axis headers sit ABOVE the plot area so they don't collide with the
+    // top tick label (was overlapping "Monthly $" with "$202.7M" etc.).
+    // Bump padT below to make room — but rather than re-laying out, just
+    // place the headers at H-margin negative-y above padT.
     host.innerHTML = `
-      <svg viewBox="0 0 ${W} ${H}" width="100%" height="${H}" style="display:block;font-family:var(--sans, sans-serif)">
+      <svg viewBox="0 -16 ${W} ${H + 16}" width="100%" height="${H + 16}" style="display:block;font-family:var(--sans, sans-serif)">
         ${leftAxisSvg}
         ${xAxisSvg}
-        <text x="${padL - 6}" y="${padT + 4}" text-anchor="end" fill="#0077cc" font-size="10" font-weight="700">Monthly $</text>
-        <text x="${padL + plotW + 6}" y="${padT + 4}" fill="#999" font-size="10" font-weight="700">Cumulative $</text>
+        <text x="${padL - 6}" y="-4" text-anchor="end" fill="#0077cc" font-size="10.5" font-weight="700">Monthly $</text>
+        <text x="${padL + plotW + 6}" y="-4" fill="#999" font-size="10.5" font-weight="700">Cumulative $</text>
         <path d="${cumAreaPath}" fill="rgba(127,127,127,0.10)" stroke="none"/>
         <path d="${cumPath}" stroke="#999" stroke-width="1.4" fill="none" stroke-dasharray="4,3"/>
         <path d="${monthlyPath}" stroke="#0077cc" stroke-width="2.5" fill="none"/>
@@ -5008,5 +5026,59 @@
       .replace(/>/g, '&gt;')
       .replace(/"/g, '&quot;')
       .replace(/'/g, '&#39;');
+  }
+
+  // -----------------------------------------------------------------
+  // colorizeTrace — syntax-highlight the engine's derivation trace.
+  //
+  // The trace is plain text emitted by cost-engine.js + app-side
+  // appendix. To make it scannable on screen (was pure b&w monospace)
+  // we wrap recognizable tokens in <span class="t-*"> + style via CSS.
+  //
+  // Tokens recognized:
+  //   ===  banner  ===            → header band (orange-ish)
+  //   ─────────────                → divider line (muted)
+  //   1) SECTION HEADING           → section label (blue, bold)
+  //   Formula:/Baseline:/Mode:/…   → meta lines (italic gray)
+  //   TOTAL: …                     → totals (purple, bold)
+  //   $1,234 / $1.2M / $5.6B       → money (green)
+  //   45% / 0.15%                  → percentages (orange)
+  //   1,234 / 12,345               → integers with comma sep (cyan)
+  //
+  // Returns escaped HTML (drop directly into innerHTML).
+  // -----------------------------------------------------------------
+  function colorizeTrace(text) {
+    const esc = (s) => String(s)
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;');
+    const lines = String(text || '').split('\n');
+    return lines.map(line => {
+      // Line-level decoration first: pick the dominant style for the line.
+      if (/^={3,}.+={3,}\s*$/.test(line)) {
+        return `<span class="t-banner">${esc(line)}</span>`;
+      }
+      if (/^─{6,}\s*$/.test(line)) {
+        return `<span class="t-rule">${esc(line)}</span>`;
+      }
+      if (/^[A-D0-9]+(?:\.\d+)?\)\s+[A-Z]/.test(line)) {
+        return `<span class="t-section">${esc(line)}</span>`;
+      }
+      // Token-level highlighting for normal lines.
+      let h = esc(line);
+      // Meta-prefix lines (Formula:, Baseline:, Bot factor:, Mode:, Deployment:, Generated:)
+      h = h.replace(/^(Formula|Baseline|Mode|Generated|Deployment|Bot factor|Tier multiplier|Hosting multiplier|Pre-multiplier monthly|Post-multiplier monthly|Coverage|Variant|NLI hosting|Atomizer|Reviser|NLI|Retrieval infra|PII redaction|TOTAL agent engineering|Retry rate|Inflate factor|API bill before retry|API bill after retry)(\s*:)/,
+        '<span class="t-meta">$1$2</span>');
+      // TOTAL or = lines (rolling totals)
+      h = h.replace(/(^|\s)(TOTAL[^:]*:|=)/g, '$1<span class="t-total">$2</span>');
+      // Money — must come BEFORE plain-number rule so $1,234 doesn't
+      // get caught as a number.
+      h = h.replace(/\$\d+(?:[,\d]+)?(?:\.\d+)?(?:[BMK])?/g, '<span class="t-money">$&</span>');
+      // Percentages
+      h = h.replace(/(?:^|\s|\()(\d+(?:\.\d+)?\s*%)/g, (m, p) => m.replace(p, `<span class="t-pct">${p}</span>`));
+      // Big comma-separated integers (queries/tokens)
+      h = h.replace(/\b\d{1,3}(?:,\d{3})+\b/g, '<span class="t-num">$&</span>');
+      return h;
+    }).join('\n');
   }
 })();
