@@ -138,6 +138,40 @@ types where the "On Demand" label is paired with a Spot or per-GPU rate.
 - **OpenAI / Anthropic / GitHub Copilot / Cursor / etc.** all use plain
   HTML pricing pages and work via `refresh-prices.js` directly.
 
+## calc.js — standalone calculator CLI
+
+Reproduces calc.ajinkya.ai's headline number from the command line with
+no browser, no DOM. Use this to:
+
+- Hand a calculation to another agent for verification (the agent reads
+  cost-engine.js + calc.js + the workload, can re-derive every dollar)
+- Run scenarios in CI scripts
+- Diff two configurations programmatically
+
+```bash
+# Load a bundled preset
+node scripts/calc.js --preset nasa-eie
+
+# Override knobs
+node scripts/calc.js --preset nih-clinical-trials --hosting self --retry 0.05
+
+# Machine-readable output
+node scripts/calc.js --preset nasa-eie --json | jq .headline.monthly
+
+# Reproduce a live URL state exactly (paste the share-link hash;
+# save to file first if your shell truncates long arguments)
+echo "PASTED_HASH" > /tmp/h
+node scripts/calc.js --url-hash "$(cat /tmp/h)"
+
+# Full verbose derivation
+node scripts/calc.js --preset nasa-eie --verbose
+```
+
+Math fidelity: mirrors `public/app.js`'s `renderPreview()` exactly —
+retry inflation, agent engineering, hosting-mode branch, headline sum.
+A user paying $X/mo on the live page should see the same $X from the
+CLI when passing the same workload (via `--url-hash` for full fidelity).
+
 ## test-apply.js
 
 Unit-test for the in-place regex replacement logic in `refresh-prices.js`.

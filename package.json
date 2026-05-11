@@ -9,7 +9,9 @@
     "lib": "lib"
   },
   "scripts": {
-    "test": "node scripts/test-engine-smoke.js && node scripts/test-apply.js"
+    "test": "node scripts/test-engine-smoke.js && node scripts/test-apply.js",
+    "calc": "node scripts/calc.js",
+    "verify-aws": "node scripts/verify-aws-instances.js"
   },
   "repository": {
     "type": "git",
