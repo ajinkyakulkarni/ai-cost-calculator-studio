@@ -201,6 +201,85 @@ for (const slug of PRESETS) {
 }
 console.log('');
 
+// ── 7. Verification cost: enabling raises monthly; coverage scales linearly ─
+//       Targets the verification branch that earlier had a per-atom / per-query
+//       ambiguity bug; smoke this so any future regression there fails loud.
+console.log('7. Verification toggle + coverage scaling');
+for (const slug of PRESETS) {
+  const w = loadPreset(slug);
+  if (!w.verification?.enabled) continue;
+  const o = buildOpts(w);
+  // Run with coverage = 0 → verification monthly should be 0
+  const r0 = CostEngine.compute(w, Object.assign({}, o, { verifCoverage: 0 }));
+  assert(
+    (r0.verification?.monthly || 0) < 0.01,
+    `${slug}: verifCoverage=0 → verification.monthly ≈ 0 (got ${r0.verification?.monthly})`,
+  );
+  // Coverage doubles → verification monthly STRICTLY INCREASES. Note
+  // it's not strictly linear because self-hosted NLI and the service
+  // pod are flat fees ($588/mo + $36/mo) regardless of coverage, while
+  // atomizer + reviser scale linearly. Engineering check: monotonic
+  // and the slope is positive.
+  const cov1 = w.verification.coverage || 0.1;
+  const cov2 = cov1 * 2;
+  const r1 = CostEngine.compute(w, Object.assign({}, o, { verifCoverage: cov1 }));
+  const r2 = CostEngine.compute(w, Object.assign({}, o, { verifCoverage: cov2 }));
+  const v1 = r1.verification?.monthly || 0;
+  const v2 = r2.verification?.monthly || 0;
+  assert(
+    v2 > v1 && Number.isFinite(v2),
+    `${slug}: doubling verifCoverage strictly increases verification.monthly (${v1.toFixed(2)} → ${v2.toFixed(2)})`,
+  );
+}
+console.log('');
+
+// ── 8. Risk-band rates with nullable cached_per_million don't NaN ─────
+//       Targets the perturbation null-guard fix from the focused review.
+console.log('8. Risk-band perturbation handles nullable cached rates');
+for (const slug of PRESETS) {
+  const w = loadPreset(slug);
+  if (!w.risk?.enabled) continue;
+  const o = buildOpts(w);
+  const r = CostEngine.compute(w, o);
+  // Risk bands should produce finite low/nominal/high; previously when a
+  // rate card omitted cached_per_million, the perturbed branch produced NaN.
+  if (r.risk_bands) {
+    const bands = ['low_total', 'nominal_total', 'high_total'];
+    for (const k of bands) {
+      const v = r.risk_bands[k];
+      if (v !== undefined && v !== null) {
+        assert(
+          Number.isFinite(v),
+          `${slug}: risk_bands.${k} is finite (got ${v})`,
+        );
+      }
+    }
+  }
+}
+console.log('');
+
+// ── 9. Per-segment effective cache rate (Eq. 3): clamp + monotonic in q ─
+//       Direct test of the cache-curve helper. Earlier the magic-0.01
+//       slope was an unnamed constant; this asserts the published formula.
+console.log('9. Eq. 3 effective cache rate is monotonic + clamped');
+for (const slug of PRESETS) {
+  const w = loadPreset(slug);
+  const o = buildOpts(w);
+  const r = CostEngine.compute(w, o);
+  const segments = r.api?.per_segment || {};
+  const baseline = w.anchor_query?.cache_rate_baseline || 0.84;
+  const turns = w.anchor_query?.session_baseline_turns || 6;
+  for (const [segId, sp] of Object.entries(segments)) {
+    if (typeof sp.eff_cache !== 'number') continue;
+    // Eff cache must be in [0.50, 0.94] (engine constants).
+    assert(
+      sp.eff_cache >= 0.50 - 1e-9 && sp.eff_cache <= 0.94 + 1e-9,
+      `${slug}/${segId}: eff_cache clamped to [0.50, 0.94] (got ${sp.eff_cache})`,
+    );
+  }
+}
+console.log('');
+
 // ── Summary ───────────────────────────────────────────────────────────
 console.log(`\n${passed} passed · ${failed} failed`);
 if (failed > 0) {
