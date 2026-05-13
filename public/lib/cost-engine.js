@@ -501,9 +501,17 @@
     const opts = options || {};
     const lo = 1_000, hi = 100_000_000;
 
-    // Cost functions at a given volume — pure inference cost only,
-    // no verification / federal / personnel / fixed infra (these are
-    // common to both paths and don't affect the crossover).
+    // Cost functions at a given volume.
+    //
+    // ASYMMETRY (intentional, see note returned below): the API side
+    // returns monthly_gross_pre_federal (token spend only, no FedRAMP /
+    // multi-region mult, no verification, no personnel). The self-host
+    // side returns computeSelfHost(...).total, which INCLUDES gpu +
+    // ops_monthly + fte_monthly + setup_amortized + k8s_hidden_cost.
+    // The break-even is therefore "API token spend = self-host run-rate
+    // including fixed costs" — i.e., the volume above which switching
+    // platform is cheaper at full run-rate. Earlier comments called
+    // this "pure inference $", which was misleading.
     //
     // For API cost we need a `queries` object shape with bySegment for
     // every segment in workload.audience. Distribute the target total
@@ -562,7 +570,7 @@
       break_even_queries: q,
       api_cost_at_break_even: Math.round(apiAt(q)),
       self_host_cost_at_break_even: Math.round(selfHostAt(q)),
-      note: 'Above this monthly query volume, self-host beats API on pure inference $. Excludes verification, federal, personnel, fixed infra.',
+      note: 'Above this monthly query volume, API token spend (pre-federal-multiplier) exceeds self-host full run-rate (GPU + ops + FTE + setup + k8s overhead). Both sides exclude verification, federal-additive line items, embedding, and personnel beyond what computeSelfHost already includes via cost-mode FTE/setup fields.',
     };
   }
 
@@ -576,14 +584,21 @@
   // Coverage (0..1) is the fraction of production queries that are
   // sampled for verification.
   // -------------------------------------------------------------------
-  // NLI calls per verified query, broken out by FactReasoner variant:
-  //   fr1 = shallow (single-NLI-per-atom)
-  //   fr2 = medium (pairwise atom relations)
-  //   fr3 = exhaustive (full claim-graph traversal)
-  // Numbers are the per-query NLI-call counts measured on the
-  // FactReasoner reference implementation; producers running their own
-  // verification pipeline should re-fit these constants from their own
-  // trace data.
+  // Total NLI calls per VERIFIED QUERY (i.e., already includes the
+  // multiplication by atoms_per_response). Per Marinescu et al. (2025),
+  // FactReasoner's FR1 and FR2 variants differ in MRF connectivity:
+  //   fr1 = each atom connects only to its own retrieved contexts
+  //         → fewer NLI scorer calls (atoms × per-atom-contexts)
+  //   fr2 = each atom connects to all retrieved contexts (global)
+  //         → more NLI scorer calls (atoms × total-contexts)
+  //   fr3 = deeper variant — fictional placeholder for an exhaustive
+  //         claim-graph traversal (not in the published paper); same
+  //         per-query semantics
+  // Values are per-query totals at default atom count; producers should
+  // re-fit these from their own trace data. Earlier versions named this
+  // variable nliCallsPerAtom and multiplied by atoms_per_response again,
+  // overcharging by ~atoms× — the paper's per-query interpretation is
+  // correct and the multiplication has been removed.
   const VARIANT_NLI_CALLS = { fr1: 24, fr2: 160, fr3: 350 };
   // Flat monthly $ for self-hosting NLI on the listed GPU SKU
   // (g6.xlarge / g5.xlarge on AWS, on-demand pricing). Used as the
@@ -604,7 +619,12 @@
     }
     const variant = opts.verifVariant || v.variant || 'fr1';
     const atoms = v.atoms_per_response || 8;
-    const nliCallsPerAtom =
+    // Per-query total. Reads from workload override if present (a producer
+    // running their own FactReasoner deployment can override the default
+    // count from their trace data), else falls back to VARIANT_NLI_CALLS.
+    // The override field is kept named atoms_per_response_nli_calls for
+    // back-compat; semantically it is now per-query, not per-atom.
+    const nliCallsPerQuery =
       (v.atoms_per_response_nli_calls && v.atoms_per_response_nli_calls[variant])
       || VARIANT_NLI_CALLS[variant] || 24;
     const verifiedQueries = monthlyQueries * coverage;
@@ -625,7 +645,9 @@
     let nliMonthly;
     if (nliHosting === 'api') {
       const nliPerCall = tokenCost(v.nli_tokens || { input: 1200, output: 20 });
-      nliMonthly = verifiedQueries * atoms * nliCallsPerAtom * nliPerCall;
+      // nliCallsPerQuery is the per-query total, NOT per-atom — do not
+      // multiply by `atoms` again. See VARIANT_NLI_CALLS comment.
+      nliMonthly = verifiedQueries * nliCallsPerQuery * nliPerCall;
     } else {
       nliMonthly = NLI_HOSTING_FLAT[nliHosting] || 0;
     }
@@ -655,12 +677,23 @@
         service_pod: servicePod,
       },
       nli_hosting: nliHosting,
-      nli_calls_per_atom: nliCallsPerAtom,
+      nli_calls_per_query: nliCallsPerQuery,
     };
   }
 
   // -------------------------------------------------------------------
   // Self-host capped to same monthly budget as the API daily cap.
+  //
+  // SEMANTIC NOTE: computeApiCost no longer enforces the daily cap as a
+  // hard refusal (see L390-395) — real cloud LLMs bill usage rather
+  // than refusing queries at a $-cap. This function intentionally still
+  // applies the cap on the self-host side because it answers a
+  // DIFFERENT question: "what's the maximum self-host capacity I can
+  // procure at the same monthly budget as the API daily cap × 30?"
+  // That's a budget-solver / equal-budget-comparison scenario, not a
+  // canonical run-rate cost. The returned object includes
+  // `scenario: 'equal-budget'` so downstream callers can distinguish
+  // this from a normal self-host cost result.
   // -------------------------------------------------------------------
   function computeSelfHostCapped(workload, monthlyQueries, peerSelfHost, options) {
     const w = workload;
@@ -700,6 +733,7 @@
     const refused = monthlyQueries - served;
 
     return {
+      scenario: 'equal-budget',  // distinguishes from canonical self-host cost
       monthly_budget: monthlyBudget,
       instances,
       instances_affordable: instancesAffordable,
@@ -709,6 +743,7 @@
       queries_served: served,
       queries_refused: refused,
       budget_binding: instancesAffordable < peerSelfHost.instances,
+      note: 'Equal-budget projection only: shows how many queries a self-host fleet could serve at the same monthly $ as the API daily cap × 30. Not a run-rate cost (API side does not enforce the cap symmetrically). See computeApiCost L390-395.',
     };
   }
 
@@ -833,13 +868,22 @@
         }
       }
     }
-    out += `\nBlended per-query (post-multiplier): ${$4(r.api.per_query_blended)}\n\n`;
+    out += `\nBlended per-query (post-multiplier, includes hosting mult): ${$4(r.api.per_query_blended)}\n\n`;
 
     // ── 4. LLM total + cap + multiplier ──
     out += '──────────────────────────────────────────────────\n';
     out += '4) LLM MONTHLY COST (with hosting multiplier)\n';
     out += '──────────────────────────────────────────────────\n';
-    out += `Pre-multiplier monthly: ${num(r.queries.total)} queries × ${$4(r.api.per_query_blended)}/q (blended per-query above) = ${$(r.api.monthly_gross_pre_federal)}\n`;
+    // Derive the pre-multiplier per-query value directly from the
+    // pre-federal monthly so the displayed equation is internally
+    // consistent (queries × per-q-pre = monthly-pre). Earlier versions
+    // accidentally used per_query_blended (post-multiplier) on the
+    // left-hand side of a "pre-multiplier" equation, which only
+    // multiplied out correctly when hosting_multiplier was 1.0.
+    const preFederalPerQuery = r.queries.total > 0
+      ? r.api.monthly_gross_pre_federal / r.queries.total
+      : 0;
+    out += `Pre-multiplier monthly: ${num(r.queries.total)} queries × ${$4(preFederalPerQuery)}/q (pre-multiplier per-query) = ${$(r.api.monthly_gross_pre_federal)}\n`;
     out += `Hosting multiplier: FedRAMP=${w.federal?.fedramp_tier || 'none'} × multi-region=${w.federal?.multi_region || 'single'} = ${(r.api.hosting_multiplier).toFixed(2)}×\n`;
     out += `Post-multiplier monthly: ${$(r.api.monthly_gross_pre_federal)} × ${(r.api.hosting_multiplier).toFixed(2)} = ${$(r.api.monthly_gross)}\n`;
     out += '\n';
@@ -856,7 +900,11 @@
       out += `Peak tokens/sec: ${sh.qps_avg.toFixed(2)} × ${opts.tokensPerQ || w.self_host.tokens_per_query_default} tok/q × diurnal ${w.self_host.diurnal_peak_factor}× × headroom ${w.self_host.headroom}× = ${num(sh.peak_tps)} tok/s\n`;
       out += `Instances by load: ⌈${num(sh.peak_tps)} / ${num(sh.effective_tput)}⌉ = ${sh.needed_by_load}\n`;
       out += `Instances running: max(${sh.needed_by_load}, HA floor=${w.self_host.min_replicas}) = ${sh.instances}\n`;
-      out += `GPU monthly: ${sh.instances} × $${sh.gpu_spec.hourly}/hr × (1 − discount) × 730 hr × ${(sh.hosting_multiplier || 1).toFixed(2)} hosting mult = ${$(sh.gpu_monthly)}\n`;
+      // Use sh.effective_hours so duty_cycle < 1 is visible in the trace —
+      // when duty_cycle = 1.0 this equals 730; when duty_cycle = 0.5 (e.g.
+      // a fleet that idles overnight) it's 365. Earlier versions printed
+      // the literal "730 hr" regardless, hiding the duty-cycle assumption.
+      out += `GPU monthly: ${sh.instances} × $${sh.gpu_spec.hourly}/hr × (1 − discount) × ${Math.round(sh.effective_hours)} hr (= 730 × duty_cycle ${(sh.duty_cycle || 1).toFixed(2)}) × ${(sh.hosting_multiplier || 1).toFixed(2)} hosting mult = ${$(sh.gpu_monthly)}\n`;
       out += `Ops monthly: ${$(sh.ops_monthly)} (${sh.cost_mode} mode)\n`;
       out += `FTE allocation: ${$(sh.fte_monthly)}\n`;
       out += `Setup amortized: ${$(sh.setup_amortized)}\n`;
@@ -871,7 +919,7 @@
       out += '6) VERIFICATION (FactReasoner-style)\n';
       out += '──────────────────────────────────────────────────\n';
       out += `Coverage: ${pct(v.coverage)} → ${num(v.verified_queries)} verified queries/mo\n`;
-      out += `Variant: ${v.variant.toUpperCase()} (${v.nli_calls_per_atom} NLI calls/atom × ${w.verification.atoms_per_response || 8} atoms = ${(v.nli_calls_per_atom * (w.verification.atoms_per_response || 8))} NLI calls/q)\n`;
+      out += `Variant: ${v.variant.toUpperCase()} (${v.nli_calls_per_query} NLI calls/verified query)\n`;
       out += `NLI hosting: ${v.nli_hosting} ${v.nli_hosting === 'api' ? '(pay-per-token)' : '(flat EC2 box)'}\n`;
       out += `Atomizer: ${$(b.atomizer || 0)}/mo  ·  Reviser: ${$(b.reviser || 0)}/mo  ·  NLI: ${$(b.nli || 0)}/mo  ·  Retrieval: ${$(b.retrieval || 0)}/mo  ·  Service pod: ${$(b.service_pod || 0)}/mo\n`;
       out += `TOTAL verification: ${$(v.monthly)}/mo\n\n`;
@@ -1384,14 +1432,19 @@
       }
       // Perturb MAU per segment
       for (const seg of (wCopy.segments || [])) seg.mau = Math.round((seg.mau || 0) * p.mau);
-      // Perturb LLM rates by p.rate
+      // Perturb LLM rates by p.rate. Guard each field — cached_per_million
+      // is often absent on rate cards (the engine falls back to p_in × 0.1
+      // when it's missing), and multiplying null × number produces NaN
+      // which then poisons every downstream cost calc. Same for the
+      // optional cached_write_per_million on Anthropic-style cards.
       if (p.rate !== 1.0 && wCopy.rate_cards) {
         for (const id in wCopy.rate_cards) {
           const r = wCopy.rate_cards[id];
           if (r && typeof r === 'object') {
-            r.input_per_million *= p.rate;
-            r.cached_per_million *= p.rate;
-            r.output_per_million *= p.rate;
+            if (r.input_per_million        != null) r.input_per_million        *= p.rate;
+            if (r.cached_per_million       != null) r.cached_per_million       *= p.rate;
+            if (r.output_per_million       != null) r.output_per_million       *= p.rate;
+            if (r.cached_write_per_million != null) r.cached_write_per_million *= p.rate;
           }
         }
       }
