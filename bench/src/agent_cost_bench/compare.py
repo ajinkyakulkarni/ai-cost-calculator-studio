@@ -35,12 +35,21 @@ from typing import Any
 
 @dataclass
 class Variance:
-    """Per-coefficient comparison row."""
+    """Per-coefficient comparison row.
+
+    `observe_only=True` marks a row the simulator does not attempt to
+    predict (e.g. latency). These rows are still shown in the report
+    so they're visible alongside the comparison, but they don't count
+    toward the calibration flag or the `rows_off_by_>15pct` summary —
+    otherwise every report would falsely flag latency as off by
+    "infinity percent" against a predicted=0.
+    """
 
     name: str
     predicted: float
     actual: float
     unit: str = ""
+    observe_only: bool = False
 
     @property
     def delta(self) -> float:
@@ -54,6 +63,8 @@ class Variance:
 
     @property
     def needs_calibration(self) -> bool:
+        if self.observe_only:
+            return False
         return abs(self.relative_pct) > 15
 
 
@@ -63,8 +74,23 @@ class VarianceReport:
     sample_size: int
     rows: list[Variance] = field(default_factory=list)
 
-    def add(self, name: str, predicted: float, actual: float, unit: str = "") -> None:
-        self.rows.append(Variance(name=name, predicted=predicted, actual=actual, unit=unit))
+    def add(
+        self,
+        name: str,
+        predicted: float,
+        actual: float,
+        unit: str = "",
+        observe_only: bool = False,
+    ) -> None:
+        self.rows.append(
+            Variance(
+                name=name,
+                predicted=predicted,
+                actual=actual,
+                unit=unit,
+                observe_only=observe_only,
+            )
+        )
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -77,6 +103,7 @@ class VarianceReport:
                     "delta": r.delta,
                     "relative_pct": round(r.relative_pct, 2),
                     "unit": r.unit,
+                    "observe_only": r.observe_only,
                     "needs_calibration": r.needs_calibration,
                 }
                 for r in self.rows
@@ -97,6 +124,18 @@ class VarianceReport:
             "|---|---:|---:|---:|---:|:---:|",
         ]
         for r in self.rows:
+            if r.observe_only:
+                # No simulator prediction — render placeholders rather
+                # than a misleading "infinity percent" delta.
+                lines.append(
+                    f"| `{r.name}` "
+                    f"| — "
+                    f"| {_fmt(r.actual)} {r.unit} "
+                    f"| — "
+                    f"| — "
+                    f"| (observe) |"
+                )
+                continue
             flag = "⚠️" if r.needs_calibration else "✓"
             lines.append(
                 f"| `{r.name}` "
@@ -107,10 +146,11 @@ class VarianceReport:
                 f"| {flag} |"
             )
         lines.append("")
-        n_off = sum(1 for r in self.rows if r.needs_calibration)
+        predicted_rows = [r for r in self.rows if not r.observe_only]
+        n_off = sum(1 for r in predicted_rows if r.needs_calibration)
         if n_off:
             lines.append(
-                f"**{n_off}/{len(self.rows)}** coefficient(s) off by more than ±15%. "
+                f"**{n_off}/{len(predicted_rows)}** coefficient(s) off by more than ±15%. "
                 f"Consider updating defaults in the simulator's `coefficients.json`."
             )
         else:
@@ -144,14 +184,20 @@ def compute_variance(
     calls = trace["calls"]
     totals = trace["session_totals"]
 
-    # Actuals derived from the trace.
+    # Actuals derived from the trace. `user_turns` counts USER-driven
+    # turns across all repeats — divide by it (not by `calls`) so the
+    # comparison stays apples-to-apples with the preset's anchor_query
+    # values, which describe ONE user query of N stages. Older trace
+    # artifacts without user_turns fall back to total calls — that's
+    # the legacy behavior; new traces should always carry user_turns.
     n_calls = totals["calls"] or 1
+    n_user_turns = totals.get("user_turns") or n_calls
     actual_input = totals["input_tokens"]
     actual_output = totals["output_tokens"]
     actual_cached = totals["cached_tokens"]
     actual_cache_hit = (actual_cached / actual_input) if actual_input else 0
-    actual_per_turn_input = actual_input / n_calls
-    actual_per_turn_output = actual_output / n_calls
+    actual_per_turn_input = actual_input / n_user_turns
+    actual_per_turn_output = actual_output / n_user_turns
 
     # Predictions extracted from the simulator export. The exact path
     # into the workload object depends on which AXIOM panel produced
@@ -167,8 +213,12 @@ def compute_variance(
     # per-turn predictions back up to session totals.
     pred_turns = anchor.get("session_baseline_turns", 1) or 1
 
-    pred_session_input = pred_input * pred_turns
-    pred_session_output = pred_output * pred_turns
+    # If the trace covers multiple sessions (scenario.repeat > 1),
+    # scale the session prediction so it's comparable to the trace's
+    # cumulative session_input_tokens / session_output_tokens.
+    repeats = max(1, n_user_turns // pred_turns) if pred_turns else 1
+    pred_session_input = pred_input * pred_turns * repeats
+    pred_session_output = pred_output * pred_turns * repeats
 
     # Predicted cost: scenario.json doesn't store the AXIOM-computed
     # cost directly because it's derived live in the browser. As a
@@ -191,9 +241,32 @@ def compute_variance(
     # but it's still useful to surface for the report consumer.
     latencies = [c.get("duration_ms", 0) for c in calls if c.get("duration_ms")]
     if latencies:
-        # No simulator counterpart, so we report observed-only as a
-        # zero-predicted row.
-        report.add("median_latency_ms", 0, statistics.median(latencies), unit="ms")
+        # No simulator counterpart — flagged observe_only so the row
+        # shows up in the report without false-flagging as "off by
+        # infinity percent" against a zero prediction.
+        report.add(
+            "median_latency_ms",
+            0,
+            statistics.median(latencies),
+            unit="ms",
+            observe_only=True,
+        )
+
+    # LLM calls per user turn — a structural diagnostic, not a validated
+    # coefficient. Reveals how aggressive the agent's tool-loop is:
+    # 1.0 ≈ no tool calls per turn, 2.0-3.0 ≈ typical tool-using ReAct,
+    # 5.0+ ≈ runaway loop worth investigating. Recorded as observe_only
+    # because the calc doesn't have an explicit knob it maps to — the
+    # cost effect is already inside per_query_input_tokens et al.
+    user_turns = totals.get("user_turns") or 0
+    if user_turns:
+        report.add(
+            "llm_calls_per_user_turn",
+            0,
+            totals["calls"] / user_turns,
+            unit="calls/turn",
+            observe_only=True,
+        )
 
     return report
 

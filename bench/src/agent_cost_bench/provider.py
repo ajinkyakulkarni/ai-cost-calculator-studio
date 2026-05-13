@@ -120,7 +120,15 @@ def call_llm(
             "temperature": temperature,
         }
         if max_tokens:
-            params["max_tokens"] = max_tokens
+            # OpenAI's GPT-5+ family rejects `max_tokens` and requires
+            # `max_completion_tokens` instead. Older models (gpt-4o,
+            # gpt-4-turbo, gpt-3.5) keep the original parameter. Use
+            # the new name for any model whose ID looks GPT-5+ish.
+            new_param_models = ("gpt-5", "openai/gpt-5", "o1", "o3", "o4")
+            if any(model.startswith(p) for p in new_param_models):
+                params["max_completion_tokens"] = max_tokens
+            else:
+                params["max_tokens"] = max_tokens
         if tools:
             params["tools"] = tools
         if stream:
@@ -141,7 +149,13 @@ def call_llm(
             except (AttributeError, IndexError):
                 pass
             cost_usd = _extract_cost(response)
-            request_id = getattr(response, "id", None) or response.get("id")
+            # `or response.get("id")` would TypeError when `response` is a
+            # provider SDK object that lacks a `.get` attribute. Guard
+            # with isinstance so the fallback only kicks in for dict
+            # responses (LiteLLM's stub shape in some test paths).
+            request_id = getattr(response, "id", None)
+            if request_id is None and isinstance(response, dict):
+                request_id = response.get("id")
             return CallResult(
                 content=content,
                 input_tokens=_usage_field(response, "prompt_tokens"),
@@ -214,7 +228,19 @@ def call_llm(
             )
             if last_chunk
             else 0,
-            cost_usd=_extract_cost(last_chunk) if last_chunk else 0.0,
+            # Streaming cost: LiteLLM attaches `_hidden_params.response_cost`
+            # to the chunk that carries the final usage object — which,
+            # when `stream_options.include_usage=true` is honored, is the
+            # last chunk. If the provider didn't honor include_usage, the
+            # final chunk has no cost; walk backwards through chunks for
+            # the first non-zero hit before giving up.
+            cost_usd=(
+                _extract_cost(last_chunk)
+                or next(
+                    (c for c in (_extract_cost(ch) for ch in reversed(chunks)) if c),
+                    0.0,
+                )
+            ) if last_chunk else 0.0,
             latency_ms=latency_ms,
             request_id=request_id,
             raw_response=chunks,
@@ -230,6 +256,12 @@ def _usage_field(response: Any, key: str) -> int:
     OpenAI nests cached_tokens under `usage.prompt_tokens_details.
     cached_tokens`; Anthropic exposes it as a top-level attribute.
     Check both shapes so cache validation works across providers.
+
+    DEDUPE NOTE: tracing.py has a parallel inline helper (`_u`) inside
+    `record_usage()` that implements the same nested-vs-top-level
+    lookup. Kept duplicated for now because one operates on a response
+    object and the other on a span+response pair, but if either grows
+    a third shape consider extracting a shared helper.
     """
     if response is None:
         return 0
@@ -281,21 +313,42 @@ def _extract_cost(response: Any) -> float:
 def _add_anthropic_cache_control(
     messages: list[dict[str, str]]
 ) -> list[dict[str, str]]:
-    """Tag the system message with cache_control so Anthropic caches it.
+    """Tag cacheable segments with Anthropic cache_control breakpoints.
 
-    Anthropic's prompt caching is opt-in via a `cache_control` block
-    on whichever message segments should be cached. The system prompt
-    is the obvious win for long-chat scenarios — cache it once and
-    every subsequent turn pulls from the cache at ~10% the cost.
+    Anthropic's prompt caching is opt-in via a `cache_control` block on
+    whichever message segments should be cached. Two segments matter
+    here:
 
-    Mutates a copy, returns the new list. The original messages
-    dict is left intact so the caller can re-use it.
+    1. The system message — long, stable across turns; the obvious win.
+    2. The most recent user turn — caches the growing-history prefix
+       up through this point, so the *next* turn's prefix is a cache
+       hit. Without this, only the system prompt gets reused and the
+       per-turn cache rate plateaus around the system-prompt fraction
+       of total input (often 30-50%). Tagging the last user message
+       lifts long-session cache rates closer to 80%.
+
+    Anthropic allows up to 4 cache breakpoints per request. We use 2.
+    Mutates a copy and returns the new list.
     """
     out: list[dict[str, str]] = []
+    last_user_idx = max(
+        (i for i, m in enumerate(messages) if m.get("role") == "user"),
+        default=-1,
+    )
     for i, m in enumerate(messages):
         if m.get("role") == "system" and isinstance(m.get("content"), str):
-            # Restructure the system message into Anthropic's
-            # content-block form with a cache_control marker.
+            new_m = dict(m)
+            new_m["content"] = [
+                {
+                    "type": "text",
+                    "text": m["content"],
+                    "cache_control": {"type": "ephemeral"},
+                }
+            ]
+            out.append(new_m)
+        elif i == last_user_idx and isinstance(m.get("content"), str):
+            # Cache up through the latest user turn so the next turn's
+            # prefix hits the cache.
             new_m = dict(m)
             new_m["content"] = [
                 {

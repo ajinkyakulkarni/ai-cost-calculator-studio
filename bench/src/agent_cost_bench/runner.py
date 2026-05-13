@@ -12,9 +12,10 @@ For v1 we support three topologies:
   - 'sequential':              agent A → agent B → ... → final
   - 'orchestrator-specialists': orchestrator dispatches to N specialists, aggregates
 
-The 'parallel' topology is implemented but exercises LangGraph's
-fan-out/fan-in pattern — that's where multi-agent cost dynamics get
-interesting (handoff overhead, concurrency-quota waste).
+A standalone 'parallel' fan-out/fan-in topology is not yet wired up;
+`_build_graph` raises NotImplementedError for unknown topology
+strings. Multi-agent cost dynamics (handoff overhead, concurrency-
+quota waste) are currently exercised via 'orchestrator-specialists'.
 """
 
 from __future__ import annotations
@@ -28,8 +29,8 @@ from langgraph.graph import END, START, StateGraph
 from langgraph.graph.message import add_messages
 
 from .provider import call_llm
-from .scenario import AgentSpec, Scenario
-from .tools import TOOL_SCHEMAS, execute_tool_call, reset_eie_state
+from .scenario import AgentSpec, Scenario, config_hash
+from .tools import TOOL_SCHEMAS, execute_tool_call, reset_eie_state, set_response_mode
 from .tracing import init_tracing, reset_collected_spans, write_trace_artifact
 
 
@@ -339,6 +340,13 @@ def run_scenario(scenario: Scenario, *, output_dir: Path) -> Path:
     tracer = init_tracing()
     reset_collected_spans()
 
+    # Honor the scenario's tool-response shape (freeform | templated)
+    # before building the graph so the first tool call uses the right
+    # mode. The mode is module-level state in tools.py — fine for
+    # sequential scenarios, would need refactoring if scenarios ever
+    # run concurrently in the same process.
+    set_response_mode(scenario.tool_response_mode)
+
     graph = _build_graph(scenario, tracer)
     started_at = datetime.now(tz=timezone.utc).isoformat()
     cumulative_cost = 0.0
@@ -347,18 +355,29 @@ def run_scenario(scenario: Scenario, *, output_dir: Path) -> Path:
     # with fresh message history (independent runs) but writes to
     # the same trace buffer. The variance comparator uses run_idx
     # tagging on each span to compute mean/stdev across runs.
+    aborted = False
     for run_idx in range(scenario.repeat):
+        if aborted:
+            break
         # Reset stateful tools (e.g. EIE-shape geocode/select pipeline)
         # so each repeat starts from a clean slate.
         reset_eie_state()
         state: RunState = {"messages": [], "turn_idx": 0, "total_cost_usd": 0.0}
         for i, turn in enumerate(scenario.turns):
-            if cumulative_cost >= scenario.max_cost_usd:
+            # Live-projected cost: cumulative across prior repeats
+            # plus everything spent so far in THIS repeat. The earlier
+            # version only updated `cumulative_cost` between repeats,
+            # so the inner check could never fire inside a single
+            # repeat — a runaway tool loop on a `repeat: 1` scenario
+            # could blow through max_cost_usd unchecked.
+            spent_so_far = cumulative_cost + state["total_cost_usd"]
+            if spent_so_far >= scenario.max_cost_usd:
                 print(
                     f"[bench] aborting at run {run_idx} turn {i}: "
-                    f"cumulative cost {cumulative_cost:.4f} "
+                    f"projected cost {spent_so_far:.4f} "
                     f">= max_cost_usd {scenario.max_cost_usd}"
                 )
+                aborted = True
                 break
 
             state["messages"].append({"role": "user", "content": turn.user})
@@ -373,14 +392,11 @@ def run_scenario(scenario: Scenario, *, output_dir: Path) -> Path:
                 "total_cost_usd": result.get("total_cost_usd", state["total_cost_usd"]),
             }
         cumulative_cost += state["total_cost_usd"]
-        if cumulative_cost >= scenario.max_cost_usd:
-            break
-
-    from .scenario import config_hash
 
     return write_trace_artifact(
         scenario_name=scenario.name,
         output_dir=output_dir,
         started_at=started_at,
         config_hash=config_hash(scenario),
+        user_turns=scenario.repeat * len(scenario.turns),
     )

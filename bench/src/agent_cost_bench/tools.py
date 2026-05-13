@@ -20,9 +20,27 @@ guess at ~200 tok/call).
 
 from __future__ import annotations
 
+import hashlib
 import json
 import random
 from typing import Any
+
+
+def _stable_seed(s: str) -> int:
+    """Deterministic 32-bit seed from a string.
+
+    Python's built-in `hash()` is randomized per process by default
+    (since 3.3, controlled by PYTHONHASHSEED). Seeding `random.Random`
+    with `hash(query)` therefore breaks the bench's reproducibility
+    claim: two runs of the same scenario with the same config_hash
+    would produce different "deterministic" tool results, different
+    per-turn token counts, and different trace artifacts.
+
+    Using SHA-256 keeps the seeding stable across processes,
+    interpreters, and Python versions — same input string, same seed,
+    always.
+    """
+    return int.from_bytes(hashlib.sha256(s.encode("utf-8")).digest()[:4], "little")
 
 # Tool schemas — what we expose to the LLM via function calling.
 # These mirror what NASA-IMPACT/akd-services exposes via MCP servers
@@ -175,6 +193,14 @@ TOOL_SCHEMAS: list[dict[str, Any]] = [
             "parameters": {"type": "object", "properties": {}},
         },
     },
+    {
+        "type": "function",
+        "function": {
+            "name": "build_viz_tiles",
+            "description": "Build raster tile URLs for the items selected. Non-gating; can be called in the same turn as compute_stats. Reads items + selected collection from state.",
+            "parameters": {"type": "object", "properties": {}},
+        },
+    },
 ]
 
 
@@ -223,7 +249,7 @@ _PAPER_ABSTRACTS = [
 def search(query: str, max_results: int = 3) -> dict:
     """Return 3-5 fake-but-plausible literature search results."""
     n = max(1, min(5, max_results))
-    rng = random.Random(hash(query) & 0xFFFFFFFF)
+    rng = random.Random(_stable_seed(query))
     titles = rng.sample(_PAPER_TITLES, k=min(n, len(_PAPER_TITLES)))
     return {
         "query": query,
@@ -249,7 +275,7 @@ def search(query: str, max_results: int = 3) -> dict:
 
 def fetch_doc(doc_id: str) -> dict:
     """Return a ~1000-token document body."""
-    rng = random.Random(hash(doc_id) & 0xFFFFFFFF)
+    rng = random.Random(_stable_seed(doc_id))
     body_paragraphs = rng.choices(_PAPER_ABSTRACTS, k=4)  # ~4 paragraphs
     return {
         "doc_id": doc_id,
@@ -267,7 +293,7 @@ def fetch_doc(doc_id: str) -> dict:
 
 def query_db(sql: str) -> dict:
     """Return up to 10 rows of fake tabular data."""
-    rng = random.Random(hash(sql) & 0xFFFFFFFF)
+    rng = random.Random(_stable_seed(sql))
     n = rng.randint(2, 8)
     return {
         "sql": sql,
@@ -287,6 +313,62 @@ def query_db(sql: str) -> dict:
 
 # --- EIE-shape tools (data-discovery scenario) -------------------
 
+# Tool-response-shape mode. Two settings:
+#   - 'freeform' (default): tool `message` fields carry descriptive
+#     context derived from the call ("Date range set to 2021-10/2021-12.
+#     Please confirm this is correct."). Mirrors the textual richness
+#     a default ReAct loop produces; per-turn input cost compounds
+#     with conversation history.
+#   - 'templated': tool messages are clipped to a short fixed
+#     placeholder ("OK — date range stored. Awaiting confirmation.").
+#     Models production agents that pipe every tool return through a
+#     centralized response-template layer, keeping the LLM context
+#     small across turns. The placeholder strings here are *generic*
+#     by design — they convey only the status transition, never any
+#     value carried by the call — so they can be compared to any
+#     templated-response implementation without textual coupling.
+#
+# The runner calls `set_response_mode()` before each scenario so a
+# scenario's `tool_response_mode` field is honored. Default is
+# 'freeform' to preserve historical bench behavior for existing
+# scenarios that don't declare the field.
+# THREAD-SAFETY: _RESPONSE_MODE and _eie_state below are plain
+# module-level globals. The bench runs scenarios sequentially in a
+# single process, so this is fine today. If two scenarios are ever
+# evaluated concurrently in-process (e.g. a future async harness),
+# wrap both pieces of state in a contextvars.ContextVar (or move them
+# onto the LangGraph state) to keep per-scenario isolation.
+_RESPONSE_MODE: str = "freeform"
+
+
+def set_response_mode(mode: str) -> None:
+    """Switch the active tool-response shape. Called by the runner."""
+    global _RESPONSE_MODE
+    if mode not in ("freeform", "templated"):
+        raise ValueError(
+            f"Unknown tool_response_mode {mode!r}; expected 'freeform' or 'templated'"
+        )
+    _RESPONSE_MODE = mode
+
+
+def reset_response_mode() -> None:
+    """Restore the default response mode. Useful for tests."""
+    global _RESPONSE_MODE
+    _RESPONSE_MODE = "freeform"
+
+
+def _msg(freeform: str, templated: str) -> str:
+    """Pick the message variant for the active mode.
+
+    `freeform` is the descriptive default; `templated` is a short
+    generic placeholder. Tools call this everywhere they previously
+    inlined an f-string for the `message` field. The split keeps the
+    two shapes side-by-side in the source so it's obvious what cost
+    profile each call produces.
+    """
+    return templated if _RESPONSE_MODE == "templated" else freeform
+
+
 # Module-level shared "tool state" — mirrors the EIE pattern where
 # large payloads (geometry, item lists, collection metadata) are
 # kept out of LLM context and only summaries are returned. The LLM
@@ -298,6 +380,12 @@ _eie_state: dict[str, Any] = {
     "selected_collection": None,
     "selected_variable": None,
     "items": None,
+    # `last_matches` holds per-collection metadata returned by the last
+    # search_collections call. select_collection reads it to decide
+    # whether to gate on a CMR variable choice — without it we can't
+    # model the extra confirmation turn that multi-variable CMR
+    # collections trigger in production.
+    "last_matches": [],
 }
 
 
@@ -310,14 +398,17 @@ def parse_datetime(value: str) -> dict:
     return {
         "status": "pending_confirmation",
         "datetime": value,
-        "message": f"Date range set to {value}. Please confirm this is correct.",
+        "message": _msg(
+            f"Date range set to {value}. Please confirm this is correct.",
+            "OK — date range stored. Awaiting confirmation.",
+        ),
     }
 
 
 def geocode(query: str) -> dict:
     """Resolve place name → bbox + small polygon. The LLM only sees the
     bbox polygon (~100 tokens), never the full geometry."""
-    rng = random.Random(hash(query) & 0xFFFFFFFF)
+    rng = random.Random(_stable_seed(query))
     # Realistic-ish bbox for a city/region
     w = round(rng.uniform(-125, -70), 4)
     s = round(rng.uniform(25, 48), 4)
@@ -330,6 +421,15 @@ def geocode(query: str) -> dict:
     }
     _eie_state["place"] = query
     _eie_state["bbox"] = bbox
+    # In templated mode, geometry stays in server-side state and never
+    # reaches the LLM — only the small bbox does.
+    if _RESPONSE_MODE == "templated":
+        return {
+            "status": "pending_confirmation",
+            "place": query,
+            "bbox": bbox,
+            "message": "OK — location resolved. Awaiting confirmation.",
+        }
     return {
         "status": "pending_confirmation",
         "place": query,
@@ -341,7 +441,7 @@ def geocode(query: str) -> dict:
 
 def search_collections(query: str, top_k: int = 5) -> dict:
     """Top-K collection candidates with realistic metadata."""
-    rng = random.Random(hash(query) & 0xFFFFFFFF)
+    rng = random.Random(_stable_seed(query))
     n = max(1, min(5, top_k))
     options = []
     for i in range(n):
@@ -361,9 +461,33 @@ def search_collections(query: str, top_k: int = 5) -> dict:
                 [],
             ]),
         })
+    # Persist matches so select_collection can look up CMR-flag and
+    # variable lists later (needed to model the variable-selection
+    # gate). The LLM never sees this — it's bench-internal state.
+    _eie_state["last_matches"] = options
+    # Templated mode: only minimal options reach the LLM (id, label,
+    # cmr flag — ~15 tokens per option). Freeform mode includes the
+    # full match metadata (cosine, overlap flags, available variables)
+    # which dominates per-turn input cost in long sessions.
+    minimal_options = [
+        {"id": o["id"], "label": o["title"], "is_cmr_backed": o["is_cmr_backed"]}
+        for o in options
+    ]
     if n == 1:
+        if _RESPONSE_MODE == "templated":
+            return {
+                "status": "complete",
+                "options": minimal_options,
+                "message": "OK — one matching dataset returned.",
+            }
         return {"status": "complete", "matches": options,
                 "message": f"Found 1 matching collection: {options[0]['title']}"}
+    if _RESPONSE_MODE == "templated":
+        return {
+            "status": "pending_confirmation",
+            "options": minimal_options,
+            "message": "OK — candidate datasets returned. Pick one.",
+        }
     return {
         "status": "pending_confirmation",
         "matches": options,
@@ -373,7 +497,53 @@ def search_collections(query: str, top_k: int = 5) -> dict:
 
 
 def select_collection(collection_id: str, variable: str | None = None) -> dict:
-    """Record the user's selection."""
+    """Record the user's selection.
+
+    CMR-backed collections with multiple available variables require
+    an extra confirmation turn: the agent calls select_collection with
+    just the id, the tool returns pending_confirmation listing the
+    variables, then the agent calls again with `variable` set. This
+    mirrors the production agent's two-step CMR flow and is the only
+    way a benchmark can faithfully model the cost of that extra turn.
+    """
+    # Look up metadata for this id from the last search_collections
+    # call. If we don't have it (e.g. agent invoked select with an
+    # arbitrary id), treat it as a VEDA COG collection with no
+    # variable list — the safer default.
+    match = next(
+        (m for m in _eie_state.get("last_matches", []) if m.get("id") == collection_id),
+        None,
+    )
+    is_cmr = bool(match and match.get("is_cmr_backed"))
+    available_vars = (match or {}).get("available_variables") or []
+
+    # Gate: CMR + multiple variables + no variable picked yet.
+    if is_cmr and len(available_vars) > 1 and not variable:
+        _eie_state["selected_collection"] = collection_id  # half-selected
+        if _RESPONSE_MODE == "templated":
+            return {
+                "status": "pending_confirmation",
+                "selected_collection_id": collection_id,
+                "selected_variable": None,
+                "options": [{"id": v, "label": v} for v in available_vars],
+                "message": "OK — variable selection required.",
+            }
+        return {
+            "status": "pending_confirmation",
+            "selected_collection_id": collection_id,
+            "selected_variable": None,
+            "available_variables": available_vars,
+            "message": (
+                f"Collection '{collection_id}' exposes multiple variables. "
+                f"Please choose one: {', '.join(available_vars)}."
+            ),
+        }
+
+    # CMR + exactly one variable: auto-select it without a confirmation
+    # turn — matches the production behavior.
+    if is_cmr and len(available_vars) == 1 and not variable:
+        variable = available_vars[0]
+
     _eie_state["selected_collection"] = collection_id
     if variable:
         _eie_state["selected_variable"] = variable
@@ -381,8 +551,11 @@ def select_collection(collection_id: str, variable: str | None = None) -> dict:
         "status": "complete",
         "selected_collection_id": collection_id,
         "selected_variable": variable,
-        "message": f"Selected collection '{collection_id}'"
-        + (f" with variable '{variable}'" if variable else ""),
+        "message": _msg(
+            f"Selected collection '{collection_id}'"
+            + (f" with variable '{variable}'" if variable else ""),
+            "OK — selection recorded.",
+        ),
     }
 
 
@@ -393,7 +566,7 @@ def search_items(limit: int = 15) -> dict:
         return {"status": "error", "error": "No collection selected — call select_collection first"}
     if not _eie_state.get("bbox"):
         return {"status": "error", "error": "No bbox — call geocode first"}
-    rng = random.Random(hash(_eie_state["selected_collection"]) & 0xFFFFFFFF)
+    rng = random.Random(_stable_seed(_eie_state["selected_collection"]))
     n = rng.randint(8, max(8, min(15, limit)))
     items = []
     for i in range(n):
@@ -403,6 +576,15 @@ def search_items(limit: int = 15) -> dict:
             "asset_url": f"s3://veda-data-store/{_eie_state['selected_collection']}/item-{i}.tif",
         })
     _eie_state["items"] = items
+    # Templated mode: the items array (largest payload from this stage)
+    # stays in state. The LLM only sees the count, which is what a
+    # production agent's pipeline needs to decide whether to advance.
+    if _RESPONSE_MODE == "templated":
+        return {
+            "status": "complete",
+            "retrieved": n,
+            "message": "OK — catalog items retrieved.",
+        }
     return {
         "status": "complete",
         "item_count": n,
@@ -432,11 +614,56 @@ def compute_stats() -> dict:
                 },
             },
         })
+    # Templated mode: the per-item stats array stays in state; the
+    # downstream renderer reads it from there. The LLM only sees the
+    # count and a status update, mirroring production agents that
+    # explicitly suppress numeric output from the model layer.
+    if _RESPONSE_MODE == "templated":
+        return {
+            "status": "complete",
+            "count": len(results),
+            "message": "OK — statistics retrieved.",
+        }
     return {
         "status": "complete",
         "result_count": len(results),
         "results": results,
         "message": f"Statistics computed for {len(results)} items.",
+    }
+
+
+def build_viz_tiles() -> dict:
+    """Build tile URLs for each item selected.
+
+    Mirrors the production pattern where a separate visualization
+    stage runs alongside (or right after) statistics. Non-gating —
+    the agent can call this in the same turn as compute_stats. In
+    freeform mode the LLM sees the full URL list; in templated mode
+    only the count, since the renderer downstream reads the URLs out
+    of state, not out of the conversation.
+    """
+    items = _eie_state.get("items")
+    if not items:
+        return {"status": "error", "error": "No items — call search_items first"}
+    coll = _eie_state.get("selected_collection") or "COLL-XXX"
+    tile_urls = [
+        # Z/X/Y placeholders — the bench doesn't render tiles, it just
+        # models the cost shape of a tile-URL payload moving through
+        # the conversation.
+        f"https://titiler.veda.example/cog/tiles/WebMercatorQuad/{{z}}/{{x}}/{{y}}.png?url={it['asset_url']}"
+        for it in items
+    ]
+    if _RESPONSE_MODE == "templated":
+        return {
+            "status": "complete",
+            "count": len(tile_urls),
+            "message": "OK — tile URLs prepared.",
+        }
+    return {
+        "status": "complete",
+        "tile_count": len(tile_urls),
+        "tile_urls": tile_urls,
+        "message": f"Generated {len(tile_urls)} tile URL templates for the selected collection.",
     }
 
 
@@ -461,6 +688,8 @@ def execute_tool_call(name: str, arguments: dict[str, Any]) -> str:
         result = search_items(**arguments)
     elif name == "compute_stats":
         result = compute_stats(**arguments)
+    elif name == "build_viz_tiles":
+        result = build_viz_tiles(**arguments)
     else:
         result = {"error": f"unknown tool: {name}"}
     return json.dumps(result)
@@ -472,4 +701,5 @@ def reset_eie_state() -> None:
     _eie_state.update({
         "datetime_range": None, "place": None, "bbox": None,
         "selected_collection": None, "selected_variable": None, "items": None,
+        "last_matches": [],
     })

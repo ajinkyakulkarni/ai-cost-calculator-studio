@@ -49,9 +49,6 @@ class TurnSpec:
     """One conversational turn — the user message that drives this turn."""
 
     user: str
-    # If set, overrides the default agent for this turn (useful for
-    # routing scenarios where different turns hit different agents).
-    target_agent: str | None = None
 
 
 @dataclass
@@ -69,6 +66,16 @@ class Scenario:
     # Hard cost cap per scenario run (in USD); the runner aborts
     # early if exceeded. Default is generous; CLI can override.
     max_cost_usd: float = 5.00
+    # How tools shape the `message` field they return to the LLM:
+    #   - 'freeform': messages carry full descriptive context (current
+    #     bench behavior; per-turn input cost compounds with history).
+    #   - 'templated': messages are clipped to a short fixed budget,
+    #     modeling production agents that route tool returns through
+    #     a centralized response-template layer. Per-turn input cost
+    #     stays roughly flat across turns. Token shape is materially
+    #     different — flip this when validating preset cost claims
+    #     for agents that use templated tool responses.
+    tool_response_mode: str = "freeform"
     # Free-form metadata: paper section, version, etc.
     meta: dict[str, Any] = field(default_factory=dict)
 
@@ -111,12 +118,15 @@ def load_scenario(path: Path) -> Scenario:
     ]
 
     turns = [
-        TurnSpec(
-            user=t["user"] if isinstance(t, dict) else str(t),
-            target_agent=t.get("target_agent") if isinstance(t, dict) else None,
-        )
+        TurnSpec(user=t["user"] if isinstance(t, dict) else str(t))
         for t in raw.get("turns", [])
     ]
+
+    mode = (raw.get("tool_response_mode") or "freeform").lower()
+    if mode not in ("freeform", "templated"):
+        raise ValueError(
+            f"tool_response_mode must be 'freeform' or 'templated'; got {mode!r}"
+        )
 
     return Scenario(
         name=raw["name"],
@@ -126,6 +136,7 @@ def load_scenario(path: Path) -> Scenario:
         turns=turns,
         repeat=raw.get("repeat", 1),
         max_cost_usd=raw.get("max_cost_usd", 5.00),
+        tool_response_mode=mode,
         meta=raw.get("meta", {}),
     )
 
@@ -137,6 +148,7 @@ def config_hash(scenario: Scenario) -> str:
     payload = {
         "name": scenario.name,
         "topology": scenario.topology,
+        "tool_response_mode": scenario.tool_response_mode,
         "agents": [
             {
                 "id": a.id,
@@ -149,6 +161,6 @@ def config_hash(scenario: Scenario) -> str:
             }
             for a in scenario.agents
         ],
-        "turns": [{"user": t.user, "target_agent": t.target_agent} for t in scenario.turns],
+        "turns": [{"user": t.user} for t in scenario.turns],
     }
     return "sha256:" + hashlib.sha256(json.dumps(payload, sort_keys=True).encode()).hexdigest()

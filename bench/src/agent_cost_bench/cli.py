@@ -141,11 +141,17 @@ def _rough_cost_estimate(scenario) -> float:
         # Per-turn cost: input + output × rate. Input partly cached
         # after the first turn, but we ignore that for the estimate
         # (overstate is safer than understate for a budget prompt).
-        rate_in = 5.0  # $/M input
+        # Substring matching on model names is intentional and
+        # acceptable here: this is a back-of-envelope estimate shown
+        # in a confirmation prompt, not the cost that gets charged.
+        # The trace-side comparator uses LiteLLM's per-call billed
+        # cost (response_cost) for anything authoritative.
+        rate_in = 5.0  # $/M input  (premium-tier default)
         rate_out = 15.0  # $/M output
-        if "haiku" in agent.model.lower():
+        m = agent.model.lower()
+        if "haiku" in m:
             rate_in, rate_out = 0.8, 4.0
-        elif "mini" in agent.model.lower() or "flash" in agent.model.lower():
+        elif "mini" in m or "flash" in m or "nano" in m:
             rate_in, rate_out = 0.15, 0.60
         per_turn = (5000 / 1e6) * rate_in + (500 / 1e6) * rate_out
         total += per_turn * len(scenario.turns) * scenario.repeat

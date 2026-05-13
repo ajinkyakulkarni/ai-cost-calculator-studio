@@ -206,9 +206,26 @@ def record_usage(span, response: Any) -> None:
     if cached_tokens:
         span.set_attribute("gen_ai.usage.cached_tokens", cached_tokens)
 
+    # LiteLLM computes provider-billed cost in cents/USD and stuffs it
+    # on `_hidden_params.response_cost`. Forward that to the span so
+    # downstream tools (compare.py variance reports, paper figures)
+    # have the real billed cost rather than a hardcoded $5/M rate-card
+    # estimate. Without this, every variance report's
+    # session_cost_usd row is silently computed from a fallback table.
+    hidden = getattr(response, "_hidden_params", None)
+    if isinstance(hidden, dict):
+        rc = hidden.get("response_cost")
+        if rc is not None:
+            try:
+                span.set_attribute("response_cost", float(rc))
+            except (TypeError, ValueError):
+                pass
+
     # Provider request id is invaluable for cross-referencing against
     # provider audit logs (OpenAI dashboard, Anthropic console).
-    request_id = getattr(response, "id", None) or response.get("id")
+    request_id = getattr(response, "id", None)
+    if request_id is None and isinstance(response, dict):
+        request_id = response.get("id")
     if request_id:
         span.set_attribute("gen_ai.response.id", request_id)
 
@@ -219,11 +236,17 @@ def write_trace_artifact(
     output_dir: Path,
     started_at: str,
     config_hash: str,
+    user_turns: int = 0,
 ) -> Path:
     """Serialize all collected spans + session totals to trace.json.
 
     File name follows `{scenario}-{timestamp}-trace.json` so consecutive
     runs don't clobber each other.
+
+    `user_turns` is the total user-driven turn count across all repeats
+    (scenario.repeat × len(scenario.turns)). Recorded so downstream
+    comparators can compute `llm_calls_per_user_turn` — a structural
+    diagnostic that reveals how aggressive the agent's tool-loop is.
     """
     spans = collected_spans()
     output_dir.mkdir(parents=True, exist_ok=True)
@@ -244,6 +267,7 @@ def write_trace_artifact(
             "input_tokens": total_in,
             "output_tokens": total_out,
             "cached_tokens": total_cached,
+            "user_turns": user_turns,
         },
     }
 
