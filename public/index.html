@@ -3398,7 +3398,7 @@ body.config-basic .simulator-pane .block-advanced { display: none !important; }
   <div class="appbar-menu" id="appbar-example-menu" style="margin-right:6px">
     <select id="example-loader" class="appbar-menu-trigger" style="cursor:pointer;font:inherit;color:inherit;background:transparent;border:1px solid rgba(255,255,255,.18);border-radius:6px;padding:4px 8px" title="Load a bundled example scenario">
       <option value="">Load example…</option>
-      <option value="nasa-eie">NASA · Earth Information Explorer</option>
+      <option value="public-geospatial-qa">Public geospatial Q&amp;A (example)</option>
       <option value="doe-grid-modeling">DOE · Grid Modeling Assistant</option>
       <option value="nih-clinical-trials">NIH · ClinicalTrials Search Agent</option>
       <option value="noaa-storm-tracking">NOAA · Storm Tracking Explainer</option>
@@ -3536,7 +3536,7 @@ body.config-basic .simulator-pane .block-advanced { display: none !important; }
       <h2><span class="chev">▶</span><span class="lead">Project profile</span> <em>name, team, audience</em></h2>
       <div class="section-body">
       <p class="helper">Identify the deployment. These labels appear at the top of the report. <strong>Public-facing?</strong> drives the bot-factor multiplier and informs sensible daily-cap recommendations downstream.</p>
-      <div class="row"><label>Project name <span class="tip" data-tip="Short label that appears at the top of the report and in shared links. Use the actual product name (e.g. 'Earth Information Explorer') so procurement reviewers know which deployment they're looking at.">ⓘ</span></label><input type="text" data-bind="deployment.name" placeholder="My LLM application"></div>
+      <div class="row"><label>Project name <span class="tip" data-tip="Short label that appears at the top of the report and in shared links. Use the actual product name so procurement reviewers know which deployment they're looking at.">ⓘ</span></label><input type="text" data-bind="deployment.name" placeholder="My LLM application"></div>
       <div class="row"><label>Team or organization <span class="tip" data-tip="The team or agency that owns this deployment (e.g. 'NASA SMD', 'NIH NCATS', 'Acme Inc.'). Appears in the report subtitle. If you enter a federal agency name, the calculator nudges defaults toward FedRAMP-aware settings.">ⓘ</span></label><input type="text" data-bind="deployment.agency" placeholder="Your team or agency"></div>
       <div class="row"><label>One-paragraph description <em>(shown in report)</em> <span class="tip" data-tip="A 2-3 sentence description of the application. Appears verbatim in the procurement report. Cover: what does it do, who uses it, roughly how busy it is — that's all reviewers need to validate the cost estimate.">ⓘ</span></label><textarea data-bind="deployment.description" placeholder="What does this application do? Who uses it? Roughly how busy is it?"></textarea></div>
       <!-- Bot factor moved to simulator Configuration → Global Parameters,
@@ -5416,7 +5416,7 @@ Procurement reviewers often work backwards: 'we have $50K/mo approved — how ma
           <label style="font-size:11px;text-transform:uppercase;letter-spacing:0.05em;color:var(--muted);font-weight:600">Scenario A</label>
           <select id="cmp-preset-a" style="width:100%;font-size:13px;font-family:var(--mono);margin-top:3px">
             <option value="__current__">Current scenario (live)</option>
-            <option value="nasa-eie">NASA · Earth Information Explorer</option>
+            <option value="public-geospatial-qa">Public geospatial Q&amp;A (example)</option>
             <option value="doe-grid-modeling">DOE · Grid Modeling Assistant</option>
             <option value="nih-clinical-trials">NIH · ClinicalTrials Search Agent</option>
             <option value="noaa-storm-tracking">NOAA · Storm Tracking Explainer</option>
@@ -5430,7 +5430,7 @@ Procurement reviewers often work backwards: 'we have $50K/mo approved — how ma
           <label style="font-size:11px;text-transform:uppercase;letter-spacing:0.05em;color:var(--muted);font-weight:600">Scenario B</label>
           <select id="cmp-preset-b" style="width:100%;font-size:13px;font-family:var(--mono);margin-top:3px">
             <option value="__current__">Current scenario (live)</option>
-            <option value="nasa-eie" selected>NASA · Earth Information Explorer</option>
+            <option value="public-geospatial-qa" selected>Public geospatial Q&amp;A (example)</option>
             <option value="doe-grid-modeling">DOE · Grid Modeling Assistant</option>
             <option value="nih-clinical-trials">NIH · ClinicalTrials Search Agent</option>
             <option value="noaa-storm-tracking">NOAA · Storm Tracking Explainer</option>
@@ -6618,7 +6618,7 @@ Procurement reviewers often work backwards: 'we have $50K/mo approved — how ma
       <div class="step-num">1</div>
       <div class="step-body">
         Click the <strong>"Load example…"</strong> dropdown at the top to drop in a real
-        scenario (NASA Earth Information Explorer, NIH ClinicalTrials,
+        scenario (Public geospatial Q&amp;A, NIH ClinicalTrials,
         NOAA Storm Tracking, DOE Grid Modeling, or a generic startup).
         This populates ~50 sliders with realistic values.
       </div>
@@ -6677,7 +6677,7 @@ Procurement reviewers often work backwards: 'we have $50K/mo approved — how ma
   document.getElementById('welcome-start')?.addEventListener('click', () => {
     const loader = document.getElementById('example-loader');
     if (loader) {
-      loader.value = 'nasa-eie';
+      loader.value = 'public-geospatial-qa';
       loader.dispatchEvent(new Event('change', { bubbles: true }));
     }
     dismiss();

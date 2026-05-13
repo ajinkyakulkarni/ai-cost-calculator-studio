@@ -73,7 +73,7 @@ function headline(r, o, w) {
 }
 
 const PRESETS = [
-  'nasa-eie',
+  'public-geospatial-qa',
   'doe-grid-modeling',
   'nih-clinical-trials',
   'noaa-storm-tracking',
@@ -123,7 +123,7 @@ console.log('');
 // ── 3. FedRAMP multiplier: High should produce ~30% higher per-query rate ─
 console.log('3. FedRAMP multiplier (high) increases per-query rate ~30%');
 {
-  const w = loadPreset('nasa-eie');
+  const w = loadPreset('public-geospatial-qa');
   const o = buildOpts(w);
   // Some presets only have deployment.fedrampTier (legacy) — make sure
   // a federal block exists before we mutate it.
@@ -146,9 +146,9 @@ console.log('3. FedRAMP multiplier (high) increases per-query rate ~30%');
   // ratio. monthly_gross / per_query_blended preserve the multiplier
   // regardless of how the preset's traffic shape evolves.
   const ratioPerQ = rHigh.api.per_query_blended / rNone.api.per_query_blended;
-  assert(Math.abs(ratioPerQ - 1.30) < 0.01, `nasa-eie: per_query_blended ratio high/none ≈ 1.30 (got ${ratioPerQ.toFixed(4)})`);
+  assert(Math.abs(ratioPerQ - 1.30) < 0.01, `public-geospatial-qa: per_query_blended ratio high/none ≈ 1.30 (got ${ratioPerQ.toFixed(4)})`);
   const ratioGross = rHigh.api.monthly_gross / rNone.api.monthly_gross;
-  assert(Math.abs(ratioGross - 1.30) < 0.01, `nasa-eie: monthly_gross ratio high/none ≈ 1.30 (got ${ratioGross.toFixed(4)})`);
+  assert(Math.abs(ratioGross - 1.30) < 0.01, `public-geospatial-qa: monthly_gross ratio high/none ≈ 1.30 (got ${ratioGross.toFixed(4)})`);
 }
 console.log('');
 

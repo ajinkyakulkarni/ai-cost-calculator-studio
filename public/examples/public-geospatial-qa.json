@@ -1,9 +1,9 @@
 {
   "schemaVersion": "1.0",
   "deployment": {
-    "name": "Earth Information Explorer",
-    "agency": "NASA SMD",
-    "description": "Public-facing conversational interface to NASA Earth observation datasets. Federal scientists and the public ask natural-language questions; EIE plans the data lookup, runs statistics over rasters, and answers in plain language.",
+    "name": "Public geospatial Q&A (example)",
+    "agency": "(anonymized public-facing deployment)",
+    "description": "Public-facing conversational interface to Earth-observation datasets. Authenticated researchers and the public ask natural-language questions; the agent plans the data lookup, runs statistics over rasters, and answers in plain language.",
     "publicFacing": true,
     "fedrampTier": "moderate"
   },
@@ -18,8 +18,8 @@
       "validated_against": "real OpenAI API (gpt-5.2)",
       "validated_on": "2026-05-13",
       "sample_size": "120 user-turns (6 turns × 20 repeats); 238 LLM calls including tool-loop round-trips",
-      "bench_scenario": "bench/scenarios/eie-react.yml",
-      "validation_report": "bench/reports/nasa-eie-validation.md",
+      "bench_scenario": "bench/scenarios/public-geospatial-react.yml",
+      "validation_report": "bench/reports/public-geospatial-qa-validation.md",
       "trace_artifact": "bench/reports/eie-react-2026-05-13T04-16-23-197402+00-00-trace.json",
       "tool_response_mode": "templated",
       "intervals_across_sessions": {
@@ -48,7 +48,7 @@
           "input_tokens": 15000,
           "output_tokens": 200,
           "cache_rate_baseline": 0.78,
-          "description": "Full STAC item metadata for top-5 results + admin-geometry geocode payload + summary statistics. Closer to what a production EIE injects when retrieval is well-condensed but unabridged."
+          "description": "Full STAC item metadata for top-5 results + admin-geometry geocode payload + summary statistics. Closer to what a production deployment injects when retrieval is well-condensed but unabridged."
         },
         "heavy": {
           "label": "Heavy (upper bound)",
@@ -58,7 +58,7 @@
           "description": "Full raster previews, complete admin geometry, dense STAC catalog snapshots, multi-collection comparison. Estimated upper bound — if you're hitting this, your retrieval pipeline likely needs condensation."
         }
       },
-      "notes": "Token shape was measured from a 7-stage ReAct agent (parse_datetime → geocode → search_collections → select_collection → search_items → compute_stats → build_viz_tiles) with templated tool responses. A real production EIE that injects full STAC item metadata + raster summaries per query will run higher — likely 10-30K input tokens depending on how aggressively retrieval payloads are condensed before they enter the LLM context. The pre-calibration value (84,490) was a conservative upper bound from a freeform-tool model; switching the bench to templated-response mode (matching what the real EIE agent does via its centralized response-template layer) measured 3,376 input tokens. Production teams should re-run the bench against their actual retrieval pipeline."
+      "notes": "Token shape was measured from a 7-stage ReAct agent (parse_datetime → geocode → search_collections → select_collection → search_items → compute_stats → build_viz_tiles) with templated tool responses. A real production deployment that injects full STAC item metadata + raster summaries per query will run higher — likely 10-30K input tokens depending on how aggressively retrieval payloads are condensed before they enter the LLM context. The pre-calibration value (84,490) was a conservative upper bound from a freeform-tool model; switching the bench to templated-response mode (matching what production agents do via a centralized response-template layer) measured 3,376 input tokens. Production teams should re-run the bench against their actual retrieval pipeline."
     }
   },
 
@@ -79,7 +79,7 @@
   },
 
   "segments": [
-    { "id": "auth",   "label": "NASA scientists (authenticated)", "mau":   500, "sessions_per_day": 0.2, "questions_per_session":  5, "applyBotFactor": false, "description": "Authenticated researchers with multi-turn sessions." },
+    { "id": "auth",   "label": "Authenticated researchers",       "mau":   500, "sessions_per_day": 0.2, "questions_per_session":  5, "applyBotFactor": false, "description": "Authenticated researchers with multi-turn sessions." },
     { "id": "public", "label": "Public visitors (anonymous)",     "mau": 10000, "sessions_per_day": 0.2, "questions_per_session": 10, "applyBotFactor": true,  "description": "Anonymous public users on earth.gov." }
   ],
 

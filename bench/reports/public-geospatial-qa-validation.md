@@ -1,8 +1,8 @@
-# NASA EIE preset — bench validation, 2026-05-13 (N=20)
+# public-geospatial-qa preset — bench validation, 2026-05-13 (N=20)
 
 ## Summary
 
-Re-ran the EIE scenario at `repeat: 20` (was 3) in templated mode
+Re-ran the scenario at `repeat: 20` (was 3) in templated mode
 against real OpenAI gpt-5.2 to give the reviewer-grade calibration
 intervals the prior N=3 run could not support. Total spend: $0.21
 across 238 LLM calls / 120 user-turns.
@@ -11,7 +11,7 @@ across 238 LLM calls / 120 user-turns.
 
 | Setting | Value |
 |---|---|
-| Scenario | `bench/scenarios/eie-react.yml` |
+| Scenario | `bench/scenarios/public-geospatial-react.yml` |
 | Model | gpt-5.2 (OpenAI, standard tier) |
 | Topology | single agent + ReAct tool loop |
 | Tools | 7 (parse_datetime, geocode, search_collections, select_collection, search_items, compute_stats, build_viz_tiles) |
@@ -20,7 +20,7 @@ across 238 LLM calls / 120 user-turns.
 | Repeats | 20 |
 | Total user-turns | 120 |
 | Total LLM calls | 238 (1.98 calls/user-turn — one gate confirmation per turn on average) |
-| Trace artifact | `reports/eie-react-2026-05-13T04-16-23-197402+00-00-trace.json` |
+| Trace artifact | `reports/eie-react-2026-05-13T04-16-23-197402+00-00-trace.json` (historical filename) |
 | Total API spend | $0.21 |
 
 ## Measured vs. predicted (aggregate)
@@ -70,7 +70,7 @@ Per-session intervals are recorded in `_calibration.intervals_across_sessions`.
 ## Reviewer-asked questions, answered
 
 **Q: How big is the calibration sample?**
-A: 120 user-turns × 238 LLM calls on the EIE scenario alone (this
+A: 120 user-turns × 238 LLM calls on this scenario alone (this
 report). The full paper calibration was originally N=174 across 9
 scenarios; with the N=238 re-run added, total bench-driven calibration
 is N≈412 across the same scenarios. Section 4 in the paper should be
@@ -79,7 +79,7 @@ updated to reflect this if you choose.
 **Q: What's the variance across runs?**
 A: For cache hit rate, stdev = 4.3 percentage points (RSD ≈5%).
 For per-turn token counts, stdev is small enough that the aggregate
-mean is reliable to within ±2% — the EIE pipeline is deterministic
+mean is reliable to within ±2% — the pipeline is deterministic
 in token shape because the templated-response mode keeps tool returns
 bounded.
 
@@ -92,9 +92,9 @@ for cross-reference against OpenAI's audit log.
 
 ```bash
 # From bench/, with .env loaded:
-agent-cost-bench run scenarios/eie-react.yml --output reports --yes
-agent-cost-bench compare reports/eie-react-*-trace.json \
-    --simulator-export ../public/examples/nasa-eie.json
+agent-cost-bench run scenarios/public-geospatial-react.yml --output reports --yes
+agent-cost-bench compare reports/public-geospatial-react-*-trace.json \
+    --simulator-export ../public/examples/public-geospatial-qa.json
 ```
 
 Spend: ~$0.21 for repeat:20. The scenario's `max_cost_usd: 2.00`

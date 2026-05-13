@@ -16,7 +16,7 @@
       "type": "object",
       "required": ["name", "agency"],
       "properties": {
-        "name":         { "type": "string", "description": "Human-readable deployment name (e.g., 'Earth Information Explorer')." },
+        "name":         { "type": "string", "description": "Human-readable deployment name (e.g., 'Customer Support Bot')." },
         "agency":       { "type": "string", "description": "Owning agency or organization (e.g., 'NASA SMD', 'NIH')." },
         "description":  { "type": "string", "description": "One-paragraph summary shown in the calculator UI." },
         "contact":      { "type": "string", "description": "Optional contact email or URL for procurement questions." },

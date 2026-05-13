@@ -34,11 +34,11 @@
  * --url-hash "$(cat /tmp/h)"`.
  *
  * Usage:
- *   node scripts/calc.js --preset nasa-eie
- *   node scripts/calc.js --preset nasa-eie --hosting self --json
+ *   node scripts/calc.js --preset public-geospatial-qa
+ *   node scripts/calc.js --preset public-geospatial-qa --hosting self --json
  *   node scripts/calc.js --workload my.json --retry 0.05 --json
  *   node scripts/calc.js --preset nih-clinical-trials --input-tok 8000
- *   node scripts/calc.js --preset nasa-eie --verbose      # full derivation trace
+ *   node scripts/calc.js --preset public-geospatial-qa --verbose      # full derivation trace
  *
  * Output: human-readable summary by default; --json for machine-readable.
  * Exit 0 on success, 1 on error.
@@ -119,13 +119,13 @@ Output:
   --verbose                Full derivation trace
 
 Presets available:
-  nasa-eie, doe-grid-modeling, nih-clinical-trials, noaa-storm-tracking,
+  public-geospatial-qa, doe-grid-modeling, nih-clinical-trials, noaa-storm-tracking,
   generic-startup-chatbot, health-patient-qa, legal-discovery-agent,
   finance-compliance-qa
 
 Examples:
-  node scripts/calc.js --preset nasa-eie
-  node scripts/calc.js --preset nasa-eie --hosting self --json
+  node scripts/calc.js --preset public-geospatial-qa
+  node scripts/calc.js --preset public-geospatial-qa --hosting self --json
   node scripts/calc.js --preset nih-clinical-trials --retry 0.05 --verbose
 `);
 }

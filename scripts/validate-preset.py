@@ -7,7 +7,7 @@ exists to answer: *do the numbers on calc.ajinkya.ai match what the
 real OpenAI API charges for the same workload?*
 
 Inputs:
-  --preset    path to a preset workload JSON (e.g. public/examples/nasa-eie.json)
+  --preset    path to a preset workload JSON (e.g. public/examples/public-geospatial-qa.json)
   --trace     path to a bench trace JSON (produced by `agent-cost-bench run`)
   --model     which model the calculator should price against (default:
               the preset's `defaults.model`; override when the bench run
@@ -28,8 +28,8 @@ Methodology:
 
 Usage:
   python scripts/validate-preset.py \
-      --preset public/examples/nasa-eie.json \
-      --trace bench/reports/eie-react-2026-05-11T*.json
+      --preset public/examples/public-geospatial-qa.json \
+      --trace bench/reports/public-geospatial-react-*.json
 """
 
 from __future__ import annotations
@@ -200,7 +200,7 @@ def predict_from_calculator(preset_path: Path, model: str | None,
     than reimplementing the math here) we guarantee the comparison
     target is the same number the user sees on calc.ajinkya.ai.
     """
-    slug = preset_path.stem  # e.g. "nasa-eie"
+    slug = preset_path.stem  # e.g. "public-geospatial-qa"
     cmd = [
         "node",
         str(ROOT / "scripts" / "calc.js"),
@@ -475,7 +475,7 @@ def main() -> int:
 
     # Resolve scenario YAML so we can compute per-query means correctly.
     # Heuristic: take it from the trace's scenario_name (if available) or
-    # the trace filename (e.g. eie-react-2026-...-trace.json → eie-react).
+    # the trace filename (e.g. public-geospatial-react-...-trace.json → public-geospatial-react).
     trace = load_trace(trace_path)
     scenario_yaml = args.scenario
     if scenario_yaml is None:

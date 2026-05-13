@@ -150,13 +150,13 @@ no browser, no DOM. Use this to:
 
 ```bash
 # Load a bundled preset
-node scripts/calc.js --preset nasa-eie
+node scripts/calc.js --preset public-geospatial-qa
 
 # Override knobs
 node scripts/calc.js --preset nih-clinical-trials --hosting self --retry 0.05
 
 # Machine-readable output
-node scripts/calc.js --preset nasa-eie --json | jq .headline.monthly
+node scripts/calc.js --preset public-geospatial-qa --json | jq .headline.monthly
 
 # Reproduce a live URL state exactly (paste the share-link hash;
 # save to file first if your shell truncates long arguments)
@@ -164,7 +164,7 @@ echo "PASTED_HASH" > /tmp/h
 node scripts/calc.js --url-hash "$(cat /tmp/h)"
 
 # Full verbose derivation
-node scripts/calc.js --preset nasa-eie --verbose
+node scripts/calc.js --preset public-geospatial-qa --verbose
 ```
 
 Math fidelity: mirrors `public/app.js`'s `renderPreview()` exactly —

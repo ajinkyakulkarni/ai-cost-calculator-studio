@@ -1,9 +1,11 @@
-# eie-react — full-scale single-agent ReAct mirror of the EIE preset.
+# public-geospatial-react — full-scale single-agent ReAct mirror of the
+# public-geospatial-qa preset.
 #
-# This is the bench scenario that validates calc.ajinkya.ai's NASA-EIE
-# preset against real OpenAI API behavior. Architectural intent:
+# This is the bench scenario that validates calc.ajinkya.ai's
+# public-geospatial-qa preset against real OpenAI API behavior.
+# Architectural intent:
 #
-#   * Single agent (matches the EIE preset's no-`agents` block — the
+#   * Single agent (matches the preset's no-`agents` block — the
 #     3-agent fleet shown in the UI comes from the cost-simulator slider
 #     bridge, not the preset JSON itself).
 #   * ReAct pattern: agent reasons, calls tools (parse_datetime,
@@ -31,16 +33,17 @@
 # on gpt-5.2 or gpt-4.1; bump --max-cost-usd to expand the sample.
 #
 # Run:
-#   agent-cost-bench run scenarios/eie-react.yml --max-cost-usd 2.00
+#   agent-cost-bench run scenarios/public-geospatial-react.yml --max-cost-usd 2.00
 #
 # Validate against the calculator:
-#   python scripts/validate-eie.py --trace reports/eie-react-*-trace.json
+#   python scripts/validate-preset.py --trace reports/public-geospatial-react-*-trace.json
 
-name: eie-react
+name: public-geospatial-react
 description: |
-  Single-agent ReAct pattern at NASA-EIE preset scale (~84K input, ~850 output,
-  6-turn session, 84% cache baseline). Validates the calculator's per-query
-  cost prediction against real OpenAI API spend.
+  Single-agent ReAct pattern at public-geospatial-qa preset scale
+  (~84K input, ~850 output, 6-turn session, 84% cache baseline).
+  Validates the calculator's per-query cost prediction against real
+  OpenAI API spend.
 topology: single
 repeat: 20
 max_cost_usd: 2.00
@@ -53,8 +56,8 @@ max_cost_usd: 2.00
 tool_response_mode: templated
 
 meta:
-  validates_preset: nasa-eie
-  preset_path: public/examples/nasa-eie.json
+  validates_preset: public-geospatial-qa
+  preset_path: public/examples/public-geospatial-qa.json
   architecture: react-single-agent
   validates_axiom_coefficients:
     - per_query_input_tokens
@@ -175,7 +178,7 @@ agents:
       updates, geocoder revisions); variability in your behavior given
       identical tool returns is not.
 
-# Six-turn flow — matches the EIE preset's session_baseline_turns=6.
+# Six-turn flow — matches the preset's session_baseline_turns=6.
 # Each user message either drives the next tool or supplies a
 # confirmation to a pending gate.
 turns:

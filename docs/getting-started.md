@@ -5,7 +5,7 @@ A 5-minute walkthrough of the AI Cost Calculator.
 ## What it is
 
 A clean, free, no-signup web tool for modeling the cost of an AI agent
-deployment. Pick a preset (NASA EIE, NIH ClinicalTrials, DOE grid, NOAA
+deployment. Pick a preset (public geospatial Q&A, NIH ClinicalTrials, DOE grid, NOAA
 storm, generic startup chatbot) or fill in your own parameters. The
 calculator shows API vs self-host comparison with a same-budget fair-
 comparison row that resolves the apples-to-oranges trap pervasive in
@@ -33,7 +33,7 @@ When you click **Copy link**, your current configuration is encoded in
 the URL and copied to your clipboard. Anyone clicking that link sees
 the exact same configuration — no server, no database, no signup.
 
-Example: a 50K-MAU NASA EIE stress test scenario gets a URL like:
+Example: a 50K-MAU public-geospatial-qa stress test scenario gets a URL like:
 
 ```
 https://your-host.com/calc#w=eyJzY2hlbWFWZXJzaW9uIjoiMS4wIiwiZGVwbG95...
@@ -96,7 +96,7 @@ The single source of truth is a JSON file conforming to
 `schema/workload-v1.schema.json`. Five example workloads ship with the
 toolkit:
 
-- `nasa-eie.json` — NASA Earth Information Explorer
+- `public-geospatial-qa.json` — Public-facing geospatial Q&A (example)
 - `nih-clinical-trials.json` — NIH ClinicalTrials.gov-style agent
 - `doe-grid-modeling.json` — DOE grid-operator assistant (internal)
 - `noaa-storm-tracking.json` — NOAA storm-tracking explainer (extreme
@@ -119,10 +119,11 @@ into the calculator's **Import JSON** button.
 
 ```bibtex
 @misc{kulkarni2026cost,
-  author = {Kulkarni, Ajinkya},
-  title  = {Cost Modeling for Federal {AI}-Agent Deployment:
-            A Worked Example with {NASA}'s Earth Information Explorer},
+  author = {Kulkarni, Ajinkya and Parajuli, Paridhi},
+  title  = {Cost Modeling for Public-Facing {LLM} Chat Applications:
+            An Equal-Budget, Refusal-Aware Comparison of Commercial
+            {APIs} and Self-Hosted {GPU} Fleets},
   year   = {2026},
-  url    = {https://github.com/ajinkya-org/work-productivity}
+  url    = {https://github.com/ajinkyakulkarni/ai-cost-calculator-studio}
 }
 ```

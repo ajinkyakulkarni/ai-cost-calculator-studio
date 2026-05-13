@@ -93,7 +93,7 @@ ai-cost-calculator-studio/
 │   ├── app.js               # state management, segment editor, scroll-spy nav
 │   ├── cost-engine.js       # pure-function TCO calculator
 │   ├── coefficients.json    # bench-produced empirical coefficients
-│   ├── examples/            # preset workload JSONs (NASA EIE, NIH, etc.)
+│   ├── examples/            # preset workload JSONs (public geospatial Q&A, NIH, etc.)
 │   └── prices/              # daily-refreshed model rate cards
 ├── bench/                   # agent-cost-bench — Python harness
 │   ├── README.md            # full bench docs (LiteLLM + LangGraph + OTEL)

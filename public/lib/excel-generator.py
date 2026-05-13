@@ -20,7 +20,7 @@ Sheets produced:
   Sensitivity   — how the headline moves when key inputs change
 
 Usage:
-  python3 excel-generator.py examples/nasa-eie.json -o nasa-eie.xlsx
+  python3 excel-generator.py examples/public-geospatial-qa.json -o public-geospatial-qa.xlsx
   python3 excel-generator.py examples/generic-startup-chatbot.json -o startup.xlsx
 
 Requires: openpyxl (pip install openpyxl). Standard library only otherwise.
@@ -136,8 +136,9 @@ def build_readme(ws, w: dict):
         "  See docs/papers/arxiv/paper.tex for the academic write-up.",
         "",
         "Cite as:",
-        "  Kulkarni, A. (2026). Cost Modeling for Federal AI-Agent Deployment:",
-        "  A Worked Example with NASA's Earth Information Explorer.",
+        "  Kulkarni, A. & Parajuli, P. (2026). Cost Modeling for Public-Facing",
+        "  LLM Chat Applications: An Equal-Budget, Refusal-Aware Comparison",
+        "  of Commercial APIs and Self-Hosted GPU Fleets.",
         "",
         "Schema version: " + w.get("schemaVersion", "1.0"),
     ]

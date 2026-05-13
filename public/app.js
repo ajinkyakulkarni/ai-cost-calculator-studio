@@ -4330,10 +4330,10 @@
   document.addEventListener('DOMContentLoaded', async () => {
     setupHandlers();
 
-    // Priority: URL hash > NASA EIE default
+    // Priority: URL hash > default example preset
     if (!loadFromHash()) {
       try {
-        const resp = await fetch('examples/nasa-eie.json');
+        const resp = await fetch('examples/public-geospatial-qa.json');
         if (resp.ok) { workload = ensureFields(await resp.json()); window.workload = workload; }
       } catch (_) { /* fall back to blank */ }
     } else {
