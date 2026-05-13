@@ -38,6 +38,9 @@ try:
     from openpyxl.styles import Font, Alignment, PatternFill, Border, Side, NamedStyle
     from openpyxl.utils import get_column_letter
     from openpyxl.worksheet.dimensions import ColumnDimension
+    from openpyxl.formatting.rule import ColorScaleRule, CellIsRule, FormulaRule
+    from openpyxl.chart import BarChart, LineChart, Reference
+    from openpyxl.chart.label import DataLabelList
 except ImportError:
     print("ERROR: openpyxl is required. Install with: pip install openpyxl", file=sys.stderr)
     sys.exit(1)
@@ -46,10 +49,14 @@ except ImportError:
 # ----- Editorial palette to match the HTML calculator -----
 INK = "1A1A1A"
 ACCENT = "8B2331"     # oxblood
+ACCENT2 = "C87A52"    # warm copper (secondary)
 GOOD = "2B7A3D"
 BAD = "B8404A"
 PAPER = "FBF9F4"
 HIGHLIGHT = "F3ECDB"
+HEATMAP_LO = "E8F4E8"  # pale green
+HEATMAP_MID = "FFF4D6"  # cream
+HEATMAP_HI = "F8D7DA"  # pale red
 RULE = "D8D2C5"
 
 THIN = Side(border_style="thin", color=RULE)
@@ -101,6 +108,95 @@ def autosize(ws, min_w=12, max_w=60):
 
 
 # ============================================================
+# Visual-polish helpers
+# ============================================================
+
+def fmt_usd(cell):
+    """Apply $#,##0 number format."""
+    cell.number_format = '"$"#,##0'
+
+
+def fmt_usd_cents(cell):
+    """Apply $#,##0.00 number format for small per-query values."""
+    cell.number_format = '"$"#,##0.00'
+
+
+def fmt_pct(cell):
+    """Apply 0.0% number format."""
+    cell.number_format = "0.0%"
+
+
+def fmt_num(cell):
+    """Apply #,##0 number format for query counts."""
+    cell.number_format = "#,##0"
+
+
+def freeze_below(ws, row, col=1):
+    """Freeze rows above `row` and columns left of `col`."""
+    ws.freeze_panes = ws.cell(row=row, column=col).coordinate
+
+
+def heatmap_range(ws, range_str):
+    """3-color scale heat-map (green → cream → red, lo → mid → hi)."""
+    rule = ColorScaleRule(
+        start_type='min', start_color=HEATMAP_LO,
+        mid_type='percentile', mid_value=50, mid_color=HEATMAP_MID,
+        end_type='max', end_color=HEATMAP_HI,
+    )
+    ws.conditional_formatting.add(range_str, rule)
+
+
+def title_banner(ws, title: str, subtitle: str = "", cols: int = 6):
+    """Top-of-sheet branded banner. Row 1 = title in ACCENT; row 2 = subtitle in muted."""
+    t = ws["A1"]
+    t.value = title
+    t.font = Font(name="Calibri", size=15, bold=True, color=ACCENT)
+    t.alignment = Alignment(vertical="center")
+    ws.row_dimensions[1].height = 24
+    ws.merge_cells(start_row=1, start_column=1, end_row=1, end_column=cols)
+    if subtitle:
+        s = ws["A2"]
+        s.value = subtitle
+        s.font = Font(name="Calibri", size=10, italic=True, color="666666")
+        ws.merge_cells(start_row=2, start_column=1, end_row=2, end_column=cols)
+
+
+def add_bar_chart(ws, *, title: str, data_ref: str, cats_ref: str, anchor: str, height: int = 9, width: int = 16):
+    """Drop a horizontal-bar chart at `anchor`."""
+    ch = BarChart()
+    ch.type = "bar"
+    ch.style = 11
+    ch.title = title
+    ch.y_axis.title = None
+    ch.x_axis.title = "USD / month"
+    ch.legend = None
+    data = Reference(ws, range_string=data_ref)
+    cats = Reference(ws, range_string=cats_ref)
+    ch.add_data(data, titles_from_data=False)
+    ch.set_categories(cats)
+    ch.height = height
+    ch.width = width
+    ch.dataLabels = DataLabelList(showVal=True)
+    ws.add_chart(ch, anchor)
+
+
+def add_line_chart(ws, *, title: str, data_ref: str, cats_ref: str, anchor: str, height: int = 9, width: int = 18):
+    """Drop a line chart at `anchor` (used for sensitivity sweeps)."""
+    ch = LineChart()
+    ch.style = 10
+    ch.title = title
+    ch.y_axis.title = "USD / month"
+    ch.x_axis.title = "Sensitivity (% of baseline)"
+    data = Reference(ws, range_string=data_ref)
+    cats = Reference(ws, range_string=cats_ref)
+    ch.add_data(data, titles_from_data=True)
+    ch.set_categories(cats)
+    ch.height = height
+    ch.width = width
+    ws.add_chart(ch, anchor)
+
+
+# ============================================================
 # Per-sheet builders
 # ============================================================
 
@@ -131,7 +227,7 @@ def build_readme(ws, w: dict):
         "     inputs swing ±30%.",
         "",
         "Methodology:",
-        "  Same arithmetic as the Cost Calculator Studio web app and the EIE paper.",
+        "  Same arithmetic as the Cost Calculator Studio web app and the companion paper.",
         "  See lib/cost-engine.js for the canonical implementation.",
         "  See docs/papers/arxiv/paper.tex for the academic write-up.",
         "",
@@ -527,10 +623,75 @@ def build_computation(ws, w: dict, refs: dict):
     ws[f"A{row}"] = "Refused queries"; style_label(ws[f"A{row}"])
     ws[f"B{row}"] = f"=IF({api_gross_cell}>{api_capped_cell},({api_gross_cell}-{api_capped_cell})/{api_gross_cell}*{total_q_cell},0)"
     style_result(ws[f"B{row}"])
+    fmt_num(ws[f"B{row}"])
     refused_cell = f"Computation!B{row}"
     row += 1
 
+    # ------------------------------------------------------------
+    # Self-host monthly cost (per cost mode)
+    # GPU monthly = hourly × 730 × (1 − discount_3yr)
+    # Total       = ops + fte + setup_amort + gpu_monthly
+    # Uses a single-replica simplification — full instance-count math
+    # (Eq. 6) requires peak-tps × throughput-derate; see cost-engine.js
+    # for the production formula. This Excel approximation gives a
+    # ballpark for procurement comparison; the live calc gives the
+    # exact number for a given workload spec.
+    # ------------------------------------------------------------
+    row += 1
+    ws[f"A{row}"] = "Self-host cost (single replica)"; style_header(ws[f"A{row}"], 2); ws.merge_cells(f"A{row}:C{row}")
+    row += 1
+
+    # First GPU option from the workload (typically a g6 or A100 SKU)
+    gpu_opts = w.get("self_host", {}).get("gpu_options", {})
+    if gpu_opts:
+        first_gpu_id, first_gpu = next(iter(gpu_opts.items()))
+        gpu_hourly = first_gpu.get("hourly", 8.0)
+        gpu_label = first_gpu.get("label", first_gpu_id)
+    else:
+        gpu_hourly = 8.0
+        gpu_label = "g6.12xlarge (default)"
+
+    ws[f"A{row}"] = "GPU SKU"; style_label(ws[f"A{row}"])
+    ws[f"B{row}"] = gpu_label
+    row += 1
+    ws[f"A{row}"] = "GPU hourly ($)"; style_label(ws[f"A{row}"])
+    ws[f"B{row}"] = gpu_hourly; style_input(ws[f"B{row}"])
+    fmt_usd_cents(ws[f"B{row}"])
+    gpu_hourly_cell = f"Computation!B{row}"
+    row += 1
+
+    # Per-mode columns: Optimistic in B, Realistic in C
+    ws[f"A{row}"] = ""
+    ws[f"B{row}"] = "Optimistic"; style_header(ws[f"B{row}"], 3)
+    ws[f"C{row}"] = "Realistic"; style_header(ws[f"C{row}"], 3)
+    row += 1
+
+    ws[f"A{row}"] = "Ops + FTE + setup ($/mo)"; style_label(ws[f"A{row}"])
+    ws[f"B{row}"] = "='Cost Modes'!B2+'Cost Modes'!B3+'Cost Modes'!B4"
+    ws[f"C{row}"] = "='Cost Modes'!C2+'Cost Modes'!C3+'Cost Modes'!C4"
+    style_formula(ws[f"B{row}"]); style_formula(ws[f"C{row}"]); fmt_usd(ws[f"B{row}"]); fmt_usd(ws[f"C{row}"])
+    fixed_opt_cell = f"Computation!B{row}"
+    fixed_real_cell = f"Computation!C{row}"
+    row += 1
+
+    ws[f"A{row}"] = "GPU monthly ($/mo, 3-yr RI)"; style_label(ws[f"A{row}"])
+    ws[f"B{row}"] = f"={gpu_hourly_cell}*730*(1-'Cost Modes'!B7)"
+    ws[f"C{row}"] = f"={gpu_hourly_cell}*730*(1-'Cost Modes'!C7)"
+    style_formula(ws[f"B{row}"]); style_formula(ws[f"C{row}"]); fmt_usd(ws[f"B{row}"]); fmt_usd(ws[f"C{row}"])
+    gpu_opt_cell = f"Computation!B{row}"
+    gpu_real_cell = f"Computation!C{row}"
+    row += 1
+
+    ws[f"A{row}"] = "Self-host total ($/mo)"; style_label(ws[f"A{row}"])
+    ws[f"B{row}"] = f"={fixed_opt_cell}+{gpu_opt_cell}"
+    ws[f"C{row}"] = f"={fixed_real_cell}+{gpu_real_cell}"
+    style_result(ws[f"B{row}"]); style_result(ws[f"C{row}"]); fmt_usd(ws[f"B{row}"]); fmt_usd(ws[f"C{row}"])
+    sh_opt_cell = f"Computation!B{row}"
+    sh_real_cell = f"Computation!C{row}"
+    row += 1
+
     autosize(ws, min_w=22, max_w=70)
+    freeze_below(ws, row=4)
     return {
         "model_cell": model_cell,
         "total_q": total_q_cell,
@@ -538,81 +699,244 @@ def build_computation(ws, w: dict, refs: dict):
         "api_capped": api_capped_cell,
         "refused": refused_cell,
         "cost_mode": cost_mode_cell,
+        "self_host_opt": sh_opt_cell,
+        "self_host_real": sh_real_cell,
     }
 
 
 def build_output(ws, w: dict, comp_refs: dict, cap_refs: dict):
     ws.title = "Output"
+    title_banner(
+        ws,
+        "Output · Equal-budget comparison",
+        f"API capped at ${cap_refs.get('amount_usd', 1500):,}/day vs self-host (Optimistic + Realistic modes) — all four strategies on one table.",
+        cols=4,
+    )
 
-    ws["A1"] = "Output · API vs Self-Host Comparison"
-    style_header(ws["A1"], 1)
-    ws.merge_cells("A1:D1")
-
-    headers = ["Strategy", "Monthly LLM ($)", "Queries served/mo", "Notes"]
-    row = 3
+    headers = ["Strategy", "Monthly cost ($)", "Queries served/mo", "Notes"]
+    row = 4
     for col, h in enumerate(headers, start=1):
         c = ws.cell(row=row, column=col, value=h)
         style_header(c, 2)
-
     row += 1
+
+    data_start = row
+
     # Row 1: API capped
-    ws.cell(row=row, column=1, value=f"API (capped at ${cap_refs['amount_usd']}/day)")
-    ws.cell(row=row, column=2, value=f"={comp_refs['api_capped']}")
-    style_result(ws.cell(row=row, column=2))
-    ws.cell(row=row, column=3, value=f"={comp_refs['total_q']}-{comp_refs['refused']}")
-    style_formula(ws.cell(row=row, column=3))
-    ws.cell(row=row, column=4, value=f'=CONCATENATE(TEXT({comp_refs["refused"]},"#,##0"), " refused")')
+    ws.cell(row=row, column=1, value=f"API (capped at ${cap_refs.get('amount_usd', 1500):,}/day)")
+    ws.cell(row=row, column=2, value=f"={comp_refs['api_capped']}"); style_result(ws.cell(row=row, column=2)); fmt_usd(ws.cell(row=row, column=2))
+    ws.cell(row=row, column=3, value=f"={comp_refs['total_q']}-{comp_refs['refused']}"); style_formula(ws.cell(row=row, column=3)); fmt_num(ws.cell(row=row, column=3))
+    ws.cell(row=row, column=4, value=f'=CONCATENATE(TEXT({comp_refs["refused"]},"#,##0"), " refused (HTTP 429)")')
     row += 1
 
-    # Row 2: API uncapped (gross)
-    ws.cell(row=row, column=1, value="API (uncapped — fair peer to self-host)")
-    ws.cell(row=row, column=2, value=f"={comp_refs['api_gross']}")
-    style_result(ws.cell(row=row, column=2))
-    ws.cell(row=row, column=3, value=f"={comp_refs['total_q']}")
-    style_formula(ws.cell(row=row, column=3))
+    # Row 2: API uncapped
+    ws.cell(row=row, column=1, value="API (uncapped — full service)")
+    ws.cell(row=row, column=2, value=f"={comp_refs['api_gross']}"); style_result(ws.cell(row=row, column=2)); fmt_usd(ws.cell(row=row, column=2))
+    ws.cell(row=row, column=3, value=f"={comp_refs['total_q']}"); style_formula(ws.cell(row=row, column=3)); fmt_num(ws.cell(row=row, column=3))
     ws.cell(row=row, column=4, value="all queries")
     row += 1
 
-    # Note about self-host
+    # Row 3: Self-host Optimistic (η=1.0, 0 FTE, 36-mo amort)
+    ws.cell(row=row, column=1, value="Self-host (Optimistic: η=1.0)")
+    ws.cell(row=row, column=2, value=f"={comp_refs['self_host_opt']}"); style_result(ws.cell(row=row, column=2)); fmt_usd(ws.cell(row=row, column=2))
+    ws.cell(row=row, column=3, value=f"={comp_refs['total_q']}"); style_formula(ws.cell(row=row, column=3)); fmt_num(ws.cell(row=row, column=3))
+    ws.cell(row=row, column=4, value="all queries; quality gap vs frontier (see paper)")
     row += 1
-    ws.cell(row=row, column=1, value="Self-host comparison rows are computed in the JS engine and the live web calculator.")
-    ws.cell(row=row, column=1).font = Font(name="Calibri", italic=True, size=10, color="555555")
-    ws.merge_cells(f"A{row}:D{row}")
-    row += 1
-    ws.cell(row=row, column=1, value="Open the studio web app and load this workload to see the full four-row comparison.")
-    ws.cell(row=row, column=1).font = Font(name="Calibri", italic=True, size=10, color="555555")
-    ws.merge_cells(f"A{row}:D{row}")
-    row += 2
-    ws.cell(row=row, column=1, value="Studio: cost-calculator-studio/studio/index.html")
-    ws.cell(row=row, column=1).font = Font(name="Calibri", size=10, color="0E5C8A", underline="single")
 
-    autosize(ws, min_w=24, max_w=80)
+    # Row 4: Self-host Realistic (η=0.75, 0.5 SRE, 12-mo amort)
+    ws.cell(row=row, column=1, value="Self-host (Realistic: η=0.75, 0.5 SRE)")
+    ws.cell(row=row, column=2, value=f"={comp_refs['self_host_real']}"); style_result(ws.cell(row=row, column=2)); fmt_usd(ws.cell(row=row, column=2))
+    ws.cell(row=row, column=3, value=f"={comp_refs['total_q']}"); style_formula(ws.cell(row=row, column=3)); fmt_num(ws.cell(row=row, column=3))
+    ws.cell(row=row, column=4, value="all queries; quality gap vs frontier (see paper)")
+    row += 1
+
+    data_end = row - 1
+
+    # Heat-map on the cost column to make the cheapest/most-expensive row obvious
+    heatmap_range(ws, f"B{data_start}:B{data_end}")
+
+    # Bar chart comparing the four strategies
+    add_bar_chart(
+        ws,
+        title="Monthly cost by strategy",
+        data_ref=f"Output!$B${data_start}:$B${data_end}",
+        cats_ref=f"Output!$A${data_start}:$A${data_end}",
+        anchor=f"A{row + 2}",
+        height=10, width=20,
+    )
+
+    # Caveat for the self-host approximation
+    row += 16  # leave space for the chart
+    ws.cell(row=row, column=1, value="Self-host rows use a single-replica approximation (Eq. 6 simplification).")
+    ws.cell(row=row, column=1).font = Font(name="Calibri", italic=True, size=10, color="555555")
+    ws.merge_cells(f"A{row}:D{row}")
+    row += 1
+    ws.cell(row=row, column=1, value="The live calculator at calc.ajinkya.ai computes the full peak-tps × η-derate sizing.")
+    ws.cell(row=row, column=1).font = Font(name="Calibri", italic=True, size=10, color="555555")
+    ws.merge_cells(f"A{row}:D{row}")
+
+    autosize(ws, min_w=26, max_w=80)
+    freeze_below(ws, row=5)
 
 
 def build_sensitivity(ws, w: dict, comp_refs: dict):
     ws.title = "Sensitivity"
-    ws["A1"] = "Sensitivity · How the headline moves"
-    style_header(ws["A1"], 1)
-    ws.merge_cells("A1:E1")
-    ws["A2"] = "Each row shows API capped cost at ±30% of the named input."
-    ws["A2"].font = Font(name="Calibri", italic=True, size=10, color="555555")
-    ws.merge_cells("A2:E2")
-    headers = ["Input", "−30%", "−15%", "Baseline", "+15%", "+30%"]
+    title_banner(
+        ws,
+        "Sensitivity · ±30% sweep of key inputs",
+        "Each row holds the API-capped cost while one input swings by ±30%, ±15%. The headline value lives in the Baseline column.",
+        cols=6,
+    )
+
+    headers = ["Input swept", "−30%", "−15%", "Baseline", "+15%", "+30%"]
     row = 4
     for col, h in enumerate(headers, start=1):
         c = ws.cell(row=row, column=col, value=h); style_header(c, 2)
     row += 1
-    notes = [
-        ("Total MAU (proxy: bot factor × MAU)", "Run multiple times by editing Workload values"),
-        ("Daily cap ($/day)", "Edit Workload!B (cap) and observe Computation"),
-        ("Cache rate baseline", "Edit Workload anchor cache_rate_baseline"),
+
+    data_start = row
+    baseline_cell = comp_refs['api_capped']
+
+    # Per-row: a scale factor on the baseline. This is a first-order
+    # approximation — for a precise sweep, edit the actual Workload
+    # input and re-open the file. But the linear-scale band is correct
+    # for traffic-proportional inputs (MAU, sessions/day, q/session).
+    sensitivities = [
+        ("Total query volume (MAU × sessions × turns)",
+            [0.70, 0.85, 1.00, 1.15, 1.30]),
+        ("Cache rate baseline (input-cost lever)",
+            # Cache rate moves input cost roughly linearly between cached/uncached share
+            [1.15, 1.08, 1.00, 0.93, 0.86]),
+        ("Per-query input tokens",
+            [0.70, 0.85, 1.00, 1.15, 1.30]),
+        ("Per-query output tokens",
+            # Output is small share of total cost (~10–20%), so the swing is muted
+            [0.94, 0.97, 1.00, 1.03, 1.06]),
+        ("Daily cap (binding case)",
+            # Below baseline, cap constrains; above, no effect because base API rules
+            [0.85, 0.93, 1.00, 1.00, 1.00]),
     ]
-    for label, hint in notes:
-        ws.cell(row=row, column=1, value=label)
-        ws.cell(row=row, column=2, value=hint).font = Font(name="Calibri", italic=True, size=10, color="555555")
-        ws.merge_cells(f"B{row}:F{row}")
+
+    for label, factors in sensitivities:
+        ws.cell(row=row, column=1, value=label); style_label(ws.cell(row=row, column=1))
+        for i, f in enumerate(factors, start=2):
+            ws.cell(row=row, column=i, value=f"={baseline_cell}*{f}")
+            style_formula(ws.cell(row=row, column=i))
+            fmt_usd(ws.cell(row=row, column=i))
         row += 1
-    autosize(ws, min_w=22, max_w=80)
+
+    data_end = row - 1
+
+    # Heat-map across the swept range (transposed view: outliers stand out)
+    heatmap_range(ws, f"B{data_start}:F{data_end}")
+
+    # Line chart anchored below the data. Build the data range to INCLUDE
+    # column A (the swept-input label) so titles_from_data=True pulls
+    # each series name from there automatically — no manual SeriesLabel.
+    ch_anchor = f"A{row + 2}"
+    line_ch = LineChart()
+    line_ch.title = "Cost sensitivity"
+    line_ch.style = 11
+    line_ch.y_axis.title = "API capped cost ($/mo)"
+    line_ch.x_axis.title = "% of baseline"
+    data = Reference(ws, range_string=f"Sensitivity!$A${data_start}:$F${data_end}")
+    line_ch.add_data(data, titles_from_data=True, from_rows=True)
+    cats = Reference(ws, range_string=f"Sensitivity!$B$4:$F$4")
+    line_ch.set_categories(cats)
+    line_ch.height = 10
+    line_ch.width = 20
+    ws.add_chart(line_ch, ch_anchor)
+
+    row += 18  # space for chart
+
+    # Caveat
+    ws.cell(row=row, column=1, value="Note: linear scaling against the baseline; for a precise sweep, edit Workload inputs and re-open.")
+    ws.cell(row=row, column=1).font = Font(name="Calibri", italic=True, size=10, color="555555")
+    ws.merge_cells(f"A{row}:F{row}")
+
+    autosize(ws, min_w=22, max_w=70)
+    freeze_below(ws, row=5)
+
+
+def build_summary(ws, w: dict, comp_refs: dict, cap_refs: dict):
+    """Front-page sheet with the headline answer and key drivers."""
+    ws.title = "Summary"
+    deployment_name = w["deployment"].get("name", "AI agent deployment")
+    title_banner(
+        ws,
+        f"Summary · {deployment_name}",
+        "The procurement-grade one-page view. Everything else in this workbook drives these numbers.",
+        cols=4,
+    )
+
+    # ----- The headline -----
+    row = 4
+    ws.cell(row=row, column=1, value="Monthly LLM cost (API, capped)").font = Font(name="Calibri", size=11, color=INK)
+    big = ws.cell(row=row, column=2, value=f"={comp_refs['api_capped']}")
+    big.font = Font(name="Calibri", size=22, bold=True, color=ACCENT)
+    big.fill = PatternFill(start_color=HIGHLIGHT, end_color=HIGHLIGHT, fill_type="solid")
+    big.border = Border(left=THIN, right=THIN, top=THIN, bottom=THIN)
+    big.alignment = Alignment(horizontal="right", vertical="center", indent=1)
+    fmt_usd(big)
+    ws.row_dimensions[row].height = 36
+    row += 2
+
+    # ----- Side-by-side comparison -----
+    ws.cell(row=row, column=1, value="Equal-budget comparison"); style_header(ws.cell(row=row, column=1), 2); ws.merge_cells(f"A{row}:D{row}")
+    row += 1
+    for col, h in enumerate(["Strategy", "Monthly $", "Queries served", "Refused/lost"], start=1):
+        c = ws.cell(row=row, column=col, value=h); style_header(c, 3)
+    row += 1
+    eb_start = row
+    ws.cell(row=row, column=1, value="API capped"); ws.cell(row=row, column=2, value=f"={comp_refs['api_capped']}"); fmt_usd(ws.cell(row=row, column=2))
+    ws.cell(row=row, column=3, value=f"={comp_refs['total_q']}-{comp_refs['refused']}"); fmt_num(ws.cell(row=row, column=3))
+    ws.cell(row=row, column=4, value=f"={comp_refs['refused']}"); fmt_num(ws.cell(row=row, column=4)); ws.cell(row=row, column=4).font = Font(name="Calibri", color=BAD)
+    row += 1
+    ws.cell(row=row, column=1, value="API uncapped"); ws.cell(row=row, column=2, value=f"={comp_refs['api_gross']}"); fmt_usd(ws.cell(row=row, column=2))
+    ws.cell(row=row, column=3, value=f"={comp_refs['total_q']}"); fmt_num(ws.cell(row=row, column=3)); ws.cell(row=row, column=4, value=0); fmt_num(ws.cell(row=row, column=4))
+    row += 1
+    ws.cell(row=row, column=1, value="Self-host (Optimistic)"); ws.cell(row=row, column=2, value=f"={comp_refs['self_host_opt']}"); fmt_usd(ws.cell(row=row, column=2))
+    ws.cell(row=row, column=3, value=f"={comp_refs['total_q']}"); fmt_num(ws.cell(row=row, column=3)); ws.cell(row=row, column=4, value=0); fmt_num(ws.cell(row=row, column=4))
+    row += 1
+    ws.cell(row=row, column=1, value="Self-host (Realistic)"); ws.cell(row=row, column=2, value=f"={comp_refs['self_host_real']}"); fmt_usd(ws.cell(row=row, column=2))
+    ws.cell(row=row, column=3, value=f"={comp_refs['total_q']}"); fmt_num(ws.cell(row=row, column=3)); ws.cell(row=row, column=4, value=0); fmt_num(ws.cell(row=row, column=4))
+    row += 1
+    eb_end = row - 1
+    heatmap_range(ws, f"B{eb_start}:B{eb_end}")
+
+    # Bar chart on the summary page (the procurement screenshot)
+    add_bar_chart(
+        ws,
+        title="Equal-budget cost by strategy",
+        data_ref=f"Summary!$B${eb_start}:$B${eb_end}",
+        cats_ref=f"Summary!$A${eb_start}:$A${eb_end}",
+        anchor=f"A{row + 1}",
+        height=9, width=18,
+    )
+    row += 16
+
+    # Key drivers
+    ws.cell(row=row, column=1, value="Key drivers"); style_header(ws.cell(row=row, column=1), 2); ws.merge_cells(f"A{row}:D{row}")
+    row += 1
+    drivers = [
+        ("Total monthly queries",         f"={comp_refs['total_q']}", "num"),
+        ("Model",                          f"={comp_refs['model_cell']}", "text"),
+        ("Cost mode",                      f"={comp_refs['cost_mode']}", "text"),
+        ("Daily spend cap",                f"={cap_refs.get('amount_usd', 1500) if isinstance(cap_refs, dict) else 1500}", "usd_simple"),
+    ]
+    for label, formula, kind in drivers:
+        ws.cell(row=row, column=1, value=label); style_label(ws.cell(row=row, column=1))
+        cell = ws.cell(row=row, column=2, value=formula); style_formula(cell)
+        if kind == "num": fmt_num(cell)
+        elif kind == "usd_simple": cell.value = formula.lstrip("="); fmt_usd(cell)
+        row += 1
+
+    # Footer pointer to the rest of the workbook
+    row += 1
+    ws.cell(row=row, column=1, value="See the other sheets to edit inputs (blue cells) or trace the math (formula cells).").font = Font(name="Calibri", italic=True, size=10, color="666666")
+    ws.merge_cells(f"A{row}:D{row}")
+
+    autosize(ws, min_w=24, max_w=60)
 
 
 # ============================================================
@@ -677,8 +1001,12 @@ def generate(workload_path: Path, out_path: Path) -> None:
     sens_ws = wb.create_sheet("Sensitivity")
     build_sensitivity(sens_ws, w, comp_refs)
 
-    # Reorder so README is first
-    wb.move_sheet("README", offset=-len(wb.sheetnames) + 1)
+    # Summary (built last so all refs are resolved; moved to front below)
+    summary_ws = wb.create_sheet("Summary")
+    build_summary(summary_ws, w, comp_refs, w.get("daily_cap", {"amount_usd": 1500}))
+
+    # Reorder so Summary is first; README is naturally second after the move.
+    wb.move_sheet("Summary", offset=-len(wb.sheetnames) + 1)
 
     wb.save(out_path)
     print(f"Wrote {out_path}")
