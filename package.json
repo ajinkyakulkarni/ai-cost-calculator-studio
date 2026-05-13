@@ -1,7 +1,7 @@
 {
   "name": "ai-cost-calculator-studio",
   "version": "1.0.0",
-  "description": "> A toolkit for building parameterized AI-agent cost calculators. > Define your workload as JSON; emit a single-file HTML calculator. > Like draw.io, but for LLM cost models.",
+  "description": "A toolkit for building parameterized AI-agent cost calculators. Define your workload as JSON; emit a single-file HTML calculator. Like draw.io, but for LLM cost models.",
   "main": "index.js",
   "directories": {
     "doc": "docs",
@@ -17,9 +17,9 @@
     "type": "git",
     "url": "git+https://github.com/ajinkyakulkarni/ai-cost-calculator-studio.git"
   },
-  "keywords": [],
-  "author": "",
-  "license": "ISC",
+  "keywords": ["llm", "ai", "cost-calculator", "agent", "openai", "anthropic", "tco"],
+  "author": "Ajinkya Kulkarni <ajinkya.kulkarni@uah.edu>",
+  "license": "MIT",
   "bugs": {
     "url": "https://github.com/ajinkyakulkarni/ai-cost-calculator-studio/issues"
   },

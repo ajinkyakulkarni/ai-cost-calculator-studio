@@ -70,9 +70,11 @@ unit tests for the price-book refresher).
 > 2. **Auto-deploy**: `git push` to `main` → Cloudflare Pages
 >    auto-builds + serves `public/` from the `ai-cost-calculator-studio`
 >    Worker. ~30s end-to-end.
-> 3. **Cloudflare credentials**: API token at `~/.cloudflare/api-token`
->    (gitignored). Source it before any `wrangler` command:
->    `export CLOUDFLARE_API_TOKEN=$(cat ~/.cloudflare/api-token | tr -d '\n\r ')`.
+> 3. **Cloudflare credentials**: deploys need a Cloudflare API token
+>    with Workers Edit scope ([create one](https://dash.cloudflare.com/profile/api-tokens)).
+>    Keep it in a chmod-600 file of your choice (gitignored) and
+>    export `CLOUDFLARE_API_TOKEN` before any `wrangler` command, e.g.
+>    `export CLOUDFLARE_API_TOKEN=$(tr -d '\n\r ' < <your-token-file>)`.
 > 4. **Sister repos**: the personal-cloud monorepo at
 >    [`ajinkyakulkarni/ajinkya.ai`](https://github.com/ajinkyakulkarni/ajinkya.ai)
 >    hosts the API proxy at `api.ajinkya.ai`, the daily price scraper,
@@ -121,8 +123,8 @@ The calc is pure static assets served via Cloudflare Workers.
 **No build step** — `public/` is uploaded as-is.
 
 ```bash
-# One-time: set the Cloudflare API token (see callout above)
-export CLOUDFLARE_API_TOKEN=$(cat ~/.cloudflare/api-token | tr -d '\n\r ')
+# One-time per shell: export the Cloudflare API token (see callout above).
+export CLOUDFLARE_API_TOKEN=$(tr -d '\n\r ' < <your-token-file>)
 
 # Deploy: pushes public/ to the ai-cost-calculator-studio Worker,
 # which serves calc.ajinkya.ai.

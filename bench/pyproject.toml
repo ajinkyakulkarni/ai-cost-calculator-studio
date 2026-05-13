@@ -5,7 +5,7 @@ description = "Production-shaped benchmark harness for multi-agent LLM systems. 
 readme = "README.md"
 requires-python = ">=3.11"
 license = { text = "MIT" }
-authors = [{ name = "Ajinkya Kulkarni", email = "claude@ajinkyakulkarni.com" }]
+authors = [{ name = "Ajinkya Kulkarni", email = "ajinkya.kulkarni@uah.edu" }]
 keywords = ["llm", "agents", "cost", "benchmark", "langgraph", "litellm", "opentelemetry"]
 
 dependencies = [
