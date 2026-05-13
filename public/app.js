@@ -784,13 +784,23 @@
     });
     upfront += helper * dur;
     const amortized_monthly = upfront / amort;
-    // Maintenance: design-lead loaded hourly × hours per session ÷ months between sessions
-    const lead = (window.Prices && window.Prices.personnel && window.Prices.personnel.agent_design_lead) || {};
-    const leadLoadedAnnual = (lead.annual_base || 230000) * (lead.total_comp_multiplier || 1.30);
-    const leadHourly = leadLoadedAnnual / 2080;  // 40hr × 52wk
-    const interval = Math.max(1, Number(ae.maintenance_interval_months) || 6);
-    const hoursPerSession = Math.max(0, Number(ae.maintenance_hours_per_session) || 0);
-    const maintenance_monthly = (leadHourly * hoursPerSession) / interval;
+    // Maintenance: design-lead loaded hourly × hours per session ÷ months between sessions.
+    // Mirrors scripts/calc.js's fail-loud policy: if prices.js doesn't define
+    // personnel.agent_design_lead, surface a console error and zero out the
+    // maintenance line rather than silently masking the gap with a hardcoded
+    // fallback that can drift away from prices.js. Previously this path used
+    // 230000 × 1.30 as a silent default — divergent from calc.js which throws.
+    const lead = (window.Prices && window.Prices.personnel && window.Prices.personnel.agent_design_lead) || null;
+    let maintenance_monthly = 0;
+    if (lead && lead.annual_base) {
+      const leadLoadedAnnual = lead.annual_base * (lead.total_comp_multiplier || 1);
+      const leadHourly = leadLoadedAnnual / 2080;  // 40hr × 52wk
+      const interval = Math.max(1, Number(ae.maintenance_interval_months) || 6);
+      const hoursPerSession = Math.max(0, Number(ae.maintenance_hours_per_session) || 0);
+      maintenance_monthly = (leadHourly * hoursPerSession) / interval;
+    } else {
+      console.error('prices.js: personnel.agent_design_lead is missing — maintenance line zeroed. Update lib/prices.js to define annual_base + total_comp_multiplier for this role.');
+    }
     return {
       enabled: true,
       upfront,

@@ -35,7 +35,11 @@
 
   // Build per-category default maps that the engine can use directly
   // (strips out metadata fields like source_url/last_verified, leaving
-  // just the numeric fields the engine needs).
+  // just the numeric fields the engine needs). `notes` is intentionally
+  // dropped from the engine-facing projection because it's free-form
+  // human prose (e.g., "rate unverified") that has no place in the
+  // numeric computation; the UI/render path reads notes directly from
+  // the raw rate-card JSON, so dropping it here doesn't lose information.
   function _stripPriceMeta(entry) {
     const out = {};
     for (const [k, v] of Object.entries(entry || {})) {
@@ -146,6 +150,14 @@
   // its own input/output token sizes and may override the main model.
   // This bypasses the shape × mix machinery — agents express the
   // pipeline directly.
+  //
+  // Note: this path SUMS absolute costs across agents (no weight
+  // normalization). The shape-mix path in perQueryCost below
+  // *normalizes* by totalWeight, because mix weights are fractions
+  // that must sum to 1 to give a single weighted-average per-query
+  // cost. The asymmetry is intentional and reflects the two different
+  // workload models (concurrent agents that all run vs. one query
+  // sampled from a distribution of shapes).
   // -------------------------------------------------------------------
   function perQueryCostAgents(workload, mainModelId, tierId, cacheRate, options) {
     const w = workload;
@@ -205,10 +217,20 @@
   // -------------------------------------------------------------------
   // Per-query cost: weighted blend across the configured shape mix.
   // -------------------------------------------------------------------
+
+  // Eq. 3 (eq:cache) per-turn cache-rate slope: cache hit rate moves ~1 pp
+  // per turn around the baseline turn count. Empirical from the v0.1.0 pilot
+  // (Table 2 of the paper) — a longer session amortizes the cached prefix
+  // better; a shorter one pays a higher cold-prefix fraction. Producers
+  // running on a different workload class should re-fit this from logged
+  // traffic before relying on the curve.
+  const CACHE_RATE_PER_TURN_ADJ = 0.01;
+  const CACHE_RATE_FLOOR = 0.50;
+  const CACHE_RATE_CEILING = 0.94;
+
   function effectiveCacheRate(baseline, questions_per_session, baseline_turns) {
-    // 1 percentage point per turn above/below baseline; clamped [0.5, 0.94].
-    const adj = baseline + (questions_per_session - baseline_turns) * 0.01;
-    return Math.min(0.94, Math.max(0.50, adj));
+    const adj = baseline + (questions_per_session - baseline_turns) * CACHE_RATE_PER_TURN_ADJ;
+    return Math.min(CACHE_RATE_CEILING, Math.max(CACHE_RATE_FLOOR, adj));
   }
 
   // Eq. 2 cache-blending helper. Given a model's rate card and an optional
@@ -274,11 +296,15 @@
     let auth = 0, anon = 0, total = 0;
     const bySegment = {};
     for (const seg of w.segments) {
-      const beta = seg.applyBotFactor ? botEffective : 1;
+      // Accept either camelCase `applyBotFactor` (legacy browser-side schema)
+      // or snake_case `apply_bot_factor` (consistent with the rest of the
+      // segment object). Either spelling works for a Python/Excel port.
+      const segApplyBot = seg.applyBotFactor != null ? seg.applyBotFactor : seg.apply_bot_factor;
+      const beta = segApplyBot ? botEffective : 1;
       const q = seg.mau * seg.sessions_per_day * DAYS * seg.questions_per_session * beta;
       bySegment[seg.id] = q;
       total += q;
-      if (seg.applyBotFactor) anon += q;
+      if (segApplyBot) anon += q;
       else auth += q;
     }
     return { total, bySegment, auth, anon, botEffective };
@@ -550,7 +576,19 @@
   // Coverage (0..1) is the fraction of production queries that are
   // sampled for verification.
   // -------------------------------------------------------------------
+  // NLI calls per verified query, broken out by FactReasoner variant:
+  //   fr1 = shallow (single-NLI-per-atom)
+  //   fr2 = medium (pairwise atom relations)
+  //   fr3 = exhaustive (full claim-graph traversal)
+  // Numbers are the per-query NLI-call counts measured on the
+  // FactReasoner reference implementation; producers running their own
+  // verification pipeline should re-fit these constants from their own
+  // trace data.
   const VARIANT_NLI_CALLS = { fr1: 24, fr2: 160, fr3: 350 };
+  // Flat monthly $ for self-hosting NLI on the listed GPU SKU
+  // (g6.xlarge / g5.xlarge on AWS, on-demand pricing). Used as the
+  // "self-host NLI" branch of computeVerification — alternative is
+  // routing NLI calls to the main API provider at per-token rates.
   const NLI_HOSTING_FLAT = { 'ec2-g6': 588, 'ec2-g5': 735 };
 
   function computeVerification(workload, monthlyQueries, options) {
@@ -643,10 +681,17 @@
     const hostMult = hostingMultiplier(w);
     const fixed = params.ops_monthly * hostMult + params.fte_monthly + params.setup_amortized;
     const gpuHourlyEff = gpu.hourly * (1 - disc) * hostMult;
+    // Match computeSelfHost's duty-cycle treatment: when duty_cycle < 1 the
+    // GPU is billed for fewer hours per month. Previously this branch used
+    // a hard-coded 730 hr/month, which made the capped variant overcount
+    // GPU spend (and so underestimate the number of instances affordable
+    // under the same daily cap) whenever the workload had duty_cycle < 1.
+    const dutyCycle = Math.max(0.05, Math.min(1.0, w.self_host.duty_cycle || 1.0));
+    const effectiveHours = 730 * dutyCycle;
     const budgetForGpu = Math.max(0, monthlyBudget - fixed);
-    const instancesAffordable = Math.floor(budgetForGpu / (gpuHourlyEff * 730));
+    const instancesAffordable = Math.floor(budgetForGpu / (gpuHourlyEff * effectiveHours));
     const instances = Math.max(0, Math.min(instancesAffordable, peerSelfHost.instances));
-    const gpuMonthly = instances * gpuHourlyEff * 730;
+    const gpuMonthly = instances * gpuHourlyEff * effectiveHours;
     const total = gpuMonthly + fixed;
 
     const capacity = instances * peerSelfHost.effective_tput;
@@ -740,8 +785,9 @@
     out += `Bot factor: requested ${opts.botFactor != null ? opts.botFactor.toFixed(1) + '×' : '—'}, clamped by rate_limit.bot_ceiling=${w.rate_limit?.bot_ceiling || '∞'} → effective ${(r.queries.botEffective || 1).toFixed(2)}×\n\n`;
     for (const seg of w.segments) {
       const q = r.queries.bySegment[seg.id];
-      const beta = seg.applyBotFactor ? r.queries.botEffective : 1;
-      out += `  Segment "${seg.label || seg.id}" (${seg.applyBotFactor ? 'anonymous, bot-factored' : 'authenticated'}):\n`;
+      const segApplyBot = seg.applyBotFactor != null ? seg.applyBotFactor : seg.apply_bot_factor;
+      const beta = segApplyBot ? r.queries.botEffective : 1;
+      out += `  Segment "${seg.label || seg.id}" (${segApplyBot ? 'anonymous, bot-factored' : 'authenticated'}):\n`;
       out += `    ${num(seg.mau)} MAU × ${seg.sessions_per_day} sess/day × 30 × ${seg.questions_per_session} q/sess × ${beta.toFixed(2)}× = ${num(q)} queries/mo\n`;
     }
     out += `  TOTAL: ${num(r.queries.total)} queries/mo\n\n`;

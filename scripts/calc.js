@@ -237,7 +237,10 @@ function compute(workload, opts) {
   // public/app.js:1075–1089 (the opts object passed to CostEngine.compute).
   const engineOpts = {
     hosting:       opts.hosting       || workload.defaults?.hosting       || 'api',
-    model:         opts.model         || workload.defaults?.model         || 'gpt-5.2',
+    // Last-resort fallback. Stays a step behind cutting-edge intentionally
+    // — better to default to a model that's still listed in every rate card
+    // than to a freshly-released one that might not be in older snapshots.
+    model:         opts.model         || workload.defaults?.model         || 'gpt-5.4',
     tier:          opts.tier          || workload.defaults?.tier          || 'standard',
     mix:           opts.mix           || workload.defaults?.mix           || 'mixed',
     costMode:      opts.costMode      || workload.defaults?.cost_mode     || 'realistic',
