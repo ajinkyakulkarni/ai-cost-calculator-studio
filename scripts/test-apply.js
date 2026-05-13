@@ -107,6 +107,103 @@ console.log('Test 6: last_verified inside the block gets bumped');
   }
 }
 
+console.log('Test 7a: balanced brace pair inside string (entry-1) does not corrupt sibling');
+{
+  const fakeSrc = `module.exports = {
+  test_category: {
+    'entry-1': { value: 100, notes: 'use when {region} is us-east', other: 1 },
+    'entry-2': { value: 200, notes: 'sentinel-do-not-touch', other: 2 },
+  },
+};`;
+  const r = applyEditsToSource(fakeSrc, 'test_category', 'entry-1',
+    [{ field: 'value', old: 100, new: 150 }], '2026-05-12');
+  if (r.error) fail(`error: ${r.error}`);
+  else if (!r.source.includes("'entry-2': { value: 200")) {
+    fail('balanced brace inside string corrupted sibling entry-2');
+  } else if (!r.source.includes('value: 150')) {
+    fail('intended edit on entry-1 was not applied');
+  } else {
+    pass('balanced brace in string literal did not corrupt sibling entry');
+  }
+}
+
+console.log('Test 7b: unbalanced close-brace inside a string field — output stays valid');
+{
+  // The brace-depth walker in applyEditsToSource is string-unaware,
+  // so a lone "}" inside a quoted notes field will cause the depth
+  // counter to drop to 0 too early. In practice this DOESN'T corrupt
+  // the rewrite because the function reassembles via
+  //   source.slice(0, blockStart) + edited_block + source.slice(blockEnd)
+  // so any source text past the (mis-set) blockEnd boundary is
+  // copied back verbatim. The only way to actually corrupt the
+  // output is to ALSO have the edited field's value land past the
+  // mis-set boundary, in which case the field replacement silently
+  // no-ops. This test covers the common case (edit lands before the
+  // string brace) and verifies the file still parses + entry-2 is
+  // intact. If a future change makes this case fail, the next
+  // hardening step is a string-stripping pre-pass for boundary
+  // detection (regex below) or a real JS parser.
+  const fakeSrc = `module.exports = {
+  test_category: {
+    'entry-1': { value: 100, notes: 'matched } literal close', other: 1 },
+    'entry-2': { value: 200, notes: 'sentinel-do-not-touch', other: 2 },
+  },
+};`;
+  const r = applyEditsToSource(fakeSrc, 'test_category', 'entry-1',
+    [{ field: 'value', old: 100, new: 150 }], '2026-05-12');
+  if (r.error) {
+    fail(`error: ${r.error}`);
+  } else {
+    let parseErr = null;
+    try {
+      new Function(r.source.replace(/^module\.exports\s*=/, 'return'));
+    } catch (e) { parseErr = e.message; }
+    if (parseErr) fail(`rewrite produced invalid JS: ${parseErr}`);
+    else if (!r.source.includes("'entry-2': { value: 200, notes: 'sentinel-do-not-touch'")) {
+      fail('unbalanced brace corrupted sibling entry-2');
+    } else if (!r.source.includes('value: 150')) {
+      fail('intended edit on entry-1 was not applied');
+    } else {
+      pass('unbalanced brace handled (file parses, sibling intact, edit applied)');
+    }
+  }
+}
+
+console.log('Test 7c: edit field lands AFTER in-string brace — silent no-op (documented)');
+{
+  // The companion to Test 7b. When the unbalanced '}' inside a string
+  // appears BEFORE the field we want to edit, the brace-walker's
+  // mis-set boundary truncates the block ABOVE the target field, so
+  // the field-value regex finds nothing inside the (truncated) block.
+  // Result: applied === 0 with no error — i.e. the rewrite silently
+  // does nothing. Callers (refresh-prices.js, verify-aws-instances.js)
+  // now treat applied===0 as a warning so this case isn't invisible.
+  const fakeSrc = `module.exports = {
+  test_category: {
+    'entry-1': { notes: 'lone close } here', value: 100, other: 1 },
+    'entry-2': { value: 200, notes: 'sentinel-do-not-touch', other: 2 },
+  },
+};`;
+  const r = applyEditsToSource(fakeSrc, 'test_category', 'entry-1',
+    [{ field: 'value', old: 100, new: 150 }], '2026-05-12');
+  if (r.error) {
+    fail(`unexpected error: ${r.error}`);
+  } else if (r.applied !== 0) {
+    // If the brace-walker is ever hardened (string-stripping or AST
+    // rewrite), this assertion flips: applied should become 1 and
+    // value should be 150. Flip both assertions when that happens.
+    pass(`brace-walker hardened — edit succeeded (applied=${r.applied})`);
+  } else {
+    // Current behavior: silent no-op. Verify the file is at least
+    // unchanged (no corruption) so callers can warn-and-retry safely.
+    if (r.source === fakeSrc) {
+      pass('field-after-in-string-brace → applied=0, source unchanged (silent no-op surfaced via applied count)');
+    } else {
+      fail('applied=0 but source was modified — that should not happen');
+    }
+  }
+}
+
 console.log('');
 if (process.exitCode) console.log('FAILED');
 else console.log('All tests passed.');

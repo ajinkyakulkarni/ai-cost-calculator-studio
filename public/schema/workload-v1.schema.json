@@ -38,6 +38,13 @@
       }
     },
 
+    "tool_response_mode": {
+      "type": "string",
+      "enum": ["freeform", "templated"],
+      "default": "freeform",
+      "description": "How tool returns are shaped before the LLM sees them. 'freeform' (default) carries descriptive output and full structured payloads; the per-turn input bill compounds with conversation history. 'templated' models production agents that route every tool return through a centralized response-template layer — messages are clipped to a short fixed budget (~40 tok) and large payloads (geometry, items, per-item stats) stay server-side. Materially affects per-turn input cost on long sessions; switch to 'templated' for any deployment that fronts its tools with a fixed response schema."
+    },
+
     "shapes": {
       "type": "object",
       "description": "Catalog of query shapes. Each shape's input/output token counts are expressed as factors of the anchor query.",

@@ -51,10 +51,10 @@ if (!fs.existsSync(PRICES_PATH)) {
 const Prices      = require(PRICES_PATH);
 
 const OPENAI_API_KEY = process.env.OPENAI_API_KEY;
-if (!OFFLINE && !OPENAI_API_KEY && !DRY_RUN) {
-  console.error('ERROR: OPENAI_API_KEY env var required for --apply (or pass --offline to skip extraction).');
-  process.exit(1);
-}
+// LLM extraction runs in both dry-run and --apply paths; only --offline
+// skips it. The actual fail-fast check lives inside main() — putting it
+// at module scope would also trigger when test-apply.js extracts
+// applyEditsToSource via vm.runInContext.
 
 // Numeric fields the scraper is allowed to refresh. Anything not in this
 // set is left alone — keeps the LLM from inventing new fields.
@@ -338,6 +338,14 @@ function fmtPct(p) {
 
 // ---------------------------------------------------------------------
 async function main() {
+  // Fail fast if we'd hit the LLM without a key. (Dry-run still calls
+  // extractWithLLM, so the key is required whenever --offline is not set,
+  // regardless of whether we're applying the result.)
+  if (!OFFLINE && !OPENAI_API_KEY) {
+    console.error('ERROR: OPENAI_API_KEY required for LLM extraction. Pass --offline to skip.');
+    process.exit(1);
+  }
+
   console.log(`refresh-prices.js — mode: ${DRY_RUN ? 'DRY-RUN' : 'APPLY'}${OFFLINE ? ' (offline)' : ''}, model: ${MODEL}`);
   if (ONLY_CATEGORY) console.log(`  filter category: ${ONLY_CATEGORY}`);
   if (ONLY_KEY)      console.log(`  filter key:      ${ONLY_KEY}`);
@@ -388,6 +396,16 @@ async function main() {
       if (res.error) {
         console.log(`    SKIP WRITE: ${res.error}`);
         errors.push({ category, key, error: res.error });
+      } else if (res.applied === 0 && fields.length > 0) {
+        // Silent-failure surface: block was found but no field-value
+        // regex matched. Usually caused by a literal '}' in a string
+        // field inside this block, which truncates the brace-walker's
+        // boundary too early. Treat as an error so the user can
+        // investigate rather than assuming "wrote 0" was intentional.
+        const msg = `block matched but applied 0 of ${fields.length} edits (` +
+          `field-value regex did not match inside the matched block)`;
+        console.log(`    SKIP WRITE: ${msg}`);
+        errors.push({ category, key, error: msg });
       } else {
         source = res.source;
         totalApplied += res.applied;

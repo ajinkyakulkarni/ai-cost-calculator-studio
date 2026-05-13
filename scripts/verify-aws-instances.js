@@ -146,10 +146,31 @@ async function main() {
   const apply = ctx.__applyEditsToSource;
 
   let src = fs.readFileSync(PRICES_PATH, 'utf8');
+  // applyEditsToSource expects (source, category, key, fieldDiffs, today)
+  // and returns { source, applied, error }. The previous call used the
+  // wrong argument shape and read .next instead of .source — `--apply`
+  // would crash on the first instance.
+  const today = new Date().toISOString().slice(0, 10);
   for (const d of drifts) {
-    const result = apply(src, ['gpu_instances', d.id], { hourly: d.scraped });
-    if (result.error) console.error(`apply failed for ${d.id}: ${result.error}`);
-    else src = result.next;
+    const fieldDiffs = [{ field: 'hourly', old: d.current, new: d.scraped }];
+    const result = apply(src, 'gpu_instances', d.id, fieldDiffs, today);
+    if (result.error) {
+      console.error(`apply failed for ${d.id}: ${result.error}`);
+    } else if (result.applied === 0) {
+      // No-edit-but-no-error is the silent-failure mode for applyEditsToSource:
+      // the block was found but the field-value regex didn't match anything
+      // inside the (possibly truncated by in-string brace) block. Surface it
+      // rather than swallow it — would otherwise look like a successful apply.
+      console.error(
+        `apply matched block for ${d.id} but applied 0 edits — ` +
+        `the 'hourly' field was not found in the matched block. ` +
+        `This can happen if a string field inside the block contains a ` +
+        `literal '}' that confused the brace-depth walker. ` +
+        `Verify ${PRICES_PATH} manually.`
+      );
+    } else {
+      src = result.source;
+    }
   }
   fs.writeFileSync(PRICES_PATH, src);
   console.log(`Updated ${drifts.length} entries in ${PRICES_PATH}`);

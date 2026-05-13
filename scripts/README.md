@@ -183,4 +183,8 @@ node scripts/test-apply.js
 
 Covers: flat field edits, nested keys (`federal_multipliers.fedramp.moderate`),
 sub-objects (`cloud_aws.s3`), benchmark entries, missing-key errors,
-and `last_verified` bumping. Should pass with `All tests passed.`
+`last_verified` bumping, and the brace-counter edge case where a
+prices.js entry contains a literal `{` or `}` inside a string field
+(test 7a covers balanced pairs, 7b covers a lone unbalanced close-brace
+and asserts the rewrite still parses and leaves siblings intact).
+Should pass with `All tests passed.`

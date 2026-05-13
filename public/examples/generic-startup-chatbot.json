@@ -10,9 +10,15 @@
   "anchor_query": {
     "input_tokens": 8000,
     "output_tokens": 400,
-    "cache_rate_baseline": 0.65,
+    "cache_rate_baseline": 0.75,
     "session_baseline_turns": 5,
-    "example": "Why was I charged twice on my last invoice and how can I get a refund?"
+    "example": "Why was I charged twice on my last invoice and how can I get a refund?",
+    "_calibration": {
+      "source": "industry-typical estimate (not measured)",
+      "updated_on": "2026-05-12",
+      "previous_values": { "cache_rate_baseline": 0.65 },
+      "notes": "Consumer-support chatbots with a stable system prompt + product knowledge base injection typically reach 0.70-0.80 effective cache rate on 5-turn sessions: the system prompt and FAQ context persist across the session while only the user message varies. 0.75 is a defensible industry midpoint. The prior value (0.65) was conservative; impact on the headline is small (~$200/mo) because the workload is already inexpensive per query, but the lower number was inconsistent with how production consumer chatbots actually cache."
+    }
   },
   "shapes": {
     "faq": {

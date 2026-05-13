@@ -181,6 +181,11 @@
     w.verification.nli_tokens      = w.verification.nli_tokens      || { input: 1200, output:  20 };
     w.infrastructure = w.infrastructure || {};
     w.agents = Array.isArray(w.agents) ? w.agents : [];
+    // Some newer presets (health, legal, finance) omit the legacy daily_cap
+    // block entirely. Backfill from blank so the two app.js code paths that
+    // still read workload.daily_cap.amount_usd (display strings only, no
+    // engine math) don't crash on load.
+    w.daily_cap = Object.assign({}, blank.daily_cap, w.daily_cap || {});
     w.federal = Object.assign({}, blank.federal, w.federal || {});
     w.compliance = Object.assign({}, blank.compliance, w.compliance || {});
     w.reservations = Object.assign({}, blank.reservations, w.reservations || {});
@@ -1002,6 +1007,137 @@
     if (ta) ta.value = JSON.stringify(workload, null, 2);
   }
 
+  // Single source of truth for the headline composition. Every panel that
+  // displays a $/month total (preview, sensitivity, model compare, budget
+  // solver, preset compare) routes through this so they can't drift —
+  // a recurring bug source where one panel applied retry-inflate and
+  // another didn't, producing inconsistent KPIs across the page.
+  function composeHeadline(r, w, opts, retryInflate = 1) {
+    const apiBill = (r.api?.monthly_capped || 0) * retryInflate;
+    const fixed = r.fixed_costs?.total || 0;
+    const verif = r.verification?.monthly || 0;
+    const fed = r.federal?.additive_total || 0;
+    const emb = (r.embedding?.enabled ? r.embedding.monthly : 0) || 0;
+    const pers = (r.personnel?.enabled ? r.personnel.monthly : 0) || 0;
+    const aeBlock = computeAgentEngineering();
+    const ae = aeBlock.enabled ? aeBlock.monthly : 0;
+    let llm;
+    if (opts.hosting === 'hybrid' && r.hybrid) llm = r.hybrid.total;
+    else if (opts.hosting === 'self') llm = r.self_host?.total || 0;
+    else if (opts.hosting === 'onprem') llm = parseFloat(w.on_prem_monthly) || 0;
+    else if (r.reservation?.enabled) llm = r.reservation.effective_monthly;
+    else llm = apiBill;
+    const headline = llm + fixed + verif + fed + emb + pers + ae;
+    return { headline, llm, apiBill, fixed, verif, fed, emb, pers, ae };
+  }
+
+  // Render the calibration badge above the headline. Reads
+  // workload.anchor_query._calibration; shows nothing when absent.
+  //
+  // When _calibration.payload_modes is present, renders three toggle
+  // buttons (Minimal / Moderate / Heavy). Selecting one rewrites
+  // anchor_query.input_tokens / output_tokens / cache_rate_baseline
+  // to the chosen mode and re-renders. The active mode is persisted
+  // on workload._payload_mode_active so it survives renderPreview
+  // re-entries.
+  function renderCalibrationBadge() {
+    const el = document.getElementById('prev-calibration');
+    if (!el) return;
+    const cal = workload.anchor_query?._calibration;
+    if (!cal || !cal.validated_on) {
+      el.hidden = true;
+      el.innerHTML = '';
+      el.className = 'calibration-badge';
+      return;
+    }
+    // Determine which payload mode is active. Default to 'minimal'
+    // (the validated one) on first render.
+    const modes = cal.payload_modes || null;
+    const activeMode = workload._payload_mode_active || 'minimal';
+    const isValidatedMode = activeMode === 'minimal' || !modes;
+
+    el.className = 'calibration-badge';
+    if (modes && activeMode !== 'minimal') {
+      el.classList.add(`mode-${activeMode}`);
+    }
+
+    const report = cal.validation_report
+      ? `https://github.com/ajinkyakulkarni/ai-cost-calculator-studio/blob/main/${cal.validation_report}`
+      : null;
+    const linkHtml = report
+      ? `<a href="${report}" target="_blank" rel="noopener">view bench report</a>`
+      : '';
+    const sample = cal.sample_size ? `, ${escapeHtml(cal.sample_size)}` : '';
+
+    // Header line — different copy depending on whether the user is
+    // viewing the validated mode or an estimated upper-bound mode.
+    const headerHtml = isValidatedMode
+      ? `<span class="cal-check">✓</span>
+         <span>Validated against ${escapeHtml(cal.validated_against || 'real API')}</span>
+         <span class="cal-date">${escapeHtml(cal.validated_on)}${sample}</span>`
+      : `<span class="cal-check">⚠</span>
+         <span>Estimated upper bound (not yet measured)</span>
+         <span class="cal-date">based on ${escapeHtml(cal.validated_on)} calibration</span>`;
+
+    // Summary line — the procurement-grade accuracy claim, visible
+    // not just on hover. For non-validated modes, swaps in the upper-
+    // bound caveat.
+    let summaryHtml = '';
+    if (isValidatedMode && cal.accuracy_statement) {
+      summaryHtml = `<div class="cal-summary">${escapeHtml(cal.accuracy_statement)}</div>`;
+    } else if (!isValidatedMode && modes && modes[activeMode]?.description) {
+      summaryHtml = `<div class="cal-summary">${escapeHtml(modes[activeMode].description)} — these numbers are estimated, not measured against real API.</div>`;
+    }
+
+    // Payload-mode toggle — only rendered when payload_modes exists.
+    let modesHtml = '';
+    if (modes) {
+      const buttons = ['minimal', 'moderate', 'heavy']
+        .filter(k => modes[k])
+        .map(k => {
+          const isActive = k === activeMode;
+          const label = modes[k].label || k;
+          return `<button class="cal-mode-btn${isActive ? ' active' : ''}" data-mode="${k}" type="button"><span>${escapeHtml(label)}</span></button>`;
+        }).join('');
+      modesHtml = `
+        <div class="cal-modes">
+          <span class="cal-mode-label">Retrieval payload:</span>
+          ${buttons}
+        </div>`;
+    }
+
+    el.innerHTML = `
+      <div class="cal-header">${headerHtml} ${linkHtml ? '· ' + linkHtml : ''}</div>
+      ${summaryHtml}
+      ${modesHtml}
+    `;
+    el.hidden = false;
+    if (cal.notes) el.title = cal.notes;
+
+    // Wire mode-toggle clicks. Each click rewrites the workload's
+    // anchor_query to the chosen mode's values and triggers a
+    // re-render. The CSS bridge in renderPreview reads the new
+    // values on the next pass.
+    el.querySelectorAll('.cal-mode-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const k = btn.dataset.mode;
+        const mode = modes?.[k];
+        if (!mode) return;
+        workload._payload_mode_active = k;
+        // Rewrite the anchor — preserve session_baseline_turns + example.
+        if (mode.input_tokens != null) workload.anchor_query.input_tokens = mode.input_tokens;
+        if (mode.output_tokens != null) workload.anchor_query.output_tokens = mode.output_tokens;
+        if (mode.cache_rate_baseline != null) workload.anchor_query.cache_rate_baseline = mode.cache_rate_baseline;
+        // Reflect cache slider too so the AXIOM cacheRate signal matches.
+        const sCache = document.getElementById('s-cache');
+        if (sCache && mode.cache_rate_baseline != null) {
+          sCache.value = String(Math.round(mode.cache_rate_baseline * 100));
+        }
+        renderPreview();
+      });
+    });
+  }
+
   // -----------------------------------------------------------------
   // Live preview (right pane)
   // -----------------------------------------------------------------
@@ -1085,6 +1221,9 @@
       botFactor: numVal('prev-bot', 1.5),
       cacheRate: cacheFromAxiom !== null ? cacheFromAxiom : numVal('prev-cache', workload.anchor_query.cache_rate_baseline),
       verifCoverage: numVal('prev-verif', 0),
+      // Threaded into the engine so Migration Timeline phase costs match
+      // the canonical headline (engine applies it inside computeMigration).
+      retryInflate: 1 + (retryRate * 1.5),
       apiSplit: numVal('prev-api-split', 50) / 100,
       gpu: val('prev-gpu', undefined),
       commitment: val('prev-commitment', 'ri-1y'),
@@ -1107,36 +1246,24 @@
     // pays input cost again + ~50% of output (partial generation before
     // failure), so we use 1.5× the retry fraction as the inflate factor.
     const retryInflate = 1 + (retryRate * 1.5);
-    const apiBill = (result.api.monthly_capped || 0) * retryInflate;
     const totalMau = workload.segments.reduce((a, s) => a + (s.mau || 0), 0);
-    const fixedCosts = (result.fixed_costs && result.fixed_costs.total) || 0;
     const infraTotal = (result.fixed_costs && result.fixed_costs.infrastructure) || 0;
     const rateLimitCost = (result.fixed_costs && result.fixed_costs.rate_limit) || 0;
-    const verifMonthly = result.verification.monthly || 0;
-    const federalAdditive = (result.federal && result.federal.additive_total) || 0;
     const hostingPremium = (result.federal && result.federal.hosting_premium_api) || 0;
     const reservation = result.reservation || { enabled: false };
-    const embeddingMonthly = (result.embedding && result.embedding.enabled) ? (result.embedding.monthly || 0) : 0;
-    const personnelMonthly = (result.personnel && result.personnel.enabled) ? (result.personnel.monthly || 0) : 0;
     // Agent engineering: upfront design effort amortized + maintenance.
     // Methodology-agnostic; defaults approximate a CARE-style engagement.
     const agentEngineering = computeAgentEngineering();
-    const agentEngMonthly = agentEngineering.enabled ? agentEngineering.monthly : 0;
-    // LLM headline takes reservation discount/PTU into account when on API
-    let llmHeadline;
-    if (opts.hosting === 'hybrid' && result.hybrid) llmHeadline = result.hybrid.total;
-    else if (opts.hosting === 'self') llmHeadline = result.self_host.total;
-    else if (opts.hosting === 'onprem') {
-      // On-prem: procurement teams calculate TCO offline (capex/useful-life
-      // + ops + power + cooling) and enter the resulting monthly directly.
-      // Replace the LLM compute line with that flat amortized cost. GPU
-      // sizing in sec-selfhost still applies for capacity-planning views
-      // but doesn't drive the cost number.
-      llmHeadline = parseFloat(workload.on_prem_monthly) || 0;
-    }
-    else if (reservation.enabled) llmHeadline = reservation.effective_monthly;
-    else llmHeadline = apiBill;
-    const headlineTotal = llmHeadline + fixedCosts + verifMonthly + federalAdditive + embeddingMonthly + personnelMonthly + agentEngMonthly;
+    const composed = composeHeadline(result, workload, opts, retryInflate);
+    const apiBill = composed.apiBill;
+    const fixedCosts = composed.fixed;
+    const verifMonthly = composed.verif;
+    const federalAdditive = composed.fed;
+    const embeddingMonthly = composed.emb;
+    const personnelMonthly = composed.pers;
+    const agentEngMonthly = composed.ae;
+    const llmHeadline = composed.llm;
+    const headlineTotal = composed.headline;
 
     // 3-year TCO: monthly LLM/fixed/federal × 36 + (one-time setup × 1, NOT × 36).
     // For self-host, setup_amortized is already a monthly number (annual setup ÷ 12).
@@ -1197,6 +1324,14 @@
         riskRange.textContent = 'turn ON to compute the variance band';
       }
     }
+    // Calibration badge — surfaces "validated against real API" status
+    // for presets whose anchor_query has a _calibration block (written
+    // by scripts/validate-preset.py). Includes a retrieval-payload mode
+    // toggle (minimal / moderate / heavy) when payload_modes is defined,
+    // so the user can dial up from "measured floor" to "estimated upper
+    // bound" without leaving the headline.
+    renderCalibrationBadge();
+
     const annualEl = document.getElementById('prev-annual');
     annualEl.textContent = fmt$(annualTotal);
     annualEl.title = `${fmt$(headlineTotal)}/mo × 12 = ${fmt$(annualTotal)}/yr`;
@@ -1304,7 +1439,7 @@
     }
     if (shc) {
       rows += `<tr>
-        <td>Self-host <em style="color: var(--muted); font-style: normal;">(capped to same $${workload.daily_cap.amount_usd}/day)</em></td>
+        <td>Self-host <em style="color: var(--muted); font-style: normal;">(capped to same $${workload.daily_cap?.amount_usd ?? 0}/day)</em></td>
         <td class="num">${fmt$(shc.total)}</td>
         <td>${fmtN(shc.queries_served)} served · ${shc.queries_refused > 0 ? `<span class="refused">${fmtN(shc.queries_refused)} refused</span>` : 'all queries'}</td>
       </tr>`;
@@ -1370,7 +1505,7 @@
         : (diff > 0
             ? `<strong style="color: var(--good);">self-host serves ~${Math.abs(Math.round(diff))}% more queries</strong> at the same budget`
             : `<strong style="color: var(--bad);">API serves ~${Math.abs(Math.round(diff))}% more queries</strong> at the same budget`);
-      note = `<strong>At equal budget</strong> — ${fmt$(workload.daily_cap.amount_usd)}/day cap buys <strong>${fmtN(apiServed)}</strong> served queries on API vs <strong>${fmtN(shcServed)}</strong> on self-host: ${verdict}. The supposed cost advantage of self-host evaporates at equal budget; the procurement decision pivots to quality, operational burden, and vendor risk.`;
+      note = `<strong>At equal budget</strong> — ${fmt$(workload.daily_cap?.amount_usd ?? 0)}/day cap buys <strong>${fmtN(apiServed)}</strong> served queries on API vs <strong>${fmtN(shcServed)}</strong> on self-host: ${verdict}. The supposed cost advantage of self-host evaporates at equal budget; the procurement decision pivots to quality, operational burden, and vendor risk.`;
     } else {
       note = 'Configure a daily cap to see the same-budget fair comparison.';
     }
@@ -1403,7 +1538,9 @@
     // Cost composition stacked bar
     const compEl = document.getElementById('prev-composition-chart');
     if (compEl) {
-      const llmCost = opts.hosting === 'self' ? sh.total : apiCapped;
+      // Use the hosting-resolved, retry-inflated LLM cost so the
+       // composition reconciles to the headline total.
+      const llmCost = llmHeadline;
       const components = [
         { label: opts.hosting === 'self' ? 'Self-host LLM' : (opts.hosting === 'hybrid' ? 'Hybrid LLM' : 'API LLM'), value: llmCost, color: '#8b2331' },
         { label: 'Verification', value: verifMonthly, color: '#0a5d5a' },
@@ -1795,21 +1932,21 @@
 
     // Model cost comparison — re-run the same compute against every model
     // in the price book and show sorted savings vs the current pick.
-    renderModelCompare(opts, headlineTotal);
+    renderModelCompare(opts, headlineTotal, retryInflate);
 
     // Budget solver — given the user's target budget, solve for max MAU at
     // current settings and show optimization knobs to unlock more headroom.
-    renderBudgetSolver(opts, result, headlineTotal);
+    renderBudgetSolver(opts, result, headlineTotal, retryInflate);
 
     // Sensitivity panel — tornado chart of headline shifts under ±perturbation
     // on the top drivers (MAU, cache, rates, bot, turns).
-    renderSensitivity(opts, headlineTotal);
+    renderSensitivity(opts, headlineTotal, retryInflate);
 
     // Cost-over-time projection (uses AXIOM s-growth slider).
     renderCostOverTime(headlineTotal);
 
     // Side-by-side preset compare — uses cached preset JSONs + the live opts.
-    renderPresetCompare(opts).catch(() => {});
+    renderPresetCompare(opts, retryInflate).catch(() => {});
 
     // AS-IS vs proposed — compare against the user's current contract spend.
     renderAsIsCompare(headlineTotal);
@@ -1819,7 +1956,7 @@
   // deployment can serve at the current per-query cost rate? Plus a small
   // table showing how much more MAU you'd unlock by tweaking high-leverage
   // knobs (cache hit rate, model swap, batch tier, retry rate).
-  function renderBudgetSolver(currentOpts, currentResult, currentHeadline) {
+  function renderBudgetSolver(currentOpts, currentResult, currentHeadline, retryInflate = 1) {
     const headlineEl = document.getElementById('budget-result-headline');
     const detailEl   = document.getElementById('budget-result-detail');
     const inputEl    = document.getElementById('budget-target');
@@ -1831,7 +1968,7 @@
       return;
     }
     const queries = currentResult.queries?.total || 0;
-    const apiCost = (currentResult.api?.monthly_capped || 0);
+    const apiCost = (currentResult.api?.monthly_capped || 0) * retryInflate;
     const fixedCosts = (currentResult.fixed_costs?.total || 0);
     const verifMonthly = (currentResult.verification?.monthly || 0);
     const federalAdditive = (currentResult.federal?.additive_total || 0);
@@ -1913,7 +2050,7 @@
   // Re-runs CostEngine.compute() per model and renders a sorted savings
   // table. Holds everything else constant — same hosting, infra, federal,
   // verification, etc. Only the LLM model varies.
-  function renderModelCompare(currentOpts, currentHeadline) {
+  function renderModelCompare(currentOpts, currentHeadline, retryInflate = 1) {
     const body = document.getElementById('model-compare-body');
     if (!body) return;
     const models = Object.keys(Object.assign({}, CostEngine.DEFAULT_RATE_CARDS, workload.rate_cards || {}));
@@ -1931,20 +2068,7 @@
       }
       let r;
       try { r = CostEngine.compute(wForModel, o); } catch (e) { continue; }
-      const apiBill = r.api?.monthly_capped || 0;
-      const fixed = r.fixed_costs?.total || 0;
-      const verif = r.verification?.monthly || 0;
-      const fed = r.federal?.additive_total || 0;
-      const emb = (r.embedding?.enabled ? r.embedding.monthly : 0) || 0;
-      const pers = (r.personnel?.enabled ? r.personnel.monthly : 0) || 0;
-      const ae = (computeAgentEngineering().enabled ? computeAgentEngineering().monthly : 0) || 0;
-      let llm;
-      if (o.hosting === 'self') llm = r.self_host?.total || 0;
-      else if (o.hosting === 'hybrid' && r.hybrid) llm = r.hybrid.total;
-      else if (o.hosting === 'onprem') llm = parseFloat(workload.on_prem_monthly) || 0;
-      else if (r.reservation?.enabled) llm = r.reservation.effective_monthly;
-      else llm = apiBill;
-      const monthly = llm + fixed + verif + fed + emb + pers + ae;
+      const monthly = composeHeadline(r, wForModel, o, retryInflate).headline;
       const queries = r.queries?.total || 0;
       const perQuery = queries > 0 ? monthly / queries : 0;
       rows.push({ model: m, monthly, perQuery, isCurrent: m === currentOpts.model });
@@ -1981,31 +2105,19 @@
   // baseline and re-runs CostEngine.compute() to show how much the
   // headline shifts. Sorted by spread (biggest driver on top).
   // -----------------------------------------------------------------
-  function renderSensitivity(currentOpts, baselineHeadline) {
+  function renderSensitivity(currentOpts, baselineHeadline, retryInflate = 1) {
     const body = document.getElementById('sensitivity-body');
     if (!body) return;
 
     const $ = id => document.getElementById(id);
     const numVal = (id, fb) => { const e = $(id); return e ? parseFloat(e.value) : fb; };
 
-    // Compute headline given an arbitrary (workload, opts) pair using the
-    // same formula as renderPreview — so deltas are apples-to-apples.
+    // Headline per perturbed (workload, opts) routed through the shared
+    // composeHeadline so the baseline and lever values use identical math.
+    // Retry inflate is held constant (it's not a lever).
     const computeHeadline = (w, o) => {
       const r = CostEngine.compute(w, o);
-      const apiBill = r.api?.monthly_capped || 0;
-      const fixed = r.fixed_costs?.total || 0;
-      const verif = r.verification?.monthly || 0;
-      const fed = r.federal?.additive_total || 0;
-      const emb = (r.embedding?.enabled ? r.embedding.monthly : 0) || 0;
-      const pers = (r.personnel?.enabled ? r.personnel.monthly : 0) || 0;
-      const ae = (computeAgentEngineering().enabled ? computeAgentEngineering().monthly : 0) || 0;
-      let llm;
-      if (o.hosting === 'self') llm = r.self_host?.total || 0;
-      else if (o.hosting === 'hybrid' && r.hybrid) llm = r.hybrid.total;
-      else if (o.hosting === 'onprem') llm = parseFloat(w.on_prem_monthly) || 0;
-      else if (r.reservation?.enabled) llm = r.reservation.effective_monthly;
-      else llm = apiBill;
-      return llm + fixed + verif + fed + emb + pers + ae;
+      return composeHeadline(r, w, o, retryInflate).headline;
     };
 
     const clone = (x) => JSON.parse(JSON.stringify(x));
@@ -2050,11 +2162,14 @@
           const w = clone(workload);
           if (!w.rate_cards) w.rate_cards = {};
           const all = Object.assign({}, CostEngine.DEFAULT_RATE_CARDS || {}, w.rate_cards || {});
+          // Engine reads `input_per_million` / `output_per_million` /
+          // `cached_per_million` (the unit prices, in $/M tokens) — scale
+          // those, not the legacy `input` / `output` / `cached_input` keys.
           for (const m of Object.keys(all)) {
             const r = Object.assign({}, all[m]);
-            if (r.input != null) r.input = r.input * factor;
-            if (r.output != null) r.output = r.output * factor;
-            if (r.cached_input != null) r.cached_input = r.cached_input * factor;
+            if (r.input_per_million != null)  r.input_per_million  = r.input_per_million  * factor;
+            if (r.output_per_million != null) r.output_per_million = r.output_per_million * factor;
+            if (r.cached_per_million != null) r.cached_per_million = r.cached_per_million * factor;
             w.rate_cards[m] = r;
           }
           return { w, o: currentOpts };
@@ -2072,6 +2187,19 @@
           return { w: workload, o };
         },
         low: 0.8, high: 1.2,
+        // Engine clamps botEffective to rate_limit.bot_ceiling. If the
+        // ceiling is at or below the baseline, perturbing botFactor up
+        // or down lands at the same clamped value → headline is flat.
+        // Flag that explicitly so users don't read "$0 delta" as
+        // "no sensitivity" when really the lever is gated by config.
+        skipIfNoOp: true,
+        noOpHint: (() => {
+          const ceil = workload?.rate_limit?.bot_ceiling;
+          if (ceil != null && ceil <= botBaseline) {
+            return `Capped by rate-limit (bot_ceiling = ${ceil}×). Bot factor only swings cost on public-facing deployments where the ceiling is set above the baseline.`;
+          }
+          return null;
+        })(),
       },
       {
         name: 'Turns/session',
@@ -2110,6 +2238,17 @@
     const maxAbs = Math.max(1, ...results.map(r => Math.max(Math.abs(r.lowDelta), Math.abs(r.highDelta))));
 
     body.innerHTML = results.map(r => {
+      // No-op rows: lever has zero effect at current configuration.
+      // Render a single explanatory row instead of misleading "$0 delta"
+      // cells — e.g. Bot factor when rate_limit.bot_ceiling clamps it.
+      if (r.spread < 0.01 && r.noOpHint) {
+        return `<tr style="border-bottom:1px solid var(--rule)">
+          <td style="padding:8px 10px;white-space:nowrap"><strong>${r.name}</strong> <em style="color:var(--muted);font-style:normal;font-size:11px">${r.desc}</em></td>
+          <td colspan="3" style="padding:8px 10px;color:var(--muted);font-size:11.5px;font-style:italic">
+            n/a — ${escapeHtml(r.noOpHint)}
+          </td>
+        </tr>`;
+      }
       // Bar is 100% wide, baseline at 50%. Each side scales |delta|/maxAbs * 50%.
       const lowW  = Math.min(50, Math.abs(r.lowDelta)  / maxAbs * 50);
       const highW = Math.min(50, Math.abs(r.highDelta) / maxAbs * 50);
@@ -2293,22 +2432,14 @@
 
   // Compute the snapshot of a workload+opts combo: queries, headline,
   // per-MAU, annual, and the lever inputs we want to surface in the diff.
-  function computeScenarioSnapshot(w, o) {
+  function computeScenarioSnapshot(w, o, retryInflate = 1) {
     let r;
     try { r = CostEngine.compute(w, o); } catch (e) { return null; }
-    const apiCapped = r.api?.monthly_capped || 0;
-    const fixed = r.fixed_costs?.total || 0;
-    const verif = r.verification?.monthly || 0;
-    const fed = r.federal?.additive_total || 0;
-    const emb = (r.embedding?.enabled ? r.embedding.monthly : 0) || 0;
-    const pers = (r.personnel?.enabled ? r.personnel.monthly : 0) || 0;
-    let llm;
-    if (o.hosting === 'self') llm = r.self_host?.total || 0;
-    else if (o.hosting === 'hybrid' && r.hybrid) llm = r.hybrid.total;
-    else if (o.hosting === 'onprem') llm = parseFloat(w.on_prem_monthly) || 0;
-    else if (r.reservation?.enabled) llm = r.reservation.effective_monthly;
-    else llm = apiCapped;
-    const headline = llm + fixed + verif + fed + emb + pers;
+    const composed = composeHeadline(r, w, o, retryInflate);
+    const fed = composed.fed;
+    const fixed = composed.fixed;
+    const headline = composed.headline;
+    const llm = composed.llm;
     const queries = r.queries?.total || 0;
     const totalMau = (w.segments || []).reduce((a, s) => a + (s.mau || 0), 0);
     const seg0 = w.segments?.[0] || {};
@@ -2340,7 +2471,7 @@
   // to write to the DOM — earlier in-flight calls discard their results
   // so a stale fetch can't overwrite a newer selection.
   let _presetCmpGen = 0;
-  async function renderPresetCompare(currentOpts) {
+  async function renderPresetCompare(currentOpts, retryInflate = 1) {
     const host = document.getElementById('preset-compare-result');
     if (!host) return;
     const aSel = document.getElementById('cmp-preset-a');
@@ -2353,11 +2484,15 @@
     // Resolve each side: either the live scenario or a fetched preset.
     const resolveSide = async (slug) => {
       if (slug === '__current__') {
-        return computeScenarioSnapshot(workload, currentOpts);
+        // Live scenario: apply current retry inflate to match the headline.
+        return computeScenarioSnapshot(workload, currentOpts, retryInflate);
       }
       const w = await loadPresetWorkload(slug);
       if (!w) return null;
-      // Build a default opts for this preset using its own defaults
+      // Build a default opts for this preset using its own defaults.
+      // Presets don't carry a retry rate, so leave inflate at 1.0 — that
+      // keeps preset-vs-preset comparisons consistent with each preset's
+      // own headline as published.
       const o = {
         hosting: w.defaults?.hosting || 'api',
         model: w.defaults?.model || 'gpt-5.2',
@@ -2787,34 +2922,136 @@
     // "Describe your AI system" picker. The handler below was looking
     // up a select that no longer exists, so the listener is gone.)
 
-    // Import / export
-    document.getElementById('export-btn').addEventListener('click', () => {
+    // -----------------------------------------------------------------
+    // JSON view / edit / import modal
+    //
+    // Replaces the older inline raw-JSON textarea and the separate
+    // Export JSON / Import JSON menu items with one consolidated UI.
+    // Three tabs:
+    //   • View   — read-only formatted JSON + Copy + Download
+    //   • Edit   — paste & Apply with inline validation
+    //   • Import — pick a .json file from disk
+    // -----------------------------------------------------------------
+    const jsonModal = document.getElementById('json-modal');
+    const jsonView = document.getElementById('json-view');
+    const jsonEdit = document.getElementById('json-edit');
+    const jsonEditError = document.getElementById('json-edit-error');
+    const jsonImportError = document.getElementById('json-import-error');
+
+    function openJsonModal(initialTab = 'view') {
+      if (!jsonModal) return;
+      // Refresh the View + Edit content from the current workload.
+      const formatted = JSON.stringify(workload, null, 2);
+      if (jsonView) jsonView.textContent = formatted;
+      if (jsonEdit) jsonEdit.value = formatted;
+      if (jsonEditError) { jsonEditError.hidden = true; jsonEditError.textContent = ''; }
+      if (jsonImportError) { jsonImportError.hidden = true; jsonImportError.textContent = ''; }
+      switchJsonTab(initialTab);
+      jsonModal.dataset.open = '1';
+      // Focus the close button for keyboard accessibility.
+      document.getElementById('json-modal-close')?.focus();
+    }
+    function closeJsonModal() {
+      if (jsonModal) jsonModal.dataset.open = '0';
+    }
+    function switchJsonTab(name) {
+      jsonModal?.querySelectorAll('.json-modal-tab').forEach(t => {
+        const active = t.dataset.tab === name;
+        t.classList.toggle('active', active);
+        t.setAttribute('aria-selected', active ? 'true' : 'false');
+      });
+      jsonModal?.querySelectorAll('.json-modal-tab-panel').forEach(p => {
+        p.hidden = p.dataset.panel !== name;
+      });
+    }
+
+    document.getElementById('json-btn')?.addEventListener('click', () => openJsonModal('view'));
+    document.getElementById('json-modal-close')?.addEventListener('click', closeJsonModal);
+    jsonModal?.addEventListener('click', (e) => {
+      // Close when clicking the backdrop (outside the panel)
+      if (e.target === jsonModal) closeJsonModal();
+    });
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape' && jsonModal?.dataset.open === '1') closeJsonModal();
+    });
+    jsonModal?.querySelectorAll('.json-modal-tab').forEach(tab => {
+      tab.addEventListener('click', () => switchJsonTab(tab.dataset.tab));
+    });
+
+    // View tab — Copy + Download
+    document.getElementById('json-copy-btn')?.addEventListener('click', async () => {
+      try {
+        await navigator.clipboard.writeText(jsonView?.textContent || '');
+        showToast('JSON copied to clipboard ✓');
+      } catch (err) {
+        alert('Copy failed: ' + err.message);
+      }
+    });
+    document.getElementById('json-download-btn')?.addEventListener('click', () => {
       const blob = new Blob([JSON.stringify(workload, null, 2)], { type: 'application/json' });
       const a = document.createElement('a');
       a.href = URL.createObjectURL(blob);
       const slug = (workload.deployment.name || 'workload').toLowerCase().replace(/[^a-z0-9]+/g, '-');
       a.download = `${slug}.json`;
       a.click();
+      URL.revokeObjectURL(a.href);
     });
-    document.getElementById('import-btn').addEventListener('click', () => {
-      const inp = document.createElement('input');
-      inp.type = 'file';
-      inp.accept = '.json';
-      inp.onchange = (e) => {
-        const file = e.target.files[0];
-        if (!file) return;
-        const reader = new FileReader();
-        reader.onload = ev => {
-          try {
-            workload = ensureFields(JSON.parse(ev.target.result)); window.workload = workload;
-            window.__syncAxiomFromSegments?.();
-            renderEditor();
-            renderPreview();
-          } catch (err) { alert('Invalid JSON: ' + err.message); }
-        };
-        reader.readAsText(file);
+
+    // Edit tab — Apply + Reset
+    document.getElementById('json-apply-btn')?.addEventListener('click', () => {
+      const raw = jsonEdit?.value || '';
+      try {
+        const parsed = JSON.parse(raw);
+        if (!parsed || !parsed.deployment || !parsed.shapes) {
+          throw new Error('Missing required top-level fields (deployment, shapes). Did you paste a workload JSON?');
+        }
+        workload = ensureFields(parsed); window.workload = workload;
+        window.__syncAxiomFromSegments?.();
+        renderEditor();
+        renderPreview();
+        if (jsonEditError) { jsonEditError.hidden = true; jsonEditError.textContent = ''; }
+        showToast('Workload updated ✓');
+        closeJsonModal();
+      } catch (err) {
+        if (jsonEditError) {
+          jsonEditError.textContent = 'Could not apply: ' + err.message;
+          jsonEditError.hidden = false;
+        }
+      }
+    });
+    document.getElementById('json-edit-reset-btn')?.addEventListener('click', () => {
+      if (jsonEdit) jsonEdit.value = JSON.stringify(workload, null, 2);
+      if (jsonEditError) { jsonEditError.hidden = true; jsonEditError.textContent = ''; }
+    });
+
+    // Import tab — file picker
+    document.getElementById('json-file')?.addEventListener('change', (e) => {
+      const file = e.target.files?.[0];
+      if (!file) return;
+      const reader = new FileReader();
+      reader.onload = ev => {
+        try {
+          const parsed = JSON.parse(ev.target.result);
+          if (!parsed || !parsed.deployment || !parsed.shapes) {
+            throw new Error('File is missing required top-level fields (deployment, shapes).');
+          }
+          workload = ensureFields(parsed); window.workload = workload;
+          window.__syncAxiomFromSegments?.();
+          renderEditor();
+          renderPreview();
+          if (jsonImportError) { jsonImportError.hidden = true; jsonImportError.textContent = ''; }
+          showToast(`Loaded ${file.name} ✓`);
+          closeJsonModal();
+        } catch (err) {
+          if (jsonImportError) {
+            jsonImportError.textContent = 'Could not import: ' + err.message;
+            jsonImportError.hidden = false;
+          }
+        }
+        // Reset the input so re-selecting the same file fires change again.
+        e.target.value = '';
       };
-      inp.click();
+      reader.readAsText(file);
     });
 
     // Budget solver — recompute on every keystroke so users see live answers.
@@ -2879,14 +3116,8 @@
     // Build section navigator + wire up search
     buildSectionNav();
 
-    // Apply raw JSON edit
-    document.getElementById('apply-json').addEventListener('click', () => {
-      try {
-        workload = ensureFields(JSON.parse(document.getElementById('raw-json').value)); window.workload = workload;
-        renderEditor();
-        renderPreview();
-      } catch (err) { alert('Invalid JSON: ' + err.message); }
-    });
+    // (The old inline "Apply edited JSON" button was removed —
+    // the JSON view/edit/import modal above is the canonical entry point.)
 
     // Generate calculator HTML — defers to a generator module loaded
     // separately. For now, we trigger a download with the workload
@@ -2904,10 +3135,13 @@
       setTimeout(() => window.print(), 50);
     });
 
-    // Share link — copies a self-contained URL with the workload encoded in the hash.
+    // Share link — copies a self-contained URL. Encodes both the
+    // workload and the current AXIOM/dropdown slider state so the
+    // recipient sees the same headline you do.
     document.getElementById('share-btn').addEventListener('click', () => {
       try {
-        const json = JSON.stringify(workload);
+        const payload = { workload, ui: captureUiState() };
+        const json = JSON.stringify(payload);
         const hash = btoa(encodeURIComponent(json));
         const url = location.origin + location.pathname + '#w=' + hash;
         navigator.clipboard.writeText(url).then(() => showToast('Link copied to clipboard ✓'));
@@ -3782,13 +4016,69 @@
 
   // -----------------------------------------------------------------
   // URL hash sharing
+  //
+  // The hash carries both the workload JSON and a small snapshot of the
+  // AXIOM sliders + opts dropdowns (`ui`). Without the ui block, two
+  // people opening the same share-link saw different headlines because
+  // retry rate, cache override, and the hosting/model/tier dropdowns
+  // were missing from the encoded payload.
+  //
+  // Encoded shape: { workload: {...}, ui: {...} }
+  // Legacy compat: an unwrapped workload (with top-level `deployment`
+  // + `shapes`) is still accepted; the ui block is skipped.
   // -----------------------------------------------------------------
+  const UI_SELECTORS = [
+    's-users', 's-sessions', 's-turns', 's-cache', 's-retry', 's-growth',
+    'prev-hosting', 'prev-model', 'prev-tier', 'prev-mix', 'prev-cost-mode',
+    'prev-bot', 'prev-verif', 'prev-cache', 'prev-api-split',
+    'prev-gpu', 'prev-commitment', 'prev-replicas', 'prev-tokens',
+    'budget-target', 'self-host-duty',
+  ];
+  function captureUiState() {
+    const ui = {};
+    for (const id of UI_SELECTORS) {
+      const el = document.getElementById(id);
+      if (el && el.value !== '' && el.value != null) ui[id] = el.value;
+    }
+    const tco = document.querySelector('input[name="tco-period"]:checked');
+    if (tco) ui.tcoPeriod = tco.value;
+    return ui;
+  }
+  function restoreUiState(ui) {
+    if (!ui || typeof ui !== 'object') return;
+    for (const id of UI_SELECTORS) {
+      if (!(id in ui)) continue;
+      const el = document.getElementById(id);
+      if (!el) continue;
+      el.value = ui[id];
+      // Dispatch input + change so any listeners (AXIOM onSlider,
+      // budget solver, etc.) pick up the restored value.
+      el.dispatchEvent(new Event('input', { bubbles: true }));
+      el.dispatchEvent(new Event('change', { bubbles: true }));
+    }
+    if (ui.tcoPeriod) {
+      const r = document.querySelector(`input[name="tco-period"][value="${ui.tcoPeriod}"]`);
+      if (r) { r.checked = true; r.dispatchEvent(new Event('change', { bubbles: true })); }
+    }
+  }
+  // Stashed across loadFromHash → restoreUiState window so the UI
+  // values can be applied AFTER the AXIOM script has wired its
+  // sliders (it doesn't exist at loadFromHash time).
+  let _pendingUiRestore = null;
+
   function loadFromHash() {
     try {
       const m = location.hash.match(/w=([^&]+)/);
       if (!m) return false;
       const json = decodeURIComponent(atob(m[1]));
       const parsed = JSON.parse(json);
+      // New format: { workload, ui }
+      if (parsed && parsed.workload && parsed.workload.deployment && parsed.workload.shapes) {
+        workload = ensureFields(parsed.workload); window.workload = workload;
+        _pendingUiRestore = parsed.ui || null;
+        return true;
+      }
+      // Legacy: unwrapped workload at the top level
       if (parsed && parsed.deployment && parsed.shapes) {
         workload = ensureFields(parsed); window.workload = workload;
         return true;
@@ -3803,7 +4093,8 @@
     if (hashUpdateTimer) clearTimeout(hashUpdateTimer);
     hashUpdateTimer = setTimeout(() => {
       try {
-        const json = JSON.stringify(workload);
+        const payload = { workload, ui: captureUiState() };
+        const json = JSON.stringify(payload);
         const hash = btoa(encodeURIComponent(json));
         history.replaceState(null, '', '#w=' + hash);
       } catch (_) {}
@@ -3838,8 +4129,17 @@
       mix: document.getElementById('prev-mix').value || workload.defaults.mix,
       tier: workload.defaults.tier,
       costMode: document.getElementById('prev-cost-mode').value,
+      hosting: document.getElementById('prev-hosting')?.value || workload.defaults.hosting,
+      botFactor: parseFloat(document.getElementById('prev-bot')?.value) || 1.5,
+      cacheRate: parseFloat(document.getElementById('s-cache')?.value) / 100 || workload.anchor_query?.cache_rate_baseline,
+      verifCoverage: parseFloat(document.getElementById('prev-verif')?.value) || 0,
     };
     const r = CostEngine.compute(workload, opts);
+    // Mirror renderPreview's retry inflate so the "Headline" rows below
+    // match what the user sees in the live UI.
+    const retryRate = parseFloat(document.getElementById('s-retry')?.value) / 100 || 0;
+    const retryInflate = 1 + (retryRate * 1.5);
+    const composed = composeHeadline(r, workload, opts, retryInflate);
 
     // ---- README sheet ----
     const readme = [
@@ -3878,18 +4178,18 @@
       [],
       ['Strategy', 'LLM monthly ($)', 'Queries served', 'Queries refused', 'Notes'],
       [
-        'API · ' + opts.model + ' (capped at $' + (workload.daily_cap?.amount_usd || 0) + '/day)',
+        'API · ' + opts.model + ' (engine raw, pre-retry, capped at $' + (workload.daily_cap?.amount_usd || 0) + '/day)',
         Math.round(apiCapped),
         Math.round(totalQ - refused),
         Math.round(refused),
         refused > 0 ? 'Cap clips ' + Math.round(100 * refused / totalQ) + '% of traffic' : 'all queries served',
       ],
       [
-        'API · ' + opts.model + ' (uncapped, fair peer to self-host full)',
+        'API · ' + opts.model + ' (engine raw, pre-retry, uncapped)',
         Math.round(apiGross),
         Math.round(totalQ),
         0,
-        'serves all queries',
+        'serves all queries — fair peer to self-host full',
       ],
       [
         'Self-host · ' + sh.gpu_spec.name + ' × ' + sh.instances + ' (' + sh.cost_mode + ')',
@@ -3908,10 +4208,21 @@
         'fair peer to API capped row',
       ]);
     }
+    // Headline rows below mirror the live UI exactly: includes retry
+    // inflate + verification + federal + fixed + embeddings + personnel
+    // + agent engineering. Routed through composeHeadline (the same
+    // helper renderPreview uses) so Excel never drifts from the page.
     output.push([]);
-    output.push(['Headline (LLM only)', Math.round(apiCapped)]);
-    output.push(['Headline + infrastructure', Math.round(apiCapped + Object.values(workload.infrastructure || {}).reduce((a, b) => a + b, 0))]);
-    output.push(['Annual', Math.round((apiCapped + Object.values(workload.infrastructure || {}).reduce((a, b) => a + b, 0)) * 12)]);
+    output.push(['Headline monthly (matches live UI)', Math.round(composed.headline)]);
+    output.push(['  · LLM (post-retry × ' + retryInflate.toFixed(4) + ')', Math.round(composed.llm)]);
+    if (composed.verif > 0)    output.push(['  · Verification',     Math.round(composed.verif)]);
+    if (composed.fed > 0)      output.push(['  · Federal additive', Math.round(composed.fed)]);
+    if (composed.emb > 0)      output.push(['  · Embeddings',       Math.round(composed.emb)]);
+    if (composed.pers > 0)     output.push(['  · Personnel',        Math.round(composed.pers)]);
+    if (composed.ae > 0)       output.push(['  · Agent engineering', Math.round(composed.ae)]);
+    if (composed.fixed > 0)    output.push(['  · Fixed monthly',    Math.round(composed.fixed)]);
+    output.push(['Annual',     Math.round(composed.headline * 12)]);
+    output.push(['3-year TCO', Math.round(composed.headline * 36)]);
 
     const outputSheet = XLSX.utils.aoa_to_sheet(output);
     outputSheet['!cols'] = [{ wch: 60 }, { wch: 18 }, { wch: 18 }, { wch: 18 }, { wch: 40 }];
@@ -4004,6 +4315,13 @@
     // matches the preset's traffic levels. After this, AXIOM sliders are
     // the canonical traffic surface.
     window.__syncAxiomFromSegments?.();
+    // If the URL hash carried a `ui` block, apply it now — overrides the
+    // segment-derived slider values so a shared link reproduces the
+    // sender's exact knob state (cache, retry, hosting, model, etc.).
+    if (_pendingUiRestore) {
+      restoreUiState(_pendingUiRestore);
+      _pendingUiRestore = null;
+    }
     renderPreview();
     setupTabs();        // must run before setupWizard so wizard moves first
     setupWizard();
@@ -4380,7 +4698,26 @@
       points.push({ id, name: b.name || id, value: v, color, source: b.source_url || '', notes: b.notes || '' });
     }
     if (m.userValue > 0) {
-      points.push({ id: '__user__', name: 'Your scenario', value: m.userValue, color: '#0077cc', source: '', notes: '', isUser: true });
+      // Build a rich hover tip for the user dot — surfaces the cost
+      // drivers that explain the gap vs commercial seat-license benches.
+      // Most of the per-MAU delta lives in: small user base, FedRAMP
+      // multiplier, agent fleet, fixed-infra floor, federal additives.
+      const w = window.workload || {};
+      const drivers = [];
+      const totalMau = (w.segments || []).reduce((a, s) => a + (s.mau || 0), 0);
+      if (totalMau > 0 && totalMau < 5000) drivers.push(`Small base: ${totalMau.toLocaleString()} MAU (commercial benchmarks amortize across millions)`);
+      const tier = w.federal?.fedramp_tier;
+      if (tier && tier !== 'none') drivers.push(`FedRAMP ${tier} (×1.${tier === 'high' ? '30' : '15'} hosting multiplier)`);
+      const agents = Array.isArray(w.agents) ? w.agents.length : 0;
+      if (agents > 1) drivers.push(`${agents}-agent fleet (each query fans out across orchestrator + analyst + researcher)`);
+      const verifOn = w.verification?.enabled && (w.verification?.coverage || 0) > 0;
+      if (verifOn) drivers.push(`Verification at ${Math.round(w.verification.coverage * 100)}% coverage`);
+      const driverText = drivers.length ? `\n\nWhy higher than the commercial benches:\n· ${drivers.join('\n· ')}` : '';
+      points.push({
+        id: '__user__', name: 'Your scenario', value: m.userValue,
+        color: '#0077cc', source: '', isUser: true,
+        notes: `Math: ${m.fmt(m.userValue)} = headline ÷ MAU. Commercial seat-license benches (Slack AI, ChatGPT Enterprise, etc.) are shared-infra consumer SaaS amortized across millions of seats — not directly comparable to a compliance-bound custom deployment.${driverText}`,
+      });
     }
 
     if (points.length === 0) {
@@ -4476,6 +4813,9 @@
         <text x="${W - padR}" y="${H - 12}" text-anchor="end" fill="#666" font-size="10.5">${points.length} rows (${points.filter(p => !p.isUser).length} cited benchmarks)</text>
       </svg>
       <p style="margin:6px 0 0;font-size:11px;color:var(--muted);line-height:1.45">Each row is one benchmark, sorted cheapest at the top. Your scenario is highlighted in blue. Hover any dot to see notes. Greens = commercial seat/conversation, purple = federal cost studies, gray = industry/academic references.</p>
+      <p style="margin:8px 0 0;padding:8px 10px;font-size:11px;color:#5a3870;line-height:1.5;background:rgba(124,77,255,0.06);border-left:3px solid #7c4dff;border-radius:3px">
+        <strong>⚠ Not a like-for-like comparison.</strong> Commercial seat-license prices (Slack AI, ChatGPT Enterprise, Copilot) are <em>shared-infrastructure consumer SaaS</em> amortized across millions of users. A custom deployment with a small user base, FedRAMP compliance, agent fleets, or domain-specific retrieval will run 5–50× higher per seat — that's the cost of doing work the consumer products don't do. Hover the blue "Your scenario" dot for the specific drivers in your config.
+      </p>
     `;
   }
 
@@ -5146,8 +5486,8 @@
       const wrapper = document.createElement('div');
       wrapper.className = 'section-guide';
       wrapper.innerHTML = `
-        <button class="section-guide-toggle" type="button" aria-expanded="false">📖 What is this and how to read it</button>
-        <div class="section-guide-body" hidden>
+        <button class="section-guide-toggle" type="button" aria-expanded="true">📖 Hide guide</button>
+        <div class="section-guide-body">
           <h4>What this is</h4>${renderInlineMarkdown(guide.what)}
           <h4>Why it matters</h4>${renderInlineMarkdown(guide.why)}
           <h4>How to interpret the results</h4>${renderInlineMarkdown(guide.how)}

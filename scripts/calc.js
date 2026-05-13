@@ -194,8 +194,18 @@ function computeAgentEngineering(workload) {
   });
   upfront += helper * dur;
   const amortized_monthly = upfront / amort;
-  const lead = personnel.agent_design_lead || {};
-  const leadLoadedAnnual = (lead.annual_base || 230000) * (lead.total_comp_multiplier || 1.30);
+  const lead = personnel.agent_design_lead || null;
+  if (!lead) {
+    // Fail loudly rather than silently using a hardcoded fallback that
+    // can diverge from prices.js. The lead-engineer cost feeds
+    // maintenance_monthly, which is part of the headline; a wrong
+    // value would silently inflate or deflate the agent-engineering
+    // line.
+    throw new Error(
+      'prices.js: personnel.agent_design_lead is missing. Update lib/prices.js to define annual_base + total_comp_multiplier for this role.'
+    );
+  }
+  const leadLoadedAnnual = lead.annual_base * (lead.total_comp_multiplier || 1);
   const leadHourly = leadLoadedAnnual / 2080;
   const interval = Math.max(1, Number(ae.maintenance_interval_months) || 6);
   const hoursPerSession = Math.max(0, Number(ae.maintenance_hours_per_session) || 0);
@@ -211,6 +221,13 @@ function computeAgentEngineering(workload) {
 
 // ── Main compute — mirrors renderPreview() exactly ───────────────────
 function compute(workload, opts) {
+  // Defensive deep-clone — the rest of this function mutates
+  // workload.anchor_query when overrides are passed, and any caller
+  // that re-uses the same workload object across multiple compute()
+  // invocations would otherwise see the first call's overrides bleed
+  // into the second. Cheap relative to the cost of the engine pass.
+  workload = JSON.parse(JSON.stringify(workload));
+
   // Honor token overrides if supplied (mimics what AXIOM bridge would
   // write into anchor_query at runtime in the browser).
   if (Number.isFinite(opts.inputTok))  workload.anchor_query.input_tokens  = opts.inputTok;

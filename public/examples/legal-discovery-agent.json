@@ -10,9 +10,15 @@
   "anchor_query": {
     "input_tokens": 38000,
     "output_tokens": 1800,
-    "cache_rate_baseline": 0.68,
+    "cache_rate_baseline": 0.80,
     "session_baseline_turns": 7,
-    "example": "Summarize the relevant communications between executives A and B about the 2024 acquisition discussions. Flag any privilege concerns."
+    "example": "Summarize the relevant communications between executives A and B about the 2024 acquisition discussions. Flag any privilege concerns.",
+    "_calibration": {
+      "source": "industry-typical estimate (not measured)",
+      "updated_on": "2026-05-12",
+      "previous_values": { "cache_rate_baseline": 0.68 },
+      "notes": "Legal-vertical AI deployments with a stable system prompt + responsiveness rubric + corpus injection commonly hit 0.75-0.85 effective cache rate on 7-turn discovery sessions: the system prompt and prior triage decisions persist across turns while only the candidate document varies. 0.80 is a conservative midpoint for AmLaw-grade litigation triage; the prior value (0.68) under-modeled cache reuse for this workload class and inflated the headline ~35%. Operators with measured cache logs should re-fit; the calculator's s-cache slider overrides this value."
+    }
   },
   "shapes": {
     "doc_triage": {
@@ -137,6 +143,7 @@
     "audit_retention_years": 10,
     "audit_storage_per_gb_month": 0.005,
     "retrieval_infra_monthly": 0,
-    "pii_redaction_per_million_tokens": 18
+    "pii_redaction_per_million_tokens": 0.50,
+    "_pii_redaction_note": "Re-calibrated 2026-05-12 from 18 → 0.50 /M tokens. The prior value was ~50x industry-typical PII redaction service pricing (AWS Comprehend Detect PII Entities, Azure Cognitive Services PII Detection, Google DLP all run $0.20-1.50 per million characters, roughly $0.05-0.40 per million tokens; $0.50/M tokens is a conservative midpoint covering inline LLM-based PII redaction overhead too). Old value alone added ~$110K/mo of phantom 'federal additive' cost to this preset's headline."
   }
 }

@@ -1211,10 +1211,16 @@
       }
       // Re-compute with phase config
       const phaseResult = computeFn(wCopy, phaseOpts);
-      // Headline monthly = LLM + verif + embedding + personnel + federal + fixed
+      // Headline monthly = LLM + verif + embedding + personnel + federal + fixed.
+      // Mirror app.js#composeHeadline exactly: retry inflate applies only
+      // to api-mode LLM bills (not self-host / hybrid / reservation / onprem).
+      // Without this, Migration Timeline phase costs drift below the
+      // canonical headline whenever retry rate > 0.
+      const retryInflate = baseOpts.retryInflate || 1;
+      const apiBill = (phaseResult.api?.monthly_capped || 0) * retryInflate;
       const llm = phaseOpts.hosting === 'hybrid' ? (phaseResult.hybrid?.total || 0)
                 : phaseOpts.hosting === 'self' ? (phaseResult.self_host?.total || 0)
-                : (phaseResult.reservation?.enabled ? phaseResult.reservation.effective_monthly : phaseResult.api.monthly_capped);
+                : (phaseResult.reservation?.enabled ? phaseResult.reservation.effective_monthly : apiBill);
       const monthlyCost = llm
         + (phaseResult.verification?.monthly || 0)
         + (phaseResult.embedding?.monthly || 0)

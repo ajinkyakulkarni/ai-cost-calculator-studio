@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Cost Calculator Studio · Build a procurement-grade AI cost calculator</title>
+<title>AI Cost Calculator · Procurement-grade cost model for LLM-based applications</title>
 <style>
   /* Editorial palette inherited from the EIE calculator. */
   :root {
@@ -146,6 +146,89 @@
     border-color: rgba(255,255,255,0.14);
   }
   body.theme-tactical .appbar-menu-item:hover { background: rgba(255,255,255,0.06); }
+
+  /* JSON view/edit/import modal — opened from the Share / Export menu */
+  .json-modal-backdrop {
+    position: fixed; inset: 0; z-index: 1500;
+    background: rgba(0,0,0,0.45);
+    display: none; align-items: center; justify-content: center;
+  }
+  .json-modal-backdrop[data-open="1"] { display: flex; }
+  .json-modal-panel {
+    background: var(--panel); color: var(--ink);
+    border: 1px solid var(--rule); border-radius: 6px;
+    width: 760px; max-width: 94vw; max-height: 86vh;
+    display: flex; flex-direction: column;
+    box-shadow: 0 12px 48px rgba(0,0,0,0.35);
+  }
+  .json-modal-header {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 12px 16px; border-bottom: 1px solid var(--rule);
+  }
+  .json-modal-header h3 { margin: 0; font-size: 14px; font-weight: 600; }
+  .json-modal-close {
+    background: transparent; border: none; cursor: pointer;
+    color: var(--muted); font-size: 18px; line-height: 1; padding: 4px 8px;
+  }
+  .json-modal-close:hover { color: var(--ink); }
+  .json-modal-tabs {
+    display: flex; gap: 2px; padding: 8px 16px 0; border-bottom: 1px solid var(--rule);
+  }
+  .json-modal-tab {
+    background: transparent; border: 1px solid transparent; border-bottom: none;
+    padding: 6px 12px; font-size: 12px; font-family: var(--sans);
+    color: var(--muted); cursor: pointer; border-radius: 4px 4px 0 0;
+  }
+  .json-modal-tab:hover { color: var(--ink); background: var(--paper); }
+  .json-modal-tab.active {
+    color: var(--ink); background: var(--card);
+    border-color: var(--rule); border-bottom: 1px solid var(--card);
+    margin-bottom: -1px; font-weight: 600;
+  }
+  .json-modal-body {
+    flex: 1; overflow: auto; padding: 16px; background: var(--card);
+  }
+  .json-modal-hint {
+    margin: 0 0 10px; font-size: 11.5px; color: var(--muted); line-height: 1.5;
+  }
+  .json-modal-view {
+    background: var(--paper); border: 1px solid var(--rule); border-radius: 4px;
+    padding: 12px; font-family: var(--mono); font-size: 11.5px; line-height: 1.5;
+    max-height: 50vh; overflow: auto; white-space: pre;
+    color: var(--ink);
+  }
+  .json-modal-edit {
+    width: 100%; min-height: 320px; box-sizing: border-box;
+    font-family: var(--mono); font-size: 11.5px; line-height: 1.5;
+    background: var(--paper); color: var(--ink);
+    border: 1px solid var(--rule); border-radius: 4px; padding: 10px;
+    resize: vertical;
+  }
+  .json-modal-error {
+    margin-top: 8px; padding: 8px 12px; font-size: 11.5px;
+    background: rgba(198,40,40,0.08); color: #b3333d;
+    border-left: 3px solid #b3333d; border-radius: 3px;
+  }
+  .json-modal-actions {
+    display: flex; gap: 8px; margin-top: 12px; align-items: center;
+  }
+  .json-modal-actions button {
+    padding: 6px 14px; font-family: var(--sans); font-size: 12px;
+    border: 1px solid var(--rule); border-radius: 4px;
+    background: var(--paper); color: var(--ink); cursor: pointer;
+  }
+  .json-modal-actions button:hover { background: var(--card); }
+  .json-modal-actions button.primary {
+    background: #1d72d2; color: #fff; border-color: #1d72d2; font-weight: 600;
+  }
+  .json-modal-actions button.primary:hover { background: #155cab; }
+  .json-modal-file-input { font-family: var(--sans); font-size: 12px; }
+  body.theme-tactical .json-modal-panel {
+    background: #0c1320; color: #d8e4f0; border-color: rgba(255,255,255,0.14);
+  }
+  body.theme-tactical .json-modal-body { background: #0c1320; }
+  body.theme-tactical .json-modal-view,
+  body.theme-tactical .json-modal-edit { background: #050a13; border-color: rgba(255,255,255,0.10); }
 
   /* Theme switcher pill in the global appbar. Uses semi-transparent
      white-on-dark — works against the appbar's dark bg in all 3 themes. */
@@ -2326,6 +2409,70 @@
     font-family: var(--mono); font-size: 11px;
     color: var(--muted); margin-top: 6px;
   }
+  /* Calibration badge — shows when the loaded workload's anchor_query
+     has a _calibration block. Surfaces "validated against real API"
+     status + date + link to the bench's variance report. */
+  .calibration-badge {
+    display: block;
+    margin-top: 10px; padding: 8px 12px;
+    font-family: var(--sans); font-size: 11px; line-height: 1.5;
+    background: rgba(42,140,58,0.08);
+    color: #1f6b2a;
+    border: 1px solid rgba(42,140,58,0.25);
+    border-left: 3px solid #2a8c3a;
+    border-radius: 3px;
+  }
+  .calibration-badge.mode-moderate,
+  .calibration-badge.mode-heavy {
+    /* Switch to a warning palette when the user dials up to an
+       estimated payload — the validation only proves the minimal case. */
+    background: rgba(199,107,0,0.07);
+    color: #8a5d00;
+    border-color: rgba(199,107,0,0.25);
+    border-left-color: #c76b00;
+  }
+  .calibration-badge .cal-header {
+    display: flex; align-items: center; gap: 6px;
+    font-weight: 600;
+  }
+  .calibration-badge .cal-check { font-size: 13px; }
+  .calibration-badge .cal-date { font-weight: 400; color: var(--muted); font-variant-numeric: tabular-nums; }
+  .calibration-badge .cal-summary {
+    margin-top: 4px; font-size: 11px; color: var(--muted);
+  }
+  .calibration-badge .cal-modes {
+    margin-top: 6px; display: flex; gap: 4px; align-items: center;
+    font-size: 10.5px;
+  }
+  .calibration-badge .cal-mode-label {
+    color: var(--muted); margin-right: 4px;
+  }
+  .calibration-badge .cal-mode-btn {
+    padding: 2px 8px; font-size: 10.5px; font-family: var(--sans);
+    background: transparent; color: inherit;
+    border: 1px solid currentColor; border-radius: 3px;
+    cursor: pointer; opacity: 0.55;
+  }
+  .calibration-badge .cal-mode-btn:hover { opacity: 0.8; }
+  .calibration-badge .cal-mode-btn.active {
+    background: currentColor; opacity: 1;
+  }
+  .calibration-badge .cal-mode-btn.active span { color: var(--card); }
+  .calibration-badge a {
+    color: inherit; text-decoration: underline; text-decoration-style: dotted;
+  }
+  .calibration-badge a:hover { text-decoration-style: solid; }
+  body.theme-tactical .calibration-badge {
+    background: rgba(74,222,128,0.08);
+    color: #74d488; border-color: rgba(116,212,136,0.30);
+    border-left-color: #4ade80;
+  }
+  body.theme-tactical .calibration-badge.mode-moderate,
+  body.theme-tactical .calibration-badge.mode-heavy {
+    background: rgba(252,211,77,0.07);
+    color: #fcd34d; border-color: rgba(252,211,77,0.30);
+    border-left-color: #fcd34d;
+  }
   .headline .secondary {
     display: grid; grid-template-columns: 1fr 1fr 1fr;
     gap: 18px;
@@ -3276,8 +3423,7 @@ body.config-basic .simulator-pane .block-advanced { display: none !important; }
       <button id="pdf-btn" class="appbar-menu-item" title="Open browser print dialog — choose 'Save as PDF' as the destination">🖨 Print / Save as PDF</button>
       <button id="csv-btn"   class="appbar-menu-item" onclick="exportCSV()" title="Export per-agent token + cost breakdown as CSV">⬇ Export CSV</button>
       <button id="share-btn" class="appbar-menu-item" title="Copy a shareable link to this configuration">⌘ Copy shareable link</button>
-      <button id="export-btn" class="appbar-menu-item" title="Export workload JSON">⬇ Export JSON</button>
-      <button id="import-btn" class="appbar-menu-item" title="Import workload JSON">⬆ Import JSON</button>
+      <button id="json-btn" class="appbar-menu-item" title="View, edit, copy, or import the workload JSON">📋 View / Edit JSON</button>
       <button id="reset-btn" class="appbar-menu-item" onclick="resetDefaults()" title="Reset all sliders and per-agent settings to defaults" style="color:#c62828">↺ Reset to defaults</button>
     </div>
   </div>
@@ -3323,10 +3469,14 @@ body.config-basic .simulator-pane .block-advanced { display: none !important; }
     <button class="tab-btn"        data-wiz="report"       data-wiz-anchor="sec-report"><span class="nav-icon">▤</span><span class="step-bullet">•</span>Report</button>
 
     <div class="nav-group-header">References</div>
-    <button class="tab-btn"        data-wiz="prices"       data-wiz-anchor="sec-prices"><span class="nav-icon">$</span><span class="step-bullet">•</span>Prices</button>
-    <button class="tab-btn"        data-wiz="benchmarks"   data-wiz-anchor="sec-benchmarks"><span class="nav-icon">▦</span><span class="step-bullet">•</span>Benchmarks</button>
+    <!-- Order matches the rendered page flow:
+         Derivation + Methodology live inside the Report panel (so they
+         appear right after the headline); Prices + Benchmarks are
+         separate panels reordered to the end via CSS `order`. -->
     <button class="tab-btn"        data-wiz="derivation"   data-wiz-anchor="sec-derivation"><span class="nav-icon">∑</span><span class="step-bullet">•</span>Derivation</button>
     <button class="tab-btn"        data-wiz="methodology"  data-wiz-anchor="sec-methodology"><span class="nav-icon">§</span><span class="step-bullet">•</span>Methodology</button>
+    <button class="tab-btn"        data-wiz="prices"       data-wiz-anchor="sec-prices"><span class="nav-icon">$</span><span class="step-bullet">•</span>Prices</button>
+    <button class="tab-btn"        data-wiz="benchmarks"   data-wiz-anchor="sec-benchmarks"><span class="nav-icon">▦</span><span class="step-bullet">•</span>Benchmarks</button>
   </nav>
 
   <!-- Main content — full-width per active tab -->
@@ -4031,6 +4181,14 @@ How agents coordinate, billed as extra input tokens per turn per agent.
 
 **Why it matters:** feedback loop. Tool result becomes input on the next turn, then again on every subsequent turn (carried in history). 800 tokens × 8 turns ≈ 6400 input tokens accumulated. Aggressive truncation here pays back many times over.">Result tokens</span><span class="sr-val" id="v-toolresult" style="color:var(--purple)">800</span></div><input type="range" min="0" max="8000" value="800" step="100" id="s-toolresult" oninput="onSlider()"><div class="sr-hint">Fed back into context</div></div>
             <div class="sr" style="border-top:1px solid var(--b);border-bottom:none"><div class="sr-top"><span class="sr-label" data-tip="Per-message wire-format overhead — role tags, message boundaries, formatting metadata. Small per turn but accumulates across many turns and parallel agents.">IA msg overhead</span><span class="sr-val" id="v-iamsg" style="color:var(--teal)">80</span></div><input type="range" min="0" max="500" value="80" step="20" id="s-iamsg" oninput="onSlider()"></div>
+          </div>
+          <div style="margin-top:6px;padding:6px 8px;border:1px solid var(--b);border-radius:5px;display:flex;align-items:center;gap:8px;font-size:11px;flex-wrap:wrap">
+            <label for="s-tool-response-mode" style="color:var(--text-primary,#c8d8f0);font-weight:600">Tool return shape</label>
+            <select id="s-tool-response-mode" data-bind="tool_response_mode" onchange="onSlider()" style="font-size:11px;border:1px solid var(--b);border-radius:4px;padding:2px 6px">
+              <option value="freeform">Freeform — result tokens compound across turns</option>
+              <option value="templated">Templated — result tokens capped (~40 tok)</option>
+            </select>
+            <span class="tip" data-tip="Production agents that pipe every tool return through a centralized response-template layer (one message string per status code, large structured payloads kept server-side) stop the per-turn feedback loop. 'Templated' clamps the effective Result tokens to ~40 regardless of the slider above — useful when validating a deployment that already wraps its tools this way. 'Freeform' (default) treats the slider value as the actual result size the LLM sees on every subsequent turn.">ⓘ</span>
           </div>
           <div style="margin-top:5px;padding:5px 8px;background:rgba(206,147,216,.06);border:1px solid rgba(206,147,216,.15);border-radius:5px;font-size:8px;color:var(--dim)">
             Provider tool fees/sess: <span id="tool-fee-cost" style="color:var(--purple);font-weight:700">$0</span> · Web search/file search/container line items are charged separately from tokens.
@@ -5321,11 +5479,10 @@ Procurement reviewers often work backwards: 'we have $50K/mo approved — how ma
          inline above, the rest deduplicated). -->
 
 
-    <details>
-      <summary>Advanced · raw JSON view</summary>
-      <textarea id="raw-json" style="width:100%; min-height:200px; font-family: var(--mono); font-size: 11px; margin-top: 10px;"></textarea>
-      <button id="apply-json" style="margin-top: 6px;">Apply edited JSON</button>
-    </details>
+    <!-- Raw JSON view / editor moved to the Share / Export menu →
+         "📋 View / Edit JSON". A modal there provides a tabbed UI for
+         viewing (with copy), editing (paste + apply), and importing
+         from a file — consolidating three previously separate flows. -->
     </div><!-- /.editor-body -->
     </div><!-- /.tab-panel components -->
 
@@ -5393,6 +5550,9 @@ Procurement reviewers often work backwards: 'we have $50K/mo approved — how ma
       <div class="label-row" id="prev-headline-label">Total monthly cost</div>
       <p class="number" id="prev-total">—</p>
       <div class="number-caption" id="prev-total-caption">—</div>
+      <!-- Calibration badge — populated by renderPreview when the loaded
+           workload has anchor_query._calibration. Hidden otherwise. -->
+      <div class="calibration-badge" id="prev-calibration" hidden></div>
       <div class="risk-band" id="prev-risk-band" style="display: none;">
         <span class="risk-label">Likely range</span>
         <span class="risk-range" id="prev-risk-range">—</span>
@@ -5577,19 +5737,6 @@ Procurement reviewers often work backwards: 'we have $50K/mo approved — how ma
       <div style="font-size:13px;font-weight:700;color:var(--accent);margin-bottom:6px;letter-spacing:1px">LANGUAGE MULTIPLIER</div>
       <div style="color:var(--muted);margin-bottom:14px">Tokenizers compress different languages and model families differently. This multiplier is a coarse planning adjustment, not a provider-tokenizer substitute. Approximate multipliers: English 1.0×, Code 1.3×, Spanish/French 1.2×, Chinese/Japanese/Korean 1.8–2.2×, Arabic/Hebrew 1.4×. Validate with provider token counters or production usage logs before budget submission.</div>
 
-      <div style="font-size:13px;font-weight:700;color:var(--accent);margin-bottom:6px;letter-spacing:1px">VERSION HISTORY</div>
-      <div style="color:var(--muted);font-size:9px">
-        v9.4 - May 4 2026 - First-class Agent Settings tab, expanded per-agent controls, preserved/shareable fleet edits, simulation uses per-agent settings<br>        v9.2 - May 4 2026 - Scraper-ready price metadata, OpenAI/Gemini long-context tiers, additional current models, reset/export cleanup<br>
-        v9.1 - May 4 2026 - Updated public rate card, cache write/read model, external tool-fee line items, per-turn ledger fixes, guard waste/RAG embed returns<br>
-        v8.0 — May 2026 — Multi-model routing, multimodal tokens, prompt overhead, methodology disclosure<br>
-        v7.0 — Live architecture diagram, RAG/reasoning/guardrail tokens, lognormal CI<br>
-        v6.0 — HitL costs, sensitivity analysis, infra modelling (now removed — separate tool)<br>
-        v5.0 — Confidence intervals, task-type multipliers, batch processing<br>
-        v4.0 — Real BPE token counting, per-agent config<br>
-        v3.0 — Full agent simulation with auto-runner<br>
-        v2.0 — Slider-based configuration<br>
-        v1.0 — Initial multi-agent visualisation
-      </div>
     </div>
 
       </div><!-- /#preview -->
@@ -5598,11 +5745,69 @@ Procurement reviewers often work backwards: 'we have $50K/mo approved — how ma
 </div><!-- /.layout -->
 
 <div class="footer">
-  <span>Cost Calculator Studio · v0.1 · alpha</span>
-  <span><a href="https://github.com/ajinkyakulkarni/ai-cost-calculator-studio">Source</a></span>
+  <span>AI Cost Calculator</span>
+  <span>
+    <a href="https://github.com/ajinkyakulkarni/ai-cost-calculator-studio"
+       target="_blank" rel="noopener"
+       title="View source on GitHub"
+       style="display:inline-flex;align-items:center;gap:5px;text-decoration:none">
+      <!-- GitHub mark — inline SVG so we don't add a network dependency or
+           CDN ping. Sized to match the surrounding 11-12px footer text. -->
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16"
+           width="14" height="14" aria-hidden="true" focusable="false"
+           style="vertical-align:middle">
+        <path fill="currentColor" fill-rule="evenodd"
+              d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0 0 16 8c0-4.42-3.58-8-8-8z"/>
+      </svg>
+      <span>Source</span>
+    </a>
+  </span>
   <span><a href="examples/">Examples</a></span>
   <span id="prices-freshness" title="Prices are scraped daily from vendor pricing pages.">Prices: bundled (loading live…)</span>
+  <span><a href="https://github.com/ajinkyakulkarni/ai-cost-calculator-studio/blob/main/LICENSE" target="_blank" rel="noopener" title="MIT License">MIT</a></span>
   <span style="margin-left:auto;">Math: <a href="lib/cost-engine.js">cost-engine.js</a></span>
+</div>
+
+<!-- JSON view/edit/import modal — populated + wired by app.js -->
+<div class="json-modal-backdrop" id="json-modal" role="dialog" aria-modal="true" aria-labelledby="json-modal-title">
+  <div class="json-modal-panel">
+    <div class="json-modal-header">
+      <h3 id="json-modal-title">Workload JSON</h3>
+      <button class="json-modal-close" id="json-modal-close" aria-label="Close" title="Close (Esc)">✕</button>
+    </div>
+    <div class="json-modal-tabs" role="tablist">
+      <button class="json-modal-tab active" data-tab="view" role="tab" aria-selected="true">📋 View</button>
+      <button class="json-modal-tab" data-tab="edit" role="tab" aria-selected="false">✏️ Paste &amp; Apply</button>
+      <button class="json-modal-tab" data-tab="import" role="tab" aria-selected="false">📁 Import from file</button>
+    </div>
+    <div class="json-modal-body">
+      <!-- View tab -->
+      <div class="json-modal-tab-panel" data-panel="view">
+        <p class="json-modal-hint">Current workload as JSON. Copy to share with another agent, paste into a ticket, or save as a file.</p>
+        <pre class="json-modal-view" id="json-view"></pre>
+        <div class="json-modal-actions">
+          <button id="json-copy-btn" class="primary" type="button">📋 Copy to clipboard</button>
+          <button id="json-download-btn" type="button">⬇ Download as .json</button>
+        </div>
+      </div>
+      <!-- Edit tab -->
+      <div class="json-modal-tab-panel" data-panel="edit" hidden>
+        <p class="json-modal-hint">Paste workload JSON below, then click Apply. Invalid JSON is reported inline — your current configuration is not replaced until parsing succeeds.</p>
+        <textarea class="json-modal-edit" id="json-edit" spellcheck="false" placeholder='{"deployment": {"name": "..."}, "shapes": {...}, ...}'></textarea>
+        <div class="json-modal-error" id="json-edit-error" hidden></div>
+        <div class="json-modal-actions">
+          <button id="json-apply-btn" class="primary" type="button">Apply</button>
+          <button id="json-edit-reset-btn" type="button">Reset to current</button>
+        </div>
+      </div>
+      <!-- Import tab -->
+      <div class="json-modal-tab-panel" data-panel="import" hidden>
+        <p class="json-modal-hint">Load a workload JSON file (e.g. previously downloaded via the View tab). Replaces the current configuration.</p>
+        <input type="file" class="json-modal-file-input" id="json-file" accept=".json,application/json" />
+        <div class="json-modal-error" id="json-import-error" hidden></div>
+      </div>
+    </div>
+  </div>
 </div>
 
 <!-- SheetJS for client-side Excel export -->

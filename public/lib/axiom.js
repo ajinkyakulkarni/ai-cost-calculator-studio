@@ -290,7 +290,17 @@ function computeCost(mk){
     const myTurns=Math.max(1,Math.round(baseTurns*(agent.turnsShare||1.0)));
     const myToolsPer=agent.toolsOn?(agent.tools_per??cfg('s-tools')):0;
     const mySchema=agent.schema??cfg('s-schema');
-    const myResult=agent.result??cfg('s-toolresult');
+    // Per-tool-result token budget. When the workload declares
+    // tool_response_mode='templated' (deployment routes every tool
+    // return through a fixed-template response layer), the budget is
+    // clamped to TEMPLATED_TOOL_RESULT_TOK — matching the ~40-tok
+    // generic status messages the bench emits in templated mode. We
+    // clamp rather than overwrite so a user who already set a low
+    // slider value doesn't see the number get bigger.
+    const TEMPLATED_TOOL_RESULT_TOK=40;
+    const _toolMode=document.getElementById('s-tool-response-mode')?.value||'freeform';
+    const _myResultRaw=agent.result??cfg('s-toolresult');
+    const myResult=_toolMode==='templated'?Math.min(_myResultRaw,TEMPLATED_TOOL_RESULT_TOK):_myResultRaw;
     const myToolSchemaOH=myToolsPer*mySchema;
     const myToolResultOH=myToolsPer*myResult;
     const ragCalls=agent.rag_calls??cfg('s-rag-calls');

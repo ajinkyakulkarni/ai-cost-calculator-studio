@@ -120,8 +120,8 @@ for (const slug of PRESETS) {
 }
 console.log('');
 
-// ── 3. FedRAMP multiplier: High should produce ~30% higher api_capped ─
-console.log('3. FedRAMP multiplier (high) increases api_capped ~30%');
+// ── 3. FedRAMP multiplier: High should produce ~30% higher per-query rate ─
+console.log('3. FedRAMP multiplier (high) increases per-query rate ~30%');
 {
   const w = loadPreset('nasa-eie');
   const o = buildOpts(w);
@@ -140,8 +140,15 @@ console.log('3. FedRAMP multiplier (high) increases api_capped ~30%');
   if (wNone.deployment) wNone.deployment.fedrampTier = 'none';
   const rHigh = CostEngine.compute(wHigh, o);
   const rNone = CostEngine.compute(wNone, o);
-  const ratio = rHigh.api.monthly_capped / rNone.api.monthly_capped;
-  assert(Math.abs(ratio - 1.30) < 0.01, `nasa-eie: api_capped ratio high/none ≈ 1.30 (got ${ratio.toFixed(4)})`);
+  // Assert on per_query_blended (and equivalently monthly_gross) rather
+  // than monthly_capped: the multiplier is structural, but the capped
+  // value collapses to the cap when both runs exceed it, hiding the
+  // ratio. monthly_gross / per_query_blended preserve the multiplier
+  // regardless of how the preset's traffic shape evolves.
+  const ratioPerQ = rHigh.api.per_query_blended / rNone.api.per_query_blended;
+  assert(Math.abs(ratioPerQ - 1.30) < 0.01, `nasa-eie: per_query_blended ratio high/none ≈ 1.30 (got ${ratioPerQ.toFixed(4)})`);
+  const ratioGross = rHigh.api.monthly_gross / rNone.api.monthly_gross;
+  assert(Math.abs(ratioGross - 1.30) < 0.01, `nasa-eie: monthly_gross ratio high/none ≈ 1.30 (got ${ratioGross.toFixed(4)})`);
 }
 console.log('');
 

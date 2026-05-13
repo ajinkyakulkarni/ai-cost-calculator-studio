@@ -508,6 +508,35 @@
         source_url: 'https://www.databricks.com/product/pricing/foundation-models',
         last_verified: '2026-04-25',
       },
+      // ── Specialized-vertical deployments (closer cost regime to
+      //     custom compliance-bound enterprise builds) ────────────────
+      'harvey-ai-legal': {
+        category: 'Commercial · vertical AI',
+        name: 'Harvey AI (legal)',
+        description: 'AmLaw-grade legal research, drafting, review',
+        dollar_per_seat_per_month: 3000,
+        notes: 'Reported $35-50K/seat/year for AmLaw firms (range mid: $42K/yr → ~$3,500/mo). Pricing not on Harvey site; per The Information and TechCrunch coverage.',
+        source_url: 'https://www.theinformation.com/articles/legal-ai-startup-harvey-raises-100-million',
+        last_verified: '2026-04-25',
+      },
+      'glean-enterprise': {
+        category: 'Commercial · vertical AI',
+        name: 'Glean Enterprise Search',
+        description: 'Enterprise-wide search + assistant across SaaS data',
+        dollar_per_seat_per_month: 40,
+        notes: 'Glean Enterprise tier; lower end of specialized-vertical pricing',
+        source_url: 'https://www.glean.com/pricing',
+        last_verified: '2026-04-25',
+      },
+      'palantir-maven-dod': {
+        category: 'Federal · defense AI',
+        name: 'Palantir Maven Smart System (DoD)',
+        description: 'AI-enabled targeting & decision support, USAF/Army',
+        annual_total_for_org: 120000000,
+        notes: 'May 2025 DoD ceiling: $480M over 4 years ≈ $120M/yr. Federal-scale benchmark; not a seat-license — usage spans thousands of operators across services.',
+        source_url: 'https://www.defense.gov/News/Releases/Release/Article/4192123/',
+        last_verified: '2026-05-10',
+      },
       // ── Industry-wide ───────────────────────────────────────────────
       'stanford-ai-index-2024': {
         category: 'Industry · academic',

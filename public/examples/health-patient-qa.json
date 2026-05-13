@@ -128,6 +128,7 @@
     "audit_retention_years": 7,
     "audit_storage_per_gb_month": 0.005,
     "retrieval_infra_monthly": 0,
-    "pii_redaction_per_million_tokens": 22
+    "pii_redaction_per_million_tokens": 0.50,
+    "_pii_redaction_note": "Re-calibrated 2026-05-12 from 22 → 0.50 /M tokens. The prior value was ~50x industry-typical PII redaction service pricing (AWS Comprehend, Azure DLP, Google DLP all run $0.20-1.50/M characters, roughly $0.05-0.40/M tokens; $0.50/M tokens is a conservative midpoint covering HIPAA-grade inline redaction). Old value alone added ~$210K/mo of phantom federal-additive cost to this preset's headline at the 2.16M-query/mo volume — making the HIPAA chatbot appear ~6x more expensive than it actually is."
   }
 }
