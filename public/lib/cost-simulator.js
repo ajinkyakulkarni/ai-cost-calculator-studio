@@ -640,22 +640,32 @@ function updateCostPanel(){renderPerAgentCost();
     ['Quota exceeded penalty','$'+((sc.workflowExtra?.concurrency?.breakdown?.quotaExceededCost)||0).toFixed(5),'var(--red)'],
   ].map(([l,v,c])=>`<div style="display:flex;justify-content:space-between;padding:2px 0;border-bottom:1px solid var(--b)"><span style="color:var(--dim)">${l}</span><span style="color:${c};font-weight:700">${v}</span></div>`).join('');
   const budget=parseFloat(document.getElementById('budget-input').value)||999999;
-  const projMo=sc.netCost*monthly;
+  // Compare against the all-in headline (LLM + infra + verification +
+  // federal + personnel + agent-engineering + embedding) when app.js has
+  // published it, so the badge tracks what the user actually sees in the
+  // cost-pill. Fall back to LLM-only on initial paint when the headline
+  // hasn't been computed yet.
+  const projMo=(typeof window!=='undefined' && typeof window.__lastHeadlineMonthly==='number')
+    ? window.__lastHeadlineMonthly
+    : sc.netCost*monthly;
   const bs=document.getElementById('budget-status');const bw=document.getElementById('warn-budget');
   if(projMo>budget){bs.textContent='OVER';bs.className='badge-warn';if(bw)bw.className='warn-banner show';}
   else{bs.textContent='OK';bs.className='badge-ok';if(bw)bw.className='warn-banner';}
-  budgetSuggest(sc, monthly, budget);
+  budgetSuggest(sc, monthly, budget, projMo);
   buildProjChart();
 }
 
 /* Budget heuristic optimizer — when projected monthly > budget, list
    specific knob adjustments ranked by $ savings/month. Pure deterministic
    rules over the per-component cost the engine already exposes. */
-function budgetSuggest(sc, monthly, budget){
+function budgetSuggest(sc, monthly, budget, projMoOverride){
   const wrap=document.getElementById('budget-suggestions');
   const list=document.getElementById('budget-suggest-list');
   if(!wrap||!list)return;
-  const projMo=(sc.netCost||0)*monthly;
+  // Prefer the all-in headline passed in from the caller (matches the
+  // budget badge); fall back to LLM-only for callers that haven't been
+  // updated yet.
+  const projMo=(typeof projMoOverride==='number')?projMoOverride:(sc.netCost||0)*monthly;
   if(projMo<=budget){wrap.style.display='none';return;}
   const overBy=projMo-budget;
   const sugg=[];

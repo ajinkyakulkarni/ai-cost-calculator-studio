@@ -1155,23 +1155,48 @@
     const val = (id, fallback) => { const el = $(id); return el ? el.value : fallback; };
     const numVal = (id, fallback) => { const el = $(id); return el ? parseFloat(el.value) : fallback; };
 
-    // Single-source-of-truth: simulator sliders drive traffic.
-    //   MAU × sessions/user/day × turns/session × 30 = queries/month
-    // We collapse workload.segments to a single aggregate "All users"
-    // segment so CostEngine consumes the same numbers the user sees.
+    // Simulator-side sliders (MAU / sessions / turns) drive traffic for
+    // single-segment workloads. For multi-segment workloads (e.g. NASA
+    // EIE's auth + public split), we *preserve* the segments and let the
+    // user edit them in the per-segment editor below. The sliders then
+    // display the rollup (sum of MAU, weighted-average sessions/day and
+    // questions/session) so the user can still see traffic-shape totals
+    // at a glance, but slider movement does not silently flatten the
+    // segments.
     {
       const mau = numVal('s-users', 500);
       const sessionsPerUserPerDay = numVal('s-sessions', 0.3);
       const turnsPerSession = numVal('s-turns', 8);
-      workload.segments = [{
-        id: 'all',
-        label: 'All users',
-        mau: mau,
-        sessions_per_day: sessionsPerUserPerDay,
-        questions_per_session: turnsPerSession,
-        applyBotFactor: true,
-        description: 'Aggregate traffic — MAU × sessions/user/day × turns/session × bot factor.',
-      }];
+      const segs = workload.segments || [];
+      if (segs.length <= 1) {
+        // Single-segment / fresh-start path: sliders ARE the segment.
+        workload.segments = [{
+          id: 'all',
+          label: 'All users',
+          mau: mau,
+          sessions_per_day: sessionsPerUserPerDay,
+          questions_per_session: turnsPerSession,
+          applyBotFactor: true,
+          description: 'Aggregate traffic — MAU × sessions/user/day × turns/session × bot factor.',
+        }];
+      } else {
+        // Multi-segment path: leave segments alone (the per-segment editor
+        // is the editing surface). Push rollup values to the sliders so
+        // the global panel shows totals consistent with the segments.
+        const totalMau = segs.reduce((a, s) => a + (s.mau || 0), 0);
+        const wAvgSess = totalMau > 0
+          ? segs.reduce((a, s) => a + (s.mau || 0) * (s.sessions_per_day || 0), 0) / totalMau
+          : 0;
+        const wAvgTurns = totalMau > 0
+          ? segs.reduce((a, s) => a + (s.mau || 0) * (s.questions_per_session || 0), 0) / totalMau
+          : 0;
+        const mauEl = document.getElementById('s-users');
+        const sessEl = document.getElementById('s-sessions');
+        const turnsEl = document.getElementById('s-turns');
+        if (mauEl) mauEl.value = totalMau;
+        if (sessEl) sessEl.value = wAvgSess.toFixed(1);
+        if (turnsEl) turnsEl.value = Math.round(wAvgTurns);
+      }
     }
 
     // Bridge simulator token-shape sliders (RAG chunks, Tool calls, schema, etc.)
@@ -1264,6 +1289,12 @@
     const agentEngMonthly = composed.ae;
     const llmHeadline = composed.llm;
     const headlineTotal = composed.headline;
+    // Publish the all-in headline so downstream panels (the budget warning
+    // banner inside the cost simulator, in particular) compare against the
+    // same number the user sees in the cost-pill. Without this, the budget
+    // check only saw the LLM-bill portion and a $43M/mo headline could
+    // silently exceed a $10K budget without firing the OVER badge.
+    window.__lastHeadlineMonthly = headlineTotal;
 
     // 3-year TCO: monthly LLM/fixed/federal × 36 + (one-time setup × 1, NOT × 36).
     // For self-host, setup_amortized is already a monthly number (annual setup ÷ 12).

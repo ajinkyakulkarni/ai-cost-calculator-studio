@@ -518,7 +518,7 @@
      the simulator's Configuration tab. sec-segments folded into the simulator's
      Audience sub-tab; sec-embeddings folded into the simulator's RAG section. */
   #sec-anchor, #sec-shapes, #sec-agents, #sec-mix,
-  #sec-segments, #sec-embeddings { display: none; }
+  #sec-embeddings { display: none; }
   /* Reorder visible sections to match the scroll-spy sub-nav flow:
      Audience → Hosting → Infrastructure → Compliance → People → Reference.
      Two meta sections (sec-scenario, sec-deployment) stay at the very
@@ -3830,21 +3830,23 @@ Pull this from real analytics (login records, web visits) — don't guess. *Peak
 Longer chats are *cheaper per question*. The AI vendor charges full price the first time it reads the standing instructions, then a ~90% discount each time it sees the same context again. So a 10-turn chat pays the standing-instructions cost once; a 1-turn chat pays it every single time.
 
 Going from 1 → 8 turns roughly halves the per-question cost on prompt-heavy apps.">Turns / session</span><span class="sr-val" id="v-turns" style="color:var(--amber)">8</span></div><input type="range" min="1" max="40" value="8" step="1" id="s-turns" oninput="onSlider()"></div>
-        <div class="sr"><div class="sr-top"><span class="sr-label" data-tip="### Sessions per user per day
+        <div class="sr"><div class="sr-top"><span class="sr-label" data-tip="### Daily return rate per user
 
-**In plain English:** how often the average user opens up a chat each day. A 0.3 means most users come back roughly once every 3 days. A 2.0 means twice a day every day.
+**What this is:** the average number of times a single monthly-active user (MAU) opens a session per day. It is a *fractional rate*, not a count — most MAUs don't show up every day, so realistic values sit well below 1.0.
+
+**Formula:** monthly queries = MAU × *this slider* × 30 days × questions per session × bot factor.
 
 **Typical numbers**
-- One-time visitor (look, leave): **0.1–0.3**
+- Public-facing portal (one-shot visitors): **0.05–0.2** (visits every 5–20 days)
 - Casual return user: **0.3–0.7**
-- Daily-driver tool: **1–2**
+- Daily-driver tool (Slack, Linear): **1–2**
 - Power user / coding agent: **3–5**
 
 **Why it matters for cost**
-This is the *frequency* knob. Each session lights up a fresh chat that costs money. Doubling this number doubles the total questions per month and roughly doubles the bill.
+This is the *frequency* knob. Doubling it roughly doubles total queries per month and roughly doubles the bill.
 
 **Tip for procurement**
-Base it on real analytics if you have them (login events, web visits). Public federal portals are usually **~0.15** because most visitors don't come back. Internal team tools are higher.">Sessions / user / day</span><span class="sr-val" id="v-sessions" style="color:var(--teal)">0.3</span></div><input type="range" min="0.05" max="10" value="0.3" step="0.05" id="s-sessions" oninput="onSlider()"></div>
+Base it on real analytics if you have them (login events, web visits). Public federal portals usually sit around **0.1–0.2** because most visitors don't return. Internal team tools sit higher.">Daily return rate per user</span><span class="sr-val" id="v-sessions" style="color:var(--teal)">0.3</span></div><input type="range" min="0.1" max="10" value="0.3" step="0.1" id="s-sessions" oninput="onSlider()"></div>
         <div class="sr"><div class="sr-top"><span class="sr-label" data-tip="### Bot factor (machine traffic multiplier)
 
 **In plain English:** how much *extra* traffic comes from automated bots, web crawlers, and scrapers — on top of real human users. A 1.5× means for every 100 humans, another 50 bots are also hitting the system.
