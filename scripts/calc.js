@@ -3,7 +3,7 @@
  * calc.js — standalone calculator CLI
  *
  * Reproduces the live calculator's headline number byte-for-byte from a
- * workload JSON, with no DOM, no browser, no AXIOM token-shape sliders.
+ * workload JSON, with no DOM, no browser, no simulator token-shape sliders.
  * Use this to:
  *   - Verify the engine's math against any preset from another agent
  *   - Run scenarios in CI / scripts without spinning up a browser
@@ -18,16 +18,16 @@
  *   4. agentEng = computeAgentEngineering(workload)  (see below)
  *   5. headline = llm + verif + federal + fixed + emb + personnel + agentEng
  *
- * Note on AXIOM tokens: the live UI lets users move RAG/Tools/CoT sliders
- * which feed into anchor_query.input_tokens via AXIOM's own per-turn
+ * Note on simulator tokens: the live UI lets users move RAG/Tools/CoT sliders
+ * which feed into anchor_query.input_tokens via the simulator's own per-turn
  * token simulator. For verification purposes this CLI uses
  * anchor_query.input_tokens / output_tokens from the preset JSON as-is.
- * If a user wants to simulate different AXIOM slider values, they set
+ * If a user wants to simulate different simulator slider values, they set
  * those tokens in the input workload directly. Override with --input-tok
  * and --output-tok flags.
  *
  * For full-fidelity reproduction of a live page state, use --url-hash to
- * paste the share-link hash. The hash contains the post-AXIOM workload
+ * paste the share-link hash. The hash contains the post-simulator workload
  * including any imported agents and bridged token counts. Save the hash
  * to a file first if it's long enough that your shell truncates it on
  * the command line:  `echo "PASTED_HASH" > /tmp/h && node scripts/calc.js
@@ -97,7 +97,7 @@ Required (one of):
   --url-hash <hash>        Paste a live calc.ajinkya.ai share URL (or just
                            the hash part after #w=). This is the most
                            faithful mode — reproduces exactly what's on
-                           the live page, including any AXIOM-imported
+                           the live page, including any simulator-imported
                            agents and bridged token counts.
 
 Optional overrides (otherwise use workload defaults):
@@ -228,7 +228,7 @@ function compute(workload, opts) {
   // into the second. Cheap relative to the cost of the engine pass.
   workload = JSON.parse(JSON.stringify(workload));
 
-  // Honor token overrides if supplied (mimics what AXIOM bridge would
+  // Honor token overrides if supplied (mimics what simulator bridge would
   // write into anchor_query at runtime in the browser).
   if (Number.isFinite(opts.inputTok))  workload.anchor_query.input_tokens  = opts.inputTok;
   if (Number.isFinite(opts.outputTok)) workload.anchor_query.output_tokens = opts.outputTok;

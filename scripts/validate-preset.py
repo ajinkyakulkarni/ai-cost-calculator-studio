@@ -228,7 +228,7 @@ def predict_from_calculator(preset_path: Path, model: str | None,
     api_with_retry = j.get("derived", {}).get("api_with_retry", 0.0)
     per_query_blended = j.get("derived", {}).get("per_query_blended", 0.0)
     # Per-query input/output from the workload anchor_query, which is
-    # what AXIOM feeds into the engine. These are the "what the
+    # what the simulator feeds into the engine. These are the "what the
     # calculator THINKS each query costs in tokens" numbers.
     with preset_path.open() as f:
         w = json.load(f)

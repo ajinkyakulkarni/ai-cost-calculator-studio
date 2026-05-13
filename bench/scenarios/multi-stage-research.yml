@@ -10,7 +10,7 @@
 # multi-stage research pipeline (federal, startup, enterprise)
 # recognizes themselves in it.
 #
-# What this scenario validates in AXIOM:
+# What this scenario validates in the simulator:
 #   - sequential multi-agent handoff overhead (per-stage prompt
 #     duplication + cumulative context growth)
 #   - per-stage structured-output token cost

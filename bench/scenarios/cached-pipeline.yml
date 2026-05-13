@@ -1,6 +1,6 @@
 # cached-pipeline — explicit cache-hit-rate validation.
 #
-# AXIOM's cache_hit_rate coefficient (default 0.84) is the most
+# the simulator's cache_hit_rate coefficient (default 0.84) is the most
 # consequential single value in the simulator — it directly affects
 # the headline monthly cost number. This scenario produces an
 # empirical replacement.
@@ -24,7 +24,7 @@
 # `claude-sonnet-4.6` and ensure ANTHROPIC_API_KEY is set in .env.
 
 name: cached-pipeline
-description: Long shared system prompt + repeated short turns. Validates AXIOM's cache_hit_rate coefficient against actual provider-reported cached_tokens.
+description: Long shared system prompt + repeated short turns. Validates the simulator's cache_hit_rate coefficient against actual provider-reported cached_tokens.
 topology: single
 repeat: 3
 max_cost_usd: 0.50

@@ -1,5 +1,5 @@
 {
-  "_comment": "Synthesized AXIOM simulator export for the multi-stage-research scenario. Mirrors what calc.ajinkya.ai would produce if you set up a 5-stage sequential pipeline with default coefficients. Used to demonstrate the variance comparator end-to-end.",
+  "_comment": "Synthesized cost simulator export for the multi-stage-research scenario. Mirrors what calc.ajinkya.ai would produce if you set up a 5-stage sequential pipeline with default coefficients. Used to demonstrate the variance comparator end-to-end.",
   "schemaVersion": "1.0",
   "deployment": {
     "name": "Multi-stage research pipeline",

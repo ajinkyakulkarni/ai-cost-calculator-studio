@@ -23,7 +23,7 @@
   // State + bind helpers
   // -----------------------------------------------------------------
   let workload = makeBlank();
-  // Expose workload + renderPreview to the AXIOM-side script so the
+  // Expose workload + renderPreview to the simulator-side script so the
   // Audience editor (defined in the inlined integration script) can
   // read/write segments and trigger recomputation.
   window.workload = workload;
@@ -1128,7 +1128,7 @@
         if (mode.input_tokens != null) workload.anchor_query.input_tokens = mode.input_tokens;
         if (mode.output_tokens != null) workload.anchor_query.output_tokens = mode.output_tokens;
         if (mode.cache_rate_baseline != null) workload.anchor_query.cache_rate_baseline = mode.cache_rate_baseline;
-        // Reflect cache slider too so the AXIOM cacheRate signal matches.
+        // Reflect cache slider too so the simulator cacheRate signal matches.
         const sCache = document.getElementById('s-cache');
         if (sCache && mode.cache_rate_baseline != null) {
           sCache.value = String(Math.round(mode.cache_rate_baseline * 100));
@@ -1155,7 +1155,7 @@
     const val = (id, fallback) => { const el = $(id); return el ? el.value : fallback; };
     const numVal = (id, fallback) => { const el = $(id); return el ? parseFloat(el.value) : fallback; };
 
-    // Single-source-of-truth: AXIOM sliders drive traffic.
+    // Single-source-of-truth: simulator sliders drive traffic.
     //   MAU × sessions/user/day × turns/session × 30 = queries/month
     // We collapse workload.segments to a single aggregate "All users"
     // segment so CostEngine consumes the same numbers the user sees.
@@ -1174,13 +1174,13 @@
       }];
     }
 
-    // Bridge AXIOM token-shape sliders (RAG chunks, Tool calls, schema, etc.)
-    // into workload.anchor_query.input_tokens / output_tokens. AXIOM's
+    // Bridge simulator token-shape sliders (RAG chunks, Tool calls, schema, etc.)
+    // into workload.anchor_query.input_tokens / output_tokens. the simulator's
     // computeCost() does the per-agent × per-turn token math; we read its
     // session-total and divide by turns to land on the per-query value the
     // calc engine consumes. Without this bridge, sliders like "Chunks
     // retrieved" or "Tool calls/turn" would be visibly inert — they'd update
-    // AXIOM's internal panels but not the headline cost.
+    // the simulator's internal panels but not the headline cost.
     let _axTotalIn = null, _axTotalOut = null, _axTurns = null;
     if (typeof window.computeCost === 'function') {
       try {
@@ -1195,17 +1195,17 @@
           _axTotalOut = axRes.totalOut;
           workload.anchor_query.output_tokens = Math.round(axRes.totalOut / turns);
         }
-      } catch (_) { /* AXIOM not ready yet on first paint */ }
+      } catch (_) { /* simulator not ready yet on first paint */ }
     }
 
-    // AXIOM Cache hit rate slider (s-cache, in 0-100%) is the canonical
+    // Cache-hit-rate slider (s-cache, in 0-100%) is the canonical
     // source of truth now. Fall back to the legacy prev-cache control or
-    // the workload's anchor_query.cache_rate_baseline if the AXIOM slider
+    // the workload's anchor_query.cache_rate_baseline if the simulator slider
     // isn't in the DOM (e.g., in a stripped-down embedded view).
     const sCacheEl = $('s-cache');
     const cacheFromAxiom = sCacheEl ? parseFloat(sCacheEl.value) / 100 : null;
 
-    // AXIOM Retry rate slider (s-retry, in 0-100%) inflates the API bill —
+    // Retry-rate slider (s-retry, in 0-100%) inflates the API bill —
     // each retry pays the full input cost again, so we apply a multiplier
     // (1 + retry_rate × 1.5) on top of CostEngine's headline. The 1.5
     // factor accounts for partial output already generated before failure.
@@ -1242,7 +1242,7 @@
     }
 
     const queries = result.queries.total;
-    // Apply retry-rate multiplier from AXIOM s-retry slider. Each retry
+    // Apply retry-rate multiplier from the simulator s-retry slider. Each retry
     // pays input cost again + ~50% of output (partial generation before
     // failure), so we use 1.5× the retry fraction as the inflate factor.
     const retryInflate = 1 + (retryRate * 1.5);
@@ -1838,7 +1838,7 @@
     // independent verification of every formula and intermediate value.
     // Engine's trace covers queries → per-query → LLM → federal → fixed →
     // embeddings → personnel → grand total. App.js adds three things on
-    // top of that: AXIOM input flow, retry inflation, agent engineering.
+    // top of that: simulator input flow, retry inflation, agent engineering.
     // Append those as additional sections so the trace is self-contained.
     const mathEl = document.getElementById('prev-math');
     if (mathEl) {
@@ -1849,20 +1849,20 @@
       const lines = [];
       lines.push('');
       lines.push(sep);
-      lines.push('A) AXIOM TOKEN BRIDGE (app.js → engine inputs)');
+      lines.push('A) COST-SIMULATOR TOKEN BRIDGE (app.js → engine inputs)');
       lines.push(sep);
       if (_axTotalIn != null && _axTurns != null) {
         const perTurn = Math.round(_axTotalIn / _axTurns);
-        lines.push(`AXIOM computeCost() session-total input: ${fmtN(_axTotalIn)} tok across ${_axTurns} turns`);
+        lines.push(`simulator computeCost() session-total input: ${fmtN(_axTotalIn)} tok across ${_axTurns} turns`);
         lines.push(`  → anchor_query.input_tokens = ${fmtN(_axTotalIn)} / ${_axTurns} = ${fmtN(perTurn)} tok/query (used in section 3 above)`);
         if (_axTotalOut != null) {
           const perTurnOut = Math.round(_axTotalOut / _axTurns);
-          lines.push(`AXIOM session-total output: ${fmtN(_axTotalOut)} tok across ${_axTurns} turns`);
+          lines.push(`simulator session-total output: ${fmtN(_axTotalOut)} tok across ${_axTurns} turns`);
           lines.push(`  → anchor_query.output_tokens = ${fmtN(_axTotalOut)} / ${_axTurns} = ${fmtN(perTurnOut)} tok/query`);
         }
-        lines.push(`(AXIOM internal: per-agent loop sums sysprompt + ia_msg + tool schema/result + RAG + reasoning + guards + comm-pattern overhead × turns × agentCount.)`);
+        lines.push(`(simulator internal: per-agent loop sums sysprompt + ia_msg + tool schema/result + RAG + reasoning + guards + comm-pattern overhead × turns × agentCount.)`);
       } else {
-        lines.push('AXIOM bridge not active this render — anchor_query.input_tokens used as-is.');
+        lines.push('simulator bridge not active this render — anchor_query.input_tokens used as-is.');
       }
       lines.push('');
 
@@ -1942,7 +1942,7 @@
     // on the top drivers (MAU, cache, rates, bot, turns).
     renderSensitivity(opts, headlineTotal, retryInflate);
 
-    // Cost-over-time projection (uses AXIOM s-growth slider).
+    // Cost-over-time projection (uses simulator s-growth slider).
     renderCostOverTime(headlineTotal);
 
     // Side-by-side preset compare — uses cached preset JSONs + the live opts.
@@ -2041,7 +2041,7 @@
           ${buildRow('Cut turns/session by half', 0.55, 'shorter sessions = fewer queries per user, but fewer cache hits too')}
         </tbody>
       </table>
-      <p class="helper" style="margin-top:10px;font-size:11.5px;color:var(--muted)">Multipliers are heuristic. Actual savings depend on your traffic mix and provider rates — re-test with the AXIOM cache slider for your specific case.</p>
+      <p class="helper" style="margin-top:10px;font-size:11.5px;color:var(--muted)">Multipliers are heuristic. Actual savings depend on your traffic mix and provider rates — re-test with the simulator cache slider for your specific case.</p>
     `;
   }
   function fmtNum(n) { return Math.round(n).toLocaleString(); }
@@ -2287,7 +2287,7 @@
 
   // -----------------------------------------------------------------
   // Cost-over-time projection — line chart of monthly + cumulative
-  // cost across 36 months given the AXIOM s-growth rate. Shows three
+  // cost across 36 months given the simulator s-growth rate. Shows three
   // markers: month 1, month 12 (annual), month 36 (3-year cumulative).
   // -----------------------------------------------------------------
   function renderCostOverTime(baselineMonthly) {
@@ -2586,7 +2586,7 @@
           <tbody>${rowsHtml}</tbody>
         </table>
       </div>
-      <p class="helper" style="margin-top:8px;font-size:11px;color:var(--muted)">B-vs-A column: red = B costs more than A; green = B costs less. Comparing presets uses each preset's bundled defaults (model, hosting, mix). Comparing against <strong>Current</strong> uses your live AXIOM slider settings.</p>
+      <p class="helper" style="margin-top:8px;font-size:11px;color:var(--muted)">B-vs-A column: red = B costs more than A; green = B costs less. Comparing presets uses each preset's bundled defaults (model, hosting, mix). Comparing against <strong>Current</strong> uses your live simulator slider settings.</p>
     `;
   }
 
@@ -3077,7 +3077,7 @@
     });
 
     // Sum any incoming workload.segments (from a preset / JSON / URL hash)
-    // and write the totals back to the AXIOM MAU + Sessions/user/day +
+    // and write the totals back to the simulator MAU + Sessions/user/day +
     // Turns/session sliders so the visible knobs reflect what the preset
     // described. After this, renderPreview's segment-override logic takes
     // over and segments become a derived view of the sliders.
@@ -3105,7 +3105,7 @@
       if (su && totalMAU > 0) su.value = Math.max(1, Math.round(totalMAU));
       if (ss && avgSessionsPerUser > 0) ss.value = Math.max(0.05, Math.round(avgSessionsPerUser * 20) / 20);
       if (st && avgTurns > 0) st.value = Math.max(1, Math.round(avgTurns));
-      // AXIOM's onSlider() reads these values and re-renders panels.
+      // the simulator's onSlider() reads these values and re-renders panels.
       if (typeof window.onSlider === 'function') {
         try { window.onSlider(); } catch (_) {}
       }
@@ -3123,7 +3123,7 @@
     // separately. For now, we trigger a download with the workload
     // embedded plus a notice.
     // PDF / Print — opens the browser print dialog. The @media print
-    // stylesheet hides nav/sidebar/AXIOM and expands every section so
+    // stylesheet hides nav/sidebar/simulator and expands every section so
     // the resulting PDF is a clean self-contained procurement report.
     document.getElementById('pdf-btn')?.addEventListener('click', () => {
       // Force every collapsible section open so the print snapshot
@@ -3136,7 +3136,7 @@
     });
 
     // Share link — copies a self-contained URL. Encodes both the
-    // workload and the current AXIOM/dropdown slider state so the
+    // workload and the current simulator/dropdown slider state so the
     // recipient sees the same headline you do.
     document.getElementById('share-btn').addEventListener('click', () => {
       try {
@@ -4018,7 +4018,7 @@
   // URL hash sharing
   //
   // The hash carries both the workload JSON and a small snapshot of the
-  // AXIOM sliders + opts dropdowns (`ui`). Without the ui block, two
+  // simulator sliders + opts dropdowns (`ui`). Without the ui block, two
   // people opening the same share-link saw different headlines because
   // retry rate, cache override, and the hosting/model/tier dropdowns
   // were missing from the encoded payload.
@@ -4051,7 +4051,7 @@
       const el = document.getElementById(id);
       if (!el) continue;
       el.value = ui[id];
-      // Dispatch input + change so any listeners (AXIOM onSlider,
+      // Dispatch input + change so any listeners (simulator onSlider,
       // budget solver, etc.) pick up the restored value.
       el.dispatchEvent(new Event('input', { bubbles: true }));
       el.dispatchEvent(new Event('change', { bubbles: true }));
@@ -4062,7 +4062,7 @@
     }
   }
   // Stashed across loadFromHash → restoreUiState window so the UI
-  // values can be applied AFTER the AXIOM script has wired its
+  // values can be applied AFTER the simulator script has wired its
   // sliders (it doesn't exist at loadFromHash time).
   let _pendingUiRestore = null;
 
@@ -4310,9 +4310,9 @@
     }
     if (!workload.self_host) { workload = ensureFields(workload); window.workload = workload; }
     renderEditor();
-    // Sync AXIOM Sessions/day + Turns/session sliders from the loaded
+    // Sync simulator Sessions/day + Turns/session sliders from the loaded
     // segments BEFORE the first renderPreview, so the visible slider state
-    // matches the preset's traffic levels. After this, AXIOM sliders are
+    // matches the preset's traffic levels. After this, simulator sliders are
     // the canonical traffic surface.
     window.__syncAxiomFromSegments?.();
     // If the URL hash carried a `ui` block, apply it now — overrides the
@@ -4911,7 +4911,7 @@
       activate: (w) => {},
       deactivate: (w) => {},
     },
-    // sec-verification moved into AXIOM Configuration as a fixed sub-block —
+    // sec-verification moved into the simulator Configuration as a fixed sub-block —
     // no longer an optional component (always rendered, with its own
     // Enable verification on this deployment checkbox driving the toggle).
     {
@@ -5103,13 +5103,13 @@
   // the localStorage-restored tab so an old 'estimator' value
   // doesn't strand the user on a dead pane.
   // Workspace replaces Build, Components, and Simulator (one continuous
-  // scroll: chat + deployment diagram + AXIOM + TCO sections). Old
+  // scroll: chat + deployment diagram + simulator + TCO sections). Old
   // saved values get aliased so returning users land on Workspace.
   const VALID_TABS = ['workspace', 'prices', 'benchmarks', 'report'];
   const TAB_ALIASES = { build: 'workspace', components: 'workspace', simulator: 'workspace' };
 
   function setupTabs() {
-    // The Token Estimator tab is gone (replaced by the AXIOM Simulator).
+    // The Token Estimator tab is gone (replaced by the simulator Simulator).
     // Hide the legacy wizard if it's still in the DOM and route the
     // old CTA to the Simulator tab instead.
     const wizard = document.getElementById('token-wizard');
@@ -5214,7 +5214,7 @@
 
   // ---------------------------------------------------------------------
   // Quick Start chat strip — auto-collapse after first interaction
-  // anywhere downstream (a Components section opened, an AXIOM slider
+  // anywhere downstream (a Components section opened, an simulator slider
   // moved, an arch-diagram box clicked). User can click the collapsed
   // bar to expand again. Choice persists in localStorage.
   // ---------------------------------------------------------------------
@@ -5248,7 +5248,7 @@
 
   // Expose tab-switch for chat-builder hint button
   window.__ccsSwitchTab = switchTab;
-  // Expose renderPreview for AXIOM-side editors (Audience etc.) to
+  // Expose renderPreview for simulator-side editors (Audience etc.) to
   // trigger calc TCO refresh after edits.
   window.renderPreview = renderPreview;
 
@@ -5292,12 +5292,12 @@
   })();
 
   // ---------------------------------------------------------------------
-  // AXIOM Simulator integration — direct call from the inlined AXIOM
+  // simulator Simulator integration — direct call from the inlined simulator
   // pane (no iframe). The "Send agents to Cost Calculator" button calls
   // window.__importFromSimulator(payload) directly.
   // ---------------------------------------------------------------------
   // payload.silent === true skips tab-switch and toast — used for the
-  // continuous auto-sync from AXIOM's onSlider(). The non-silent path
+  // continuous auto-sync from the simulator's onSlider(). The non-silent path
   // is reserved for explicit imports (e.g., from a future "Apply
   // template" button), but isn't currently used.
   //
@@ -5342,7 +5342,7 @@
     switchTab('components');
     const toast = document.getElementById('toast');
     if (toast) {
-      toast.textContent = `Imported ${workload.agents.length} agents from AXIOM simulator`;
+      toast.textContent = `Imported ${workload.agents.length} agents from cost simulator`;
       toast.style.opacity = '1';
       setTimeout(() => { toast.style.opacity = '0'; }, 3000);
     }
@@ -5380,7 +5380,7 @@
       title: 'Budget solver',
       what: 'Given a monthly dollar ceiling, this section solves *backwards* to tell you the maximum number of monthly active users the proposed deployment can support — at the exact configuration you have set above.',
       why: 'Procurement reviewers usually arrive with a number first ("we have $50K/mo approved") and want to know what fits in it. This is the inverse of the headline calculation: the headline tells you the cost of N users; the budget solver tells you the users you can serve for $X.',
-      how: 'The big green number is the affordable MAU. Below it, the optimization-lever table shows how much extra headroom each cost-saving move buys you: ±20pp cache hit rate, switching to a smaller model, moving 50% to batch tier, cutting turns/session. The deltas are heuristic — re-test with the AXIOM cache slider for your specific case.',
+      how: 'The big green number is the affordable MAU. Below it, the optimization-lever table shows how much extra headroom each cost-saving move buys you: ±20pp cache hit rate, switching to a smaller model, moving 50% to batch tier, cutting turns/session. The deltas are heuristic — re-test with the simulator cache slider for your specific case.',
     },
     'sec-model-compare': {
       title: 'Model comparison',
@@ -5396,7 +5396,7 @@
     },
     'sec-cost-over-time': {
       title: 'Cost over time',
-      what: 'Projects the monthly bill forward 36 months given the AXIOM growth rate slider. Solid blue line = monthly cost climbing month over month. Gray dashed = cumulative spend (right axis).',
+      what: 'Projects the monthly bill forward 36 months given the simulator growth rate slider. Solid blue line = monthly cost climbing month over month. Gray dashed = cumulative spend (right axis).',
       why: 'Federal contracts are routinely 3 years. A budget that fits today at 0 growth may not at the actual growth rate the deployment sees. This section shows the bill curve so reviewers can sign off on the full 1-year and 3-year envelope, not just month 1.',
       how: 'The four KPI cards beneath the chart give you the procurement-shaped numbers: month 1 spend, month 12 spend, year-1 cumulative, 3-year cumulative. Headcount, seat-license, and contract reservations do not grow proportionally — adjust those manually if your growth profile is non-uniform.',
     },
@@ -5404,7 +5404,7 @@
       title: 'Side-by-side compare',
       what: 'Pick any two scenarios — your live config, or any of the bundled presets — and the calculator runs both through the engine and shows the inputs and outputs side by side, with the B-vs-A percentage difference for each row.',
       why: 'Procurement reviewers often want "how does this compare to a known-good reference?". Comparing your live scenario against a similar bundled preset is the fastest sanity check. Comparing two presets answers "what does FedRAMP-High cost versus Moderate?" in seconds.',
-      how: 'Red percentages = B costs more than A. Green = B costs less. Gray = no material change or non-numeric difference. Note that comparing two presets uses each preset\'s bundled defaults (model, hosting, mix); comparing against "Current" uses your live AXIOM slider settings.',
+      how: 'Red percentages = B costs more than A. Green = B costs less. Gray = no material change or non-numeric difference. Note that comparing two presets uses each preset\'s bundled defaults (model, hosting, mix); comparing against "Current" uses your live simulator slider settings.',
     },
     'sec-as-is-compare': {
       title: 'AS-IS vs proposed',
@@ -5434,7 +5434,7 @@
       title: 'Derivation of your numbers',
       what: 'A line-by-line plain-text trace of every formula and intermediate value used to produce the headline. Every dollar in the final number is traceable to inputs.',
       why: 'For procurement reviewers and auditors, "the calculator said $X" is not defensible. "Here are the 9 line items and the math behind each, here\'s where the cache rate came from, here\'s the multiplier for FedRAMP-Moderate" — is defensible. This is that artifact.',
-      how: 'Copy the entire trace with the button at the top, paste into any other AI (Claude / ChatGPT / Gemini), ask it to "verify this math". The trace is self-contained — it includes the AXIOM token bridge, retry inflation, and agent engineering as separate sections so the headline reconciles end-to-end.',
+      how: 'Copy the entire trace with the button at the top, paste into any other AI (Claude / ChatGPT / Gemini), ask it to "verify this math". The trace is self-contained — it includes the simulator token bridge, retry inflation, and agent engineering as separate sections so the headline reconciles end-to-end.',
     },
     'sec-methodology': {
       title: 'Methodology, sources & disclosures',

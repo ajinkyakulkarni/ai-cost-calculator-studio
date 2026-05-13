@@ -3,21 +3,21 @@
 # Captures time-to-first-token (TTFT) and output rate (tok/sec) on
 # every call. Same token totals as a blocking call; the difference is
 # the latency profile, which is what matters for production agent UX
-# and what AXIOM currently doesn't model at all.
+# and what the simulator currently doesn't model at all.
 #
 # Mirrors the SSE streaming pattern used by production agent
 # frameworks (e.g., NASA-IMPACT/akd-services emits StreamEvent
 # tokens via FastAPI StreamingResponse).
 #
-# What this validates in AXIOM (or rather: surfaces as a *new*
-# coefficient AXIOM doesn't yet have):
+# What this validates in the simulator (or rather: surfaces as a *new*
+# coefficient the simulator doesn't yet have):
 #   - time_to_first_token (median, p90, p99)
 #   - output_rate_tps     (median across providers)
 #   - whether streaming changes per-call total cost (it should not,
 #     but provider quirks sometimes leak)
 
 name: streaming-pipeline
-description: 3-stage sequential pipeline with streaming on every call. Validates TTFT + output-rate metrics that AXIOM doesn't currently model.
+description: 3-stage sequential pipeline with streaming on every call. Validates TTFT + output-rate metrics that the simulator doesn't currently model.
 topology: sequential
 repeat: 3
 max_cost_usd: 0.20

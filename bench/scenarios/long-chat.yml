@@ -1,8 +1,8 @@
 # long-chat — 30-turn analytical dialog with prompt caching enabled.
 #
-# Validates the most consequential AXIOM coefficient: cache_hit_rate.
+# Validates the most consequential the simulator coefficient: cache_hit_rate.
 # A long sustained dialog exposes how providers actually cache the
-# system prompt + early conversation history. AXIOM's default
+# system prompt + early conversation history. the simulator's default
 # cache_hit_rate (0.84) was a guess; this scenario produces an
 # empirical replacement.
 #

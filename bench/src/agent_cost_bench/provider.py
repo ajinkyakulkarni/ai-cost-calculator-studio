@@ -31,7 +31,7 @@ class CallResult:
     Streaming-specific fields (time_to_first_token_ms, output_rate_tps)
     are populated only when stream=True. Non-streaming calls leave
     them at zero. This shape lets the variance comparator validate
-    AXIOM's currently-unmodeled streaming overhead coefficient."""
+    the simulator's currently-unmodeled streaming overhead coefficient."""
 
     content: str
     input_tokens: int
@@ -81,7 +81,7 @@ def call_llm(
     Wraps `litellm.completion()` and emits an OTEL span with the
     standard `gen_ai.*` attributes. Captures provider-reported
     `cached_tokens` when available — this is the field the variance
-    comparator uses to validate AXIOM's cache-hit-rate predictions
+    comparator uses to validate the simulator's cache-hit-rate predictions
     (the most consequential coefficient in the simulator).
 
     Args:

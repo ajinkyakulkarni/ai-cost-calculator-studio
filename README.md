@@ -89,7 +89,7 @@ ai-cost-calculator-studio/
 ├── wrangler.jsonc           # Cloudflare Workers Static Assets config
 ├── package.json             # npm deps (wrangler only — no build step)
 ├── public/                  # the live calculator (served at calc.ajinkya.ai)
-│   ├── index.html           # ~360KB, contains the AXIOM simulator + calc UI
+│   ├── index.html           # ~360KB, contains the cost simulator + calc UI
 │   ├── app.js               # state management, segment editor, scroll-spy nav
 │   ├── cost-engine.js       # pure-function TCO calculator
 │   ├── coefficients.json    # bench-produced empirical coefficients
@@ -171,7 +171,7 @@ cp .env.example .env  # or edit existing .env
 # Run a scenario
 .venv/bin/agent-cost-bench run scenarios/smoke-test.yml --yes
 
-# Compare against AXIOM's predictions
+# Compare against the simulator's predictions
 .venv/bin/agent-cost-bench compare \
     reports/smoke-test-…-trace.json \
     --simulator-export ./scenario-from-calc.json
@@ -190,7 +190,7 @@ agent-cost-bench (Python)
      └─ produces bench/coefficients.json
         └─ mirrored to public/coefficients.json
            └─ calc.ajinkya.ai fetches it at page load
-              └─ AXIOM applies measured values to its sliders
+              └─ the simulator applies measured values to its sliders
                  └─ ✓ MEASURED badge appears in the topbar
                     └─ click → modal panel with full provenance
                        (source scenario, sample size, provider,
@@ -198,7 +198,7 @@ agent-cost-bench (Python)
 ```
 
 This is what turns the calc from a model into a measurement. Every
-coefficient AXIOM publishes has a named source scenario, a sample
+coefficient the simulator publishes has a named source scenario, a sample
 size, and a provider — auditable down to the trace artifact in
 `bench/reports/`.
 
@@ -213,8 +213,8 @@ calc.ajinkya.ai is a single-page app with three navigation layers:
    Benchmarks · Report.
 2. **L2 sub-nav** (sticky): scoped to the Components-half of
    Workspace — Hosting · Infrastructure · Compliance · People & Plan
-   · Reference. Visible once you scroll past the AXIOM simulator.
-3. **L3 AXIOM nav** (inside the simulator pane): Configuration ·
+   · Reference. Visible once you scroll past the cost simulator.
+3. **L3 simulator nav** (inside the simulator pane): Configuration ·
    Audience · Agent Settings · Architecture · Token Analysis · Cost
    Models · Sensitivity · Routing · Methodology · Simulation.
 
@@ -228,7 +228,7 @@ The Workspace tab itself is a single continuous scroll:
 [Quick Start chat — collapses after first interaction]
 [Your Deployment SVG diagram with $/mo on each box]
 [Sticky scroll-spy sub-nav]
-[AXIOM simulator (full multi-agent token modeller)]
+[cost simulator (full multi-agent token modeller)]
 [Components-half — TCO inputs (Audience / Hosting / Infra /
                   Compliance / People & Plan / Reference)]
 ```
@@ -276,8 +276,8 @@ methodology is documented separately at
 | Component | State |
 |---|---|
 | Calculator UI (`calc.ajinkya.ai`) | ✅ Live |
-| AXIOM simulator (multi-agent token math) | ✅ Live, inlined into the calc |
-| State unification (auto-sync AXIOM ↔ Components) | ✅ Live |
+| cost simulator (multi-agent token math) | ✅ Live, inlined into the calc |
+| State unification (auto-sync simulator ↔ Components) | ✅ Live |
 | Theme system (Tactical / Mission / Command) | ✅ Live |
 | `coefficients.json` calibration loop | ✅ Live, fetched at page load |
 | `agent-cost-bench` v0.1.0 | ✅ 10 scenarios, ~412 calls validated (N=174 May, +N=238 EIE re-cal May 13) |

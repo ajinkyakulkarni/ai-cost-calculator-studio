@@ -8,7 +8,7 @@
 #   - multi-modal classifiers (text + image + audio in parallel)
 #   - any "ask N specialists, merge their answers" architecture
 #
-# Why this matters for AXIOM: the multi-stage-research scenario
+# Why this matters for the simulator: the multi-stage-research scenario
 # already validated SEQUENTIAL handoff overhead. The parallel-fan-out
 # pattern has a different cost shape:
 #   - all specialists see the SAME orchestrator output (high prefix
@@ -18,7 +18,7 @@
 #   - the synthesizer at the end DOES see all specialist outputs
 #     (so handoff overhead concentrates there)
 #
-# What this scenario validates in AXIOM:
+# What this scenario validates in the simulator:
 #   - parallel handoff overhead (vs sequential)
 #   - synthesizer fan-in cost (one big merge call)
 #   - cache reuse across simultaneous specialist calls (when system

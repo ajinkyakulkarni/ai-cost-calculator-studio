@@ -12,7 +12,7 @@
 # tools.py) — no mocks, no API stubs — so the LLM does actual back-
 # and-forth and we measure the resulting tool-call token cost.
 #
-# What this validates in AXIOM:
+# What this validates in the simulator:
 #   - tool_schema_overhead_tokens (currently a guess at ~150 tok)
 #   - tool_result_tokens          (currently a guess at ~200 tok/call)
 #   - tools_per_query             (currently 2 by default)

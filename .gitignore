@@ -26,3 +26,4 @@ Thumbs.db
 
 # Local outputs / scratch
 outputs/
+__pycache__/

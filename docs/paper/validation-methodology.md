@@ -1,7 +1,7 @@
 # Validation methodology: empirical calibration of AI cost-simulator coefficients
 
-> Section of the AXIOM cost-calculator paper. Covers the methodology by
-> which every coefficient AXIOM uses is measured against real provider
+> Section of the simulator cost-calculator paper. Covers the methodology by
+> which every coefficient the simulator uses is measured against real provider
 > APIs, the design of the `agent-cost-bench` harness, the scenario
 > library, the calibrated results, and threats to validity.
 
@@ -24,14 +24,14 @@ variance reports that compare measured per-call usage to the simulator's
 predictions.
 
 The output of the methodology is a versioned `coefficients.json` file
-that the simulator (in this work, AXIOM, exposed at calc.ajinkya.ai)
+that the simulator (in this work, the simulator, exposed at calc.ajinkya.ai)
 loads at startup. Every value in the file names its source scenario,
 sample size, provider, and measured range — so a reviewer can audit how
 each constant was derived without re-running the experiment.
 
 ## 2. Cost model recap
 
-For context, AXIOM models the monthly cost of an LLM-agent deployment as
+For context, the simulator models the monthly cost of an LLM-agent deployment as
 the sum of five layers:
 
 ```
@@ -149,7 +149,7 @@ call by querying the provider's request log with the captured
 ## 6. Variance comparator
 
 Given a trace artifact and the simulator's exported scenario JSON
-(produced by AXIOM's "Export JSON" feature), the comparator computes
+(produced by the simulator's "Export JSON" feature), the comparator computes
 per-coefficient variance:
 
 ```
@@ -169,7 +169,7 @@ claude-sonnet-4-5). Headline results follow.
 
 ### 7.1 cache_hit_rate
 
-AXIOM's default: 0.84 (flat coefficient).
+the simulator's default: 0.84 (flat coefficient).
 
 | Provider/scenario | Median hit rate | Cold (turn 0) | Warm (turn 1+) |
 |---|---:|---:|---:|
@@ -179,7 +179,7 @@ AXIOM's default: 0.84 (flat coefficient).
 
 **Findings:**
 
-1. AXIOM's default (0.84) is conservative for OpenAI multi-turn chat
+1. the simulator's default (0.84) is conservative for OpenAI multi-turn chat
    workloads (actual 0.91); under-counting savings.
 2. A flat coefficient is structurally wrong. The hit rate is a curve:
    cold-start at the cache write threshold, asymptoting to the
@@ -198,7 +198,7 @@ rather than a single scalar. Phase-2 enhancement.
 
 ### 7.2 input_output_ratio
 
-AXIOM's default: 6:1 (chat-style assumption).
+the simulator's default: 6:1 (chat-style assumption).
 
 | Scenario | I/O ratio | Notes |
 |---|---:|---|
@@ -208,7 +208,7 @@ AXIOM's default: 6:1 (chat-style assumption).
 | Data-discovery (gpt-4o-mini, EIE-shape) | **73:1** | Output-suppression rules + tool-state bypass |
 | Data-discovery (gpt-5.2, EIE-shape) | **88:1** | Same shape, more concise model |
 
-**Finding:** AXIOM's 6:1 default is wrong by an order of magnitude for
+**Finding:** the simulator's 6:1 default is wrong by an order of magnitude for
 agents that follow the EIE pattern (long sysprompt + tool-state bypass +
 output-suppression rules). For these agents, *input* is the dominant
 cost driver; output is tiny. A simulator that assumes 6:1 understates
@@ -220,7 +220,7 @@ input cost by ~12×.
 
 ### 7.3 sequential_handoff_overhead_tokens
 
-AXIOM's default: 200 tokens (flat per-stage constant).
+the simulator's default: 200 tokens (flat per-stage constant).
 
 Measured on multi-stage-research (5-stage pipeline):
 
@@ -246,7 +246,7 @@ constant.
 
 ### 7.4 Latency coefficients (new)
 
-AXIOM does not currently model latency. Bench introduces:
+the simulator does not currently model latency. Bench introduces:
 
 | Coefficient | gpt-4o-mini median | gpt-4o-mini p90 |
 |---|---:|---:|
@@ -319,7 +319,7 @@ open-source under MIT at
 
 ## Appendix A: Coefficient deltas summary
 
-| Coefficient | AXIOM default | Measured | Δ% | Status |
+| Coefficient | Simulator default | Measured | Δ% | Status |
 |---|---:|---:|---:|---|
 | cache_hit_rate | 0.84 | 0.91 (OpenAI) | +8% | Default conservative; calibrated |
 | cache_hit_rate (Anthropic) | (0.84) | 0.77 | -8% | Provider-specific divergence — new sub-coefficient added |

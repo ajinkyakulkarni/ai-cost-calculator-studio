@@ -5,14 +5,14 @@ Reads two artifacts:
                      OTEL spans + session totals
   2. simulator-export.json
                   — exported from calc.ajinkya.ai (the "Export JSON"
-                     button in the appbar). Contains the AXIOM
+                     button in the appbar). Contains the cost
                      simulator's predicted token totals + cost.
 
 Computes per-coefficient variance between the two and emits both a
 human-readable Markdown report and a machine-readable JSON suitable
 for feeding into a calibration update on the simulator side.
 
-The coefficients we measure are the same ones AXIOM uses internally:
+The coefficients we measure are the same ones the simulator uses internally:
   - cache_hit_rate         (predicted vs measured, from cached_tokens/input_tokens)
   - sysprompt_tokens       (predicted vs measured, from first-turn input_tokens)
   - retry_rate             (predicted vs measured, from error count / total calls)
@@ -172,11 +172,11 @@ def compute_variance(
     trace_path: Path,
     simulator_export_path: Path,
 ) -> VarianceReport:
-    """Compare a trace against AXIOM's predictions.
+    """Compare a trace against the simulator's predictions.
 
     The simulator export is the JSON output of calc.ajinkya.ai's
     "Export JSON" button — the same `workload` shape the calc edits
-    in-browser. We pull AXIOM's per-session predictions out of it.
+    in-browser. We pull the simulator's per-session predictions out of it.
     """
     trace = json.loads(trace_path.read_text())
     sim = json.loads(simulator_export_path.read_text())
@@ -200,16 +200,16 @@ def compute_variance(
     actual_per_turn_output = actual_output / n_user_turns
 
     # Predictions extracted from the simulator export. The exact path
-    # into the workload object depends on which AXIOM panel produced
+    # into the workload object depends on which simulator panel produced
     # the predictions — for v1 we read the calc's anchor_query +
-    # cache_rate_baseline (these are the calc-side mirrors of AXIOM
+    # cache_rate_baseline (these are the calc-side mirrors of the simulator
     # globals, set in lockstep via the auto-sync we built earlier).
     anchor = sim.get("anchor_query", {})
     pred_input = anchor.get("input_tokens", 0)
     pred_output = anchor.get("output_tokens", 0)
     pred_cache_hit = anchor.get("cache_rate_baseline", 0)
 
-    # Number of turns AXIOM expects per session. Used to scale the
+    # Number of turns the simulator expects per session. Used to scale the
     # per-turn predictions back up to session totals.
     pred_turns = anchor.get("session_baseline_turns", 1) or 1
 
@@ -220,7 +220,7 @@ def compute_variance(
     pred_session_input = pred_input * pred_turns * repeats
     pred_session_output = pred_output * pred_turns * repeats
 
-    # Predicted cost: scenario.json doesn't store the AXIOM-computed
+    # Predicted cost: scenario.json doesn't store the simulator-computed
     # cost directly because it's derived live in the browser. As a
     # proxy we sum per-call costs from LiteLLM's pricing table.
     actual_cost = sum(
@@ -284,7 +284,7 @@ def _cost_from_call(call: dict[str, Any]) -> float:
 
 
 def _predicted_cost(sim: dict) -> float:
-    """Pull AXIOM's predicted session cost from the simulator export.
+    """Pull the simulator's predicted session cost from the simulator export.
 
     The export is the calc's full workload JSON. The headline monthly
     cost lives elsewhere in the export but session-level cost has to

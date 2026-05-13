@@ -105,7 +105,7 @@ def compare(
         None, "--output", "-o", help="Where to write variance report (default: stdout)"
     ),
 ):
-    """Compare an actual trace against AXIOM simulator predictions."""
+    """Compare an actual trace against cost simulator predictions."""
     report = compute_variance(trace_path, simulator_export)
 
     md = report.to_markdown()

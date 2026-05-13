@@ -21,12 +21,12 @@
     --mono:  'JetBrains Mono', 'SF Mono', Consolas, monospace;
   }
   /* ========================================================================
-     GLOBAL THEMES — applied via <body> class. Three modes mirror AXIOM:
+     GLOBAL THEMES — applied via <body> class. Three modes mirror the simulator:
        .theme-mission  (default): light cool palette
        .theme-command:            light warm palette
        .theme-tactical:           dark — calc UI inverts via the targeted
                                   overrides at the bottom of this block
-     The entire app (calc + AXIOM) uses one switcher in the topbar.
+     The entire app (calc + simulator) uses one switcher in the topbar.
      ======================================================================== */
   body.theme-mission {
     --paper: #f0f4f8;
@@ -367,7 +367,7 @@
     user-select: none;
   }
   .sidebar .nav-group-header:first-child { padding-top: 4px; }
-  /* L2 workspace sub-nav and L3 AXIOM internal nav are now handled by
+  /* L2 workspace sub-nav and L3 simulator internal nav are now handled by
      the wizard sidebar — hide their horizontal-bar UIs. The underlying
      scroll anchors and showTab() function are still wired up so anchor
      navigation from the sidebar works. */
@@ -376,7 +376,7 @@
 
   /* Wizard sidebar item — same .tab-btn class but rendered horizontally
      with text on the right of an optional number badge. The base .tab-btn
-     uses flex-direction:column for the AXIOM-style stacked tabs, so we
+     uses flex-direction:column for the simulator-style stacked tabs, so we
      have to explicitly override here. */
   .sidebar .tab-btn {
     text-align: left;
@@ -467,7 +467,7 @@
   }
   /* Workspace tab: arch-header (Quick Start chat + deployment diagram)
      pinned at the top via order:-2, then the sticky sub-nav (order:-1
-     in its own selector below), then AXIOM (Simulator panel) at order:0,
+     in its own selector below), then simulator (Simulator panel) at order:0,
      then Components at order:1. All four share data-tab-panel="workspace"
      so switchTab() shows/hides them as a group. */
   .arch-header[data-tab-panel="workspace"] { order: -2; }
@@ -507,16 +507,16 @@
     color: var(--accent);
     border-color: var(--accent);
   }
-  /* Components panel renders BEFORE AXIOM so Project profile (the
-     first section inside it) is the very top of the page. AXIOM
+  /* Components panel renders BEFORE simulator so Project profile (the
+     first section inside it) is the very top of the page. simulator
      follows at order:0. Report/Prices/Benchmarks render last. */
   .tab-panel[data-tab-panel="workspace"].components-panel { order: -1; }
   .tab-panel[data-tab-panel="workspace"].simulator-panel { order: 0; }
-  /* Components-half sections that AXIOM now owns. Hidden from the UI
+  /* Components-half sections that the simulator now owns. Hidden from the UI
      but kept in the DOM so cost-engine.js can still read their state.
      If a future user wants to edit token math directly, they go to
-     AXIOM's Configuration tab. sec-segments folded into AXIOM's
-     Audience sub-tab; sec-embeddings folded into AXIOM's RAG section. */
+     the simulator's Configuration tab. sec-segments folded into the simulator's
+     Audience sub-tab; sec-embeddings folded into the simulator's RAG section. */
   #sec-anchor, #sec-shapes, #sec-agents, #sec-mix,
   #sec-segments, #sec-embeddings { display: none; }
   /* Reorder visible sections to match the scroll-spy sub-nav flow:
@@ -585,7 +585,7 @@
      PRINT / PDF EXPORT
      User clicks "Print / Save as PDF" → window.print() → browser dialog →
      they pick "Save as PDF" as destination. The rules below collapse the
-     interactive UI (nav, sidebar, AXIOM simulator, all the live controls)
+     interactive UI (nav, sidebar, cost simulator, all the live controls)
      and expand the report sections so every value renders inline. The
      resulting PDF is one self-contained procurement deliverable.
      ===================================================================== */
@@ -665,15 +665,15 @@
      TYPOGRAPHY UNIFICATION
      The page started with five competing font stacks: Source Serif 4
      (calc h1 / helper), Source Sans 3 (sidebar / labels), JetBrains Mono
-     (AXIOM everything + inputs + cost-pill), Orbitron (AXIOM divider
+     (simulator everything + inputs + cost-pill), Orbitron (simulator divider
      titles), and system-ui in a few stragglers. Sizes ranged from 8px
-     (AXIOM panel header) to 19px (h1) with no clear scale.
+     (simulator panel header) to 19px (h1) with no clear scale.
 
      This block consolidates everything to one type system:
        - Body sans:      var(--sans) — Source Sans 3
        - Tabular numbers: var(--mono) — JetBrains Mono (KEEP for .sr-val,
                           .kpi-val, .cb-num, .num)
-       - Drop Orbitron entirely; AXIOM divider title becomes Source Sans.
+       - Drop Orbitron entirely; simulator divider title becomes Source Sans.
      Sizes follow a 4-step scale: 11/12/13.5/15px. Headings up to 18-19px.
      ===================================================================== */
   .simulator-pane,
@@ -705,7 +705,7 @@
     letter-spacing: 0.08em !important;
     padding: 10px 14px !important;
   }
-  /* AXIOM section dividers: drop Orbitron, use the body sans with a
+  /* simulator section dividers: drop Orbitron, use the body sans with a
      slightly larger size and consistent letter-spacing. */
   .simulator-pane .axiom-section-divider .ix-num {
     font-family: var(--sans) !important;
@@ -726,7 +726,7 @@
     color: var(--muted) !important;
     letter-spacing: 0 !important;
   }
-  /* AXIOM sr-* slider labels — bump from 11px to 12px, drop the heavy
+  /* simulator sr-* slider labels — bump from 11px to 12px, drop the heavy
      uppercase + 0.3px letter-spacing for a calmer reading rhythm. */
   .simulator-pane .sr-label {
     font-family: var(--sans) !important;
@@ -744,7 +744,7 @@
     font-size: 11px !important;
     color: var(--muted) !important;
   }
-  /* AXIOM body text + small labels */
+  /* simulator body text + small labels */
   .simulator-pane .badge,
   .simulator-pane .badge-warn,
   .simulator-pane .badge-ok,
@@ -778,7 +778,7 @@
     font-size: 13px !important;
   }
   /* Section H2 — bump to 13px and align letter-spacing across all
-     sections (calc + AXIOM dividers now match). */
+     sections (calc + simulator dividers now match). */
   main .section h2 {
     font-family: var(--sans) !important;
     font-size: 13px !important;
@@ -786,7 +786,7 @@
     letter-spacing: 0.08em !important;
   }
 
-  /* Align AXIOM panels with calc-side .section cards. The simulator-pane
+  /* Align simulator panels with calc-side .section cards. The simulator-pane
      was originally a standalone view with its own 10px outer padding and
      10px border-radius on inner .panel cards. Now that it lives inside
      editor-body alongside calc sections, we strip the outer padding so
@@ -864,8 +864,8 @@
   }
   /* Sticky scroll-spy nav at the top of the main scroll container. */
   /* ==========================================================
-     COMPONENTS-HALF RESKIN — match AXIOM's visual language.
-     Sections inside the workspace get AXIOM-style headers
+     COMPONENTS-HALF RESKIN — match the simulator's visual language.
+     Sections inside the workspace get simulator-style headers
      (uppercase, compact, cyan accent on chevron) and panel
      surfaces (var(--panel) bg with var(--rule) borders). Calc's
      editorial typography (Source Serif/Sans) stays where it
@@ -931,7 +931,7 @@
     padding: 14px 16px 18px;
     border-top: 1px solid var(--rule);
   }
-  /* Inputs inside components sections — AXIOM-cyan focus ring. */
+  /* Inputs inside components sections — simulator-cyan focus ring. */
   .components-panel .section input[type="text"]:focus,
   .components-panel .section input[type="number"]:focus,
   .components-panel .section select:focus,
@@ -941,9 +941,9 @@
     box-shadow: 0 0 0 2px rgba(0,212,255,0.12);
   }
 
-  /* L2 Components sub-nav — visually matches AXIOM's nav-btn strip
+  /* L2 Components sub-nav — visually matches the simulator's nav-btn strip
      (uppercase, letter-spaced, flat tabs with bottom-border accent
-     on active). Sticky to viewport top once user scrolls past AXIOM. */
+     on active). Sticky to viewport top once user scrolls past the simulator. */
   .workspace-subnav {
     position: sticky;
     top: 0;
@@ -955,7 +955,7 @@
     border-bottom: 1px solid var(--rule);
     overflow-x: auto;
     flex-shrink: 0;
-    order: 1; /* between AXIOM (0) and Components (2) */
+    order: 1; /* between simulator (0) and Components (2) */
   }
   .workspace-subnav.hidden { display: none; }
   .workspace-subnav button {
@@ -985,7 +985,7 @@
   .editor-body { padding: 14px 22px 80px; }
 
   /* Sidebar tab buttons — vertical icon over label. Typography
-     unified with AXIOM's nav-btn strip: uppercase, letter-spaced,
+     unified with the simulator's nav-btn strip: uppercase, letter-spaced,
      bold; cyan accent on active. Letter-spacing bumped from 0.05em
      to 1.5px so the L1 sidebar reads as the same product as L2/L3. */
   .tab-btn {
@@ -1092,7 +1092,7 @@
     /* Editor body padding tightens */
     .editor-body { padding: 10px 12px 60px; }
 
-    /* AXIOM 3-column grid → 1 column */
+    /* simulator 3-column grid → 1 column */
     .root > div[style*="grid-template-columns:1fr 1fr 1fr"],
     .root > div[style*="grid-template-columns: 1fr 1fr 1fr"] {
       grid-template-columns: 1fr !important;
@@ -1925,7 +1925,7 @@
   .tip.tip-right:hover::after { left: auto; right: -8px; transform: none; }
   .tip.tip-right:hover::before { left: auto; right: 0; transform: none; }
 
-  /* AXIOM-panel slider labels: dotted underline as the affordance.
+  /* simulator-panel slider labels: dotted underline as the affordance.
      The actual tooltip is rendered by the JS handler below, body-appended,
      so it escapes ancestor overflow:hidden and theme variable resolution. */
   .sr-label[data-tip] {
@@ -2995,13 +2995,13 @@
 
 
   /* ====================================================================
-   * INLINED AXIOM v9.6 STYLES — scoped to .simulator-pane only.
+   * INLINED cost-simulator v9.6 STYLES — scoped to .simulator-pane only.
    * Originally lived in simulator/index.html (now inlined to avoid
    * iframe). :root vars rewritten to .simulator-pane; body rules
    * rewritten to .simulator-pane.
    * ==================================================================== */
   @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;600;700&family=Orbitron:wght@400;700;900&display=swap');
-/* AXIOM v9.6 styles — manually prefixed with .simulator-pane (no @scope) */
+/* cost-simulator v9.6 styles — manually prefixed with .simulator-pane (no @scope) */
 .simulator-pane *{box-sizing:border-box;margin:0;padding:0}
 .simulator-pane{
   --ink:#04060c;--card:#0c1320;--card2:#08101a;--card3:#101828;
@@ -3020,7 +3020,7 @@ html{overflow-x:hidden}
 .simulator-pane{overflow:visible}
 
 /* ───────────────────────────────────────────────────────────────────
-   UNIFIED CARD STYLE — make calc-side .section blocks look like AXIOM
+   UNIFIED CARD STYLE — make calc-side .section blocks look like simulator
    .panel cards so the single-page flow doesn't visually fork.
    Targets only sections that live inside the unified workspace
    (Federal compliance, Reservations, Embeddings, Personnel, Migration,
@@ -3075,7 +3075,7 @@ main .section .row > div > label {
   text-transform: uppercase;
   color: var(--ink);
 }
-/* Dark theme variant — keep AXIOM contrast when user picks Dark. */
+/* Dark theme variant — keep simulator contrast when user picks Dark. */
 body.theme-tactical main .section {
   background: rgba(255,255,255,0.02);
   border-color: rgba(255,255,255,0.10);
@@ -3159,7 +3159,7 @@ body.theme-tactical main .section .row > div > label {
 .simulator-pane .nav-btn:last-child{border-right:none}
 .simulator-pane .nav-btn:hover{color:var(--cyan);background:rgba(0,212,255,.04)}
 .simulator-pane .nav-btn.active{color:var(--cyan);background:rgba(0,212,255,.08);border-bottom:2px solid var(--cyan)}
-/* Single-page flow: every AXIOM internal tab renders stacked vertically.
+/* Single-page flow: every simulator internal tab renders stacked vertically.
    The .active class is now purely cosmetic state. Tab #tab-sim keeps its
    inline display:none!important — the simulation grid below it is still
    gated by toggleSim(). */
@@ -3444,9 +3444,9 @@ body.config-basic .simulator-pane .block-advanced { display: none !important; }
   <!-- "?" help button — re-opens the first-visit welcome overlay so users
        who dismissed it can see the orientation again. -->
   <button id="help-btn" class="appbar-menu-trigger" title="Open the welcome tour" aria-label="Help" style="margin-right:6px;padding:4px 10px;font-weight:600">?</button>
-  <!-- Global theme switcher — themes apply to the whole app (calc + AXIOM).
+  <!-- Global theme switcher — themes apply to the whole app (calc + simulator).
        Mission is default (light, cool); Command is light/warm; Tactical is
-       dark. Buttons use AXIOM's setTheme() defined in the inlined script. -->
+       dark. Buttons use the simulator's setTheme() defined in the inlined script. -->
   <div class="theme-switcher app-theme-switcher" title="Switch app theme">
     <button class="theme-btn" data-theme="tactical" onclick="setTheme('tactical')" title="Dark — high-contrast for low-light reviews">Dark</button>
     <button class="theme-btn active" data-theme="mission" onclick="setTheme('mission')" title="Light cool — default">Light</button>
@@ -3463,7 +3463,7 @@ body.config-basic .simulator-pane .block-advanced { display: none !important; }
 
 <div class="layout" id="layout">
   <!-- Sidebar — wizard-style step list. Each item routes to an existing
-       tab + optional anchor + optional AXIOM internal subtab. The
+       tab + optional anchor + optional simulator internal subtab. The
        wizard handler at the bottom of the page owns the dispatch. -->
   <nav class="sidebar" id="sidebar">
     <div class="nav-group-header">Configure</div>
@@ -3506,9 +3506,9 @@ body.config-basic .simulator-pane .block-advanced { display: none !important; }
          Workspace tab is active. Buttons jump to anchor sections;
          IntersectionObserver highlights the section currently in view. -->
     <!-- L2 Workspace sub-nav — scoped to Components-half only.
-         Topology and Audience are owned by AXIOM's internal nav (L3),
+         Topology and Audience are owned by the simulator's internal nav (L3),
          so they don't appear here. Sticks to viewport top once the
-         user scrolls past AXIOM. Visual treatment matches AXIOM's
+         user scrolls past the simulator. Visual treatment matches the simulator's
          nav-btn strip (uppercase, letter-spaced, bottom-border
          accent on active). -->
     <nav class="workspace-subnav hidden" id="workspace-subnav" aria-label="Components sections">
@@ -3539,7 +3539,7 @@ body.config-basic .simulator-pane .block-advanced { display: none !important; }
       <div class="row"><label>Project name <span class="tip" data-tip="Short label that appears at the top of the report and in shared links. Use the actual product name (e.g. 'Earth Information Explorer') so procurement reviewers know which deployment they're looking at.">ⓘ</span></label><input type="text" data-bind="deployment.name" placeholder="My LLM application"></div>
       <div class="row"><label>Team or organization <span class="tip" data-tip="The team or agency that owns this deployment (e.g. 'NASA SMD', 'NIH NCATS', 'Acme Inc.'). Appears in the report subtitle. If you enter a federal agency name, the calculator nudges defaults toward FedRAMP-aware settings.">ⓘ</span></label><input type="text" data-bind="deployment.agency" placeholder="Your team or agency"></div>
       <div class="row"><label>One-paragraph description <em>(shown in report)</em> <span class="tip" data-tip="A 2-3 sentence description of the application. Appears verbatim in the procurement report. Cover: what does it do, who uses it, roughly how busy it is — that's all reviewers need to validate the cost estimate.">ⓘ</span></label><textarea data-bind="deployment.description" placeholder="What does this application do? Who uses it? Roughly how busy is it?"></textarea></div>
-      <!-- Bot factor moved to AXIOM Configuration → Global Parameters,
+      <!-- Bot factor moved to simulator Configuration → Global Parameters,
            where it sits alongside Sessions/day and Concurrent users —
            it's a traffic multiplier, not deployment metadata. -->
 
@@ -3633,7 +3633,7 @@ Hybrid is rarely cost-effective below 30% self-host share — fixed ops staff an
       </div>
 
       <!-- Hidden DOM stubs — driven per-agent in Agent fleet, or by other
-           sections (Self-host capacity, AXIOM Configuration). Kept here so
+           sections (Self-host capacity, simulator Configuration). Kept here so
            prev-* change handlers and rate-card lookups continue to work. -->
       <div style="display:none">
         <select id="prev-model"></select>
@@ -3655,14 +3655,14 @@ Hybrid is rarely cost-effective below 30% self-host share — fixed ops staff an
       </div>
     </div>
 
-    <!-- TAB: SIMULATOR — inlined AXIOM v9.6, scoped pane (no iframe) -->
+    <!-- TAB: SIMULATOR — inlined cost-simulator v9.6, scoped pane (no iframe) -->
     <div class="tab-panel simulator-panel" data-tab-panel="workspace" id="sec-axiom-top" style="padding:0;">
-      <!-- Section header retired — the AXIOM dividers below ("Traffic &
+      <!-- Section header retired — the simulator dividers below ("Traffic &
            efficiency", "Agent fleet", "Cost breakdown" etc.) now serve as
            the in-page labels. -->
 
 
-  <!-- Inlined AXIOM v9.6 simulator. Body content extracted from
+  <!-- Inlined cost-simulator v9.6 simulator. Body content extracted from
        simulator/index.html and wrapped in a scoped pane. CSS is
        in @scope (.simulator-pane) up top; JS is in a separate
        <script> block at the end of <body>. -->
@@ -3685,7 +3685,7 @@ Hybrid is rarely cost-effective below 30% self-host share — fixed ops staff an
 <div class="root">
 
 <!-- TOPBAR retired — its KPI tiles duplicated the calc-side cost-pill in
-     the appbar and several values were stale relics from the old AXIOM
+     the appbar and several values were stale relics from the old simulator
      simulator runtime. The whole block is hidden but kept in DOM so
      updateKPIs() / setMode() / etc. can still write to the IDs without
      throwing. -->
@@ -3728,7 +3728,7 @@ Hybrid is rarely cost-effective below 30% self-host share — fixed ops staff an
 </div>
 
 <!-- NAV — hidden via CSS (#main-nav { display: none !important }) since
-     all AXIOM panels render stacked. Convergence banner + Max rounds
+     all simulator panels render stacked. Convergence banner + Max rounds
      hidden too — simulation runtime removed. DOM stubs preserved so
      legacy JS callers don't error. -->
 <div id="conv-banner" class="conv-banner" style="display:none"></div>
@@ -4262,7 +4262,7 @@ The system prompt is the same on every call, so the AI vendor's cache offers a ~
 
   <!-- FACT-CHECKING PIPELINE — relocated here from sec-verification.
        Single source of truth for fact-checking cost (FactReasoner-style
-       NLI verification). The simpler AXIOM "FACT-CHECK PASSES" slider
+       NLI verification). The simpler simulator "FACT-CHECK PASSES" slider
        it replaced is now a hidden compatibility shim above. The id and
        all data-bind paths are preserved so calc-side wiring still works. -->
   <div class="panel" id="sec-verification" style="margin-top:8px">
@@ -4666,7 +4666,7 @@ For 1M queries/mo with 8 atoms each, FR2 → FR3 adds ~$15K/mo of NLI cost. Use 
 
 
 <!-- =====================================================================
-     Cost-calculator integration — appended on top of upstream AXIOM.
+     Cost-calculator integration — appended on top of upstream the simulator.
      Adds a floating "Send agents to Cost Calculator" button. When the
      simulator is loaded inside an iframe (parent = calc.ajinkya.ai),
      clicking the button reads computeCost().agentBreakdown and posts
@@ -4995,7 +4995,7 @@ Picking a tier here auto-computes the monthly amortized cost (upfront ÷ amortiz
       </div>
     </div>
 
-    <!-- sec-verification relocated into AXIOM tab-config — single source
+    <!-- sec-verification relocated into the simulator tab-config — single source
          of truth for fact-checking cost. The id is preserved on the new
          markup so calc-side data-bind / OPTIONAL_COMPONENTS still resolve. -->
 
@@ -5395,10 +5395,10 @@ Procurement reviewers often work backwards: 'we have $50K/mo approved — how ma
     <div class="section" data-cat="output" id="sec-cost-over-time">
       <h2><span class="chev">▶</span><span class="lead">Cost over time</span> <em>monthly + cumulative projection given growth%</em></h2>
       <div class="section-body">
-      <p class="helper">Projects the monthly headline forward using the <strong>Growth/month</strong> slider in AXIOM. Shows monthly cost climbing month-over-month plus the running 36-month cumulative. Useful for sizing 1-year and 3-year budget envelopes.</p>
+      <p class="helper">Projects the monthly headline forward using the <strong>Growth/month</strong> slider in the simulator. Shows monthly cost climbing month-over-month plus the running 36-month cumulative. Useful for sizing 1-year and 3-year budget envelopes.</p>
       <div id="cost-over-time-chart" style="width:100%;background:var(--paper, #fafafa);border:1px solid var(--rule);border-radius:6px;padding:14px;min-height:240px;margin-top:8px"></div>
       <div id="cost-over-time-summary" style="margin-top:8px;font-size:12px;color:var(--ink-2)"></div>
-      <p class="helper" style="margin-top:6px;font-size:11.5px;color:var(--muted)">Compounds the current AXIOM growth rate monthly. Caps at 36 months since further projections are unreliable. Headcount, seat-license, and contract reservations don't grow proportionally — adjust manually for those.</p>
+      <p class="helper" style="margin-top:6px;font-size:11.5px;color:var(--muted)">Compounds the current simulator growth rate monthly. Caps at 36 months since further projections are unreliable. Headcount, seat-license, and contract reservations don't grow proportionally — adjust manually for those.</p>
       </div>
     </div>
 
@@ -5484,7 +5484,7 @@ Procurement reviewers often work backwards: 'we have $50K/mo approved — how ma
          - Optimistic vs realistic mode (sec-costmodes): merged into the
            Self-host capacity component which already owns cost-mode selection.
          - Initial defaults (sec-defaults): boot-time config superseded by
-           Project profile + AXIOM Configuration.
+           Project profile + simulator Configuration.
          The cost engine still reads workload.rate_cards / tier_multipliers /
          self_host.cost_modes / defaults — they're set in workload state, just
          no longer surfaced as a separate editor here.
@@ -5867,13 +5867,13 @@ Procurement reviewers often work backwards: 'we have $50K/mo approved — how ma
 </script>
 
   <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
-  <!-- ========================== AXIOM v9.6 main script ========================== -->
-  <!-- AXIOM v9.6 main script — extracted to lib/axiom.js on 2026-05-11.
+  <!-- ========================== cost-simulator v9.6 main script ========================== -->
+  <!-- Cost simulator — extracted to lib/cost-simulator.js on 2026-05-11.
        All globals (sim, AGENT_DEF, MODELS, computeCost, setMode, setTheme,
        onSlider, …) attach to window so inline blocks below + the bridge
        in app.js see them unchanged. -->
-  <script src="lib/axiom.js"></script>
-  <!-- ============== AXIOM ↔ Cost Calculator integration script ============== -->
+  <script src="lib/cost-simulator.js"></script>
+  <!-- ============== simulator ↔ Cost Calculator integration script ============== -->
   <script>
 (function(){
   function buildPayload() {
@@ -5890,17 +5890,17 @@ Procurement reviewers often work backwards: 'we have $50K/mo approved — how ma
       calls_per_query: Math.max(1, Math.round(a.turns || 1)),
       cache_eligible:  ((a.cacheReadTok || 0) + (a.cacheWriteTok || 0)) > 0,
       hosting: 'api',
-      description: 'Imported from AXIOM simulator' + (a.role ? ' · ' + a.role : ''),
+      description: 'Imported from cost simulator' + (a.role ? ' · ' + a.role : ''),
     }));
     return {
       type: 'axiom-export',
-      source: 'AXIOM v9.6 simulator',
+      source: 'cost-simulator v9.6 simulator',
       agents,
       summary: { agentCount: agents.length, modelsTouched: c.modelsTouched || [] },
     };
   }
 
-  // Auto-sync: AXIOM is the source of truth for agent topology + token
+  // Auto-sync: the simulator is the source of truth for agent topology + token
   // math. Every onSlider() pulse rebuilds the payload and pushes to
   // workload.agents via the silent import path. No button, no toast,
   // no tab-switch — just live propagation. Calc's renderPreview is
@@ -5913,7 +5913,7 @@ Procurement reviewers often work backwards: 'we have $50K/mo approved — how ma
     window.__importFromSimulator(payload);
   }
 
-  // Wrap AXIOM's global onSlider so every slider/agent change auto-syncs.
+  // Wrap the simulator's global onSlider so every slider/agent change auto-syncs.
   function installAutoSync() {
     if (typeof window.onSlider !== 'function') return setTimeout(installAutoSync, 200);
     const origOnSlider = window.onSlider;
@@ -5929,7 +5929,7 @@ Procurement reviewers often work backwards: 'we have $50K/mo approved — how ma
 
   // ===================================================================
   // Bench calibration loader — fetches /coefficients.json at startup,
-  // applies empirically-validated values to AXIOM's defaults, and
+  // applies empirically-validated values to the simulator's defaults, and
   // shows a small "calibrated" badge in the topbar so users know
   // the published numbers have measurement provenance.
   //
@@ -5947,7 +5947,7 @@ Procurement reviewers often work backwards: 'we have $50K/mo approved — how ma
 
         const coef = c.coefficients;
 
-        // Apply calibrated values to AXIOM's existing sliders. Each
+        // Apply calibrated values to the simulator's existing sliders. Each
         // apply is a no-op if the target doesn't exist — we don't
         // want a calibration value to break the page if a slider
         // gets renamed.
@@ -5964,8 +5964,8 @@ Procurement reviewers often work backwards: 'we have $50K/mo approved — how ma
             applies.push(`cache_hit_rate → ${(coef.cache_hit_rate.value * 100).toFixed(0)}%`);
           }
         }
-        // (Other coefficients don't currently have AXIOM sliders —
-        // they're surfaced in the panel below. As AXIOM grows
+        // (Other coefficients don't currently have simulator sliders —
+        // they're surfaced in the panel below. As simulator grows
         // sliders for I/O ratio, handoff overhead, latency etc.,
         // applySlider() calls land here.)
 
@@ -5977,7 +5977,7 @@ Procurement reviewers often work backwards: 'we have $50K/mo approved — how ma
           const badge = document.createElement('span');
           badge.id = 'cb-calibrated';
           badge.title =
-            'AXIOM coefficients calibrated from agent-cost-bench traces. ' +
+            'simulator coefficients calibrated from agent-cost-bench traces. ' +
             'Click for full provenance.';
           badge.textContent = '✓ measured';
           badge.style.cssText =
@@ -5996,7 +5996,7 @@ Procurement reviewers often work backwards: 'we have $50K/mo approved — how ma
         // ✓ MEASURED badge to open it. Surfaces every empirical
         // value with provenance (source scenario, sample size,
         // provider, measured range) so a procurement reviewer can
-        // audit how each AXIOM constant was derived.
+        // audit how each simulator constant was derived.
         renderMeasuredPanel(c, /*openImmediately=*/false);
 
         console.log(
@@ -6107,7 +6107,7 @@ Procurement reviewers often work backwards: 'we have $50K/mo approved — how ma
   window.renderAudience = renderAudience;
 
   // ===================================================================
-  // Embeddings editor — small toggle-able panel inside AXIOM's RAG
+  // Embeddings editor — small toggle-able panel inside the simulator's RAG
   // section. Reads/writes workload.embedding. Re-renders on every
   // workload load so values stay in sync with imported scenarios.
   // ===================================================================
@@ -6175,7 +6175,7 @@ Procurement reviewers often work backwards: 'we have $50K/mo approved — how ma
 <!-- ===================================================================
      Wizard sidebar dispatcher. Each .tab-btn[data-wiz] item routes to:
        - data-wiz-tab    : top-level L1 tab to switch (workspace/prices/...)
-       - data-wiz-axiom  : AXIOM internal tab to activate (config/audience/agents/...)
+       - data-wiz-axiom  : simulator internal tab to activate (config/audience/agents/...)
        - data-wiz-anchor : DOM id to scroll to within the active tab
      The dispatcher is independent of the legacy data-tab pathway so the
      existing switchTab() / showTab() functions stay untouched.
@@ -6200,7 +6200,7 @@ Procurement reviewers often work backwards: 'we have $50K/mo approved — how ma
     const axiom  = btn.getAttribute('data-wiz-axiom');
     const anchor = btn.getAttribute('data-wiz-anchor');
 
-    // Activate AXIOM internal subtab if applicable.
+    // Activate simulator internal subtab if applicable.
     if (axiom && typeof window.showTab === 'function') {
       try { window.showTab(axiom); } catch (e) {}
     }

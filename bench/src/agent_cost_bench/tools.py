@@ -5,7 +5,7 @@ function-calling protocol. Production agents call MCP servers / REST
 APIs / databases — these stand in for that layer and produce
 realistic tool-result token volumes.
 
-Three tools cover the production patterns that matter for AXIOM
+Three tools cover the production patterns that matter for the simulator
 calibration:
 
   search(query)         → simulates ADS / web search → 3-5 result snippets
@@ -14,7 +14,7 @@ calibration:
 
 The LLM picks tools dynamically based on its system prompt; we
 record per-tool token cost so the variance comparator can
-calibrate AXIOM's tool-result-tokens coefficient (currently a
+calibrate the simulator's tool-result-tokens coefficient (currently a
 guess at ~200 tok/call).
 """
 

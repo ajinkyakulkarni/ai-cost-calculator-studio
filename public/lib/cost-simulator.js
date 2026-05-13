@@ -1,5 +1,5 @@
 /* ===========================================================================
- * AXIOM v9.6 — Multi-Agent Token Simulator
+ * cost-simulator v9.6 — Multi-Agent Token Simulator
  *
  * Extracted from public/index.html on 2026-05-11 to keep index.html
  * navigable (was 8500+ lines, now ~6600 after this split). No behavior
@@ -1397,7 +1397,7 @@ function onSlider(){
   if(sim.agents.length!==cfg('s-agents')){buildAgents();buildUsers();renderAgents();}
   else{renderAgentSettingsSummary();}
 
-  // AXIOM sliders are the single source of truth for traffic. Every
+  // simulator sliders are the single source of truth for traffic. Every
   // slider change re-runs the calc-side renderPreview so the headline
   // monthly cost reflects the new sessions/turns/etc.
   if (typeof window.renderPreview === 'function') {
@@ -1441,7 +1441,7 @@ function onSlider(){
 }
 
 /* ═══════ TAB NAV ═══════
-   All AXIOM tab panels render stacked simultaneously (single-page flow).
+   All simulator tab panels render stacked simultaneously (single-page flow).
    showTab() now just scrolls to the corresponding section header. The
    tab-sim grid stays gated by toggleSim(): when 'sim' is requested we
    reveal the live-simulation grid (which is hidden by default).
@@ -1548,7 +1548,7 @@ function showConvergence(){
   if(cb) cb.onclick = function(){ b.className='conv-banner'; };
 }
 /* THEMES — apply theme class to BOTH <body> (so calc's body-level
-   overrides take effect) AND .simulator-pane (so AXIOM's existing CSS
+   overrides take effect) AND .simulator-pane (so the simulator's existing CSS
    keeps working). Use classList.toggle so unrelated body classes are
    preserved. */
 function setTheme(t){
@@ -1571,7 +1571,7 @@ function setTheme(t){
   let t='mission';
   try{ t = localStorage.getItem('ccs-theme') || 'mission'; }catch(_){}
   if(!['tactical','mission','command'].includes(t)) t='mission';
-  // Defer until DOM (and AXIOM init) is ready.
+  // Defer until DOM (and simulator init) is ready.
   const apply = () => { try{ setTheme(t); }catch(e){ console.warn('setTheme deferred:',e); setTimeout(apply,200);} };
   if(document.readyState==='loading') document.addEventListener('DOMContentLoaded',apply);
   else apply();

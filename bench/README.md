@@ -2,11 +2,11 @@
 
 Production-shaped benchmark harness for multi-agent LLM systems. Runs realistic
 scenarios against real provider APIs, captures complete traces, and compares
-actual usage to the AXIOM simulator's predictions inside [calc.ajinkya.ai](https://calc.ajinkya.ai/).
+actual usage to the cost simulator's predictions inside [calc.ajinkya.ai](https://calc.ajinkya.ai/).
 
-The companion's job is to give the simulator empirical credibility — every
-coefficient AXIOM uses (cache hit rate, retry waste, multi-agent handoff
-overhead, etc.) is testable here.
+The harness's job is to give the simulator empirical credibility — every
+coefficient the simulator uses (cache hit rate, retry waste, multi-agent
+handoff overhead, etc.) is testable here.
 
 ## Why this exists
 
@@ -66,7 +66,7 @@ reports/long-chat-2026-05-05T...-trace.json     # full OTEL trace
 reports/long-chat-2026-05-05T...-summary.md     # readable session summary
 ```
 
-Compare against AXIOM's predictions for the same scenario:
+Compare against the simulator's predictions for the same scenario:
 
 ```bash
 agent-cost-bench compare reports/long-chat-2026-05-05T...-trace.json \
@@ -142,7 +142,7 @@ Per the OpenTelemetry GenAI semantic conventions
 ## Calibration loop
 
 Variance reports across many scenarios feed into a versioned
-`coefficients.json` that AXIOM consumes. When the variance report says
+`coefficients.json` that the simulator consumes. When the variance report says
 "cache_hit_rate predicted 0.84, actual 0.91 across 50 runs," the simulator's
 default for that coefficient gets bumped to 0.91 — and the published
 predictions on calc.ajinkya.ai now have a measurement provenance.

@@ -1,5 +1,5 @@
 {
-  "_": "Empirically-validated coefficients for the AXIOM cost simulator inside calc.ajinkya.ai. Each value is derived from running agent-cost-bench scenarios and measuring actual provider behavior. Versioned — the calc fetches this file at startup and uses it to override its hand-tuned defaults.",
+  "_": "Empirically-validated coefficients for the cost simulator inside calc.ajinkya.ai. Each value is derived from running agent-cost-bench scenarios and measuring actual provider behavior. Versioned — the calc fetches this file at startup and uses it to override its hand-tuned defaults.",
 
   "schema_version": "1.1",
   "generated_at": "2026-05-06",
@@ -21,7 +21,7 @@
         "anthropic_explicit":   {"value": 0.77, "model": "claude-sonnet-4-5-20250929",   "sample": 18, "scenario": "cached-pipeline-anthropic"},
         "parallel_fan_out":     {"value": 0.60, "model": "gpt-4o-mini",                  "sample": 40, "scenario": "parallel-fan-out"}
       },
-      "notes": "Cold-start (turn 0) caches only ~61% (system prompt). Warm turns 1+ hold 94-97%. Provider behavior differs materially: OpenAI's automatic prefix-matching beats Anthropic's explicit cache_control on multi-turn chat patterns where conversation history grows. AXIOM should model cache as a curve, not a flat coefficient — phase-2 enhancement."
+      "notes": "Cold-start (turn 0) caches only ~61% (system prompt). Warm turns 1+ hold 94-97%. Provider behavior differs materially: OpenAI's automatic prefix-matching beats Anthropic's explicit cache_control on multi-turn chat patterns where conversation history grows. the simulator should model cache as a curve, not a flat coefficient — phase-2 enhancement."
     },
 
     "input_output_ratio": {
@@ -34,7 +34,7 @@
       "provider": "openai",
       "model": "gpt-4o-mini",
       "measured_range": {"observed": 73, "gpt5_2_observed": 88},
-      "notes": "AXIOM's 6x default applies to chat-style agents. For agents with output-suppression rules + tool-state bypass + long sysprompts, the ratio jumps an order of magnitude. Single coefficient is wrong; calc should branch on agent topology."
+      "notes": "the simulator's 6x default applies to chat-style agents. For agents with output-suppression rules + tool-state bypass + long sysprompts, the ratio jumps an order of magnitude. Single coefficient is wrong; calc should branch on agent topology."
     },
 
     "sequential_handoff_overhead_tokens": {
@@ -73,7 +73,7 @@
       "provider": "openai",
       "model": "gpt-4o-mini",
       "measured_range": {"p50": 1224, "p90": 3437, "max": 26326},
-      "notes": "AXIOM doesn't currently model latency — bench introduces this as a new tracked coefficient. p90 latency is what production teams should plan for."
+      "notes": "the simulator doesn't currently model latency — bench introduces this as a new tracked coefficient. p90 latency is what production teams should plan for."
     },
 
     "time_to_first_token_ms": {

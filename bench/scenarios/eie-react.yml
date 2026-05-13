@@ -4,7 +4,7 @@
 # preset against real OpenAI API behavior. Architectural intent:
 #
 #   * Single agent (matches the EIE preset's no-`agents` block — the
-#     3-agent fleet shown in the UI comes from the AXIOM slider
+#     3-agent fleet shown in the UI comes from the cost-simulator slider
 #     bridge, not the preset JSON itself).
 #   * ReAct pattern: agent reasons, calls tools (parse_datetime,
 #     geocode, search_collections, search_items, compute_stats),

@@ -14,9 +14,9 @@
 #     the agent's perspective
 #   - Tool-state pattern: large payloads (geometry, item lists)
 #     stay out of LLM context; only summaries fed back. THIS IS A
-#     PRODUCTION OPTIMIZATION AXIOM DOESN'T MODEL by default.
+#     PRODUCTION OPTIMIZATION the simulator DOESN'T MODEL by default.
 #
-# What this scenario validates in AXIOM:
+# What this scenario validates in the simulator:
 #   - tool_schema_overhead_tokens (6 tool schemas in the prompt)
 #   - tool_result_tokens (varies wildly: 100 for bbox, 500 for
 #     collection list, 2000 for items, 1000 for stats)
