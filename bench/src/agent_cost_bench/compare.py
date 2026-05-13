@@ -274,13 +274,23 @@ def compute_variance(
 def _cost_from_call(call: dict[str, Any]) -> float:
     """Fallback per-call cost estimate when LiteLLM didn't fill it in.
 
-    Crude rough estimate using $5/M input, $15/M output. Real cost
-    comes from LiteLLM's pricing table — this is a safety net.
+    Splits `input_tokens` into cached vs uncached portions and bills
+    them at OpenAI gpt-5.2-style rates ($1.75/M input, $0.175/M cached,
+    $14/M output). Earlier versions charged the full prompt at $5/M,
+    which overcounted cost by up to the cached fraction on any
+    warm-cache call when LiteLLM's response_cost was missing.
+
+    Real cost still comes from LiteLLM's pricing table when available;
+    this is the safety net.
     """
     a = call.get("attributes", {})
     in_tok = a.get("gen_ai.usage.input_tokens", 0)
     out_tok = a.get("gen_ai.usage.output_tokens", 0)
-    return (in_tok / 1e6) * 5 + (out_tok / 1e6) * 15
+    cached_tok = a.get("gen_ai.usage.cached_tokens", 0) or 0
+    # OpenAI's prompt_tokens is the FULL prompt (cached + uncached); subtract
+    # the cached portion before billing at the uncached rate.
+    uncached = max(0, in_tok - cached_tok)
+    return (uncached / 1e6) * 1.75 + (cached_tok / 1e6) * 0.175 + (out_tok / 1e6) * 14
 
 
 def _predicted_cost(sim: dict) -> float:

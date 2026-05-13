@@ -406,8 +406,19 @@ def parse_datetime(value: str) -> dict:
 
 
 def geocode(query: str) -> dict:
-    """Resolve place name → bbox + small polygon. The LLM only sees the
-    bbox polygon (~100 tokens), never the full geometry."""
+    """Resolve place name → bbox + admin polygon.
+
+    Templated mode: the LLM sees only `bbox` (4 floats); the heavier
+    administrative polygon stays in server-side state.
+
+    Freeform mode: the LLM sees the FULL administrative polygon —
+    we synthesize a realistic county/city boundary with ~80 vertices
+    around the bbox center (the actual EIE deployment routes admin
+    boundaries through Geodini, which returns multi-hundred-vertex
+    GeoJSON for any non-trivial polity). This is what makes
+    place-resolution one of the dominant token sources in heavy-payload
+    deployments.
+    """
     rng = random.Random(_stable_seed(query))
     # Realistic-ish bbox for a city/region
     w = round(rng.uniform(-125, -70), 4)
@@ -419,10 +430,36 @@ def geocode(query: str) -> dict:
         "type": "Polygon",
         "coordinates": [[[w, s], [e, s], [e, n], [w, n], [w, s]]],
     }
+    # Synthesize a multi-vertex admin polygon mimicking a real city/
+    # county boundary. We perturb a ring of ~80 vertices around the
+    # bbox center with smooth pseudo-random offsets. Each vertex is
+    # two 6-digit floats (~25 chars on the wire), so the polygon
+    # contributes ~2K tokens — within the range Geodini routinely
+    # returns for US-state-or-larger admin boundaries.
+    import math
+    cx = (w + e) / 2
+    cy = (s + n) / 2
+    rx = (e - w) / 2
+    ry = (n - s) / 2
+    N_VERTS = 80
+    admin_ring = []
+    for i in range(N_VERTS):
+        t = 2 * math.pi * i / N_VERTS
+        # Smooth-ish lobed boundary (3 lobes + jitter); not pretty but
+        # realistic in token shape
+        r = 1.0 + 0.15 * math.cos(3 * t) + 0.05 * rng.random()
+        x = round(cx + rx * r * math.cos(t), 6)
+        y = round(cy + ry * r * math.sin(t), 6)
+        admin_ring.append([x, y])
+    admin_ring.append(admin_ring[0])  # close the ring
+    admin_polygon = {
+        "type": "Polygon",
+        "coordinates": [admin_ring],
+        "crs": {"type": "name", "properties": {"name": "urn:ogc:def:crs:OGC:1.3:CRS84"}},
+    }
     _eie_state["place"] = query
     _eie_state["bbox"] = bbox
-    # In templated mode, geometry stays in server-side state and never
-    # reaches the LLM — only the small bbox does.
+    _eie_state["admin_polygon"] = admin_polygon
     if _RESPONSE_MODE == "templated":
         return {
             "status": "pending_confirmation",
@@ -430,12 +467,18 @@ def geocode(query: str) -> dict:
             "bbox": bbox,
             "message": "OK — location resolved. Awaiting confirmation.",
         }
+    # Freeform: full admin polygon + bbox + provenance metadata
     return {
         "status": "pending_confirmation",
         "place": query,
         "bbox": bbox,
-        "geometry": bbox_poly,
-        "message": f"Location resolved to '{query}'. Please confirm.",
+        "bbox_polygon": bbox_poly,
+        "geometry": admin_polygon,
+        "admin_level": "county",
+        "country": "US",
+        "admin_source": "geodini-osm-2024",
+        "place_id": f"osm-{rng.randrange(10_000_000, 99_999_999)}",
+        "message": f"Location resolved to '{query}'. Please confirm the bounded area.",
     }
 
 
@@ -560,75 +603,248 @@ def select_collection(collection_id: str, variable: str | None = None) -> dict:
 
 
 def search_items(limit: int = 15) -> dict:
-    """Return up to 15 items for the selected collection — realistic
-    payload size (~2-3K tokens) but only IDs + datetimes shown to LLM."""
+    """Return up to 15 items for the selected collection.
+
+    Templated mode: stash the full STAC item array in state; LLM sees
+    only the count.
+
+    Freeform mode: return the full STAC item objects to the LLM —
+    `geometry`, `bbox`, `properties` (datetime, instruments, eo:cloud_cover,
+    gsd, platform, providers), `assets` (cog, thumbnail, browse, metadata
+    URLs with type/role/title each), `links` (self/parent/collection/
+    derived_from). This matches what a real STAC search endpoint returns
+    when an agent doesn't trim the response. Each item is ~3K tokens;
+    8-15 items add 25-50K tokens to the conversation per turn that
+    calls this tool.
+    """
     if not _eie_state.get("selected_collection"):
         return {"status": "error", "error": "No collection selected — call select_collection first"}
     if not _eie_state.get("bbox"):
         return {"status": "error", "error": "No bbox — call geocode first"}
     rng = random.Random(_stable_seed(_eie_state["selected_collection"]))
     n = rng.randint(8, max(8, min(15, limit)))
-    items = []
+    coll = _eie_state["selected_collection"]
+    bbox = _eie_state["bbox"]
+    items_full = []
+    items_minimal = []
     for i in range(n):
-        items.append({
-            "id": f"ITEM-{rng.randrange(10000, 99999)}",
-            "datetime": f"2021-{rng.randint(1,12):02d}-{rng.randint(1,28):02d}T00:00:00Z",
-            "asset_url": f"s3://veda-data-store/{_eie_state['selected_collection']}/item-{i}.tif",
+        iid = f"ITEM-{rng.randrange(10000, 99999)}"
+        dt = f"2021-{rng.randint(1,12):02d}-{rng.randint(1,28):02d}T{rng.randint(0,23):02d}:{rng.randint(0,59):02d}:00Z"
+        # Per-item geometry footprint (small polygon, 5 vertices around
+        # the AOI center). Real STAC items include this.
+        item_bbox = [
+            round(bbox[0] + rng.uniform(0, 0.1), 4),
+            round(bbox[1] + rng.uniform(0, 0.1), 4),
+            round(bbox[2] - rng.uniform(0, 0.1), 4),
+            round(bbox[3] - rng.uniform(0, 0.1), 4),
+        ]
+        item_geom = {
+            "type": "Polygon",
+            "coordinates": [[
+                [item_bbox[0], item_bbox[1]],
+                [item_bbox[2], item_bbox[1]],
+                [item_bbox[2], item_bbox[3]],
+                [item_bbox[0], item_bbox[3]],
+                [item_bbox[0], item_bbox[1]],
+            ]],
+        }
+        # Full STAC item — matches the SpatioTemporal Asset Catalog 1.0
+        # spec a typical raster archive (Sentinel-5P, MODIS, Landsat,
+        # VIIRS) ships back. Every field here is what a real STAC
+        # endpoint would return — none is invented.
+        items_full.append({
+            "type": "Feature",
+            "stac_version": "1.0.0",
+            "id": iid,
+            "collection": coll,
+            "bbox": item_bbox,
+            "geometry": item_geom,
+            "properties": {
+                "datetime": dt,
+                "platform": rng.choice(["sentinel-5p", "modis-aqua", "landsat-8", "viirs-snpp", "sentinel-2a"]),
+                "instruments": [rng.choice(["TROPOMI", "MODIS", "OLI", "VIIRS", "MSI"])],
+                "constellation": rng.choice(["copernicus", "modis", "landsat", "joint-polar-satellite-system"]),
+                "mission": rng.choice(["S5P", "MODIS-Aqua", "Landsat-8", "VIIRS/NPP", "Sentinel-2"]),
+                "gsd": rng.choice([10, 30, 250, 500, 1000, 7000]),
+                "eo:cloud_cover": round(rng.uniform(0, 60), 2),
+                "view:sun_azimuth": round(rng.uniform(120, 220), 2),
+                "view:sun_elevation": round(rng.uniform(20, 80), 2),
+                "view:off_nadir": round(rng.uniform(0, 8), 2),
+                "proj:epsg": rng.choice([4326, 32610, 32611, 32616, 32617]),
+                "proj:shape": [rng.choice([3712, 7600, 10980, 8500]), rng.choice([3712, 7600, 10980, 8500])],
+                "proj:transform": [
+                    round(rng.uniform(10, 1000), 4), 0, item_bbox[0],
+                    0, -round(rng.uniform(10, 1000), 4), item_bbox[3],
+                ],
+                "providers": [
+                    {"name": "NASA EOSDIS", "roles": ["producer", "host"], "url": "https://earthdata.nasa.gov"},
+                    {"name": "USGS Land Processes DAAC", "roles": ["processor"], "url": "https://lpdaac.usgs.gov"},
+                ],
+                "processing:level": rng.choice(["L2A", "L2", "L3", "L4"]),
+                "processing:software": {"sen2cor": "2.10", "framework": "snap-9.0.0"},
+                "raster:bands": [
+                    {"name": f"b{b+1}", "data_type": "float32", "spatial_resolution": rng.choice([10, 30, 250]),
+                     "nodata": -9999, "unit": rng.choice(["mol/m^2", "K", "reflectance", "NDVI"])}
+                    for b in range(rng.randint(3, 6))
+                ],
+            },
+            "assets": {
+                "cog": {
+                    "href": f"s3://veda-data-store/{coll}/{iid}/cog.tif",
+                    "type": "image/tiff; application=geotiff; profile=cloud-optimized",
+                    "roles": ["data"],
+                    "title": "Cloud-optimized GeoTIFF",
+                    "file:size": rng.randrange(50_000_000, 500_000_000),
+                    "file:checksum": f"1220{rng.randrange(10**60, 10**61):x}"[:64],
+                },
+                "thumbnail": {
+                    "href": f"s3://veda-data-store/{coll}/{iid}/thumb.png",
+                    "type": "image/png",
+                    "roles": ["thumbnail"],
+                    "title": "Thumbnail preview",
+                },
+                "browse": {
+                    "href": f"s3://veda-data-store/{coll}/{iid}/browse.jpg",
+                    "type": "image/jpeg",
+                    "roles": ["overview"],
+                    "title": "Browse-resolution overview",
+                },
+                "metadata": {
+                    "href": f"s3://veda-data-store/{coll}/{iid}/metadata.xml",
+                    "type": "application/xml",
+                    "roles": ["metadata"],
+                    "title": "ISO 19115 metadata record",
+                },
+            },
+            "links": [
+                {"rel": "self", "href": f"https://stac.veda.nasa/{coll}/items/{iid}", "type": "application/geo+json"},
+                {"rel": "parent", "href": f"https://stac.veda.nasa/{coll}", "type": "application/json"},
+                {"rel": "collection", "href": f"https://stac.veda.nasa/{coll}", "type": "application/json"},
+                {"rel": "root", "href": "https://stac.veda.nasa/", "type": "application/json"},
+                {"rel": "derived_from", "href": f"s3://upstream-archive/{coll}/raw/{iid}.nc"},
+            ],
         })
-    _eie_state["items"] = items
-    # Templated mode: the items array (largest payload from this stage)
-    # stays in state. The LLM only sees the count, which is what a
-    # production agent's pipeline needs to decide whether to advance.
+        items_minimal.append({"id": iid, "datetime": dt,
+                              "asset_url": f"s3://veda-data-store/{coll}/{iid}/cog.tif"})
+    _eie_state["items"] = items_full
     if _RESPONSE_MODE == "templated":
         return {
             "status": "complete",
             "retrieved": n,
             "message": "OK — catalog items retrieved.",
         }
+    # Freeform: return the FULL STAC item objects + a STAC FeatureCollection
+    # envelope (matches the real STAC API response shape).
     return {
         "status": "complete",
-        "item_count": n,
-        "items": items,
-        "message": f"Found {n} items for the selected collection.",
+        "type": "FeatureCollection",
+        "stac_version": "1.0.0",
+        "numberMatched": n,
+        "numberReturned": n,
+        "context": {"matched": n, "returned": n, "limit": limit, "next": None},
+        "features": items_full,
+        "message": f"Found {n} matching STAC items in collection {coll}.",
     }
 
 
 def compute_stats() -> dict:
-    """Per-item per-band statistics — realistic payload."""
+    """Per-item per-band statistics with histograms + percentiles.
+
+    Templated mode: the (potentially large) results array stays in
+    server-side state; the LLM sees only a count + status.
+
+    Freeform mode: returns per-band per-item statistics objects with
+    full distributional summaries — 16-bin histogram, 9 percentile
+    levels, valid-pixel mask metadata, optional per-class counts. Each
+    item × 3 bands ≈ 1.5K tokens; 8-15 items × 3 bands adds 35-70K
+    tokens to the conversation per turn that calls this. This is what
+    a real EIE-class deployment receives back from its raster
+    statistics service when the agent doesn't trim the response.
+    """
     items = _eie_state.get("items")
     if not items:
         return {"status": "error", "error": "No items — call search_items first"}
-    rng = random.Random(42)
+    # Seed from the collection ID so the values vary by deployment but
+    # are reproducible per (collection, item) — matches the audit
+    # finding #6 fix.
+    coll = _eie_state.get("selected_collection") or "default"
+    rng = random.Random(_stable_seed(coll))
     results = []
+    PCT_LEVELS = [1, 5, 10, 25, 50, 75, 90, 95, 99]
+    HIST_BINS = 16
     for it in items:
         valid_pct = round(rng.uniform(70, 100), 1)
+        bands = {}
+        # Synthesize stats for 3 typical bands (common in earth-obs
+        # products: top-of-atmosphere, surface reflectance, derived index)
+        for b_idx in range(3):
+            b_name = f"b{b_idx+1}"
+            mean = round(rng.uniform(0.5, 4.5), 4)
+            std = round(rng.uniform(0.1, 0.8), 4)
+            bands[b_name] = {
+                "mean": mean,
+                "std": std,
+                "min": round(max(0.0, mean - 3 * std), 4),
+                "max": round(mean + 3 * std, 4),
+                "median": round(mean + rng.uniform(-0.1, 0.1), 4),
+                "valid_percent": valid_pct,
+                "valid_pixels": rng.randrange(1_000_000, 80_000_000),
+                "total_pixels": rng.randrange(80_000_000, 100_000_000),
+                "unit": rng.choice(["mol/m^2", "K", "reflectance", "NDVI"]),
+                "nodata_value": -9999,
+                # Full 16-bin histogram with bin edges + counts
+                "histogram": {
+                    "bins": [round(mean - 3 * std + (6 * std) * i / HIST_BINS, 4)
+                             for i in range(HIST_BINS + 1)],
+                    "counts": [rng.randrange(10_000, 5_000_000) for _ in range(HIST_BINS)],
+                },
+                # Quantile estimates
+                "percentiles": {str(p): round(mean + std * (p - 50) / 25, 4) for p in PCT_LEVELS},
+                # Spatial summary
+                "spatial_mean_by_quadrant": {
+                    "NW": round(mean + rng.uniform(-0.3, 0.3), 4),
+                    "NE": round(mean + rng.uniform(-0.3, 0.3), 4),
+                    "SW": round(mean + rng.uniform(-0.3, 0.3), 4),
+                    "SE": round(mean + rng.uniform(-0.3, 0.3), 4),
+                },
+                # QA mask breakdown (typical earth-obs flag schema)
+                "qa_mask_counts": {
+                    "clear": rng.randrange(100_000, 80_000_000),
+                    "cloud": rng.randrange(0, 10_000_000),
+                    "cloud_shadow": rng.randrange(0, 5_000_000),
+                    "snow_ice": rng.randrange(0, 2_000_000),
+                    "water": rng.randrange(0, 30_000_000),
+                    "saturated": rng.randrange(0, 100_000),
+                    "missing": rng.randrange(0, 1_000_000),
+                },
+            }
         results.append({
             "id": it["id"],
-            "datetime": it["datetime"],
-            "stats": {
-                "b1": {
-                    "mean": round(rng.uniform(0.5, 4.5), 4),
-                    "min": round(rng.uniform(0.0, 0.5), 4),
-                    "max": round(rng.uniform(4.5, 8.0), 4),
-                    "valid_percent": valid_pct,
-                },
-            },
+            "datetime": it["properties"]["datetime"] if isinstance(it, dict) and "properties" in it else it.get("datetime"),
+            "platform": (it.get("properties", {}) if isinstance(it, dict) else {}).get("platform"),
+            "bands": bands,
+            "processing_time_ms": rng.randrange(80, 3000),
         })
-    # Templated mode: the per-item stats array stays in state; the
-    # downstream renderer reads it from there. The LLM only sees the
-    # count and a status update, mirroring production agents that
-    # explicitly suppress numeric output from the model layer.
     if _RESPONSE_MODE == "templated":
         return {
             "status": "complete",
             "count": len(results),
             "message": "OK — statistics retrieved.",
         }
+    # Freeform: full per-band per-item statistics, the typical heavy
+    # payload that drives input-token inflation in production agents
+    # without response templating.
     return {
         "status": "complete",
         "result_count": len(results),
         "results": results,
-        "message": f"Statistics computed for {len(results)} items.",
+        "summary": {
+            "items_processed": len(results),
+            "bands_per_item": 3,
+            "histogram_bins_per_band": HIST_BINS,
+            "percentile_levels": PCT_LEVELS,
+        },
+        "message": f"Statistics (histograms + percentiles) computed for {len(results)} items × 3 bands.",
     }
 
 
@@ -646,11 +862,23 @@ def build_viz_tiles() -> dict:
     if not items:
         return {"status": "error", "error": "No items — call search_items first"}
     coll = _eie_state.get("selected_collection") or "COLL-XXX"
+    def _cog_url(it: dict) -> str:
+        # After search_items was beefed up, items are full STAC features
+        # (with `assets.cog.href`). Fall back to the legacy flat
+        # `asset_url` field for older traces / replay scenarios.
+        if isinstance(it, dict):
+            a = it.get("assets", {}).get("cog")
+            if isinstance(a, dict) and "href" in a:
+                return a["href"]
+            if "asset_url" in it:
+                return it["asset_url"]
+        return ""
+
     tile_urls = [
         # Z/X/Y placeholders — the bench doesn't render tiles, it just
         # models the cost shape of a tile-URL payload moving through
         # the conversation.
-        f"https://titiler.veda.example/cog/tiles/WebMercatorQuad/{{z}}/{{x}}/{{y}}.png?url={it['asset_url']}"
+        f"https://titiler.veda.example/cog/tiles/WebMercatorQuad/{{z}}/{{x}}/{{y}}.png?url={_cog_url(it)}"
         for it in items
     ]
     if _RESPONSE_MODE == "templated":

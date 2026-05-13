@@ -1,0 +1,208 @@
+# public-geospatial-react — full-scale single-agent ReAct mirror of the
+# public-geospatial-qa preset.
+#
+# This is the bench scenario that validates calc.ajinkya.ai's
+# public-geospatial-qa preset against real OpenAI API behavior.
+# Architectural intent:
+#
+#   * Single agent (matches the preset's no-`agents` block — the
+#     3-agent fleet shown in the UI comes from the cost-simulator slider
+#     bridge, not the preset JSON itself).
+#   * ReAct pattern: agent reasons, calls tools (parse_datetime,
+#     geocode, search_collections, search_items, compute_stats),
+#     reasons again, answers. Implemented via LangGraph's tool-loop
+#     node — the same primitive any production agent uses.
+#   * Sized to the preset's anchor_query:
+#       input_tokens=84,490   ←  large RAG context + tool results
+#       output_tokens=854     ←  concise plain-language answer
+#       session_baseline_turns=6
+#       cache_rate_baseline=0.84
+#
+# Architecture-comparable variant: see scenarios/multi-stage-research.yml
+# for the structured / pydantic-typed sequential-pipeline shape.
+# Together they cover the two production patterns the calculator
+# needs to validate against.
+#
+# What this scenario measures and compares to the calculator:
+#   - per_query_cost_usd        (the headline number)
+#   - per_query_input_tokens    (does the 84.5K shape hold in reality?)
+#   - per_query_output_tokens   (does 854 hold?)
+#   - cache_hit_rate            (does 0.84 hold across the 6-turn session?)
+#
+# Cost guard: max_cost_usd=2.00 lets you run repeat=3 sessions safely
+# on gpt-5.2 or gpt-4.1; bump --max-cost-usd to expand the sample.
+#
+# Run:
+#   agent-cost-bench run scenarios/public-geospatial-react.yml --max-cost-usd 2.00
+#
+# Validate against the calculator:
+#   python scripts/validate-preset.py --trace reports/public-geospatial-react-*-trace.json
+
+name: public-geospatial-react-freeform
+description: |
+  PAIRED FREEFORM-MODE companion to public-geospatial-react.yml.
+  Same agent, same tools, same 6-turn session, same model — only
+  thing different is tool_response_mode: tools return their full
+  structured payloads (geometry polygons, STAC item arrays, per-item
+  statistics) instead of routing through a centralized response-
+  template layer. The cumulative payload accumulates across the
+  6 turns and the input token count climbs sharply.
+
+  Purpose: empirically validate the heavy-payload upper bound the
+  paper cites (84,490 input tokens) against real OpenAI behavior,
+  so the 25× cost lever the paper claims is "measured at both
+  endpoints" not just "measured floor + modeled ceiling."
+topology: single
+# Reduced from 20 — freeform per-turn input is ~25× larger than
+# templated, so a repeat=20 run would cost ~$5-7. repeat=5 gives a
+# reliable point estimate (5 sessions × 6 turns = 30 user-turns) at
+# expected ~$1-2 of API spend.
+repeat: 5
+max_cost_usd: 10.00
+# Freeform: tools return descriptive default payloads (geometry, item
+# lists, per-item stats). The structured data flows into the LLM
+# context across turns, inflating input tokens. This is the UPPER
+# bound on cost for this agent topology. Switch to 'templated' to
+# measure the lower bound (current production EIE behavior).
+tool_response_mode: freeform
+
+meta:
+  validates_preset: public-geospatial-qa
+  preset_path: public/examples/public-geospatial-qa.json
+  architecture: react-single-agent
+  validates_axiom_coefficients:
+    - per_query_input_tokens
+    - per_query_output_tokens
+    - cache_hit_rate
+    - per_query_cost_usd
+  notes: |
+    Heavy input shape (~84K tokens) is the cost-dominant feature of EIE-
+    class deployments: the system prompt + retrieved geospatial context
+    + multi-tool schemas account for the bulk. Output is small because
+    EIE answers in plain language ("NO2 over NYC declined 12% from Oct
+    to Dec 2021"). If real API runs produce a markedly different shape,
+    the preset's anchor_query needs recalibration.
+
+agents:
+  - id: eie-agent
+    role: data-discovery
+    # gpt-5.2 mirrors the preset's `defaults.model`. Switch to gpt-4.1
+    # or gpt-4o-mini for a cheaper smoke run; the bench tracks model
+    # in the trace so the comparator picks the right rate card.
+    model: gpt-5.2
+    temperature: 0.2
+    max_output_tokens: 900
+    tools:
+      - parse_datetime
+      - geocode
+      - search_collections
+      - select_collection
+      - search_items
+      - compute_stats
+      - build_viz_tiles
+    # System prompt below is original prose written for this bench;
+    # token target is ~700 (tool schemas add another ~600). It models
+    # the same workload pattern as a production geospatial-discovery
+    # agent — sequential pipeline, confirmation gates, deterministic
+    # tool returns, no interpretation — but shares no phrasing with
+    # the real agent under validation. Do not paraphrase production
+    # prompts when editing this block; write fresh from the workload
+    # properties.
+    system_prompt: |
+      You drive a geospatial dataset-discovery workflow for a public-
+      facing science portal. Users arrive with plain-English questions
+      about Earth observation data; your job is to translate that into
+      a sequence of catalog lookups and return descriptive statistics
+      over the matching rasters.
+
+      WORKFLOW
+      Every query traverses a fixed seven-stage pipeline. The order is
+      non-negotiable; you never reorder stages or skip ahead. Stages 6
+      and 7 are non-gating — they may be invoked in the same turn.
+
+        Stage 1  parse_datetime     Accept and normalize a date range.
+        Stage 2  geocode            Convert a place name into a bbox.
+        Stage 3  search_collections Retrieve candidate datasets via RAG.
+        Stage 4  select_collection  Persist the user's dataset choice.
+        Stage 5  search_items       Enumerate catalog items in the AOI.
+        Stage 6  compute_stats      Produce per-item raster statistics.
+        Stage 7  build_viz_tiles    Prepare tile URLs for visualization.
+
+      GATE BEHAVIOR
+      Stages 1, 2, and 3 each return with a status of
+      `pending_confirmation`. When you receive that status:
+        - Forward the tool's `message` value to the user verbatim — no
+          commentary, no prefix, no suffix.
+        - Issue no further tool calls until the user replies.
+        - The reply either corrects the value (re-invoke the same
+          tool) or accepts it (advance to the next stage).
+
+      If a tool returns `complete`, advance to the next stage. If a
+      tool returns `error`, surface the message verbatim and halt; do
+      not retry without user direction.
+
+      TOOL CALL DISCIPLINE
+      - One gating tool per turn (parse_datetime, geocode, or
+        search_collections). compute_stats and build_viz_tiles are
+        non-gating and may run together in the same turn after a
+        collection has been selected.
+      - Treat tool return JSON as the only source of truth. Pass the
+        `message` field through unchanged.
+      - Never fabricate identifiers, bboxes, timestamps, item counts,
+        or numeric outputs. If a value is absent from a tool result,
+        treat it as unavailable rather than guessing.
+      - compute_stats is the one stage where partial failure is
+        tolerated: some items may succeed while others fail. Report
+        the success count; do not retry the failed items unless
+        asked.
+
+      OUT OF SCOPE
+      If the user is not asking for Earth observation data — for
+      instance, requests for general explanation of phenomena, medical
+      advice, or anything answerable without a catalog lookup — refuse
+      before invoking any tool. Reply with one sentence stating that
+      the question falls outside this workflow's scope, and suggest
+      they rephrase around a dataset, location, and time range.
+
+      ANSWER STYLE
+      After both compute_stats and build_viz_tiles return, say
+      "Statistics retrieved." and terminate the turn. Do not restate,
+      summarize, average, or compare the numerical fields, and do not
+      print the tile URLs — those are formatted downstream by the
+      calling application, not by you.
+
+      You answer with facts that came from tool calls. You do not
+      forecast, infer causation, attach severity labels, recommend
+      actions, or explain physical mechanisms. If the user asks for
+      any of those, decline and offer to surface relevant data
+      instead.
+
+      NAMING
+      - "match strength" rather than "relevance score"
+      - "semantic similarity" rather than "vector match"
+      - "bounding box" in user-facing text; "bbox" internally
+
+      DETERMINISM
+      The same query against the same dataset must produce the same
+      tool call sequence and the same final assistant message.
+      Variability in the tool returns themselves is acceptable (catalog
+      updates, geocoder revisions); variability in your behavior given
+      identical tool returns is not.
+
+# Six-turn flow — matches the preset's session_baseline_turns=6.
+# Each user message either drives the next tool or supplies a
+# confirmation to a pending gate.
+turns:
+  - user: |
+      Did monthly NO2 over New York City change from October to December 2021?
+  - user: |
+      Yes — that date range is correct.
+  - user: |
+      Yes — New York City as a metropolitan-area bbox is what I meant.
+  - user: |
+      I'll take the first option (Sentinel-5P NO2, tropospheric column).
+  - user: |
+      How many catalog items did it find?
+  - user: |
+      Thanks. One more — what's the percent change from the October
+      mean to the December mean?

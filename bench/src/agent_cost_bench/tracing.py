@@ -220,6 +220,19 @@ def record_usage(span, response: Any) -> None:
                 span.set_attribute("response_cost", float(rc))
             except (TypeError, ValueError):
                 pass
+    elif hidden is not None:
+        # _hidden_params is present but isn't a dict (some LiteLLM
+        # versions / wrapper paths return an object). Skipping cost
+        # recording silently means compare.py falls back to the
+        # rate-card estimate — log a warning so the silent fallback
+        # is visible rather than mysterious.
+        import logging
+        logging.getLogger(__name__).warning(
+            "record_usage: _hidden_params is %s, not dict; "
+            "response_cost not recorded — compare.py will fall back "
+            "to rate-card estimate for this call",
+            type(hidden).__name__,
+        )
 
     # Provider request id is invaluable for cross-referencing against
     # provider audit logs (OpenAI dashboard, Anthropic console).

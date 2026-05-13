@@ -351,14 +351,32 @@ def run_scenario(scenario: Scenario, *, output_dir: Path) -> Path:
     started_at = datetime.now(tz=timezone.utc).isoformat()
     cumulative_cost = 0.0
 
+    # Stash the original system prompt of every agent so we can
+    # prepend a per-repeat cache-busting marker without permanently
+    # mutating the scenario. OpenAI's prompt cache keys on prompt
+    # prefix; without this, repeats 2+ get free cache hits from
+    # repeat 1's warm prefix and aggregate cache_hit_rate is
+    # inflated. The marker is a tiny comment-shaped string that
+    # the model treats as a no-op session ID.
+    original_sysprompts = {a.id: a.system_prompt for a in scenario.agents}
+
     # Repeat the full turn-sequence N times. Each iteration starts
-    # with fresh message history (independent runs) but writes to
-    # the same trace buffer. The variance comparator uses run_idx
-    # tagging on each span to compute mean/stdev across runs.
+    # with fresh message history (independent runs) AND a fresh
+    # cache-busting marker on the system prompt, so each repeat
+    # measures honest cold-cache → warm-cache behavior within its
+    # own session.
     aborted = False
     for run_idx in range(scenario.repeat):
         if aborted:
             break
+        # Prepend a unique session ID to every agent's system prompt
+        # so the provider-side prompt cache treats this repeat as a
+        # cold start. Restored after the repeat loop.
+        import uuid
+        marker = f"[bench-session {run_idx}: {uuid.uuid4().hex[:8]}]\n"
+        for a in scenario.agents:
+            base = original_sysprompts[a.id] or ""
+            a.system_prompt = marker + base
         # Reset stateful tools (e.g. EIE-shape geocode/select pipeline)
         # so each repeat starts from a clean slate.
         reset_eie_state()
@@ -392,6 +410,12 @@ def run_scenario(scenario: Scenario, *, output_dir: Path) -> Path:
                 "total_cost_usd": result.get("total_cost_usd", state["total_cost_usd"]),
             }
         cumulative_cost += state["total_cost_usd"]
+
+    # Restore each agent's pristine system prompt after the repeat
+    # loop. Callers may inspect `scenario` after run() returns; we
+    # don't want them to see the mutated last-marker version.
+    for a in scenario.agents:
+        a.system_prompt = original_sysprompts.get(a.id, a.system_prompt)
 
     return write_trace_artifact(
         scenario_name=scenario.name,
