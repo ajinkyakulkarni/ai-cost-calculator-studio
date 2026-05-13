@@ -203,7 +203,11 @@ function resolvePricingTier(model, provider, langMult, turnIn){
     cacheWrite1hBase = chosen.cacheWrite1h!=null ? chosen.cacheWrite1h : model.cacheWrite1h;
     tierLabel = chosen.label || ('tier@'+(chosen.thresholdAt||0));
   } else {
-    const useLong=!!(model.longThreshold && turnIn>model.longThreshold && model.longIn!=null && model.longOut!=null);
+    // `>=` (not `>`): provider docs (e.g. Gemini) define the long-context
+    // tier boundary as "input at or above 200K tokens". Strict `>` would
+    // bill a 200,000-token prompt at the standard rate — off-by-one against
+    // the rate-card definition.
+    const useLong=!!(model.longThreshold && turnIn>=model.longThreshold && model.longIn!=null && model.longOut!=null);
     inBase=useLong?model.longIn:model.in;
     outBase=useLong?model.longOut:model.out;
     cacheReadBase=useLong && model.longCacheRead!==undefined ? model.longCacheRead : model.cacheRead;
@@ -332,24 +336,35 @@ function computeCost(mk){
     //   orchestrator (0): 0 — workers only see the boss's task
     //   peer mesh    (1): each agent reads (N-1) sibling outputs ≈ ~300 tok each
     //   supervisor   (2): hierarchical handoff ≈ ~150 tok × (N-1)
-    //   pipeline     (3): Eq. 7 — stage N sees Σ_{i<N} avg_output_tokens_i,
-    //                     i.e., the cumulative output of prior stages becomes
-    //                     this stage's extra input. Per-turn distribution
-    //                     keeps the per-stage total identical to the paper.
-    // Applied as extra input tokens per turn per agent. Single-agent runs
-    // never pay this overhead (siblings = 0 / no prior stages).
+    //   pipeline     (3): Eq. 7 — stage N sees Σ_{i<N} avg_output_tokens_i
+    //
+    // Patterns 0/1/2 assume parallel execution (all agents see the same
+    // sibling-count of peer outputs, independent of order), so the overhead
+    // is a flat per-turn additive applied to every agent in the fleet.
+    //
+    // Pattern 3 (sequential pipeline) is fundamentally different: stage N
+    // only sees PRIOR stages' outputs. We therefore add the pipeline
+    // overhead as an ABSOLUTE token count to myTotalIn after the per-turn
+    // math, not via the per-turn `_commOverheadPerTurn` channel. This
+    // preserves the paper's Σ avg_output_tokens_i interpretation regardless
+    // of per-agent turnsShare ratios, and prevents pipeline overhead from
+    // accidentally pushing turnIn over a long-context pricing threshold.
     const _commPattern = cfg('s-comm-pattern');
     const _commSiblings = Math.max(0, agentCount - 1);
     const _commOverheadPerTurn = _commPattern === 1 ? _commSiblings * 300
                               : _commPattern === 2 ? _commSiblings * 150
-                              : _commPattern === 3 ? (pipelineCumulativeOutTok / Math.max(1, myTurns))
-                              : 0;
+                              : 0;  // pattern 3 handled after per-turn math
     const turnIn=(sysTokGlobal/myTurns)+200+myToolSchemaOH+myToolResultOH+iaMsg+myRagTok+myReasonTok+myGuardTokInTurn+_commOverheadPerTurn+modalTurnTok+promptOHTurn;
     const rawTurnOut=Math.round(200*myOM)+citations;
     const turnOut=Math.min(rawTurnOut, agent.maxOut||rawTurnOut);
     const tierInfo=resolvePricingTier(m,provider,langMult,turnIn);
     const inRate=tierInfo.inRate,outRate=tierInfo.outRate,priceModel=tierInfo.priceModel;
-    const myTotalIn=turnIn*myTurns;
+    // Eq. 7 sequential-pipeline handoff overhead: prior stages' cumulative
+    // output is added as an absolute one-shot to this stage's total input
+    // (not distributed across turns). Single-agent / first-stage agents see
+    // zero pipeline overhead because the accumulator starts at 0.
+    const pipelineHandoffTok = _commPattern === 3 ? pipelineCumulativeOutTok : 0;
+    const myTotalIn=turnIn*myTurns + pipelineHandoffTok;
     const myTotalOut=turnOut*myTurns;
 
     let myModelCost=0,myFixed=0,myCacheSave=0,myBatchSave=0,myCacheReadTok=0,myCacheWriteTok=0;
@@ -376,6 +391,12 @@ function computeCost(mk){
     const gprices=[0,0.20,0.25,0.75,1.00,3.00];
     const gpr=gprices[gpriceIdx] ?? 0;
     const guardBaseCost=(myGuardTok*myTurns/1e6)*gpr;
+    // myGuardWaste models the OUTPUT-side guard architecture: main model
+    // processes the input first, then the guard checks the response and
+    // may block it. When that happens, the main-model input tokens are
+    // already spent — so the waste is billed at inRate (main model),
+    // not gpr (guard model). If your deployment runs guards on the input
+    // BEFORE the main model, this formula will overstate cost.
     const myGuardWaste=(cfg('s-guard-block')/100)*(((sysTokGlobal/myTurns)+200+myRagTok)/1e6)*inRate*myTurns;
     totalGuardCost+=guardBaseCost+myGuardWaste;
     guardWaste+=myGuardWaste;
@@ -400,10 +421,13 @@ function computeCost(mk){
     }
     const myNet=myModelCost+guardBaseCost+myGuardWaste+mySumm+myFixed;
     agentBreakdown.push({name:agent.name,role:agent.role,model:usedModel,provider:provider.label,col:agent.col||m.color,netCost:myNet,totalIn:myTotalIn,totalOut:myTotalOut,turns:myTurns,cacheReadTok:myCacheReadTok,cacheWriteTok:myCacheWriteTok,cacheSave:myCacheSave,batchSave:myBatchSave,pricingTier:tierInfo.tier,source:m.source||''});
-    // Eq. 7 pipeline cumulative-output tracking. Add this agent's full
-    // per-turn average output to the running sum so the NEXT pipeline
-    // stage sees it on its input side (when _commPattern === 3).
-    pipelineCumulativeOutTok += (myTotalOut / Math.max(1, myTurns));
+    // Eq. 7 pipeline cumulative-output tracking. Accumulate this agent's
+    // UNCLAMPED per-turn output (rawTurnOut), not the maxOut-truncated
+    // turnOut — the clamp is a UI safety on what the model is asked to
+    // produce, not a real limit on what would be concatenated into the
+    // next stage's input in production. Per-turn average matches the
+    // paper's Σ avg_output_tokens_i.
+    pipelineCumulativeOutTok += rawTurnOut;
   });
 
   const ragQueries=agentsToProcess.reduce((s,a)=>s+((a.ragOn?(a.rag_calls??cfg('s-rag-calls')):0)*baseTurns),0);
