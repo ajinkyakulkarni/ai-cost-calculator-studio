@@ -260,7 +260,7 @@ def write_trace_artifact(
         "scenario": scenario_name,
         "started_at": started_at,
         "config_hash": config_hash,
-        "agent_cost_bench_version": "0.1.0",
+        "agent_cost_bench_version": "0.2.0",
         "calls": spans,
         "session_totals": {
             "calls": len(spans),

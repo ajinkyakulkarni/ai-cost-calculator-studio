@@ -254,20 +254,22 @@ procurement actually requires:
   real provider APIs
 
 The methodology is documented in the companion paper
-*Cost Modeling for Federal AI-Agent Deployment: A Worked Example with
-NASA's Earth Information Explorer*. The validation methodology is
-documented separately at
+*Cost Modeling for Public-Facing LLM Chat Applications: Token Math,
+Self-Host Break-Even, and Empirical Calibration*. The validation
+methodology is documented separately at
 [`docs/paper/validation-methodology.md`](./docs/paper/validation-methodology.md).
 
 ## Companion blog posts
 
-- [The cost of running an AI agent: thirteen things everyone misses](https://ajinkya.ai/posts/cost-of-ai-the-things-everyone-misses.html)
-  — narrative walkthrough of what naïve calculators miss.
-- [At equal budget, self-hosting your AI saves you nothing](https://ajinkya.ai/posts/cost-calculator-launch.html)
-  — original launch post + the API-vs-self-host break-even.
-- [Cost analysis for AI agents: equations, methodology, and every term defined](https://ajinkya.ai/posts/cost-analysis-equations-and-glossary.html)
-  — the equations + bench validation + alphabetical glossary of
-  every term in the calculator.
+- [Explaining the LLM cost paper](https://ajinkya.ai/posts/the-cost-paper-explained)
+  — section-by-section walk-through of the paper's methodology: the
+  naïve per-token formula and why it lies, the structural corrections
+  that break it (caching, traffic shape, segments, daily caps), the
+  six equations that replace it, and the worked NASA-shape example.
+- [How to cost an AI agent — a tutorial](https://ajinkya.ai/posts/how-to-cost-an-ai-agent-tutorial)
+  — build-your-own-calculator walkthrough. Start with one slider; add
+  caching, traffic mix, segments, and refusal accounting; end with a
+  procurement-grade artefact you can defend in review.
 
 ## Status
 
@@ -278,7 +280,7 @@ documented separately at
 | State unification (auto-sync AXIOM ↔ Components) | ✅ Live |
 | Theme system (Tactical / Mission / Command) | ✅ Live |
 | `coefficients.json` calibration loop | ✅ Live, fetched at page load |
-| `agent-cost-bench` v0.1.0 | ✅ 9 scenarios, 174 calls validated |
+| `agent-cost-bench` v0.1.0 | ✅ 10 scenarios, ~412 calls validated (N=174 May, +N=238 EIE re-cal May 13) |
 | Anthropic provider in bench | ✅ Live (via LiteLLM) |
 | Self-host scenario | ⏸ planned (vLLM + open-weight model) |
 | Public benchmark page (`calc.ajinkya.ai/benchmarks`) | ⏸ planned |
@@ -291,8 +293,8 @@ If you use this toolkit in published work or a procurement document:
 ```bibtex
 @misc{kulkarni2026cost,
   author = {Kulkarni, Ajinkya},
-  title  = {Cost Modeling for Federal {AI}-Agent Deployment:
-            A Worked Example with {NASA}'s Earth Information Explorer},
+  title  = {Cost Modeling for Public-Facing {LLM} Chat Applications:
+            Token Math, Self-Host Break-Even, and Empirical Calibration},
   year   = {2026},
   url    = {https://github.com/ajinkyakulkarni/ai-cost-calculator-studio}
 }
