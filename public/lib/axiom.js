@@ -788,18 +788,76 @@ function buildTornadoChart(res){
   charts.tornado=new Chart(ctx.getContext('2d'),{type:'bar',data:{labels:res.map(r=>r.name),datasets:[{label:'-50%',data:res.map(r=>r.pctL),backgroundColor:'rgba(0,230,118,.5)',borderWidth:0},{label:'+50%',data:res.map(r=>r.pctH),backgroundColor:'rgba(255,82,82,.5)',borderWidth:0}]},options:{indexAxis:'y',responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{x:{grid:{color:getChartColors().grid},ticks:{color:getChartColors().tick,font:{size:8},callback:v=>v+'%'}},y:{grid:{display:false},ticks:{color:getChartColors().tick,font:{size:8}}}}}});
 }
 function buildWhatIf(base){
+  // `ensure` forces gating flags / dependent values on all agents so a
+  // scenario isn't silently no-op'd when the loaded preset disabled the
+  // feature. Without it, "Enable 10K thinking" against an agent that
+  // has reasonOn=false and think_pct=0 would compute to zero added
+  // tokens — the slider would move but nothing downstream would care.
   const scenarios=[
-    {name:'Double RAG chunks',id:'s-rag-chunks',fn:v=>v*2},{name:'Enable 10K thinking',id:'s-think-tokens',fn:_=>10000},
-    {name:'Add full guardrails',multi:[['s-guard-in',500],['s-guard-out',500],['s-guard-pii',200],['s-guard-policy',800]]},
-    {name:'Cache 80% hit rate',id:'s-cache',fn:_=>80},{name:'50% batch async',id:'s-batch',fn:_=>50},
-    {name:'Triple fact-checking',id:'s-factcheck',fn:_=>3},{name:'RAG 20 chunks×512t',multi:[['s-rag-chunks',20],['s-rag-chunk-size',512]]},
-    {name:'Minimal guardrails',multi:[['s-guard-in',0],['s-guard-out',0],['s-guard-pii',0],['s-guard-policy',0]]},
+    {name:'Double RAG chunks',   id:'s-rag-chunks',fn:v=>v*2, ensure:{ragOn:true}},
+    {name:'Enable 10K thinking', multi:[['s-think-tokens',10000],['s-think-pct',50]], ensure:{reasonOn:true}},
+    {name:'Add full guardrails', multi:[['s-guard-in',500],['s-guard-out',500],['s-guard-pii',200],['s-guard-policy',800]], ensure:{guardOn:true}},
+    {name:'Cache 80% hit rate',  id:'s-cache',fn:_=>80},
+    {name:'50% batch async',     id:'s-batch',fn:_=>50},
+    {name:'Triple fact-checking',id:'s-factcheck',fn:_=>3, ensure:{reasonOn:true}},
+    {name:'RAG 20 chunks×512t',  multi:[['s-rag-chunks',20],['s-rag-chunk-size',512]], ensure:{ragOn:true}},
+    {name:'Minimal guardrails',  multi:[['s-guard-in',0],['s-guard-out',0],['s-guard-pii',0],['s-guard-policy',0]]},
   ];
   const el=document.getElementById('whatif-cards');if(!el)return;
+  // Slider → agent-field mapping. When an imported preset's agents
+  // carry per-agent overrides for a parameter, computeCost reads the
+  // per-agent value (`agent.X ?? cfg('s-X')`) and the slider is
+  // shadowed. What-if scenarios that only flip the slider would then
+  // silently no-op — showing 0% for every scenario except those that
+  // touch globals-only knobs (e.g. batch async). Overriding both keeps
+  // the scenarios honest regardless of how richly the loaded preset
+  // populated its agents.
+  const SLIDER_TO_AGENT_FIELD={
+    's-rag-chunks':'rag_chunks','s-rag-chunk-size':'rag_size','s-rag-calls':'rag_calls',
+    's-think-tokens':'think_tok','s-think-pct':'think_pct','s-cot':'cot','s-factcheck':'factcheck',
+    's-cache':'cache_rate',
+    's-guard-in':'guard_in','s-guard-out':'guard_out','s-guard-pii':'guard_pii','s-guard-policy':'guard_policy',
+    's-tools':'tools_per','s-toolresult':'result','s-schema':'schema',
+  };
+  function setOne(id,val,sliderSaves,agentSaves){
+    const e=document.getElementById(id);
+    if(e){sliderSaves[id]=e.value;e.value=val;}
+    const f=SLIDER_TO_AGENT_FIELD[id];
+    if(f && typeof sim!=='undefined' && Array.isArray(sim.agents)){
+      sim.agents.forEach(a=>{
+        if(a[f]!==undefined){agentSaves.push([a,f,a[f]]);a[f]=typeof val==='string'?(parseFloat(val)||0):val;}
+      });
+    }
+  }
+  function setEnsureFlags(ensure,agentSaves){
+    if(!ensure || typeof sim==='undefined' || !Array.isArray(sim.agents)) return;
+    sim.agents.forEach(a=>{
+      Object.entries(ensure).forEach(([flag,val])=>{
+        agentSaves.push([a,flag,a[flag]]);
+        a[flag]=val;
+      });
+    });
+  }
+  function restoreAll(sliderSaves,agentSaves){
+    Object.entries(sliderSaves).forEach(([id,v])=>{const e=document.getElementById(id);if(e)e.value=v;});
+    agentSaves.forEach(([a,f,v])=>{a[f]=v;});
+  }
   el.innerHTML=scenarios.map(sc=>{
-    let nc;const saves={};
-    if(sc.multi){sc.multi.forEach(([id,v])=>{const e=document.getElementById(id);if(e){saves[id]=e.value;e.value=v;}});nc=computeCost().netCost;Object.entries(saves).forEach(([id,v])=>{const e=document.getElementById(id);if(e)e.value=v;});}
-    else{const e=document.getElementById(sc.id);if(e){saves[sc.id]=e.value;e.value=sc.fn(parseFloat(e.value)||0);nc=computeCost().netCost;e.value=saves[sc.id];}else nc=base;}
+    const sliderSaves={},agentSaves=[];
+    let nc;
+    setEnsureFlags(sc.ensure,agentSaves);
+    if(sc.multi){
+      sc.multi.forEach(([id,v])=>setOne(id,v,sliderSaves,agentSaves));
+      nc=computeCost().netCost;
+    }else{
+      const e=document.getElementById(sc.id);
+      if(e){
+        const newVal=sc.fn(parseFloat(e.value)||0);
+        setOne(sc.id,newVal,sliderSaves,agentSaves);
+        nc=computeCost().netCost;
+      }else nc=base;
+    }
+    restoreAll(sliderSaves,agentSaves);
     const d=((nc-base)/base*100);const c=d>0?'var(--red)':'var(--green)';
     return `<div class="mcard"><div class="mlabel">${sc.name}</div><div style="font-size:14px;font-weight:700;color:${c}">${d>0?'+':''}${d.toFixed(1)}%</div><div style="font-size:7px;color:var(--dim);margin-top:2px">${nc.toFixed(5)}/sess</div></div>`;
   }).join('');
