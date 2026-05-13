@@ -252,7 +252,11 @@ function compute(workload, opts) {
   // Retry inflation (app.js:1109)
   const retryRate    = Number.isFinite(opts.retryRate) ? opts.retryRate : 0;
   const retryInflate = 1 + (retryRate * 1.5);
-  const apiBill      = (result.api?.monthly_capped || 0) * retryInflate;
+  // Eq. 5 retry inflate is applied inside the engine (api.monthly_with_retry).
+  // Fall back to manual multiplication for older payloads that lack the field.
+  const apiBill      = result.api?.monthly_with_retry != null
+                       ? result.api.monthly_with_retry
+                       : (result.api?.monthly_capped || 0) * retryInflate;
 
   // Headline line items (app.js:1115–1124)
   const fixedCosts      = result.fixed_costs?.total || 0;

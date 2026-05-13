@@ -1013,7 +1013,13 @@
   // a recurring bug source where one panel applied retry-inflate and
   // another didn't, producing inconsistent KPIs across the page.
   function composeHeadline(r, w, opts, retryInflate = 1) {
-    const apiBill = (r.api?.monthly_capped || 0) * retryInflate;
+    // Eq. 5 (1 + 1.5r) retry inflate is now applied inside the engine
+    // (api.monthly_with_retry). We keep the retryInflate arg for migration
+    // phase callers and fall back to a manual multiplication only when the
+    // engine didn't compute monthly_with_retry (older callers/payloads).
+    const apiBill = r.api?.monthly_with_retry != null
+      ? r.api.monthly_with_retry
+      : (r.api?.monthly_capped || 0) * retryInflate;
     const fixed = r.fixed_costs?.total || 0;
     const verif = r.verification?.monthly || 0;
     const fed = r.federal?.additive_total || 0;
@@ -1999,7 +2005,9 @@
       return;
     }
     const queries = currentResult.queries?.total || 0;
-    const apiCost = (currentResult.api?.monthly_capped || 0) * retryInflate;
+    const apiCost = currentResult.api?.monthly_with_retry != null
+                    ? currentResult.api.monthly_with_retry
+                    : (currentResult.api?.monthly_capped || 0) * retryInflate;
     const fixedCosts = (currentResult.fixed_costs?.total || 0);
     const verifMonthly = (currentResult.verification?.monthly || 0);
     const federalAdditive = (currentResult.federal?.additive_total || 0);

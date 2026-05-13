@@ -275,6 +275,9 @@ function computeCost(mk){
   let fixedMonthly=0,ragTokTotal=0,reasonTokTotal=0,guardTokTotal=0,toolSchemaTotal=0,toolResultTotal=0;
   let guardInTotal=0,guardOutTotal=0,guardPiiTotal=0,guardPolicyTotal=0,cacheReadTok=0,cacheWriteTok=0;
   let summarisationCost=0,modelTouched={},agentBreakdown=[];
+  // Eq. 7 pipeline handoff: per-stage running sum of prior stages' output
+  // tokens, threaded across the agent loop. Only used when s-comm-pattern=3.
+  let pipelineCumulativeOutTok = 0;
 
   const imgTok=cfg('s-images')*1568, audioTok=cfg('s-audio')*25, pdfTok=cfg('s-pdf')*1500, codeInterp=cfg('s-codeinterp');
   const fewshot=cfg('s-fewshot')*250, jsonSchema=cfg('s-jsonschema'), citations=cfg('s-citations'), memory=cfg('s-memory');
@@ -329,12 +332,17 @@ function computeCost(mk){
     //   orchestrator (0): 0 — workers only see the boss's task
     //   peer mesh    (1): each agent reads (N-1) sibling outputs ≈ ~300 tok each
     //   supervisor   (2): hierarchical handoff ≈ ~150 tok × (N-1)
+    //   pipeline     (3): Eq. 7 — stage N sees Σ_{i<N} avg_output_tokens_i,
+    //                     i.e., the cumulative output of prior stages becomes
+    //                     this stage's extra input. Per-turn distribution
+    //                     keeps the per-stage total identical to the paper.
     // Applied as extra input tokens per turn per agent. Single-agent runs
-    // never pay this overhead (siblings = 0).
+    // never pay this overhead (siblings = 0 / no prior stages).
     const _commPattern = cfg('s-comm-pattern');
     const _commSiblings = Math.max(0, agentCount - 1);
     const _commOverheadPerTurn = _commPattern === 1 ? _commSiblings * 300
                               : _commPattern === 2 ? _commSiblings * 150
+                              : _commPattern === 3 ? (pipelineCumulativeOutTok / Math.max(1, myTurns))
                               : 0;
     const turnIn=(sysTokGlobal/myTurns)+200+myToolSchemaOH+myToolResultOH+iaMsg+myRagTok+myReasonTok+myGuardTokInTurn+_commOverheadPerTurn+modalTurnTok+promptOHTurn;
     const rawTurnOut=Math.round(200*myOM)+citations;
@@ -392,6 +400,10 @@ function computeCost(mk){
     }
     const myNet=myModelCost+guardBaseCost+myGuardWaste+mySumm+myFixed;
     agentBreakdown.push({name:agent.name,role:agent.role,model:usedModel,provider:provider.label,col:agent.col||m.color,netCost:myNet,totalIn:myTotalIn,totalOut:myTotalOut,turns:myTurns,cacheReadTok:myCacheReadTok,cacheWriteTok:myCacheWriteTok,cacheSave:myCacheSave,batchSave:myBatchSave,pricingTier:tierInfo.tier,source:m.source||''});
+    // Eq. 7 pipeline cumulative-output tracking. Add this agent's full
+    // per-turn average output to the running sum so the NEXT pipeline
+    // stage sees it on its input side (when _commPattern === 3).
+    pipelineCumulativeOutTok += (myTotalOut / Math.max(1, myTurns));
   });
 
   const ragQueries=agentsToProcess.reduce((s,a)=>s+((a.ragOn?(a.rag_calls??cfg('s-rag-calls')):0)*baseTurns),0);
@@ -1308,7 +1320,7 @@ function onSlider(){
   // Comm pattern: 0=orch, 1=peer, 2=sup — flip the label so the UI reflects
   // the active pattern. Numerical effect on cost is in computeCost (turnIn).
   const _vcp = document.getElementById('v-comm-pattern');
-  if (_vcp) { const _cpv = cfg('s-comm-pattern'); _vcp.textContent = _cpv === 1 ? 'peer' : _cpv === 2 ? 'sup' : 'orch'; }
+  if (_vcp) { const _cpv = cfg('s-comm-pattern'); _vcp.textContent = _cpv === 1 ? 'peer' : _cpv === 2 ? 'sup' : _cpv === 3 ? 'pipe' : 'orch'; }
   sv('images',v=>v);sv('audio',v=>v+'s');sv('pdf',v=>v);sv('codeinterp',v=>v);
   sv('fewshot',v=>v);sv('jsonschema',v=>v);sv('citations',v=>v);sv('memory',v=>v);
   sv('websearch-calls',v=>v);sv('filesearch-calls',v=>v);sv('container-sessions',v=>v);

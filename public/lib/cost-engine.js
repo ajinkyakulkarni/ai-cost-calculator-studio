@@ -181,9 +181,14 @@
       const eff = agent.cache_eligible ? cacheRate : 0;
       const cached = inT * eff;
       const uncached = inT - cached;
+      // Eq. 2 blend, per-agent (agent may override workload-wide write share).
+      const agentWriteShare = agent.cache_write_share != null
+        ? agent.cache_write_share
+        : (options && options.cacheWriteShare != null ? options.cacheWriteShare : 0);
+      const pCachedEff = effectiveCachedRate(rates, agentWriteShare);
       const perCall = (
         uncached * rates.input_per_million / 1e6 +
-        cached   * (rates.cached_per_million || rates.input_per_million * 0.1) / 1e6 +
+        cached   * pCachedEff / 1e6 +
         outT     * rates.output_per_million / 1e6
       ) * mult;
       const monthlyContrib = calls * perCall;
@@ -206,7 +211,26 @@
     return Math.min(0.94, Math.max(0.50, adj));
   }
 
-  function perQueryCost(workload, modelId, tierId, mixId, cacheRate) {
+  // Eq. 2 cache-blending helper. Given a model's rate card and an optional
+  // workload-supplied cache-write share `w`, return the effective per-million
+  // rate for cached input:
+  //
+  //   p_cached,eff = w · p_write + (1 - w) · p_read
+  //
+  // For OpenAI-style auto-prefix caching there is no separate write surcharge,
+  // so p_write = p_in and w typically ≈ 0 in steady state — the blend collapses
+  // to p_read (= 0.1 · p_in by default), matching legacy behavior. For Anthropic
+  // the rate card sets cached_write_per_million = 1.25 · input_per_million and
+  // w is set by how often the cache rotates.
+  function effectiveCachedRate(rates, writeShare) {
+    const pIn    = rates.input_per_million;
+    const pRead  = rates.cached_per_million != null ? rates.cached_per_million : pIn * 0.1;
+    const pWrite = rates.cached_write_per_million != null ? rates.cached_write_per_million : pIn;
+    const w      = (writeShare != null && !isNaN(writeShare)) ? writeShare : 0;
+    return w * pWrite + (1 - w) * pRead;
+  }
+
+  function perQueryCost(workload, modelId, tierId, mixId, cacheRate, writeShare) {
     const w = workload;
     const rates = w.rate_cards[modelId];
     const mult = w.tier_multipliers[tierId] || 1.0;
@@ -214,6 +238,7 @@
     if (!mix || !mix.weights) return 0;
     const anchorIn = w.anchor_query.input_tokens;
     const anchorOut = w.anchor_query.output_tokens;
+    const pCachedEff = effectiveCachedRate(rates, writeShare);
     let total = 0;
     let totalWeight = 0;
     for (const [shapeName, weight] of Object.entries(mix.weights)) {
@@ -226,7 +251,7 @@
       const uncached = inT - cached;
       const shapeCost = (
         uncached * rates.input_per_million / 1e6 +
-        cached   * (rates.cached_per_million || rates.input_per_million * 0.1) / 1e6 +
+        cached   * pCachedEff / 1e6 +
         outT     * rates.output_per_million / 1e6
       ) * mult;
       total += weight * shapeCost;
@@ -282,6 +307,16 @@
     const tierId = opts.tier || w.defaults.tier;
     const mixId = opts.mix || w.defaults.mix;
     const cacheBase = opts.cacheRate !== undefined ? opts.cacheRate : w.anchor_query.cache_rate_baseline;
+    // Eq. 2 cache-write share. Read order: explicit opts override → workload
+    // default → model rate-card default → 0 (steady state). For OpenAI auto-
+    // prefix caching this is typically near 0; for Anthropic explicit caching
+    // it tracks how often the deployment rotates the cache (default 0.10 in
+    // the published preset).
+    const writeShare = opts.cacheWriteShare != null ? opts.cacheWriteShare
+                     : (w.anchor_query?.cache_write_share != null ? w.anchor_query.cache_write_share
+                     : (w.rate_cards?.[modelId]?.cache_write_share_default != null
+                         ? w.rate_cards[modelId].cache_write_share_default
+                         : 0));
 
     // Multi-agent mode? Use agent-sum instead of shape×mix when agents defined.
     const agentMode = Array.isArray(w.agents) && w.agents.length > 0;
@@ -299,7 +334,7 @@
         // Save breakdown only once (agents don't differ per segment except by cache)
         if (!agentBreakdown) agentBreakdown = agentRes.breakdown;
       } else {
-        pq = perQueryCost(w, modelId, tierId, mixId, eff);
+        pq = perQueryCost(w, modelId, tierId, mixId, eff, writeShare);
       }
       segPerQuery[seg.id] = { eff_cache: eff, per_query: pq };
       totalCost += queries.bySegment[seg.id] * pq;
@@ -324,16 +359,27 @@
     const monthlyRefused = 0;
     const monthlyCapped = cappedWithHost / (hostMult || 1);  // pre-multiplier view
 
+    // Eq. 5 retry inflate: LLM_api · (1 + 1.5r). retry_rate is the fraction
+    // of calls that fail rate-limit / transient and are retried; 1.5× accounts
+    // for partial output before the failure. Accept either `retry_rate` (paper
+    // form) or precomputed `retryInflate` for caller convenience. When neither
+    // is supplied we default to 1.0 (no retry), preserving legacy behavior.
+    const retryInflate = opts.retryInflate != null
+      ? opts.retryInflate
+      : (1 + 1.5 * (opts.retry_rate || 0));
+    const monthlyWithRetry = cappedWithHost * retryInflate;
+
     return {
       monthly_gross: grossWithHost,
       monthly_capped: cappedWithHost,
+      monthly_with_retry: monthlyWithRetry,
+      retry_inflate: retryInflate,
       monthly_gross_pre_federal: totalCost,
       monthly_capped_pre_federal: monthlyCapped,
       hosting_multiplier: hostMult,
       monthly_refused_queries: monthlyRefused,
       per_query_blended: blended * hostMult,
       per_segment: segPerQuery,
-      cap_active: monthlyCapped < totalCost - 0.01,
       agent_mode: agentMode,
       agent_breakdown: agentBreakdown,
     };
@@ -1212,12 +1258,12 @@
       // Re-compute with phase config
       const phaseResult = computeFn(wCopy, phaseOpts);
       // Headline monthly = LLM + verif + embedding + personnel + federal + fixed.
-      // Mirror app.js#composeHeadline exactly: retry inflate applies only
-      // to api-mode LLM bills (not self-host / hybrid / reservation / onprem).
-      // Without this, Migration Timeline phase costs drift below the
-      // canonical headline whenever retry rate > 0.
-      const retryInflate = baseOpts.retryInflate || 1;
-      const apiBill = (phaseResult.api?.monthly_capped || 0) * retryInflate;
+      // Eq. 5 (1 + 1.5r) is already applied inside computeApiCost as
+      // api.monthly_with_retry. Phase callers read that directly so retry
+      // accounting is identical to composeHeadline.
+      const apiBill = phaseResult.api?.monthly_with_retry
+                   ?? phaseResult.api?.monthly_capped
+                   ?? 0;
       const llm = phaseOpts.hosting === 'hybrid' ? (phaseResult.hybrid?.total || 0)
                 : phaseOpts.hosting === 'self' ? (phaseResult.self_host?.total || 0)
                 : (phaseResult.reservation?.enabled ? phaseResult.reservation.effective_monthly : apiBill);
