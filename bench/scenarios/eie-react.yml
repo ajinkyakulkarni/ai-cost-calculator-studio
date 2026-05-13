@@ -42,7 +42,7 @@ description: |
   6-turn session, 84% cache baseline). Validates the calculator's per-query
   cost prediction against real OpenAI API spend.
 topology: single
-repeat: 3
+repeat: 20
 max_cost_usd: 2.00
 # 'templated' models a production agent that routes every tool return
 # through a centralized response-template layer — messages stay short

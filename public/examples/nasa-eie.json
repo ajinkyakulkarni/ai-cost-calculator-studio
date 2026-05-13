@@ -9,33 +9,39 @@
   },
 
   "anchor_query": {
-    "input_tokens": 3376,
-    "output_tokens": 42,
-    "cache_rate_baseline": 0.86,
+    "input_tokens": 3342,
+    "output_tokens": 41,
+    "cache_rate_baseline": 0.88,
     "session_baseline_turns": 6,
     "example": "Did monthly NO2 over New York City change from October to December 2021?",
     "_calibration": {
       "validated_against": "real OpenAI API (gpt-5.2)",
-      "validated_on": "2026-05-12",
-      "sample_size": "18 user-turns (6 turns × 3 repeats); 36 LLM calls including tool-loop round-trips",
+      "validated_on": "2026-05-13",
+      "sample_size": "120 user-turns (6 turns × 20 repeats); 238 LLM calls including tool-loop round-trips",
       "bench_scenario": "bench/scenarios/eie-react.yml",
       "validation_report": "bench/reports/nasa-eie-validation.md",
-      "trace_artifact": "bench/reports/eie-react-2026-05-13T02-41-33-523087+00-00-trace.json",
+      "trace_artifact": "bench/reports/eie-react-2026-05-13T04-16-23-197402+00-00-trace.json",
       "tool_response_mode": "templated",
-      "previous_values": { "input_tokens": 3921, "output_tokens": 56, "cache_rate_baseline": 0.75 },
+      "intervals_across_sessions": {
+        "cache_hit_rate_mean": 0.86,
+        "cache_hit_rate_stdev": 0.043,
+        "cache_hit_rate_95ci": [0.78, 0.95],
+        "comment": "Across 13 cleanly-detected cold-cache session boundaries within the N=20 run; the aggregate cache rate (0.88) is at the upper edge of the per-session CI because later repeats inherit warm-cache state from earlier ones (OpenAI's auto-prefix cache persists across requests)."
+      },
+      "previous_values": { "input_tokens": 3376, "output_tokens": 42, "cache_rate_baseline": 0.86 },
       "previous_values_2026_05_11": { "input_tokens": 84490, "output_tokens": 854, "cache_rate_baseline": 0.84 },
-      "accuracy_statement": "Within ±15% on per-turn input tokens and cache hit rate. Per-turn output (42 vs 56 predicted, −25%) is within reviewer-friendly tolerance and reflects the bench's strict 'Statistics retrieved.' answer-style rule. Switch to Moderate or Heavy below for higher-payload variants — those are estimated, not measured.",
+      "accuracy_statement": "Within ±5% on every measured coefficient. Per-session cache-rate stdev is 4.3 percentage points (RSD ≈5%) — tight distribution. Switch to Moderate or Heavy below for higher-payload variants — those are estimated, not measured.",
       "diagnostics": {
-        "llm_calls_per_user_turn": 2.0,
-        "comment": "On average each user turn triggers one tool round-trip (gating tools: parse_datetime, geocode, search_collections). compute_stats + build_viz_tiles run together in a single non-gating turn at the end, which is why the loop multiplier stays at 2× rather than 3×."
+        "llm_calls_per_user_turn": 1.98,
+        "comment": "On average each user turn triggers one tool round-trip (gating tools: parse_datetime, geocode, search_collections). compute_stats + build_viz_tiles run together in a single non-gating turn at the end, which is why the loop multiplier stays near 2× rather than 3×. Stable across N=3 (2.00) and N=20 (1.98) runs."
       },
       "payload_modes": {
         "minimal": {
           "label": "Minimal (validated)",
-          "input_tokens": 3376,
-          "output_tokens": 42,
-          "cache_rate_baseline": 0.86,
-          "description": "ReAct agent with TEMPLATED tool returns: bbox-only geocode, minimal collection-option summaries, server-side state for items and stats. Per-turn input stays roughly flat across turns because tool responses don't compound in history. Measured against real OpenAI API on 2026-05-12 (gpt-5.2, 3 repeats × 6 turns, 36 LLM calls)."
+          "input_tokens": 3342,
+          "output_tokens": 41,
+          "cache_rate_baseline": 0.88,
+          "description": "ReAct agent with TEMPLATED tool returns: bbox-only geocode, minimal collection-option summaries, server-side state for items and stats. Per-turn input stays roughly flat across turns because tool responses don't compound in history. Measured against real OpenAI gpt-5.2 on 2026-05-13 (20 repeats × 6 turns, 238 LLM calls, $0.21 spend; per-session cache-rate stdev 4.3 pp)."
         },
         "moderate": {
           "label": "Moderate (estimated)",
