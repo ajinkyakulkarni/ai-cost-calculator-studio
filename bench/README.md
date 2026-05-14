@@ -88,21 +88,28 @@ reports/long-chat-2026-05-05T...-variance.md
 
 ## Scenario library
 
-Each scenario is a self-contained YAML spec.
+Each scenario is a self-contained YAML spec. The current set (12 scenarios):
 
 | Scenario | Pattern | Validates |
 |---|---|---|
-| `small-chat.yml` | 5-turn customer-support dialog | baseline single-agent cost |
-| `long-chat.yml` | 30-turn analytical dialog with caching | cache hit ramp, sysprompt amortization |
-| `rag-pgvector.yml` | query → embed → retrieve → answer | embedding API, retrieval-augment input |
-| `tool-chain.yml` | agent calls DB → API → computation | tool-schema overhead, tool-result tokens |
-| `mcp-chain.yml` | agent uses real MCP servers (filesystem + git) | MCP transport overhead |
-| `parallel-fleet.yml` | orchestrator + 3 specialists running concurrently | handoff tokens, concurrency-quota waste |
-| `nl2sql.yml` | NL → SQL → execute → summarize | structured-output overhead, error-correction loops |
-| `deep-reasoning.yml` | extended-thinking task with factcheck | thinking tokens (provider-reported), factcheck atom counts |
-| `refusal.yml` | out-of-scope queries that bounce early | actual refusal cost (often surprising) |
+| `smoke-test.yml` | minimal plumbing check | harness wiring, OTEL trace shape, cost reporting |
+| `long-chat.yml` | long-shared-sysprompt 6-turn chat (OpenAI variant) | OpenAI cache hit ramp, sysprompt amortization |
+| `cached-pipeline.yml` | long-shared-sysprompt cached pipeline (OpenAI) | OpenAI cache write/read pattern |
+| `cached-pipeline-anthropic.yml` | long-shared-sysprompt cached pipeline (Anthropic) | Anthropic cache-write share w (measured w ≈ 0.20 on Sonnet 4.5, May 14, 2026) |
+| `tool-chain.yml` | agent calls a chain of tools with structured returns | tool-schema overhead, tool-result tokens |
+| `streaming-pipeline.yml` | streaming output, multi-stage pipeline | time-to-first-token, steady-state output rate |
+| `parallel-fan-out.yml` | orchestrator + 3 parallel specialists | handoff tokens, parallel-call cache suppression |
+| `multi-stage-research.yml` | sequential 5-stage research pipeline | cumulative-context growth across stages, handoff overhead |
+| `data-discovery.yml` | discovery-style agent (gpt-4o-mini variant) | I/O ratio on tool-orchestration topology |
+| `data-discovery-gpt52.yml` | discovery-style agent (gpt-5.2 variant) | I/O ratio on a higher-tier model on the same topology |
+| `public-geospatial-react.yml` | production-shape geospatial Q&A agent, **templated tool returns** | templated-floor anchor (N=20, 238 calls, 3,342 tok/turn, $0.00178/q) |
+| `public-geospatial-react-freeform.yml` | same agent, **freeform tool returns** (full STAC items) | freeform anchor (N=5, 60 calls, 22,798 tok/turn, $0.01392/q); paired 7.8× cost lever vs templated |
 
-v1 ships with `long-chat`, `rag-pgvector`, `mcp-chain`. Others land progressively.
+The v0.1.0 pilot calibration used 9 of these 12 scenarios (174 calls).
+The three production-shape scenarios — `public-geospatial-react` (templated),
+`public-geospatial-react-freeform` (freeform), and `cached-pipeline-anthropic`
+(Anthropic w) — were added in May 2026 to anchor the paper's
+tool-response architecture finding and the symmetric Eq. 2 validation.
 
 ## Trace format
 

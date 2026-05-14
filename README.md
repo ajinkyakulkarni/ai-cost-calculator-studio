@@ -280,7 +280,7 @@ methodology is documented separately at
 | State unification (auto-sync simulator ↔ Components) | ✅ Live |
 | Theme system (Tactical / Mission / Command) | ✅ Live |
 | `coefficients.json` calibration loop | ✅ Live, fetched at page load |
-| `agent-cost-bench` v0.1.0 | ✅ 10 scenarios, ~412 calls validated (N=174 May, +N=238 EIE re-cal May 13) |
+| `agent-cost-bench` v0.2.0 | ✅ 12 scenarios validated (v0.1.0 pilot N=174, +N=238 templated re-cal May 13, +N=60 freeform anchor May 13, +N=18 Anthropic w=0.20 May 14) |
 | Anthropic provider in bench | ✅ Live (via LiteLLM) |
 | Self-host scenario | ⏸ planned (vLLM + open-weight model) |
 | Public benchmark page (`calc.ajinkya.ai/benchmarks`) | ⏸ planned |
