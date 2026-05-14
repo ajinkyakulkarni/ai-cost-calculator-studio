@@ -20,7 +20,7 @@ across 238 LLM calls / 120 user-turns.
 | Repeats | 20 |
 | Total user-turns | 120 |
 | Total LLM calls | 238 (1.98 calls/user-turn — one gate confirmation per turn on average) |
-| Trace artifact | `reports/eie-react-2026-05-13T04-16-23-197402+00-00-trace.json` (historical filename) |
+| Trace artifact | `reports/public-geospatial-qa-templated-trace.json` |
 | Total API spend | $0.21 |
 
 ## Measured vs. predicted (aggregate)

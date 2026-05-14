@@ -20,7 +20,7 @@
       "sample_size": "120 user-turns (6 turns × 20 repeats); 238 LLM calls including tool-loop round-trips",
       "bench_scenario": "bench/scenarios/public-geospatial-react.yml",
       "validation_report": "bench/reports/public-geospatial-qa-validation.md",
-      "trace_artifact": "bench/reports/eie-react-2026-05-13T04-16-23-197402+00-00-trace.json",
+      "trace_artifact": "bench/reports/public-geospatial-qa-templated-trace.json",
       "tool_response_mode": "templated",
       "intervals_across_sessions": {
         "cache_hit_rate_mean": 0.86,

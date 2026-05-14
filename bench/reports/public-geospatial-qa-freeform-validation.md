@@ -116,5 +116,4 @@ Spend: ~$0.40-0.50 at repeat=5. Trace artifact:
 `reports/public-geospatial-react-freeform-2026-05-13T19-31-14-647879+00-00-trace.json`.
 
 The paired templated trace from earlier is at
-`reports/eie-react-2026-05-13T04-16-23-197402+00-00-trace.json`
-(historical filename from before the preset rename).
+`reports/public-geospatial-qa-templated-trace.json`.
