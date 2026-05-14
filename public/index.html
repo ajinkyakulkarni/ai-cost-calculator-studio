@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>AI Cost Calculator · Procurement-grade cost model for LLM-based applications</title>
 <style>
-  /* Editorial palette inherited from the EIE calculator. */
+  /* Editorial palette — neutral, procurement-friendly. */
   :root {
     --ink: #1a1a1a;
     --ink-2: #3a3a3a;
@@ -5878,6 +5878,15 @@ Procurement reviewers often work backwards: 'we have $50K/mo approved — how ma
   <!-- ============== simulator ↔ Cost Calculator integration script ============== -->
   <script>
 (function(){
+  // Workload is the source of truth. The simulator is a view+editor on it.
+  // Writeback (sim → workload) is OFF until the host has loaded the initial
+  // workload and called __setSimulatorFromWorkload to mirror it into the
+  // simulator. The host re-suspends writeback around any subsequent
+  // programmatic state push to prevent feedback loops.
+  let _writebackEnabled = false;
+  window.__setSimWritebackEnabled = function(v) { _writebackEnabled = !!v; };
+  window.__isSimWritebackEnabled = function() { return _writebackEnabled; };
+
   function buildPayload() {
     const c = computeCost();
     const breakdown = (c && c.agentBreakdown) || [];
@@ -5902,12 +5911,10 @@ Procurement reviewers often work backwards: 'we have $50K/mo approved — how ma
     };
   }
 
-  // Auto-sync: the simulator is the source of truth for agent topology + token
-  // math. Every onSlider() pulse rebuilds the payload and pushes to
-  // workload.agents via the silent import path. No button, no toast,
-  // no tab-switch — just live propagation. Calc's renderPreview is
-  // rAF-coalesced on the receiving side.
+  // Writeback path: simulator user input → workload. Fires only when the
+  // host has enabled writeback (after initial load + first mirror is done).
   function autoSync() {
+    if (!_writebackEnabled) return;
     if (typeof window.__importFromSimulator !== 'function') return;
     const payload = buildPayload();
     if (!payload) return;
@@ -5915,7 +5922,11 @@ Procurement reviewers often work backwards: 'we have $50K/mo approved — how ma
     window.__importFromSimulator(payload);
   }
 
-  // Wrap the simulator's global onSlider so every slider/agent change auto-syncs.
+  // Wrap the simulator's global onSlider so every slider/agent change can
+  // auto-sync when writeback is enabled. We DO NOT call autoSync at boot —
+  // the boot-time onSlider() inside cost-simulator.js used to inject the
+  // default Claude fleet into every fresh preset load, which clobbered the
+  // validated anchor. Writeback is now host-controlled.
   function installAutoSync() {
     if (typeof window.onSlider !== 'function') return setTimeout(installAutoSync, 200);
     const origOnSlider = window.onSlider;
@@ -5924,8 +5935,6 @@ Procurement reviewers often work backwards: 'we have $50K/mo approved — how ma
       try { autoSync(); } catch (e) { console.warn('[autosync] failed:', e); }
       return r;
     };
-    // Also sync once on first install (covers initial agent build).
-    autoSync();
   }
   installAutoSync();
 

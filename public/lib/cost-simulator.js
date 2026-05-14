@@ -2064,6 +2064,103 @@ function concurrencyExtensions(baseResult, agentsToProcess){
   };
 }
 
+// ===================================================================
+// Host integration: mirror a calculator workload INTO the simulator.
+// The calculator (app.js) owns the canonical workload object. Whenever
+// a fresh workload is loaded (preset dropdown, JSON import, URL hash,
+// calibration mode toggle), it calls this function so the simulator's
+// visible state reflects what's actually being costed.
+//
+// Mapping:
+//   workload.anchor_query.cache_rate_baseline      → #s-cache slider
+//   workload.anchor_query.session_baseline_turns   → #s-turns slider
+//   sum(workload.segments[].mau)                   → #s-users slider
+//   workload.agents[]  (non-empty)                 → sim.agents (best-effort)
+//   workload.agents[]  (empty)                     → sim.agents = [single anchor agent]
+//
+// Per-agent calculator-shape (id, label, model, input_tokens, output_tokens,
+// calls_per_query, cache_eligible) is mapped back to simulator-shape by
+// starting from AGENT_DEF[i] (or [0] for overflow) and overlaying the
+// fields the calculator stores. The simulator's richer per-agent state
+// (RAG chunks, tool calls, reasoning toggles, etc.) is retained from the
+// AGENT_DEF base. For empty-agents workloads (anchor_query mode), the
+// simulator shows a single agent named "Anchor" with all flags off so
+// its token math approximates the validated anchor.
+//
+// Caller MUST suspend writeback (via window.__setSimWritebackEnabled(false))
+// before invoking this, then re-enable after, so the onSlider() repaint at
+// the end does NOT push stale state back into workload.
+window.__setSimulatorFromWorkload = function(workload) {
+  if (!workload) return;
+  const aq = workload.anchor_query || {};
+
+  // 1. Cache slider
+  if (aq.cache_rate_baseline != null) {
+    const sCache = document.getElementById('s-cache');
+    if (sCache) sCache.value = String(Math.round(aq.cache_rate_baseline * 100));
+  }
+
+  // 2. Turns slider
+  if (aq.session_baseline_turns != null) {
+    const sTurns = document.getElementById('s-turns');
+    if (sTurns) sTurns.value = String(Math.max(1, Math.round(aq.session_baseline_turns)));
+  }
+
+  // 3. MAU slider (sum of segments)
+  const segs = Array.isArray(workload.segments) ? workload.segments : [];
+  const totalMau = segs.reduce((s, seg) => s + (seg.mau || 0), 0);
+  if (totalMau > 0) {
+    const sUsers = document.getElementById('s-users');
+    if (sUsers) sUsers.value = String(Math.min(parseInt(sUsers.max || '500000', 10), totalMau));
+  }
+
+  // 4. sim.agents — mirror workload.agents (or build single anchor agent)
+  const wAgents = Array.isArray(workload.agents) ? workload.agents : [];
+  if (wAgents.length > 0) {
+    sim.agents = wAgents.map((w, i) => {
+      const def = AGENT_DEF[i] || AGENT_DEF[0];
+      const base = cloneAgentBase(def, i);
+      if (w.model) base.model = w.model;
+      if (w.label) {
+        const m = String(w.label).match(/^(.+?)\s*\((.+)\)\s*$/);
+        if (m) { base.name = m[1].trim(); base.role = m[2].trim(); }
+        else { base.name = String(w.label); }
+      }
+      if (w.calls_per_query) base.turnsShare = Number(w.calls_per_query) || base.turnsShare;
+      if (w.output_tokens)   base.maxOut    = Math.max(64, Math.round(w.output_tokens));
+      if (w.cache_eligible === false) base.cache_rate = 0;
+      return base;
+    });
+    const sAgents = document.getElementById('s-agents');
+    if (sAgents) sAgents.value = String(Math.min(parseInt(sAgents.max || '8', 10), sim.agents.length));
+  } else {
+    // Anchor-query mode — single representative agent, all extras off.
+    const anchorModel = (workload.defaults && workload.defaults.model) || 'gpt-5.2';
+    const base = cloneAgentBase(AGENT_DEF[0], 0);
+    base.name = 'Anchor';
+    base.role = 'Single agent (preset)';
+    base.model = anchorModel;
+    base.toolsOn  = false;
+    base.ragOn    = false;
+    base.reasonOn = false;
+    base.guardOn  = false;
+    base.turnsShare = 1.0;
+    if (aq.output_tokens)        base.maxOut     = Math.max(64, Math.round(aq.output_tokens));
+    if (aq.cache_rate_baseline != null) base.cache_rate = Math.round(aq.cache_rate_baseline * 100);
+    sim.agents = [base];
+    const sAgents = document.getElementById('s-agents');
+    if (sAgents) sAgents.value = '1';
+  }
+
+  // 5. Repaint. onSlider() will fire — caller has suspended writeback so
+  // autoSync inside the wrapped onSlider is a no-op.
+  if (typeof renderAgents === 'function')   renderAgents();
+  if (typeof updateCostPanel === 'function') updateCostPanel();
+  if (typeof renderLedger === 'function')   renderLedger();
+  if (typeof updateKPIs === 'function')     updateKPIs();
+  if (typeof onSlider === 'function')       onSlider();
+};
+
 // BOOT
 buildAgents();buildUsers();renderAgents();renderTaskBars();renderModelSelector();
 // Mark config as the initially-active tab without scrolling; all panels

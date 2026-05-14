@@ -1144,12 +1144,12 @@
         if (mode.input_tokens != null) workload.anchor_query.input_tokens = mode.input_tokens;
         if (mode.output_tokens != null) workload.anchor_query.output_tokens = mode.output_tokens;
         if (mode.cache_rate_baseline != null) workload.anchor_query.cache_rate_baseline = mode.cache_rate_baseline;
-        // Reflect cache slider too so the simulator cacheRate signal matches.
-        const sCache = document.getElementById('s-cache');
-        if (sCache && mode.cache_rate_baseline != null) {
-          sCache.value = String(Math.round(mode.cache_rate_baseline * 100));
-        }
+        // Mirror updated anchor into the simulator (s-cache slider + anchor agent)
+        // with writeback suspended so the repaint doesn't push stale state back.
+        window.__setSimWritebackEnabled?.(false);
+        window.__setSimulatorFromWorkload?.(workload);
         renderPreview();
+        window.__setSimWritebackEnabled?.(true);
       });
     });
   }
@@ -1215,27 +1215,19 @@
       }
     }
 
-    // Bridge simulator token-shape sliders (RAG chunks, Tool calls, schema, etc.)
-    // into workload.anchor_query.input_tokens / output_tokens. the simulator's
-    // computeCost() does the per-agent × per-turn token math; we read its
-    // session-total and divide by turns to land on the per-query value the
-    // calc engine consumes. Without this bridge, sliders like "Chunks
-    // retrieved" or "Tool calls/turn" would be visibly inert — they'd update
-    // the simulator's internal panels but not the headline cost.
+    // Capture simulator totals for derivation display ONLY — never overwrite
+    // workload.anchor_query. The workload is the source of truth for the
+    // anchor; the simulator is a view+editor on the workload, and pushes
+    // back to it only via user-driven autoSync (see index.html integration
+    // block). Overwriting on every render used to clobber the validated
+    // anchor with the simulator's default fleet math on page load.
     let _axTotalIn = null, _axTotalOut = null, _axTurns = null;
     if (typeof window.computeCost === 'function') {
       try {
         const axRes = window.computeCost();
-        const turns = Math.max(1, numVal('s-turns', 8));
-        _axTurns = turns;
-        if (axRes && Number.isFinite(axRes.totalIn) && axRes.totalIn > 0) {
-          _axTotalIn = axRes.totalIn;
-          workload.anchor_query.input_tokens = Math.round(axRes.totalIn / turns);
-        }
-        if (axRes && Number.isFinite(axRes.totalOut) && axRes.totalOut > 0) {
-          _axTotalOut = axRes.totalOut;
-          workload.anchor_query.output_tokens = Math.round(axRes.totalOut / turns);
-        }
+        _axTurns = Math.max(1, numVal('s-turns', 8));
+        if (axRes && Number.isFinite(axRes.totalIn)  && axRes.totalIn  > 0) _axTotalIn  = axRes.totalIn;
+        if (axRes && Number.isFinite(axRes.totalOut) && axRes.totalOut > 0) _axTotalOut = axRes.totalOut;
       } catch (_) { /* simulator not ready yet on first paint */ }
     }
 
@@ -3085,9 +3077,13 @@
             throw new Error('File is missing required top-level fields (deployment, shapes).');
           }
           workload = ensureFields(parsed); window.workload = workload;
+          // Mirror imported workload into the simulator with writeback suspended.
+          window.__setSimWritebackEnabled?.(false);
           window.__syncAxiomFromSegments?.();
+          window.__setSimulatorFromWorkload?.(workload);
           renderEditor();
           renderPreview();
+          window.__setSimWritebackEnabled?.(true);
           if (jsonImportError) { jsonImportError.hidden = true; jsonImportError.textContent = ''; }
           showToast(`Loaded ${file.name} ✓`);
           closeJsonModal();
@@ -3115,9 +3111,13 @@
         const resp = await fetch(`examples/${slug}.json`);
         if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
         workload = ensureFields(await resp.json()); window.workload = workload;
+        // Mirror new preset into the simulator with writeback suspended.
+        window.__setSimWritebackEnabled?.(false);
         syncAxiomSlidersFromSegments();
+        window.__setSimulatorFromWorkload?.(workload);
         renderEditor();
         renderPreview();
+        window.__setSimWritebackEnabled?.(true);
       } catch (err) {
         alert(`Failed to load ${slug}: ${err.message}`);
       } finally {
@@ -4359,11 +4359,13 @@
     }
     if (!workload.self_host) { workload = ensureFields(workload); window.workload = workload; }
     renderEditor();
-    // Sync simulator Sessions/day + Turns/session sliders from the loaded
-    // segments BEFORE the first renderPreview, so the visible slider state
-    // matches the preset's traffic levels. After this, simulator sliders are
-    // the canonical traffic surface.
+    // Mirror the loaded workload INTO the simulator. Writeback (sim → workload)
+    // stays OFF during this push and is enabled later, so the boot-time
+    // onSlider() inside the simulator can't inject its default Claude fleet
+    // back into workload.agents (the bug that produced the $303K headline).
+    window.__setSimWritebackEnabled?.(false);
     window.__syncAxiomFromSegments?.();
+    window.__setSimulatorFromWorkload?.(workload);
     // If the URL hash carried a `ui` block, apply it now — overrides the
     // segment-derived slider values so a shared link reproduces the
     // sender's exact knob state (cache, retry, hosting, model, etc.).
@@ -4372,6 +4374,11 @@
       _pendingUiRestore = null;
     }
     renderPreview();
+    // Boot-time mirror complete. Defer enabling writeback past the simulator's
+    // own boot-time setTimeout(...,100ms) at the bottom of cost-simulator.js,
+    // which fires onSlider() asynchronously. Without this delay, that tick
+    // races us and one stale autoSync push lands on workload.agents.
+    setTimeout(() => { window.__setSimWritebackEnabled?.(true); }, 300);
     setupTabs();        // must run before setupWizard so wizard moves first
     setupWizard();
     setupArchitecture();
