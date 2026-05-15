@@ -27,3 +27,10 @@ Thumbs.db
 # Local outputs / scratch
 outputs/
 __pycache__/
+
+# Claude Code local instructions — repo-shared instructions live in
+# CLAUDE.md (committed); machine-local notes live in CLAUDE.local.md
+# (never committed) and may reference private sister repos, internal
+# infra endpoints, or credentials that don't belong in a public README.
+CLAUDE.local.md
+*.local.md
