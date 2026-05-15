@@ -3043,6 +3043,12 @@
       // Guardrails
       's-guard-in', 's-guard-out', 's-guard-pii', 's-guard-policy',
       's-guard-block', 's-guard-model',
+      // Hosted tools (OpenAI web search, file search, code interpreter sessions)
+      's-websearch-calls', 's-filesearch-calls', 's-container-sessions',
+      // Multimodal inputs (image / audio / pdf tokens, code-interpreter calls)
+      's-images', 's-audio', 's-pdf', 's-codeinterp',
+      // Prompt overhead (few-shot examples, JSON schema, citations, memory)
+      's-fewshot', 's-jsonschema', 's-citations', 's-memory',
     ]);
 
     document.addEventListener('input', (ev) => {
