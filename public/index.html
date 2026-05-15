@@ -75,6 +75,52 @@
   /* Tactical: editorial elements that have hardcoded light styling
      elsewhere in calc CSS — give them dark-mode-friendly overrides
      here so the whole page reads coherently dark. Phase 1 stub. */
+  /* Tactical: cream highlight rows (.row-highlight inline-generated, and
+     the legacy .compare-table tr.highlight class) become unreadable in
+     dark mode because the cream background stays light while the text
+     inherits the theme's pale blue ink. Swap to a tinted dark panel +
+     bright ink so total rows stand out against the page without
+     becoming a glare strip. */
+  body.theme-tactical .row-highlight,
+  body.theme-tactical .compare-table tr.highlight,
+  body.theme-tactical tr.row-highlight td,
+  body.theme-tactical .compare-table tr.highlight td {
+    background: #14202e;
+    color: #e8f0ff;
+  }
+  body.theme-tactical .wizard-cta {
+    background: linear-gradient(180deg, #14202e 0%, #0c1320 100%);
+    color: var(--accent);
+  }
+  /* Benchmark-comparison delta pills (.bc-delta.in-range/.high/.way-off)
+     ship as pale pastels (green / amber / pink) with dark text — sensible
+     on a light page, but in dark mode they become glare strips. Swap to
+     tinted dark surfaces whose hue still reads as good/warn/bad. */
+  body.theme-tactical .benchmark-card .bc-delta.in-range {
+    background: #14241a; color: #6fd07a;
+  }
+  body.theme-tactical .benchmark-card .bc-delta.high {
+    background: #2a1f10; color: #f0a050;
+  }
+  body.theme-tactical .benchmark-card .bc-delta.way-off {
+    background: #2a1418; color: #f07585;
+  }
+
+  /* MEASURED-badge fly-away animation. Fired when the user touches a
+     per-agent simulator slider (tools / schema / RAG / guardrails /
+     reasoning) — the calc leaves measured-mode and becomes config-
+     derived, so the ✓ MEASURED badge needs to visibly leave the topbar
+     instead of silently disappearing. Reload the example to restore. */
+  #cb-calibrated.fly-away {
+    animation: cbCalibratedFlyAway 620ms cubic-bezier(.4,.05,.6,1) forwards;
+    pointer-events: none;
+  }
+  @keyframes cbCalibratedFlyAway {
+    0%   { opacity: 1; transform: scale(1)    translate(0,     0)    rotate(0deg); }
+    25%  { opacity: 1; transform: scale(1.18) translate(0,    -3px)  rotate(-4deg); }
+    60%  { opacity: 0.6; transform: scale(0.85) translate(8px, -14px) rotate(10deg); }
+    100% { opacity: 0; transform: scale(0.55) translate(24px, -32px) rotate(22deg); }
+  }
   body.theme-tactical .section { background: #0c1320; border-left-color: #14202e; }
   body.theme-tactical .section h2 { color: #d8e4f0; }
   body.theme-tactical .section h2:hover { background: #14202e; color: var(--accent); }
@@ -2517,6 +2563,11 @@
   }
   .compare-table td.num { font-family: var(--mono); text-align: right; }
   .compare-table tr.highlight { background: #f3ecdb; }
+  /* Summary / total rows generated inline by app.js (Side-by-side
+     strategy table, agent breakdown, infra-by-line, TCO total). Light
+     themes get the cream tone; the tactical (dark) override is below
+     in the theme block. */
+  .row-highlight { background: #f3ecdb; }
   .compare-table .refused { color: var(--bad); }
   .compare-table .pass { color: var(--good); }
 
@@ -6012,25 +6063,33 @@ Procurement reviewers often work backwards: 'we have $50K/mo approved — how ma
         // Add a small badge to the cost pill so users see the
         // calibration provenance. Click the badge to view full
         // coefficients.json in a new tab.
-        const pill = document.getElementById('cost-pill');
-        if (pill && !document.getElementById('cb-calibrated')) {
-          const badge = document.createElement('span');
-          badge.id = 'cb-calibrated';
-          badge.title =
-            'simulator coefficients calibrated from agent-cost-bench traces. ' +
-            'Click for full provenance.';
-          badge.textContent = '✓ measured';
-          badge.style.cssText =
+        //
+        // Also stash the coefficients in module scope + expose a re-add
+        // helper. When the user touches a per-agent simulator slider in
+        // workload-mode the calc promotes to agent-mode and the badge
+        // flies away (it no longer represents the live cost); reloading
+        // the example resets workload.agents=[] and the example-loader
+        // calls __restoreMeasuredBadge() to put the badge back.
+        window.__measuredCoefficients = c;
+        window.__restoreMeasuredBadge = function() {
+          const pill2 = document.getElementById('cost-pill');
+          if (!pill2 || document.getElementById('cb-calibrated')) return;
+          const b = document.createElement('span');
+          b.id = 'cb-calibrated';
+          b.title = 'simulator coefficients calibrated from agent-cost-bench traces. Click for full provenance.';
+          b.textContent = '✓ measured';
+          b.style.cssText =
             'margin-left:8px;font-size:9px;letter-spacing:0.04em;' +
             'padding:2px 6px;border:1px solid rgba(0,212,255,0.4);' +
             'border-radius:3px;color:#00d4ff;cursor:pointer;' +
             'text-transform:uppercase;font-weight:700';
-          badge.addEventListener('click', (e) => {
+          b.addEventListener('click', (e) => {
             e.stopPropagation();
-            renderMeasuredPanel(c);
+            renderMeasuredPanel(window.__measuredCoefficients);
           });
-          pill.appendChild(badge);
-        }
+          pill2.appendChild(b);
+        };
+        window.__restoreMeasuredBadge();
 
         // Build a "Measured Coefficients" modal panel. Click the
         // ✓ MEASURED badge to open it. Surfaces every empirical

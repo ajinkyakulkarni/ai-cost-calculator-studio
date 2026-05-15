@@ -1405,7 +1405,7 @@
     const apiGross = result.api.monthly_gross;
     const refused = result.api.monthly_refused_queries;
 
-    const star = (cond) => cond ? ' style="background:#f3ecdb;"' : '';
+    const star = (cond) => cond ? ' class="row-highlight"' : '';
     let rows = '';
     rows += `<tr${star(opts.hosting === 'api')}>
       <td>API · ${opts.model} <em style="color: var(--muted); font-style: normal;">(capped)</em></td>
@@ -1429,7 +1429,7 @@
       const lowSelfWarning = (h.self_share > 0 && h.self_share < 0.30)
         ? `<br><span style="color:#b3333d; font-size:10px; font-style:italic;">⚠ At ${Math.round(h.self_share*100)}% self-host share, fixed ops/FTE costs dominate. Hybrid is rarely cost-effective below 30% self-host.</span>`
         : '';
-      rows += `<tr style="background:#f3ecdb;">
+      rows += `<tr class="row-highlight">
         <td><strong>Hybrid (split):</strong> ${Math.round(h.api_share*100)}% API + ${Math.round(h.self_share*100)}% self-host${lowSelfWarning}</td>
         <td class="num"><strong>${fmt$(h.total)}</strong></td>
         <td>API ${fmt$(h.api_part.monthly_capped)} + Self-host ${fmt$(h.self_part.total)}</td>
@@ -1653,7 +1653,7 @@
           <td class="num">${fmt$(a.monthly)}</td>
           <td class="num">${totalMonthly > 0 ? Math.round(a.monthly/totalMonthly*100) : 0}%</td>
         </tr>`).join('');
-        agentRows += `<tr style="background:#f3ecdb; font-weight:600;">
+        agentRows += `<tr class="row-highlight" style="font-weight:600;">
           <td>Total per query</td><td>—</td><td>—</td><td>—</td>
           <td class="num">$${(totalMonthly/totalQueries).toFixed(4)}</td>
           <td class="num">${fmt$(totalMonthly)}</td><td class="num">100%</td>
@@ -1760,7 +1760,7 @@
             <td class="num">${fmt$(p.phase_total)}</td>
           </tr>`;
         });
-        trows += `<tr style="background:#f3ecdb; font-weight:600;">
+        trows += `<tr class="row-highlight" style="font-weight:600;">
           <td>Total ${m.total_months}-month TCO</td>
           <td>—</td><td>—</td>
           <td class="num">${fmt$(m.total_spend / m.total_months)}/mo avg</td>
@@ -1786,7 +1786,7 @@
             <tr><td>NLI (${v.variant.toUpperCase()} · ${v.nli_calls_per_atom} calls/atom)</td><td class="num">${fmt$(b.nli || 0)}</td><td>${v.nli_hosting === 'api' ? 'pay-per-token' : 'flat EC2 box'}</td></tr>
             <tr><td>Retrieval (${workload.verification.retrieval || 'wikipedia'})</td><td class="num">${fmt$(b.retrieval || 0)}</td><td>${workload.verification.retrieval === 'serper' ? '$5/1k calls' : 'free'}</td></tr>
             <tr><td>Service pod</td><td class="num">${fmt$(b.service_pod || 0)}</td><td>fixed monthly</td></tr>
-            <tr style="background: #f3ecdb; font-weight: 600;"><td>Total</td><td class="num">${fmt$(v.monthly)}</td><td>${fmtN(v.verified_queries)} verified queries</td></tr>
+            <tr class="row-highlight" style="font-weight:600;"><td>Total</td><td class="num">${fmt$(v.monthly)}</td><td>${fmtN(v.verified_queries)} verified queries</td></tr>
           </tbody>`;
         // Marginal-benefit curve: cost grows linearly with coverage, but
         // quality (hallucination catch-rate) saturates. Shows the
@@ -1852,7 +1852,7 @@
             <tr><td>Ops monthly</td><td class="num">${fmt$(sh.ops_monthly)}</td><td>${sh.cost_mode} mode</td></tr>
             <tr><td>MLOps FTE allocation</td><td class="num">${fmt$(sh.fte_monthly)}</td><td>${sh.cost_mode} mode</td></tr>
             <tr><td>Setup amortized</td><td class="num">${fmt$(sh.setup_amortized)}</td><td>${sh.cost_mode === 'realistic' ? 'one-time setup spread over months' : 'optimistic mode hides this'}</td></tr>
-            <tr style="background: #f3ecdb; font-weight: 600;"><td>Total self-host</td><td class="num">${fmt$(sh.total)}</td><td>$/query: ${sh.effective_per_query.toFixed(4)}</td></tr>
+            <tr class="row-highlight" style="font-weight:600;"><td>Total self-host</td><td class="num">${fmt$(sh.total)}</td><td>$/query: ${sh.effective_per_query.toFixed(4)}</td></tr>
           </tbody>`;
       } else {
         shSection.style.display = 'none';
@@ -1867,7 +1867,7 @@
         infraTable.innerHTML = `<tbody><tr><td style="color: var(--muted);">No infrastructure line items configured. Add them in section 10.</td></tr></tbody>`;
       } else {
         let infraRows = items.map(([n, c]) => `<tr><td>${n}</td><td class="num">${fmt$(c)}</td></tr>`).join('');
-        infraRows += `<tr style="background: #f3ecdb; font-weight: 600;"><td>Total infrastructure</td><td class="num">${fmt$(infraTotal)}</td></tr>`;
+        infraRows += `<tr class="row-highlight" style="font-weight:600;"><td>Total infrastructure</td><td class="num">${fmt$(infraTotal)}</td></tr>`;
         infraTable.innerHTML = `<thead><tr><th>Line item</th><th style="text-align:right;">Monthly</th></tr></thead><tbody>${infraRows}</tbody>`;
       }
     }
@@ -3026,24 +3026,53 @@
     // and written slider.value back to the old total, clobbering the drag.
     // Capture-on-document fires during the descent before any target-phase
     // handlers, so segments get scaled first and the rollup matches.
+    // Sliders whose first real drag promotes the workload from workload-
+    // mode (calibrated anchor_query) to agent-mode (configuration-derived
+    // per-agent tokens). The user-mental-model fix for "I dragged a tool/
+    // schema/RAG/guard slider and the headline didn't move." Promotion is
+    // sticky for this session; to restore measured-mode, reload the
+    // example preset (the loader resets workload.agents = []).
+    const PROMOTE_TRIGGERS = new Set([
+      's-agents',
+      // Tools / prompt overhead
+      's-tools', 's-schema', 's-toolresult', 's-iamsg', 's-sysprompt',
+      // RAG
+      's-rag-chunks', 's-rag-chunk-size', 's-rag-query', 's-rag-calls',
+      // Reasoning
+      's-think-tokens', 's-think-pct', 's-cot', 's-factcheck',
+      // Guardrails
+      's-guard-in', 's-guard-out', 's-guard-pii', 's-guard-policy',
+      's-guard-block', 's-guard-model',
+    ]);
+
     document.addEventListener('input', (ev) => {
       if (!ev.isTrusted) return;
       const t = ev.target;
       if (!t || t.tagName !== 'INPUT') return;
       const v = parseFloat(t.value);
-      if (t.id === 's-users')    scaleSegments('mau',                   v, false);
+      if (t.id === 's-users')         scaleSegments('mau',                   v, false);
       else if (t.id === 's-turns')    scaleSegments('questions_per_session', v, true);
       else if (t.id === 's-sessions') scaleSegments('sessions_per_day',      v, true);
-      else if (t.id === 's-agents') {
-        // s-agents is semantically "I want N agents". In workload-mode the
-        // engine ignores sim.agents and computes cost from anchor_query +
-        // shapes, so the slider would visibly do nothing. Promote to agent-
-        // mode on real user input: defer one tick so the simulator's
-        // onSlider has finished rebuilding sim.agents, then import that
-        // fleet into workload.agents. Subsequent agent-related slider
-        // moves flow through normal autoSync (now ungated).
-        if (workload && Array.isArray(workload.agents) && workload.agents.length === 0) {
-          setTimeout(() => { window.__promoteAgentModeFromSimulator?.(); }, 0);
+
+      // Per-agent simulator slider drag in workload-mode → promote.
+      if (PROMOTE_TRIGGERS.has(t.id)
+          && workload && Array.isArray(workload.agents) && workload.agents.length === 0) {
+        // Animate the ✓ MEASURED badge off the cost pill so the user gets
+        // a visible signal that the calc has left the calibrated regime.
+        const badge = document.getElementById('cb-calibrated');
+        if (badge && !badge.classList.contains('fly-away')) {
+          badge.classList.add('fly-away');
+          setTimeout(() => { badge.remove(); }, 650);
+        }
+        // Defer one tick so the simulator's onSlider has finished rebuilding
+        // sim.agents, then mirror that fleet into workload.agents.
+        setTimeout(() => { window.__promoteAgentModeFromSimulator?.(); }, 0);
+        // One-shot hint: tell the user how to get back to measured-mode.
+        if (!window.__promoteToastShown) {
+          window.__promoteToastShown = true;
+          if (typeof showToast === 'function') {
+            showToast('Now editing a configured agent — reload the example to restore measured numbers.', 4500);
+          }
         }
       }
     }, true);
@@ -3173,6 +3202,14 @@
           renderEditor();
           renderPreview();
           window.__setSimWritebackEnabled?.(true);
+          // If the imported workload is in measured-mode (no agents),
+          // re-add the ✓ MEASURED badge and reset the promotion toast.
+          // If it already carries agents, leave the badge gone — the
+          // calc is in agent-mode by the imported state.
+          window.__promoteToastShown = false;
+          if (!Array.isArray(workload.agents) || workload.agents.length === 0) {
+            window.__restoreMeasuredBadge?.();
+          }
           if (jsonImportError) { jsonImportError.hidden = true; jsonImportError.textContent = ''; }
           showToast(`Loaded ${file.name} ✓`);
           closeJsonModal();
@@ -3207,6 +3244,12 @@
         renderEditor();
         renderPreview();
         window.__setSimWritebackEnabled?.(true);
+        // Fresh preset → workload is back in measured-mode (agents=[]).
+        // Re-add the ✓ MEASURED badge if a prior promotion removed it,
+        // and reset the one-shot promotion toast so the next promotion
+        // explains itself again.
+        window.__promoteToastShown = false;
+        window.__restoreMeasuredBadge?.();
       } catch (err) {
         alert(`Failed to load ${slug}: ${err.message}`);
       } finally {
