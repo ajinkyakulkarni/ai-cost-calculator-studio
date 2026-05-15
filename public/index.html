@@ -3672,7 +3672,7 @@ Hybrid is rarely cost-effective below 30% self-host share — fixed ops staff an
 
 <div class="modal-overlay" id="modal-overlay">
   <div class="modal">
-    <button class="modal-close" onclick="closeReport()">×</button>
+    <button class="modal-close" onclick="closeReport()" aria-label="Close report" title="Close">×</button>
     <div id="report-content"></div>
     <div style="margin-top:12px;display:flex;gap:7px">
       <button class="abtn amber" onclick="window.print()">Print/PDF</button>
@@ -5912,15 +5912,44 @@ Procurement reviewers often work backwards: 'we have $50K/mo approved — how ma
   }
 
   // Writeback path: simulator user input → workload. Fires only when the
-  // host has enabled writeback (after initial load + first mirror is done).
+  // host has enabled writeback (after initial load + first mirror is done)
+  // AND the workload is already in agent-mode (workload.agents non-empty).
+  //
+  // Without the agent-mode gate, every simulator slider tick — task mix,
+  // RAG knobs, guardrails, hosting, anything that calls onSlider() — would
+  // silently inject a synthesized "anchor" agent into workload.agents and
+  // flip the cost engine from workload-mode (anchor_query + shapes) to
+  // agent-mode (per-agent tokens). The user opts into agent-mode by
+  // explicitly building a fleet in the agent editor; while in workload-
+  // mode, simulator state is consumed via specific bridges (task_mix,
+  // cache slider, etc.) instead of through the agent fleet.
   function autoSync() {
+    if (!_writebackEnabled) return;
+    if (typeof window.__importFromSimulator !== 'function') return;
+    const wl = window.workload;
+    if (!wl || !Array.isArray(wl.agents) || wl.agents.length === 0) return;
+    const payload = buildPayload();
+    if (!payload) return;
+    payload.silent = true;
+    window.__importFromSimulator(payload);
+  }
+
+  // Explicit one-shot promotion from workload-mode to agent-mode. The
+  // agents.length-gated autoSync above won't fire while workload.agents is
+  // empty, but the s-agents slider is *semantically* a declaration of "I
+  // want N agents in this workload". When the user drags it (real input,
+  // isTrusted=true), the calc side calls this to import the current
+  // simulator fleet into workload.agents. From the next render onward,
+  // autoSync's normal gate is open and subsequent agent-related slider
+  // changes flow through naturally.
+  window.__promoteAgentModeFromSimulator = function() {
     if (!_writebackEnabled) return;
     if (typeof window.__importFromSimulator !== 'function') return;
     const payload = buildPayload();
     if (!payload) return;
     payload.silent = true;
     window.__importFromSimulator(payload);
-  }
+  };
 
   // Wrap the simulator's global onSlider so every slider/agent change can
   // auto-sync when writeback is enabled. We DO NOT call autoSync at boot —
@@ -6074,7 +6103,7 @@ Procurement reviewers often work backwards: 'we have $50K/mo approved — how ma
     panel.innerHTML = `
       <div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:6px">
         <strong style="font-size:13px;letter-spacing:0.04em;text-transform:uppercase">Measured Coefficients</strong>
-        <button id="measured-close" style="background:none;border:none;font-size:16px;cursor:pointer;color:var(--muted)" type="button">×</button>
+        <button id="measured-close" style="background:none;border:none;font-size:16px;cursor:pointer;color:var(--muted)" type="button" aria-label="Close measured coefficients panel" title="Close">×</button>
       </div>
       <div style="font-size:10.5px;color:var(--muted);margin-bottom:8px">
         v${c.schema_version || '1.0'} · ${c.generated_at || 'today'} ·

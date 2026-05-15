@@ -2959,6 +2959,95 @@
       update();
     });
 
+    // Bidirectional sync: simulator-side `s-cache` is the user-facing
+    // cache-rate control, but the canonical home is workload.anchor_query
+    // .cache_rate_baseline. Without this listener, the two drift and the
+    // shareable URL ends up capturing two conflicting values (UI slider vs
+    // anchor_query); the anchor wins on restore, breaking the share link.
+    const sCacheBidirectional = document.getElementById('s-cache');
+    if (sCacheBidirectional) {
+      sCacheBidirectional.addEventListener('input', (ev) => {
+        // Only mirror to workload on GENUINE user input. Programmatic
+        // dispatchEvent calls (from the bench calibration loader, from
+        // setSimulatorFromWorkload's repaint chain, from restoreUiState)
+        // have isTrusted=false. If we wrote on those too, the async
+        // bench-coefficients loader would overwrite the URL-hash-restored
+        // anchor.cache_rate_baseline whenever it raced past our boot,
+        // breaking shareable links.
+        if (!ev.isTrusted) return;
+        if (!workload.anchor_query) workload.anchor_query = {};
+        const pct = parseFloat(sCacheBidirectional.value);
+        if (!Number.isNaN(pct)) workload.anchor_query.cache_rate_baseline = pct / 100;
+        // renderPreview is already triggered by the simulator's inline
+        // oninput="onSlider()" → wrapped onSlider, which fires renderPreview
+        // via the calc-side bridge. No need to call it again here.
+      });
+    }
+
+    // Bidirectional sync for the traffic-shape sliders (s-users / s-turns /
+    // s-sessions). In single-segment mode renderPreview already writes the
+    // slider into the lone segment, so user drags stick. But in multi-segment
+    // mode (auth + public, etc.) renderPreview computes a rollup (sum MAU,
+    // weighted-avg sessions/day, weighted-avg turns) and pushes it BACK onto
+    // the slider for display. That rollup writeback clobbers the user's drag
+    // on the very next render — visible as: drag MAU to 500,000, slider
+    // snaps back to the segments total ~10,500 within milliseconds.
+    //
+    // Fix: when the drag is genuine user input AND we're in multi-segment
+    // mode, scale each segment proportionally so the rollup matches the new
+    // slider value. Segment RATIOS are preserved (auth:public stays the same)
+    // and the slider position survives the next render. Single-segment mode
+    // is left alone — the existing renderPreview path handles it.
+    function scaleSegments(field, newValue, weighted) {
+      const segs = (workload && workload.segments) || [];
+      if (segs.length <= 1) return; // single-segment handled elsewhere
+      if (!Number.isFinite(newValue) || newValue <= 0) return;
+      let oldAgg;
+      if (weighted) {
+        const totalMau = segs.reduce((a, s) => a + (Number(s.mau) || 0), 0);
+        if (totalMau <= 0) return;
+        oldAgg = segs.reduce((a, s) => a + (Number(s.mau) || 0) * (Number(s[field]) || 0), 0) / totalMau;
+      } else {
+        oldAgg = segs.reduce((a, s) => a + (Number(s[field]) || 0), 0);
+      }
+      if (!Number.isFinite(oldAgg) || oldAgg <= 0) return;
+      const ratio = newValue / oldAgg;
+      for (const s of segs) {
+        if (typeof s[field] !== 'number') continue;
+        s[field] = s[field] * ratio;
+      }
+      // MAU is a whole-count; round to integer to keep the URL hash tidy.
+      if (field === 'mau') for (const s of segs) s.mau = Math.max(0, Math.round(s.mau));
+    }
+    // Use capture-phase on document so the segment scaling runs BEFORE the
+    // slider's inline oninput="onSlider()" handler. If we registered as a
+    // normal target-phase listener it would run AFTER onSlider, by which
+    // time renderPreview has already read the (unchanged) segments rollup
+    // and written slider.value back to the old total, clobbering the drag.
+    // Capture-on-document fires during the descent before any target-phase
+    // handlers, so segments get scaled first and the rollup matches.
+    document.addEventListener('input', (ev) => {
+      if (!ev.isTrusted) return;
+      const t = ev.target;
+      if (!t || t.tagName !== 'INPUT') return;
+      const v = parseFloat(t.value);
+      if (t.id === 's-users')    scaleSegments('mau',                   v, false);
+      else if (t.id === 's-turns')    scaleSegments('questions_per_session', v, true);
+      else if (t.id === 's-sessions') scaleSegments('sessions_per_day',      v, true);
+      else if (t.id === 's-agents') {
+        // s-agents is semantically "I want N agents". In workload-mode the
+        // engine ignores sim.agents and computes cost from anchor_query +
+        // shapes, so the slider would visibly do nothing. Promote to agent-
+        // mode on real user input: defer one tick so the simulator's
+        // onSlider has finished rebuilding sim.agents, then import that
+        // fleet into workload.agents. Subsequent agent-related slider
+        // moves flow through normal autoSync (now ungated).
+        if (workload && Array.isArray(workload.agents) && workload.agents.length === 0) {
+          setTimeout(() => { window.__promoteAgentModeFromSimulator?.(); }, 0);
+        }
+      }
+    }, true);
+
     // (Appbar example-loader removed — unified into the chat-builder
     // "Describe your AI system" picker. The handler below was looking
     // up a select that no longer exists, so the listener is gone.)
@@ -4108,6 +4197,17 @@
     if (ui.tcoPeriod) {
       const r = document.querySelector(`input[name="tco-period"][value="${ui.tcoPeriod}"]`);
       if (r) { r.checked = true; r.dispatchEvent(new Event('change', { bubbles: true })); }
+    }
+    // Mirror selected UI values back into workload so the two stay in sync.
+    // Without this, any code path that re-reads from workload (e.g., a later
+    // __setSimulatorFromWorkload call, a re-render, a preset switch) would
+    // overwrite the user-set UI value with the original workload value,
+    // breaking shareable links for those fields.
+    if (workload) {
+      if ('s-cache' in ui && workload.anchor_query) {
+        const pct = parseFloat(ui['s-cache']);
+        if (!Number.isNaN(pct)) workload.anchor_query.cache_rate_baseline = pct / 100;
+      }
     }
   }
   // Stashed across loadFromHash → restoreUiState window so the UI

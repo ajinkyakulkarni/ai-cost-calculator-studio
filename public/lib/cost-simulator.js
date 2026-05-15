@@ -921,7 +921,26 @@ function renderTaskBars(){
     </div>`).join('');
   const ob=document.getElementById('out-mult-badge');if(ob)ob.textContent='×'+wOM().toFixed(2)+' out';
 }
-function setTask(i,v){TASK_TYPES[i].pct=parseInt(v);const t=TASK_TYPES.reduce((s,x)=>s+x.pct,0)||1;TASK_TYPES.forEach((x,j)=>{const e=document.getElementById('tp-'+j);if(e)e.textContent=Math.round(x.pct/t*100)+'%';});const ob=document.getElementById('out-mult-badge');if(ob)ob.textContent='×'+wOM().toFixed(2)+' out';onSlider();}
+function setTask(i,v){
+  TASK_TYPES[i].pct=parseInt(v);
+  const t=TASK_TYPES.reduce((s,x)=>s+x.pct,0)||1;
+  TASK_TYPES.forEach((x,j)=>{const e=document.getElementById('tp-'+j);if(e)e.textContent=Math.round(x.pct/t*100)+'%';});
+  const ob=document.getElementById('out-mult-badge');if(ob)ob.textContent='×'+wOM().toFixed(2)+' out';
+  // Persist the mix on workload so (a) the cost engine can scale output
+  // tokens via taskMixOutputMultiplier and (b) the URL hash round-trips
+  // the slider state on reload. Workload-mode and agent-mode both consume
+  // this — the cost engine only applies the multiplier in workload-mode.
+  if (window.workload) {
+    window.workload.task_mix = Object.fromEntries(TASK_TYPES.map(x=>[x.id,x.pct]));
+  }
+  onSlider();
+  // Force a workload-mode repaint so the headline reflects the new mix.
+  // (onSlider only repaints the simulator panel; renderPreview drives the
+  // workload-mode cost engine, which is what the headline reads from.)
+  if (typeof window.renderPreview === 'function') {
+    try { window.renderPreview(); } catch (_) {}
+  }
+}
 
 /* ═══════ MODEL SELECTOR ═══════ */
 function renderModelSelector(){
@@ -2152,7 +2171,19 @@ window.__setSimulatorFromWorkload = function(workload) {
     if (sAgents) sAgents.value = '1';
   }
 
-  // 5. Repaint. onSlider() will fire — caller has suspended writeback so
+  // 5. Task mix — mirror workload.task_mix back into TASK_TYPES so the
+  // sliders on the "Workload mix — query types" panel show the persisted
+  // state on URL-hash reload or JSON import. Missing keys keep the
+  // current TASK_TYPES default (no destructive overwrite).
+  if (workload.task_mix && typeof workload.task_mix === 'object') {
+    for (const t of TASK_TYPES) {
+      const v = Number(workload.task_mix[t.id]);
+      if (Number.isFinite(v) && v >= 0) t.pct = v;
+    }
+    if (typeof renderTaskBars === 'function') renderTaskBars();
+  }
+
+  // 6. Repaint. onSlider() will fire — caller has suspended writeback so
   // autoSync inside the wrapped onSlider is a no-op.
   if (typeof renderAgents === 'function')   renderAgents();
   if (typeof updateCostPanel === 'function') updateCostPanel();

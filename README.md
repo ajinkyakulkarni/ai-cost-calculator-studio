@@ -75,11 +75,9 @@ unit tests for the price-book refresher).
 >    Keep it in a chmod-600 file of your choice (gitignored) and
 >    export `CLOUDFLARE_API_TOKEN` before any `wrangler` command, e.g.
 >    `export CLOUDFLARE_API_TOKEN=$(tr -d '\n\r ' < <your-token-file>)`.
-> 4. **Sister repos**: the personal-cloud monorepo at
->    [`ajinkyakulkarni/ajinkya.ai`](https://github.com/ajinkyakulkarni/ajinkya.ai)
->    hosts the API proxy at `api.ajinkya.ai`, the daily price scraper,
->    and the operator digest. The calc here calls into that proxy
->    for chat-builder + Q&A features.
+> 4. **Prices**: `public/lib/prices.js` is refreshed from external
+>    scrapes — see the `last_verified` field on each rate card for
+>    currency.
 
 ## What's in here
 

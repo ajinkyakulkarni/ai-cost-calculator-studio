@@ -139,6 +139,27 @@
     if (w.anchor_query && !w.anchor_query.session_baseline_turns) {
       w.anchor_query.session_baseline_turns = 6;
     }
+    // Belt-and-suspenders: clamp the headline-driving numeric fields to >= 0.
+    // 250+ <input type="number"> elements in the UI don't all carry min="0",
+    // so a paste error or stale share-URL can produce a negative segment MAU
+    // that silently lowers the aggregate queries instead of producing zero.
+    // Clamping in the engine catches every entry point (URL hash, JSON
+    // import, programmatic API) with one rule.
+    const nonNegative = (obj, keys) => {
+      if (!obj) return;
+      for (const k of keys) {
+        const v = Number(obj[k]);
+        if (Number.isFinite(v) && v < 0) obj[k] = 0;
+      }
+    };
+    nonNegative(w.anchor_query, ['input_tokens', 'output_tokens', 'session_baseline_turns']);
+    for (const seg of (w.segments || [])) {
+      nonNegative(seg, ['mau', 'sessions_per_day', 'questions_per_session']);
+    }
+    for (const agent of (w.agents || [])) {
+      nonNegative(agent, ['input_tokens', 'output_tokens', 'calls_per_query']);
+    }
+    nonNegative(w.daily_cap, ['amount_usd', 'burst_days', 'burst_factor']);
     return w;
   }
 
@@ -252,14 +273,59 @@
     return w * pWrite + (1 - w) * pRead;
   }
 
+  // Task-mix output multiplier. The simulator's "Workload mix — query
+  // types" panel persists workload.task_mix as a percentage split across
+  // {classify, summary, rag, code, longform, agent}. Each type has a
+  // published per-type output multiplier; the weighted multiplier (wOM)
+  // is divided by the baseline default-mix wOM so that calibrated
+  // presets remain unchanged (multiplier = 1.0) until the user actively
+  // rebalances. Workload-mode unit-cost paths read this and scale
+  // anchor_query.output_tokens. Agent-mode bypasses it (agents specify
+  // tokens directly).
+  const TASK_MIX_OUT_MULT = {
+    classify: 0.30, summary: 0.65, rag: 0.85,
+    code: 2.80, longform: 3.60, agent: 4.30,
+  };
+  const TASK_MIX_DEFAULT_PCT = {
+    classify: 20, summary: 25, rag: 20, code: 15, longform: 10, agent: 10,
+  };
+  const TASK_MIX_BASELINE_WOM = (function(){
+    let t = 0, s = 0;
+    for (const k in TASK_MIX_OUT_MULT) {
+      const p = TASK_MIX_DEFAULT_PCT[k] || 0;
+      t += p;
+      s += p * TASK_MIX_OUT_MULT[k];
+    }
+    return t > 0 ? s / t : 1;
+  })();
+  function taskMixOutputMultiplier(w) {
+    const tm = w && w.task_mix;
+    if (!tm || typeof tm !== 'object') return 1.0;
+    let total = 0, wom = 0;
+    for (const k in TASK_MIX_OUT_MULT) {
+      const pct = Number(tm[k]);
+      if (!Number.isFinite(pct) || pct < 0) continue;
+      total += pct;
+      wom += pct * TASK_MIX_OUT_MULT[k];
+    }
+    if (total <= 0) return 1.0;
+    return (wom / total) / TASK_MIX_BASELINE_WOM;
+  }
+
   function perQueryCost(workload, modelId, tierId, mixId, cacheRate, writeShare) {
     const w = workload;
     const rates = w.rate_cards[modelId];
+    // Guard against stale model IDs (e.g. a saved URL share that references a
+    // model the active price book has since dropped). Mirrors the
+    // perQueryCostAgents pattern: degrade to zero rather than throwing inside
+    // a slider tick. Callers that care can detect this by reading the
+    // breakdown / total being zero with a known-good mix and shape config.
+    if (!rates) return 0;
     const mult = w.tier_multipliers[tierId] || 1.0;
     const mix = w.mix[mixId];
     if (!mix || !mix.weights) return 0;
     const anchorIn = w.anchor_query.input_tokens;
-    const anchorOut = w.anchor_query.output_tokens;
+    const anchorOut = w.anchor_query.output_tokens * taskMixOutputMultiplier(w);
     const pCachedEff = effectiveCachedRate(rates, writeShare);
     let total = 0;
     let totalWeight = 0;
@@ -859,11 +925,12 @@
       const mix = w.mix?.[mixId];
       if (mix) {
         out += `\nShape mix preset "${mixId}":\n`;
+        const tmOutMult = taskMixOutputMultiplier(w);
         for (const [shapeName, weight] of Object.entries(mix.weights || {})) {
           const sh = w.shapes?.[shapeName];
           if (!sh) continue;
           const inT = w.anchor_query.input_tokens * sh.input_factor;
-          const outT = w.anchor_query.output_tokens * sh.output_factor;
+          const outT = w.anchor_query.output_tokens * tmOutMult * sh.output_factor;
           out += `  ${shapeName} (weight ${weight}, in×${sh.input_factor}, out×${sh.output_factor}, cache=${sh.cache_eligible ? 'yes' : 'no'}): ${num(inT)} in / ${num(outT)} out tok\n`;
         }
       }
@@ -1131,12 +1198,13 @@
     // weighted by the active mix.
     const mix = workload.mix?.[opts.mix || workload.defaults?.mix]?.weights || { full: 1 };
     const anchor = workload.anchor_query || {};
+    const tmOutMult = taskMixOutputMultiplier(workload);
     let tokensPerQuery = 0;
     for (const [shape, weight] of Object.entries(mix)) {
       const s = workload.shapes?.[shape];
       if (!s) continue;
       const inT = (s.input_factor || 0) * (anchor.input_tokens || 0);
-      const outT = (s.output_factor || 0) * (anchor.output_tokens || 0);
+      const outT = (s.output_factor || 0) * (anchor.output_tokens || 0) * tmOutMult;
       tokensPerQuery += weight * (inT + outT);
     }
     if (tokensPerQuery === 0) tokensPerQuery = workload.self_host?.tokens_per_query_default || 2000;
