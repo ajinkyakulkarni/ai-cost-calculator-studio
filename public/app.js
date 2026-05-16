@@ -1306,7 +1306,54 @@
     const personnelMonthly = composed.pers;
     const agentEngMonthly = composed.ae;
     const llmHeadline = composed.llm;
-    const headlineTotal = composed.headline;
+    // Provider tool fees (web search / file search / container sessions)
+    // aren't part of cost-engine.js — those are per-call billing line
+    // items the simulator carries in a separate TOOL_FEES table. Compute
+    // them per-agent here using the agent's chosen provider+family lookup
+    // so mixed-provider fleets bill correctly (Anthropic web=$10/1k vs
+    // OpenAI web=$10/1k + fs=$2.50/1k + container=$0.03/sess vs Bedrock/
+    // Azure with $0 pass-through). Fold the monthly total into the
+    // headline so the topbar pill is truly all-in.
+    let providerToolFeesMonthly = 0;
+    try {
+      const wsPerTurn = parseFloat(document.getElementById('s-websearch-calls')?.value) || 0;
+      const fsPerTurn = parseFloat(document.getElementById('s-filesearch-calls')?.value) || 0;
+      const ctSessions = parseFloat(document.getElementById('s-container-sessions')?.value) || 0;
+      if ((wsPerTurn || fsPerTurn || ctSessions)
+          && window.__TOOL_FEES && window.__feesFor && window.__MODELS) {
+        // Sessions/month and turns/month derived from this render's queries.
+        // turns ≈ queries (each turn = one query in workload-mode math).
+        // sessions = queries / turns_per_session.
+        const turnsPerSession = Math.max(1, numVal('s-turns', 8));
+        const sessionsMonthly = queries / turnsPerSession;
+        const monthlyPerTurn = queries; // each query = one turn
+        // Walk agents (if any) and average their provider rates; if no
+        // agents (workload-mode), use the workload's default model's
+        // family as the single provider.
+        const agentsList = (workload.agents && workload.agents.length > 0)
+          ? workload.agents
+          : [{ model: workload.defaults?.model, hosting: 'api' }];
+        let feeAccum = 0;
+        for (const ag of agentsList) {
+          const modelId = ag.model || workload.defaults?.model;
+          const m = window.__MODELS[modelId];
+          const family = (m && m.family) || 'other';
+          // Bedrock / Azure / self-host: zero per-call fees by design.
+          const provider = (ag.hosting === 'self') ? 'self-hosted' : 'managed';
+          const fees = window.__feesFor(provider, family);
+          // Share each agent's contribution by its calls_per_query (so a
+          // 3-turn agent triggers 3× the web-search billing of a 1-turn).
+          const callsShare = (ag.calls_per_query || 1) / agentsList.reduce(
+            (a, x) => a + (x.calls_per_query || 1), 0);
+          feeAccum +=
+              (wsPerTurn / 1000) * fees.webSearchPer1k       * monthlyPerTurn * callsShare
+            + (fsPerTurn / 1000) * fees.fileSearchPer1k      * monthlyPerTurn * callsShare
+            + (ctSessions)       * fees.container1GBSession  * sessionsMonthly * callsShare;
+        }
+        providerToolFeesMonthly = feeAccum;
+      }
+    } catch (_) { /* fee table not loaded yet on first paint */ }
+    const headlineTotal = composed.headline + providerToolFeesMonthly;
     // Publish the all-in headline so downstream panels (the budget warning
     // banner inside the cost simulator, in particular) compare against the
     // same number the user sees in the cost-pill. Without this, the budget

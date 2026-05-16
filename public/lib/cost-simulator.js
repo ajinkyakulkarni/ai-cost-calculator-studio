@@ -65,6 +65,14 @@ function toolFeeKey(provider, family){
 function feesFor(provider, family){
   return TOOL_FEES[toolFeeKey(provider, family)] || TOOL_FEES.managed_other;
 }
+// Expose to app.js (cost-engine.js doesn't know about provider tool fees;
+// app.js loops over workload.agents and sums fees into the headline so
+// mixed-provider fleets bill correctly).
+if (typeof window !== 'undefined') {
+  window.__TOOL_FEES = TOOL_FEES;
+  window.__feesFor = feesFor;
+  window.__MODELS = MODELS;
+}
 // Back-compat alias used by older display code paths
 const TOOL_FEE_PRICES = TOOL_FEES.managed_openai;
 const MODELS={
@@ -1332,77 +1340,17 @@ function onSlider(){
   // s-guard-model > 0 would route guards to totalGuardCost which the
   // calc-side bridge doesn't import, hiding the slider's effect.
 
-  // Make global sliders the canonical source of truth for every agent.
-  // AGENT_DEF predefines per-agent overrides (rag_chunks:5, tools_per:3,
-  // schema:320 etc.) which silently shadow the global sliders via the
-  // `agent.rag_chunks ?? cfg('s-rag-chunks')` pattern in computeCost. To
-  // keep the sliders load-bearing, we both (a) flip the on/off gate when
-  // the slider is non-zero, AND (b) broadcast the slider's numeric value
-  // into every agent's per-agent override. Users can still customize a
-  // single agent via the per-agent editor — but the next slider move
-  // re-broadcasts. Tradeoff: simple + responsive over fine-grained.
-  if (Array.isArray(sim?.agents)) {
-    // Field map: slider id → agent field. Broadcast happens only when a
-    // slider's value has CHANGED since the last broadcast. This preserves
-    // genuine per-agent edits made via the per-agent editor — moving an
-    // unrelated slider (e.g. batch %) no longer clobbers Agent 2's
-    // hand-tuned RAG chunk count.
-    if (!window._sliderBcastPrev) window._sliderBcastPrev = {};
-    const fields = [
-      ['s-rag-chunks',     'rag_chunks'],
-      ['s-rag-chunk-size', 'rag_size'],
-      ['s-rag-calls',      'rag_calls'],
-      ['s-tools',          'tools_per'],
-      ['s-schema',         'schema'],
-      ['s-toolresult',     'result'],
-      ['s-think-tokens',   'think_tok'],
-      ['s-think-pct',      'think_pct'],
-      ['s-cot',            'cot'],
-      ['s-factcheck',      'factcheck'],
-      ['s-guard-in',       'guard_in'],
-      ['s-guard-out',      'guard_out'],
-      ['s-guard-pii',      'guard_pii'],
-      ['s-guard-policy',   'guard_policy'],
-    ];
-    const changed = {};
-    for (const [sid, field] of fields) {
-      const v = cfg(sid);
-      if (window._sliderBcastPrev[sid] !== v) {
-        changed[field] = v;
-        window._sliderBcastPrev[sid] = v;
-      }
-    }
-    // On/off gates flip true whenever the relevant slider group is non-zero.
-    // These don't need change-tracking — they're additive (turning a slider
-    // on enables the feature; turning it back to 0 doesn't auto-disable it
-    // since the flag may have been set deliberately).
-    const ragChunks   = cfg('s-rag-chunks');
-    const ragSize     = cfg('s-rag-chunk-size');
-    const ragCalls    = cfg('s-rag-calls');
-    const toolsPer    = cfg('s-tools');
-    const schemaTok   = cfg('s-schema');
-    const toolResult  = cfg('s-toolresult');
-    const thinkTok    = cfg('s-think-tokens');
-    const cotN        = cfg('s-cot');
-    const factcheckN  = cfg('s-factcheck');
-    const guardIn     = cfg('s-guard-in');
-    const guardOut    = cfg('s-guard-out');
-    const guardPii    = cfg('s-guard-pii');
-    const guardPolicy = cfg('s-guard-policy');
-    const ragGlobal    = (ragChunks > 0) || (ragSize > 0) || (ragCalls > 0);
-    const toolsGlobal  = (toolsPer > 0)  || (schemaTok > 0) || (toolResult > 0);
-    const reasonGlobal = (thinkTok > 0)  || (cotN > 0)      || (factcheckN > 0);
-    const guardGlobal  = (guardIn > 0)   || (guardOut > 0)  || (guardPii > 0) || (guardPolicy > 0);
-    for (const a of sim.agents) {
-      if (ragGlobal)    a.ragOn    = true;
-      if (toolsGlobal)  a.toolsOn  = true;
-      if (reasonGlobal) a.reasonOn = true;
-      if (guardGlobal)  a.guardOn  = true;
-      // Only write fields whose underlying slider just moved. Per-agent
-      // edits to other fields are preserved.
-      for (const k of Object.keys(changed)) a[k] = changed[k];
-    }
-  }
+  // (Redesign 2026-05-15) The global Tools / RAG / Reasoning / Guardrails
+  // sliders no longer broadcast to every agent on each tick. The agent
+  // card is now the canonical per-agent editing surface. Each agent's
+  // own .tools_per / .schema / .rag_chunks / etc. survive across slider
+  // moves; the `agent.X ?? cfg('s-X')` fallback inside computeCost still
+  // honors the global slider as a default for agents that have no value
+  // set yet (e.g. freshly cloned anchor agent inheriting from AGENT_DEF).
+  //
+  // Phase 2 will remove the global panels entirely. Until then, treat
+  // the global sliders as one-shot defaults for new agents — not as a
+  // live editor for the fleet.
 
   renderLedger();updateCostPanel();updateKPIs();updateSensitivity();
   if(sim.agents.length!==cfg('s-agents')){buildAgents();buildUsers();renderAgents();}
