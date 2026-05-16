@@ -1273,7 +1273,11 @@ function setAllAgentsExpanded(open){sim.agents.forEach(a=>a.expanded=!!open);ren
 function setAM(id,m){const a=sim.agents.find(x=>x.id===id);if(a){a.model=m;const md=MODELS[m];if(md&&(!a.provider||a.provider==='managed'||a.provider==='together'))a.provider=md.providerDefault||a.provider||'managed';renderAgents();refreshAfterAgentEdit();}}
 function setAP(id,k,v,lid,fmt){const a=sim.agents.find(x=>x.id===id);if(a){a[k]=v;if(lid){const el=document.getElementById(lid);if(el&&fmt)el.textContent=fmt(v);}refreshAfterAgentEdit();}}
 function togAF(id,f,btn){const a=sim.agents.find(x=>x.id===id);if(!a)return;a[f]=!a[f];const labels={ragOn:['RAG','rag-on'],reasonOn:['THINK','reason-on'],guardOn:['GUARD','guard-on'],toolsOn:['TOOLS','on']};const[l,cls]=labels[f]||['','on'];if(btn){btn.textContent=l+' '+(a[f]?'ON':'OFF');btn.className='tgl '+(a[f]?cls:'');}renderAgents();refreshAfterAgentEdit();}
-function applyGlobalsToAgents(){sim.agents.forEach(a=>{a.cache_rate=cfg('s-cache');a.tools_per=cfg('s-tools');a.schema=cfg('s-schema');a.result=cfg('s-toolresult');a.rag_chunks=cfg('s-rag-chunks');a.rag_size=cfg('s-rag-chunk-size');a.rag_calls=cfg('s-rag-calls');a.think_tok=cfg('s-think-tokens');a.think_pct=cfg('s-think-pct');a.cot=cfg('s-cot');a.factcheck=cfg('s-factcheck');a.guard_in=cfg('s-guard-in');a.guard_out=cfg('s-guard-out');a.guard_pii=cfg('s-guard-pii');a.guard_policy=cfg('s-guard-policy');});renderAgents();refreshAfterAgentEdit();}
+// applyGlobalsToAgents() removed — the global RAG/Tools/Guardrails sliders
+// it pulled from were deleted in the per-agent canonicalization redesign
+// (d03b276). The remaining global sliders are workload-shape only and
+// don't broadcast to agents. Bulk-set lives inside each agent card as
+// the "↧ Apply to all agents" affordance.
 function applySelectedModelToAgents(){sim.agents.forEach(a=>{a.model=selectedModel;const md=MODELS[selectedModel];if(md)a.provider=md.providerDefault||a.provider||'managed';});renderAgents();refreshAfterAgentEdit();}
 function resetAgentFleet(){buildAgents(true);renderAgents();refreshAfterAgentEdit();}
 // Stage 3 of the per-agent redesign: bulk-set affordance from inside the
@@ -1318,39 +1322,12 @@ function normalizeAgentTurns(){const n=sim.agents.length||1;const sum=sim.agents
 // addAgentMsg, logTool, updateUtilBars, updateCtxBars, spawnSparks, etc.)
 // are now unused; they're left in place for a follow-up dead-code pass
 // rather than risking a wider deletion in this commit.
-function updateAgentChip(a){
-  const m=MODELS[a.model]||MODELS['claude-sonnet-4.6'];const ctxP=Math.min(100,Math.round((a.ctxUsed||0)/m.ctx*100));
-  ['sim','settings'].forEach(scope=>{
-    const card=document.getElementById('ac-'+scope+'-'+a.id);if(card)card.className='agent-card '+(a.busy?'processing':'');
-    const bar=document.getElementById('ab-'+scope+'-'+a.id);if(bar)bar.style.width=(a.utilPct||0)+'%';
-    const st=document.getElementById('as-'+scope+'-'+a.id);if(st)st.textContent='in:'+(a.realIn||0).toLocaleString()+' ctx:'+ctxP+'%';
-  });
-}
-function addUserMsg(user,agent,text,tokens){const chat=document.getElementById('chat-area');if(!chat)return;const div=document.createElement('div');div.className='msg right';div.innerHTML=`<div class="msg-av" style="background:#ffffff0b;border:1px solid #ffffff16;color:#a0b4cc">${user.name[0]}</div><div class="msg-body"><div class="msg-meta"><span style="font-weight:700;color:var(--text-primary,#c8d8f0)">${user.name}</span><span>→${agent.name}</span><span>${now()}</span></div><div class="msg-bubble" style="background:var(--surface-hover,rgba(255,255,255,.04));border:1px solid var(--b)">${text}</div><div class="msg-toks">in:${tokens.toLocaleString()}t</div></div>`;appChat(chat,div);}
-function addTyping(a){const chat=document.getElementById('chat-area');if(!chat)return;const div=document.createElement('div');div.id='typ';div.className='msg';div.innerHTML=`<div class="msg-av" style="background:${a.col}18;border:1px solid ${a.col}44;color:${a.col}">${a.name[0]}</div><div class="msg-body"><div class="msg-meta"><span style="color:${a.col};font-weight:700">${a.name}</span></div><div class="msg-bubble" style="background:${a.col}09;border:1px solid ${a.col}28"><div class="typing"><div class="td"></div><div class="td"></div><div class="td"></div></div></div></div>`;chat.appendChild(div);chat.scrollTop=chat.scrollHeight;}
-function removeTyping(){document.getElementById('typ')?.remove();}
-function addAgentMsg(agent,text,inTok,outTok,cost,cacheSave,tools,isErr,ragT,reasonT,guardT){
-  const m=MODELS[agent.model]||MODELS['claude-sonnet-4.6'];const chat=document.getElementById('chat-area');if(!chat)return;
-  const div=document.createElement('div');div.className='msg';
-  const tc=tools.map(t=>`<span class="chip" style="background:rgba(206,147,216,.09);border:1px solid rgba(206,147,216,.2);color:var(--purple)">${t}</span>`).join('');
-  div.innerHTML=`<div class="msg-av" style="background:${agent.col}18;border:1px solid ${agent.col}44;color:${agent.col}">${agent.name[0]}</div><div class="msg-body">
-    <div class="msg-meta"><span style="color:${agent.col};font-weight:700">${agent.name}</span>
-    <span class="chip" style="background:${m.color}14;border:1px solid ${m.color}30;color:${m.color}">${agent.model.replace('claude-','').substring(0,9)}</span>
-    ${ragT>0?`<span class="chip" style="background:rgba(124,77,255,.1);border:1px solid rgba(124,77,255,.25);color:var(--rag)">RAG+${ragT}t</span>`:''}
-    ${reasonT>0?`<span class="chip" style="background:rgba(0,188,212,.1);border:1px solid rgba(0,188,212,.25);color:var(--reason)">THINK+${Math.round(reasonT)}t</span>`:''}
-    ${guardT>0?`<span class="chip" style="background:rgba(255,109,0,.1);border:1px solid rgba(255,109,0,.25);color:var(--guard)">GUARD+${guardT}t</span>`:''}
-    ${isErr?`<span class="chip" style="background:rgba(255,82,82,.1);border:1px solid rgba(255,82,82,.25);color:var(--red)">RETRY</span>`:''}
-    <span>${now()}</span></div>
-    <div class="msg-bubble" style="background:${agent.col}09;border:1px solid ${agent.col}22">${text}</div>
-    ${tc?`<div style="display:flex;flex-wrap:wrap;gap:2px;margin-top:3px">${tc}</div>`:''}
-    <div class="msg-toks">in:${inTok.toLocaleString()} out:${outTok.toLocaleString()} · cache:-${cacheSave.toFixed(5)} · net:${cost.toFixed(5)}</div>
-  </div>`;
-  appChat(chat,div);document.getElementById('stream-count').textContent=sim.msgCount+' msgs';
-}
-function appChat(chat,div){chat.appendChild(div);if(chat.children.length>80)chat.removeChild(chat.firstChild);chat.scrollTop=chat.scrollHeight;}
-function logTool(agent,tool){const log=document.getElementById('tool-log');if(!log)return;const cols={web_search:'var(--cyan)',db_query:'var(--amber)',code_exec:'var(--green)',vector_search:'var(--rag)',default:'var(--purple)'};const c=cols[tool]||cols.default;const e=document.createElement('div');e.className='log-entry';e.style.borderLeftColor=c;e.innerHTML=`<div style="display:flex;justify-content:space-between"><span style="font-weight:700;font-size:8px;color:${c}">${tool}</span><span style="font-size:7px;color:var(--dimmer)">${now()}</span></div><div style="font-size:7px;color:var(--dim,rgba(180,200,230,.5))">${agent.name} · ${Math.floor(Math.random()*300+50)}ms</div>`;log.prepend(e);while(log.children.length>5)log.removeChild(log.lastChild);}
-function updateUtilBars(){const el=document.getElementById('util-bars');if(!el)return;el.innerHTML=sim.agents.map(a=>`<div style="display:flex;align-items:center;gap:4px;font-size:7px"><span style="color:${a.col};width:30px;flex-shrink:0;font-weight:700">${a.name}</span><div style="flex:1;height:5px;background:var(--track);border-radius:2px;overflow:hidden"><div style="width:${a.utilPct||0}%;height:100%;background:${a.col}99;border-radius:2px;transition:width .5s"></div></div><span style="color:var(--dim);width:22px;text-align:right">${a.utilPct||0}%</span></div>`).join('');}
-function updateCtxBars(){const el=document.getElementById('ctx-bars');if(!el)return;el.innerHTML=sim.agents.map(a=>{const m=MODELS[a.model]||MODELS['claude-sonnet-4.6'];const pct=Math.min(100,Math.round(a.ctxUsed/m.ctx*100));const c=pct>80?'var(--red)':pct>50?'var(--amber)':'var(--cyan)';return `<div style="display:flex;align-items:center;gap:4px;font-size:7px"><span style="color:${a.col};width:30px;flex-shrink:0;font-weight:700">${a.name}</span><div style="flex:1;height:5px;background:var(--track);border-radius:2px;overflow:hidden"><div style="width:${pct}%;height:100%;background:${c};border-radius:2px;transition:width .5s"></div></div><span style="color:${c};width:22px;text-align:right">${pct}%</span></div>`;}).join('');}
+// Dead chat-replay + simulator-viz helpers removed (only ever called from
+// runTick, which was deleted in 3448738). updateAgentChip, addUserMsg,
+// addTyping, removeTyping, addAgentMsg, appChat, logTool, updateUtilBars,
+// updateCtxBars all wrote to DOM stubs (chat-area, tool-log, util-bars,
+// ctx-bars) that are display:none. spawnSparks lower in the file is the
+// only remaining one; it's referenced by a vfx setting and left in place.
 
 /* ═══════ KPIs ═══════ */
 function updateKPIs(){

@@ -3172,24 +3172,16 @@
     //   - s-growth                           (projection chart input + /3yr pill supplement, not the
     //                                         monthly headline — visible via pill's /3yr number)
     //   - s-pauses / s-pause-hrs             (no cost effect anywhere)
+    // PROMOTE_TRIGGERS pruned 2026-05-16: most of the per-agent simulator
+    // sliders previously listed here had their markup deleted in the per-
+    // agent-canonicalization redesign (d03b276). The remaining IDs are
+    // workload-level or workflow-mode controls whose markup is still on
+    // the page. Per-agent edits now happen inside agent cards directly,
+    // which mutate sim.agents and autoSync into workload.agents on their
+    // own — no global promotion needed for those.
     const PROMOTE_TRIGGERS = new Set([
       's-agents',
-      // Tools / prompt overhead
-      's-tools', 's-schema', 's-toolresult', 's-iamsg', 's-sysprompt',
-      // RAG
-      's-rag-chunks', 's-rag-chunk-size', 's-rag-query', 's-rag-calls',
-      // Reasoning
-      's-think-tokens', 's-think-pct', 's-cot', 's-factcheck',
-      // Guardrails
-      's-guard-in', 's-guard-out', 's-guard-pii', 's-guard-policy',
-      's-guard-block', 's-guard-model',
-      // Hosted tools
-      's-websearch-calls', 's-filesearch-calls', 's-container-sessions',
-      // Multimodal inputs
-      's-images', 's-audio', 's-pdf', 's-codeinterp',
-      // Prompt overhead
-      's-fewshot', 's-jsonschema', 's-citations', 's-memory',
-      // Multi-agent / fleet topology
+      // Multi-agent / fleet topology (workflow-mode controls)
       's-comm-pattern', 's-parallel-branches',
       // Workflow handoff + reruns
       's-stage-handoff', 's-rerun', 's-template-runs',
@@ -3197,21 +3189,17 @@
       's-doc-pages', 's-doc-pdfs', 's-doc-tok-page', 's-doc-stages-pct',
       // Function-calling overhead (separate from generic tool calls)
       's-fc-in', 's-fc-pct', 's-fc-price',
-      // Tool-return shape — paper's 8× cost lever
+      // Tool-return shape — paper's 8× cost lever (workload-level)
       's-tool-response-mode', 's-tool-templated-cap',
       // Rate-limit / quota / storage cost lines
       's-concurrent-quota', 's-rate-overage', 's-storage-rate',
-      // Simulator-only knobs that previously appeared to do nothing in
-      // workload-mode because they're consumed by the simulator's own
-      // computeCost (not by cost-engine.js). Promotion lets them flow
-      // through autoSync into per-agent token / pricing math.
-      //   - s-batch              : batch-tier share split (simulator pricedInputCost)
-      //   - s-lang-mult          : language multiplier on input+output (simulator resolvePricingTier)
+      // Simulator-only knobs consumed by computeCost (not cost-engine):
+      //   s-batch         batch-tier share split (pricedInputCost)
+      //   s-lang-mult     language multiplier on input+output (resolvePricingTier)
       's-batch', 's-lang-mult',
-      // NOTE: s-cache-write-share intentionally NOT here — it now flows
-      // through opts.cacheWriteShare into cost-engine.js (Eq. 2 cached-
-      // rate blend), so it affects both workload-mode and agent-mode
-      // without needing to promote.
+      // s-cache-write-share intentionally NOT here — it now flows through
+      // opts.cacheWriteShare into cost-engine.js Eq. 2 cached-rate blend
+      // and works in both workload-mode and agent-mode (ec5f108).
     ]);
 
     const handleSimChange = (ev) => {
