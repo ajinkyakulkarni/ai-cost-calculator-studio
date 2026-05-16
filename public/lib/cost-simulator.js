@@ -1168,6 +1168,25 @@ function agentSection(title,color,on,body){
   </div>`;
 }
 function taskBiasSelect(a){return `<select onchange="setAP(${a.id},'task_bias',this.value)" style="width:100%;font-size:12px;padding:3px 5px"><option value="" ${!a.task_bias?'selected':''}>Balanced mix</option>${TASK_TYPES.map(t=>`<option value="${t.id}" ${a.task_bias===t.id?'selected':''}>${t.label}</option>`).join('')}</select>`;}
+
+// Per-agent guard-model picker. Spans the full agent-edit-grid row so
+// the dropdown has room to show the long preset labels. Defers to the
+// cost engine's GUARD_MODEL_PRESETS table; reading window.CostEngine
+// avoids a hardcoded duplicate enumeration here. Falls back to a
+// minimal hardcoded list if the engine isn't ready yet (rare; only on
+// the first paint before cost-engine.js evaluates).
+function guardModelDropdownHtml(a){
+  const presets = (typeof window !== 'undefined' && window.CostEngine && window.CostEngine.GUARD_MODEL_PRESETS) || {
+    'llama-guard-3': { label: 'Meta Llama Guard 3' },
+    'custom':        { label: 'Custom' },
+  };
+  const cur = a.guard_model || 'custom';
+  const opts = Object.entries(presets).map(([k, p]) =>
+    `<option value="${k}" ${k===cur?'selected':''}>${p.label}</option>`
+  ).join('');
+  return `<div style="grid-column:1 / -1"><div class="mini-label" style="color:#ff6d00"><span>Guard model</span><span style="font-weight:500;color:var(--ink-2,#3a4a62)">per-agent</span></div>
+    <select onchange="setAP(${a.id},'guard_model',this.value)" style="width:100%;font-size:12px;padding:3px 5px">${opts}</select></div>`;
+}
 function agentCardHtml(a,scope){
   const m=MODELS[a.model]||MODELS['claude-sonnet-4.6'];
   const ctxP=Math.min(100,Math.round((a.ctxUsed||0)/m.ctx*100));
@@ -1177,7 +1196,8 @@ function agentCardHtml(a,scope){
   const toolsBody=[agentRangeCtl(a,scope,'tools_per','Calls / turn',0,8,1,'#ce93d8'),agentRangeCtl(a,scope,'schema','Schema tok / call',0,2000,20,'#ce93d8'),agentRangeCtl(a,scope,'result','Result tok / call',0,8000,100,'#ce93d8')].join('');
   const ragBody=[agentRangeCtl(a,scope,'rag_chunks','Chunks',0,20,1,'#7c4dff'),agentRangeCtl(a,scope,'rag_size','Tokens / chunk',64,4096,64,'#7c4dff'),agentRangeCtl(a,scope,'rag_calls','Retrieval calls',0,5,1,'#7c4dff')].join('');
   const reasonBody=[agentRangeCtl(a,scope,'think_tok','Thinking budget',0,10000,500,'#00bcd4'),agentRangeCtl(a,scope,'think_pct','Reasoning turns',0,100,5,'#00bcd4'),agentRangeCtl(a,scope,'cot','CoT steps',0,20,1,'#00bcd4'),agentRangeCtl(a,scope,'factcheck','Fact-check passes',0,3,1,'#00bcd4')].join('');
-  const guardBody=[agentRangeCtl(a,scope,'guard_in','Input guard tok',0,2000,50,'#ff6d00'),agentRangeCtl(a,scope,'guard_out','Output guard tok',0,2000,50,'#ff6d00'),agentRangeCtl(a,scope,'guard_pii','PII scan tok',0,1000,50,'#ff6d00'),agentRangeCtl(a,scope,'guard_policy','Policy tok',0,2000,100,'#ff6d00')].join('');
+  const guardModelSelect = guardModelDropdownHtml(a);
+  const guardBody=[guardModelSelect,agentRangeCtl(a,scope,'guard_in','Input guard tok',0,2000,50,'#ff6d00'),agentRangeCtl(a,scope,'guard_out','Output guard tok',0,2000,50,'#ff6d00'),agentRangeCtl(a,scope,'guard_pii','PII scan tok',0,1000,50,'#ff6d00'),agentRangeCtl(a,scope,'guard_policy','Policy tok',0,2000,100,'#ff6d00')].join('');
   return `<div class="agent-card ${a.busy?'processing':''}" id="ac-${scope}-${a.id}">
     <div class="agent-header" onclick="togAgent(${a.id})">
       <div class="agent-av" style="background:${a.col}18;border:1px solid ${a.col}44;color:${a.col}">${a.name[0]}</div>

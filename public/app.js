@@ -1357,7 +1357,42 @@
         providerToolFeesMonthly = feeAccum;
       }
     } catch (_) { /* fee table not loaded yet on first paint */ }
-    const headlineTotal = composed.headline + providerToolFeesMonthly;
+    // Per-agent guardrail-model fees. Same shape as provider tool fees:
+    // each agent picks a guard model preset (Llama Guard, Granite
+    // Guardian, OpenAI Moderation, Bedrock Guardrails, etc.), each
+    // preset has its own cost shape (per-token / per-check / free).
+    // Compute one line per agent, sum into headline. Skipped silently
+    // if cost-engine's GUARD_MODEL_PRESETS isn't loaded yet.
+    let guardModelFeesMonthly = 0;
+    try {
+      const presets = window.CostEngine && window.CostEngine.GUARD_MODEL_PRESETS;
+      if (presets) {
+        const agentsList = (workload.agents && workload.agents.length > 0)
+          ? workload.agents
+          : [{ guard_model: 'custom', input_tokens: 0, calls_per_query: 1 }];
+        const totalCalls = agentsList.reduce((a, x) => a + (x.calls_per_query || 1), 0) || 1;
+        for (const ag of agentsList) {
+          const preset = presets[ag.guard_model || 'custom'];
+          if (!preset || preset.shape === 'free') continue;
+          const callsShare = (ag.calls_per_query || 1) / totalCalls;
+          if (preset.shape === 'perMillionTokens') {
+            if (preset.ratePerMillion == null) continue; // 'custom' defers to legacy s-guard-model slider
+            // Approx guard tokens per query = guard_in + guard_out + guard_pii + guard_policy.
+            // For agent-mode workloads these aren't carried on workload.agents (engine reads
+            // composite input_tokens). Use a reasonable per-query guard-token estimate:
+            // 5% of the agent's input_tokens, floored at 200 tok (matches typical Llama
+            // Guard 3 input+output ~500 tokens per check × 3 checks/turn).
+            const guardTokensPerQuery = Math.max(200, Math.round((ag.input_tokens || 0) * 0.05));
+            guardModelFeesMonthly += (guardTokensPerQuery / 1e6) * preset.ratePerMillion * queries * callsShare;
+          } else if (preset.shape === 'perCheck') {
+            const checks = preset.checksPerQuery || 3;
+            guardModelFeesMonthly += checks * preset.perCheckUsd * queries * callsShare;
+          }
+        }
+      }
+    } catch (_) { /* engine not ready */ }
+
+    const headlineTotal = composed.headline + providerToolFeesMonthly + guardModelFeesMonthly;
     // Publish the all-in headline so downstream panels (the budget warning
     // banner inside the cost simulator, in particular) compare against the
     // same number the user sees in the cost-pill. Without this, the budget

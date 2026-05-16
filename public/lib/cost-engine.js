@@ -691,6 +691,38 @@
     'galileo':             { label: 'Galileo Luna (commercial)',                calibration: 'vendor-listed', shape: 'flatPerCheck', perCheckUsd: 0.015 },
     'custom':              { label: 'Custom (sliders below)',                   calibration: 'user-defined',  shape: 'nliBased' },
   };
+
+  // Guard-model preset table. Same dual-purpose pattern as the verifier
+  // table — surface real options to procurement reviewers AND give the
+  // engine a clean per-agent fee lookup so mixed fleets (one agent on
+  // Llama Guard, another on OpenAI Moderation, another on Bedrock
+  // Guardrails) bill correctly. Three cost shapes:
+  //
+  //   perMillionTokens — open-source / self-host classifiers billed by
+  //                      input + output tokens (Llama Guard, Granite
+  //                      Guardian, etc.). Rate × monthly guard tokens.
+  //   perCheck         — managed-service / commercial guardrails billed
+  //                      flat $/check (AWS Bedrock Guardrails, Azure
+  //                      Content Safety, Patronus Lynx, Lakera Guard).
+  //                      Counted as ~3 checks per query (input + output
+  //                      + optional PII), configurable via checksPerQuery.
+  //   free             — bundled with the main model (Anthropic Claude's
+  //                      built-in safety, Google Vertex AI Safety Filters
+  //                      bundled with generation, OpenAI Moderation free
+  //                      tier). Zero per-call cost.
+  const GUARD_MODEL_PRESETS = {
+    'llama-guard-3':         { label: 'Meta Llama Guard 3 (8B, self-host)',     shape: 'perMillionTokens', ratePerMillion: 0.10 },
+    'llama-guard-3-managed': { label: 'Meta Llama Guard 3 (Together API)',      shape: 'perMillionTokens', ratePerMillion: 0.20 },
+    'granite-guardian':      { label: 'IBM Granite Guardian 3.2 (8B, self-host)', shape: 'perMillionTokens', ratePerMillion: 0.10 },
+    'openai-moderation':     { label: 'OpenAI Moderation API (free)',           shape: 'free' },
+    'bedrock-guardrails':    { label: 'AWS Bedrock Guardrails',                 shape: 'perCheck', perCheckUsd: 0.00075, checksPerQuery: 3 },
+    'azure-content-safety':  { label: 'Azure AI Content Safety',                shape: 'perCheck', perCheckUsd: 0.001,   checksPerQuery: 3 },
+    'vertex-safety':         { label: 'Google Vertex AI Safety (bundled, free)', shape: 'free' },
+    'patronus-lynx':         { label: 'Patronus Lynx (commercial)',             shape: 'perCheck', perCheckUsd: 0.005,   checksPerQuery: 1 },
+    'lakera-guard':          { label: 'Lakera Guard (commercial)',              shape: 'perCheck', perCheckUsd: 0.010,   checksPerQuery: 1 },
+    'anthropic-builtin':     { label: 'Anthropic Claude built-in (free)',       shape: 'free' },
+    'custom':                { label: 'Custom — use $/1M slider',               shape: 'perMillionTokens', ratePerMillion: null /* defer to s-guard-model */ },
+  };
   // Flat monthly $ for hosting modes that price by capacity rather than
   // per-token. EC2 entries are on-demand AWS GPU pricing (24/7 × 730h).
   // Bedrock provisioned throughput buys a "model unit" reservation at
@@ -1789,6 +1821,8 @@
     resolveInfraCost,
     deriveTrace,
     compute,
+    GUARD_MODEL_PRESETS,
+    VERIFIER_PRESETS,
   };
 
   if (typeof module !== 'undefined' && module.exports) {
