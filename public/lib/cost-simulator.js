@@ -1002,8 +1002,11 @@ function fmtAgentVal(k,v){
   return Math.round(n).toLocaleString();
 }
 function agentRangeCtl(a,scope,k,label,min,max,step,color,type='int'){
-  const v=a[k]??0;const lid=`a-${scope}-${a.id}-${k}`;const cast=type==='float'?'parseFloat(this.value)':'parseInt(this.value)';
-  return `<div class="agent-mini-range"><div class="mini-label"><span>${label}</span><span class="mini-val" id="${lid}" style="color:${color}">${fmtAgentVal(k,v)}</span></div><input type="range" min="${min}" max="${max}" value="${v}" step="${step}" oninput="setAP(${a.id},'${k}',${cast},'${lid}',v=>fmtAgentVal('${k}',v))"></div>`;
+  const v=a[k]??0;
+  const lid=`a-${scope}-${a.id}-${k}`;            // visual value id (existing)
+  const labelId=`alb-${scope}-${a.id}-${k}`;      // a11y label-id (new) — referenced by aria-labelledby on the input
+  const cast=type==='float'?'parseFloat(this.value)':'parseInt(this.value)';
+  return `<div class="agent-mini-range"><div class="mini-label"><span id="${labelId}">${label}</span><span class="mini-val" id="${lid}" style="color:${color}" aria-hidden="true">${fmtAgentVal(k,v)}</span></div><input type="range" min="${min}" max="${max}" value="${v}" step="${step}" aria-labelledby="${labelId}" aria-valuetext="${fmtAgentVal(k,v)}" oninput="setAP(${a.id},'${k}',${cast},'${lid}',v=>fmtAgentVal('${k}',v))"></div>`;
 }
 function agentSection(title,color,on,body){
   // OFF state: distinguish via border + a tinted muted status pill, but
@@ -1022,7 +1025,10 @@ function agentSection(title,color,on,body){
     <div class="agent-edit-grid">${body}</div>
   </div>`;
 }
-function taskBiasSelect(a){return `<select onchange="setAP(${a.id},'task_bias',this.value)" style="width:100%;font-size:12px;padding:3px 5px"><option value="" ${!a.task_bias?'selected':''}>Balanced mix</option>${TASK_TYPES.map(t=>`<option value="${t.id}" ${a.task_bias===t.id?'selected':''}>${t.label}</option>`).join('')}</select>`;}
+function taskBiasSelect(a, ariaLabelledby){
+  const labelAttr = ariaLabelledby ? ` aria-labelledby="${ariaLabelledby}"` : '';
+  return `<select${labelAttr} onchange="setAP(${a.id},'task_bias',this.value)" style="width:100%;font-size:12px;padding:3px 5px"><option value="" ${!a.task_bias?'selected':''}>Balanced mix</option>${TASK_TYPES.map(t=>`<option value="${t.id}" ${a.task_bias===t.id?'selected':''}>${t.label}</option>`).join('')}</select>`;
+}
 
 // Per-agent enabled-tools checklist (Phase 3 of the tools-registry
 // redesign). Reads the workload's tools_registry and renders a
@@ -1045,12 +1051,13 @@ function agentEnabledToolsHtml(a) {
       ${entries.map(([id, t]) => {
         const isOn = id in enabled;
         const calls = enabled[id] && enabled[id].calls_per_query != null ? enabled[id].calls_per_query : 1;
+        const labelName = (t.label || id).replace(/"/g, '&quot;');
         return `<div style="display:grid;grid-template-columns:1.4fr 0.6fr 0.7fr;gap:6px;align-items:center;font-size:11px">
           <label style="display:flex;gap:5px;align-items:center;cursor:pointer">
-            <input type="checkbox" onchange="togAgentTool(${a.id},'${id}',this.checked)" ${isOn ? 'checked' : ''}>
+            <input type="checkbox" onchange="togAgentTool(${a.id},'${id}',this.checked)" ${isOn ? 'checked' : ''} aria-label="Enable ${labelName} for this agent">
             <span style="font-weight:${isOn ? 600 : 500}">${t.label || id}</span>
           </label>
-          <input type="number" min="0" step="1" value="${calls}" ${isOn ? '' : 'disabled'} onchange="setAgentToolCalls(${a.id},'${id}',this.value)" style="font-size:11px;padding:2px 4px;width:100%;font-family:var(--mono);${isOn ? '' : 'opacity:0.4;'}" placeholder="calls/q" title="Calls per query for this tool">
+          <input type="number" min="0" step="1" value="${calls}" ${isOn ? '' : 'disabled'} onchange="setAgentToolCalls(${a.id},'${id}',this.value)" style="font-size:11px;padding:2px 4px;width:100%;font-family:var(--mono);${isOn ? '' : 'opacity:0.4;'}" placeholder="calls/q" title="Calls per query for this tool" aria-label="${labelName} calls per query">
           <span style="font-size:10px;color:var(--ink-2,#3a4a62);font-family:var(--mono)">${fmtRate(t)}</span>
         </div>`;
       }).join('')}
@@ -1073,8 +1080,9 @@ function guardModelDropdownHtml(a){
   const opts = Object.entries(presets).map(([k, p]) =>
     `<option value="${k}" ${k===cur?'selected':''}>${p.label}</option>`
   ).join('');
-  return `<div style="grid-column:1 / -1"><div class="mini-label" style="color:#ff6d00"><span>Guard model</span><span style="font-weight:500;color:var(--ink-2,#3a4a62)">per-agent</span></div>
-    <select onchange="setAP(${a.id},'guard_model',this.value)" style="width:100%;font-size:12px;padding:3px 5px">${opts}</select></div>`;
+  const lid = `alb-guardmodel-${a.id}`;
+  return `<div style="grid-column:1 / -1"><div class="mini-label" style="color:#ff6d00"><span id="${lid}">Guard model</span><span style="font-weight:500;color:var(--ink-2,#3a4a62)">per-agent</span></div>
+    <select aria-labelledby="${lid}" onchange="setAP(${a.id},'guard_model',this.value)" style="width:100%;font-size:12px;padding:3px 5px">${opts}</select></div>`;
 }
 function agentCardHtml(a,scope){
   const m=MODELS[a.model]||MODELS['claude-sonnet-4.6'];
@@ -1109,9 +1117,9 @@ function agentCardHtml(a,scope){
     </div>
     <div class="agent-cfg-panel ${a.expanded?'open':''}" id="cfg-${scope}-${a.id}">
       <div class="agent-edit-grid">
-        <div><div style="font-size:11px;color:var(--ink-2,#3a4a62);margin-bottom:3px">Model</div><select onchange="setAM(${a.id},this.value)" style="width:100%;font-size:12px;padding:3px 5px">${modelSelect}</select></div>
-        <div><div style="font-size:11px;color:var(--ink-2,#3a4a62);margin-bottom:3px">Provider</div><select onchange="setAP(${a.id},'provider',this.value)" style="width:100%;font-size:12px;padding:3px 5px">${providerSelect}</select></div>
-        <div><div style="font-size:11px;color:var(--ink-2,#3a4a62);margin-bottom:3px">Task bias</div>${taskBiasSelect(a)}</div>
+        <div><div id="alb-model-${a.id}" style="font-size:11px;color:var(--ink-2,#3a4a62);margin-bottom:3px">Model</div><select aria-labelledby="alb-model-${a.id}" onchange="setAM(${a.id},this.value)" style="width:100%;font-size:12px;padding:3px 5px">${modelSelect}</select></div>
+        <div><div id="alb-provider-${a.id}" style="font-size:11px;color:var(--ink-2,#3a4a62);margin-bottom:3px">Provider</div><select aria-labelledby="alb-provider-${a.id}" onchange="setAP(${a.id},'provider',this.value)" style="width:100%;font-size:12px;padding:3px 5px">${providerSelect}</select></div>
+        <div><div id="alb-taskbias-${a.id}" style="font-size:11px;color:var(--ink-2,#3a4a62);margin-bottom:3px">Task bias</div>${taskBiasSelect(a, 'alb-taskbias-' + a.id)}</div>
       </div>
       <div style="font-size:10px;color:var(--ink-2,#3a4a62);margin-bottom:7px">${provider.note}${provider.fixed_mo>0?' · $'+provider.fixed_mo.toLocaleString()+'/mo fixed':''}</div>
       <div class="agent-edit-grid">
