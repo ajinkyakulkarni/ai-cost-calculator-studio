@@ -4084,9 +4084,24 @@ FactReasoner pipeline variants for automated factuality checking.
 **Why it matters**
 For 1M queries/mo with 8 atoms each, FR2 → FR3 adds ~$15K/mo of NLI cost. Use FR3 only when the cost of an unchecked false claim is high (e.g. clinical, financial, public-facing federal answers). For most deployments, FR2 is the right default.">Verifier preset</span>
           <select data-bind="verification.variant" style="width:100%;margin-top:3px">
-            <option value="fr1">FR1 — lean (24 NLI calls per atom)</option>
-            <option value="fr2">FR2 — high-recall (160 NLI calls)</option>
-            <option value="fr3">FR3 — exhaustive (350 NLI calls)</option>
+            <optgroup label="FactReasoner (IBM Research) — bench-validated">
+              <option value="fr1">FR1 · lean (24 NLI calls/query) — measured</option>
+              <option value="fr2">FR2 · high-recall (160 NLI calls) — measured</option>
+              <option value="fr3">FR3 · exhaustive (350 NLI calls) — estimated</option>
+            </optgroup>
+            <optgroup label="Other NLI-based — estimated">
+              <option value="minicheck">MiniCheck (CMU 2024) · single-call NLI</option>
+              <option value="factscore">FactScore (Min UW 2023) · LLM-per-atom verify</option>
+            </optgroup>
+            <optgroup label="Self-check (no separate verifier) — estimated">
+              <option value="ragas-faithfulness">RAGAS faithfulness · LLM self-check (~+30% output)</option>
+              <option value="anthropic-citations">Anthropic Claude citations · inline (~+10% output)</option>
+            </optgroup>
+            <optgroup label="Commercial flat-rate — vendor-listed">
+              <option value="patronus">Patronus AI · ~$0.010/check</option>
+              <option value="galileo">Galileo Luna · ~$0.015/check</option>
+            </optgroup>
+            <option value="custom">Custom — sliders below</option>
           </select>
         </div>
         <div>

@@ -666,6 +666,31 @@
   // overcharging by ~atoms× — the paper's per-query interpretation is
   // correct and the multiplication has been removed.
   const VARIANT_NLI_CALLS = { fr1: 24, fr2: 160, fr3: 350 };
+
+  // Verifier-approach preset table. Three cost shapes:
+  //   nliBased     — atomize + per-claim NLI + revise (FactReasoner,
+  //                  MiniCheck, AlignScore). Reuses existing pipeline.
+  //   selfCheck    — main LLM checks itself (RAGAS faithfulness,
+  //                  Anthropic citations). Bills as an output-token
+  //                  overhead % applied to main-model output cost.
+  //   flatPerCheck — commercial fact-check API (Patronus, Galileo).
+  //                  Flat $/check; bypasses atomizer/NLI/reviser.
+  //
+  // calibration: 'measured' (bench-validated, ±5%) |
+  //              'estimated' (architecture-based, ±20%) |
+  //              'vendor-listed' (published rate at time of write).
+  const VERIFIER_PRESETS = {
+    'fr1':                 { label: 'FactReasoner FR1 (lean)',                  calibration: 'measured',      shape: 'nliBased',     nliCallsPerQuery: 24 },
+    'fr2':                 { label: 'FactReasoner FR2 (dense)',                 calibration: 'measured',      shape: 'nliBased',     nliCallsPerQuery: 160 },
+    'fr3':                 { label: 'FactReasoner FR3 (exhaustive)',            calibration: 'estimated',     shape: 'nliBased',     nliCallsPerQuery: 350 },
+    'minicheck':           { label: 'MiniCheck (CMU 2024) — single-call NLI',   calibration: 'estimated',     shape: 'nliBased',     nliCallsPerQuery: 1,  skipAtomizer: true, skipReviser: true },
+    'factscore':           { label: 'FactScore (Min et al., UW 2023)',          calibration: 'estimated',     shape: 'nliBased',     nliCallsPerQuery: 0,  llmPerAtomTokens: { input: 800, output: 60 } },
+    'ragas-faithfulness':  { label: 'RAGAS faithfulness — LLM self-check',      calibration: 'estimated',     shape: 'selfCheck',    outputOverheadPct: 0.30 },
+    'anthropic-citations': { label: 'Anthropic Claude citations (inline)',      calibration: 'estimated',     shape: 'selfCheck',    outputOverheadPct: 0.10 },
+    'patronus':            { label: 'Patronus AI (commercial)',                 calibration: 'vendor-listed', shape: 'flatPerCheck', perCheckUsd: 0.010 },
+    'galileo':             { label: 'Galileo Luna (commercial)',                calibration: 'vendor-listed', shape: 'flatPerCheck', perCheckUsd: 0.015 },
+    'custom':              { label: 'Custom (sliders below)',                   calibration: 'user-defined',  shape: 'nliBased' },
+  };
   // Flat monthly $ for hosting modes that price by capacity rather than
   // per-token. EC2 entries are on-demand AWS GPU pricing (24/7 × 730h).
   // Bedrock provisioned throughput buys a "model unit" reservation at
@@ -702,15 +727,54 @@
     }
     const variant = opts.verifVariant || v.variant || 'fr1';
     const atoms = v.atoms_per_response || 8;
-    // Per-query total. Reads from workload override if present (a producer
-    // running their own FactReasoner deployment can override the default
-    // count from their trace data), else falls back to VARIANT_NLI_CALLS.
-    // The override field is kept named atoms_per_response_nli_calls for
-    // back-compat; semantically it is now per-query, not per-atom.
+    const verifiedQueries = monthlyQueries * coverage;
+    const preset = VERIFIER_PRESETS[variant] || VERIFIER_PRESETS.fr1;
+
+    // SELF-CHECK shape (RAGAS faithfulness, Anthropic citations): no
+    // separate verifier model. Bills as output-token overhead on the
+    // verified queries' main-model output. Short-circuit early; engine
+    // returns just this overhead in the breakdown.
+    if (preset.shape === 'selfCheck') {
+      const rates = w.rate_cards[opts.verifModel || opts.model || w.defaults.model];
+      const mult = w.tier_multipliers[opts.tier || w.defaults.tier] || 1.0;
+      const anchorOut = (w.anchor_query && w.anchor_query.output_tokens) || 0;
+      const overheadTokens = anchorOut * (preset.outputOverheadPct || 0);
+      const overheadCostPerQuery = (rates ? overheadTokens * rates.output_per_million / 1e6 : 0) * mult;
+      const overheadMonthly = verifiedQueries * overheadCostPerQuery;
+      return {
+        enabled: true, coverage, variant, verified_queries: verifiedQueries,
+        monthly: overheadMonthly,
+        breakdown: { self_check_output_overhead: overheadMonthly },
+        preset: { label: preset.label, calibration: preset.calibration, shape: preset.shape },
+        nli_hosting: 'none',
+        nli_calls_per_query: 0,
+      };
+    }
+
+    // FLAT-PER-CHECK shape (Patronus, Galileo): vendor charges a flat
+    // $/check regardless of token count. Bypasses atomizer/NLI/reviser
+    // entirely; users still pay the service-pod $ if set.
+    if (preset.shape === 'flatPerCheck') {
+      const flatMonthly = verifiedQueries * (preset.perCheckUsd || 0);
+      const servicePodFlat = v.service_pod_monthly || 0;
+      return {
+        enabled: true, coverage, variant, verified_queries: verifiedQueries,
+        monthly: flatMonthly + servicePodFlat,
+        breakdown: { commercial_flat: flatMonthly, service_pod: servicePodFlat },
+        preset: { label: preset.label, calibration: preset.calibration, shape: preset.shape, perCheckUsd: preset.perCheckUsd },
+        nli_hosting: 'vendor',
+        nli_calls_per_query: 0,
+      };
+    }
+
+    // NLI-BASED shape (FactReasoner variants, MiniCheck, FactScore).
+    // Per-query total. Reads from workload override if present, else
+    // from the preset table, else legacy VARIANT_NLI_CALLS.
     const nliCallsPerQuery =
       (v.atoms_per_response_nli_calls && v.atoms_per_response_nli_calls[variant])
-      || VARIANT_NLI_CALLS[variant] || 24;
-    const verifiedQueries = monthlyQueries * coverage;
+      || preset.nliCallsPerQuery
+      || VARIANT_NLI_CALLS[variant]
+      || 24;
 
     const modelId = opts.verifModel || opts.model || w.defaults.model;
     const tierId = opts.tier || w.defaults.tier;
@@ -722,8 +786,12 @@
       ((tokens.input || 0) * rates.input_per_million / 1e6 +
        (tokens.output || 0) * rates.output_per_million / 1e6) * mult;
 
-    const atomizerPerQuery = tokenCost(v.atomizer_tokens || { input: 1500, output: 400 });
-    const reviserPerQuery = atoms * tokenCost(v.reviser_tokens || { input: 500, output: 30 });
+    // MiniCheck has no Atomizer / Reviser — single short NLI call replaces
+    // the whole pipeline. FactScore replaces NLI with a per-atom LLM call
+    // (atomize → LLM verifies each atom → revise; no separate NLI model).
+    const atomizerPerQuery = preset.skipAtomizer ? 0 : tokenCost(v.atomizer_tokens || { input: 1500, output: 400 });
+    const reviserPerQuery  = preset.skipReviser  ? 0 : atoms * tokenCost(v.reviser_tokens || { input: 500, output: 30 });
+    const factscoreLlmPerQuery = preset.llmPerAtomTokens ? atoms * tokenCost(preset.llmPerAtomTokens) : 0;
     const nliHosting = opts.nliHosting || v.nli_hosting || 'api';
     let nliMonthly;
     if (NLI_HOSTING_TOKEN_MULT[nliHosting] != null) {
@@ -745,8 +813,9 @@
 
     const atomizerMonthly = verifiedQueries * atomizerPerQuery;
     const reviserMonthly = verifiedQueries * reviserPerQuery;
+    const factscoreLlmMonthly = verifiedQueries * factscoreLlmPerQuery;
     const servicePod = v.service_pod_monthly || 0;
-    const monthly = atomizerMonthly + reviserMonthly + nliMonthly + retrievalMonthly + servicePod;
+    const monthly = atomizerMonthly + reviserMonthly + nliMonthly + factscoreLlmMonthly + retrievalMonthly + servicePod;
 
     return {
       enabled: true,
@@ -758,9 +827,11 @@
         atomizer: atomizerMonthly,
         reviser: reviserMonthly,
         nli: nliMonthly,
+        factscore_llm_per_atom: factscoreLlmMonthly,
         retrieval: retrievalMonthly,
         service_pod: servicePod,
       },
+      preset: { label: preset.label, calibration: preset.calibration, shape: preset.shape },
       nli_hosting: nliHosting,
       nli_calls_per_query: nliCallsPerQuery,
     };
