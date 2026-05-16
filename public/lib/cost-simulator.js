@@ -970,11 +970,9 @@ function renderModelSelector(){
   if(mi&&sm){const cached=sm.cacheRead!=null?('$'+sm.cacheRead+'/1M cached input'):'no published cache read discount';mi.textContent=`${sm.label||selectedModel} (${sm.api_id||selectedModel}) · ctx:${(sm.ctx/1000).toFixed(0)}k · input:${sm.in}/1M · output:${sm.out}/1M · ${cached} · batch disc:${Math.round((sm.bd||0)*100)}%${sm.longThreshold?' · long tier >'+Math.round(sm.longThreshold/1000)+'k ctx':''} · verified:${MODEL_PRICE_VERIFIED}`;}
 }
 function selectModel(k){selectedModel=k;renderModelSelector();onSlider();}
-/* Architecture-canvas visualization removed 2026-05-16 — the panel
-   was display:none and the runTick loop that drove its animation was
-   deleted long ago. drawArch kept as no-op for the typeof-guarded
-   callers in showTab('arch') and the boot path. */
-function drawArch(){}
+/* Architecture-canvas visualization fully removed 2026-05-16. The
+   no-op drawArch stub that previously sat here was deleted alongside
+   the 'arch' tab markup. Boot path + showTab no longer reference it. */
 
 /* SIMULATION AND PER-AGENT EDITOR */
 let sim={running:false,agents:[],users:[],totalIn:0,totalOut:0,totalCost:0,ragTok:0,reasonTok:0,guardTok:0,cacheSaved:0,apiCalls:0,toolUses:0,msgCount:0,errCount:0,tickInterval:null,processing:false,history:[]};
@@ -1374,22 +1372,15 @@ function onSlider(){
    ====================================== */
 function showTab(name){
   // Keep .active state purely as a marker (some renderers may inspect it).
-  const TABS=['config','audience','agents','arch','tokens','cost','routing','methodology','sensitivity','sim'];
+  // 'arch' and 'sim' tabs were removed in the 2026-05 cleanup; their
+  // markup is gone but other tabs (config/agents/etc.) still wire here.
+  const TABS=['config','audience','agents','tokens','cost','routing','methodology','sensitivity'];
   TABS.forEach(t=>{
     const p=document.getElementById('tab-'+t);
     if(p){p.classList.toggle('active',t===name);}
   });
-  // Live-simulation grid: reveal when sim activates, otherwise leave alone.
-  const g=document.getElementById('tab-sim-grid');
-  if(g && name==='sim'){g.style.display='grid';}
-  // Lazy renderer hooks.
-  if(name==='arch' && typeof drawArch==='function')drawArch();
   if(name==='audience' && typeof renderAudience==='function')renderAudience();
-  // Scroll to the section header (not the grid for sim — the grid is hidden
-  // until sim runs, so for 'sim' we scroll to the agents section instead).
-  const target=name==='sim'
-    ? document.getElementById('tab-sim-grid')
-    : document.getElementById('axiom-h-'+name);
+  const target=document.getElementById('axiom-h-'+name);
   if(target){target.scrollIntoView({behavior:'smooth',block:'start'});}
 }
 
@@ -2036,5 +2027,4 @@ setTimeout(()=>{
   renderRoutingSliders();
   // Eager init for renderers that used to fire on tab activation.
   if(typeof renderAudience==='function')renderAudience();
-  if(typeof drawArch==='function')drawArch();
 },100);

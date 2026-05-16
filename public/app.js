@@ -310,25 +310,36 @@
     const reg = workload.tools_registry;
     const entries = Object.entries(reg);
     const SHAPES = ['per_call', 'per_session', 'free'];
+    // Two-row card per tool: row 1 = label + description (full width),
+    // row 2 = edit controls in a 6-column grid. Avoids the horizontal-
+    // cramming bug where the 7-column single-row layout truncated every
+    // input below readability at the panel's width.
     const rowHtml = (id, t) => `
-      <div data-tool-id="${id}" style="display:grid;grid-template-columns:1.4fr 0.7fr 0.9fr 0.7fr 0.7fr 0.7fr 28px;gap:5px;align-items:center;padding:6px 8px;background:rgba(0,0,0,0.02);border:1px solid var(--rule);border-radius:4px;font-size:11px">
-        <div>
-          <input type="text" data-field="label" value="${(t.label || id).replace(/"/g,'&quot;')}" style="width:100%;font-size:11px;font-weight:600;padding:2px 4px" placeholder="Tool name">
-          <input type="text" data-field="description" value="${(t.description || '').replace(/"/g,'&quot;')}" style="width:100%;font-size:9px;color:var(--muted);padding:2px 4px;margin-top:2px;border:1px dashed var(--rule)" placeholder="(description)">
+      <div data-tool-id="${id}" style="padding:9px 10px;background:rgba(0,0,0,0.02);border:1px solid var(--rule);border-radius:5px;font-size:12px">
+        <div style="display:flex;align-items:center;gap:8px;margin-bottom:7px">
+          <input type="text" data-field="label" value="${(t.label || id).replace(/"/g,'&quot;')}" style="flex:1;font-size:13px;font-weight:600;padding:3px 6px;border:1px solid var(--rule);border-radius:3px" placeholder="Tool name">
+          ${t.builtin
+            ? '<span style="font-size:10px;color:var(--muted);padding:2px 6px;border:1px solid var(--rule);border-radius:3px" title="Built-in tool: rate / token estimates can be edited; row cannot be removed">BUILTIN</span>'
+            : `<button type="button" data-remove="${id}" style="background:none;border:1px solid var(--rule);color:var(--bad,#b3333d);font-size:14px;cursor:pointer;padding:2px 8px;border-radius:3px" title="Remove this tool">× remove</button>`}
         </div>
-        <select data-field="cost_shape" style="font-size:11px;padding:2px 4px">
-          ${SHAPES.map(s => `<option value="${s}" ${(t.cost_shape||'per_call')===s?'selected':''}>${s}</option>`).join('')}
-        </select>
-        <div><input type="number" min="0" step="0.001" data-field="rate_usd" value="${t.rate_usd || 0}" style="width:100%;font-size:11px;padding:2px 4px;font-family:var(--mono)" title="USD per call (per_call) / per session (per_session) / 0 (free)"></div>
-        <div><input type="number" min="0" step="10" data-field="schema_tokens" value="${t.schema_tokens || 0}" style="width:100%;font-size:11px;padding:2px 4px;font-family:var(--mono)" title="Tokens added to system prompt for this tool's schema"></div>
-        <div><input type="number" min="0" step="50" data-field="result_tokens_avg" value="${t.result_tokens_avg || 0}" style="width:100%;font-size:11px;padding:2px 4px;font-family:var(--mono)" title="Average tokens of tool result fed back to context"></div>
-        <div><input type="text" data-field="provider" value="${(t.provider || 'managed').replace(/"/g,'&quot;')}" style="width:100%;font-size:11px;padding:2px 4px" title="Provider name (managed / self-hosted / bedrock / azure / etc.)"></div>
-        <div style="text-align:center">${t.builtin ? '<span style="color:var(--muted);font-size:8px" title="Built-in tools can be re-priced but not removed">·</span>' : `<button type="button" data-remove="${id}" style="background:none;border:1px solid var(--rule);color:var(--bad,#b3333d);font-size:13px;cursor:pointer;padding:0 4px;border-radius:3px" title="Remove this tool">×</button>`}</div>
+        <input type="text" data-field="description" value="${(t.description || '').replace(/"/g,'&quot;')}" style="width:100%;font-size:11px;color:var(--ink-2,#3a4a62);padding:3px 6px;border:1px dashed var(--rule);border-radius:3px;margin-bottom:8px" placeholder="(optional description — what does this tool do?)">
+        <div style="display:grid;grid-template-columns:repeat(auto-fit, minmax(115px, 1fr));gap:6px">
+          <label style="font-size:10px;color:var(--muted)"><span style="display:block;text-transform:uppercase;letter-spacing:0.04em;margin-bottom:2px">Cost shape</span>
+            <select data-field="cost_shape" style="width:100%;font-size:11px;padding:3px 5px">
+              ${SHAPES.map(s => `<option value="${s}" ${(t.cost_shape||'per_call')===s?'selected':''}>${s}</option>`).join('')}
+            </select></label>
+          <label style="font-size:10px;color:var(--muted)"><span style="display:block;text-transform:uppercase;letter-spacing:0.04em;margin-bottom:2px">Rate (USD)</span>
+            <input type="number" min="0" step="0.001" data-field="rate_usd" value="${t.rate_usd || 0}" style="width:100%;font-size:12px;padding:3px 5px;font-family:var(--mono)" title="USD per call (per_call) / per session (per_session) / 0 (free)"></label>
+          <label style="font-size:10px;color:var(--muted)"><span style="display:block;text-transform:uppercase;letter-spacing:0.04em;margin-bottom:2px">Schema tok</span>
+            <input type="number" min="0" step="10" data-field="schema_tokens" value="${t.schema_tokens || 0}" style="width:100%;font-size:12px;padding:3px 5px;font-family:var(--mono)" title="Tokens added to system prompt for this tool's schema"></label>
+          <label style="font-size:10px;color:var(--muted)"><span style="display:block;text-transform:uppercase;letter-spacing:0.04em;margin-bottom:2px">Result tok avg</span>
+            <input type="number" min="0" step="50" data-field="result_tokens_avg" value="${t.result_tokens_avg || 0}" style="width:100%;font-size:12px;padding:3px 5px;font-family:var(--mono)" title="Average tokens of tool result fed back to context"></label>
+          <label style="font-size:10px;color:var(--muted)"><span style="display:block;text-transform:uppercase;letter-spacing:0.04em;margin-bottom:2px">Provider</span>
+            <input type="text" data-field="provider" value="${(t.provider || 'managed').replace(/"/g,'&quot;')}" style="width:100%;font-size:11px;padding:3px 5px" title="Provider name (managed / self-hosted / bedrock / azure / etc.)"></label>
+        </div>
       </div>
     `;
-    const headerHtml = `<div style="display:grid;grid-template-columns:1.4fr 0.7fr 0.9fr 0.7fr 0.7fr 0.7fr 28px;gap:5px;padding:0 8px;font-size:9px;color:var(--muted);text-transform:uppercase;letter-spacing:0.04em;font-weight:600">
-      <div>Tool · description</div><div>Shape</div><div>Rate (USD)</div><div>Schema tok</div><div>Result tok</div><div>Provider</div><div></div>
-    </div>`;
+    const headerHtml = `<div style="font-size:9px;color:var(--muted);text-transform:uppercase;letter-spacing:0.04em;font-weight:600;padding:0 4px;margin-bottom:2px">Registered tools</div>`;
     host.innerHTML = headerHtml + entries.map(([id, t]) => rowHtml(id, t)).join('') +
       `<button type="button" id="add-tool-btn" style="margin-top:4px;padding:5px 10px;border:1px dashed var(--cyan,#0c8db3);background:rgba(0,212,255,0.05);color:var(--cyan,#0c8db3);border-radius:3px;font-size:11px;cursor:pointer;font-weight:600">+ Add custom tool</button>`;
 

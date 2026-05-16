@@ -3742,63 +3742,6 @@ Hybrid is rarely cost-effective below 30% self-host share — fixed ops staff an
 
 <div class="root">
 
-<!-- TOPBAR retired — its KPI tiles duplicated the calc-side cost-pill in
-     the appbar and several values were stale relics from the old simulator
-     simulator runtime. The whole block is hidden but kept in DOM so
-     updateKPIs() / setMode() / etc. can still write to the IDs without
-     throwing. -->
-<div class="topbar" style="display:none">
-  <span id="mode-label">Multi-Agent Fleet</span>
-  <div class="kpi-row">
-    <div class="kpi" title="Total tokens per session — the static-math output of Configuration sliders × Agent fleet × turns/session. p90 from the lognormal CI."><div class="kpi-val" id="kpi-tokens" style="color:var(--cyan)">0</div><div class="kpi-r" id="kpi-tr">p90:—</div><div class="kpi-lbl">Tokens / session</div></div>
-    <div class="kpi" title="LLM API cost only — per session. Excludes infra, verification, reservations, personnel."><div class="kpi-val" id="kpi-cost" style="color:var(--green)">$0.0000</div><div class="kpi-r" id="kpi-cr">p90:—</div><div class="kpi-lbl">API / session</div></div>
-    <div class="kpi" title="LLM API cost only — extrapolated to monthly via sessions/day × 30. Topbar Total adds infra + verification + reservations + personnel."><div class="kpi-val" id="kpi-monthly" style="color:var(--amber)">$0</div><div class="kpi-r" id="kpi-mr">p90:—</div><div class="kpi-lbl">API / mo</div></div>
-    <div class="kpi"><div class="kpi-val" id="kpi-rag" style="color:var(--rag)">0</div><div class="kpi-r">RAG tokens</div><div class="kpi-lbl">Retrieval</div></div>
-    <div class="kpi"><div class="kpi-val" id="kpi-reason" style="color:var(--reason)">0</div><div class="kpi-r">thinking tokens</div><div class="kpi-lbl">Reasoning</div></div>
-    <div class="kpi"><div class="kpi-val" id="kpi-guard" style="color:var(--guard)">0</div><div class="kpi-r">guard tokens</div><div class="kpi-lbl">Guardrails</div></div>
-    <div class="kpi"><div class="kpi-val" id="kpi-calls" style="color:var(--teal)">0</div><div class="kpi-r" id="kpi-er">0 err</div><div class="kpi-lbl">API calls</div></div>
-  </div>
-  <div style="display:flex;flex-direction:column;align-items:flex-end;gap:5px">
-    <!-- Sim status pulse hidden — simulation runtime removed. DOM stubs
-         kept so existing JS that toggles status text doesn't error. -->
-    <div style="display:none">
-      <div class="pulse" id="status-dot" style="background:var(--green)"></div>
-      <span id="sys-status" style="color:var(--green)">READY</span>
-    </div>
-    <div style="display:flex;gap:5px;align-items:center">
-      <!-- Topology dropdown + START button stubs were removed when the
-           toggleSim/runTick replay chain was deleted. The canonical
-           topology selector is in Section A; the topbar topology dropdown
-           and START button were both already hidden in production. -->
-      <!-- Report / CSV / JSON / Share / Reset live in the appbar's
-           Share/Export dropdown — single source of truth, no duplicate
-           chip toolbar here. Report itself is also reachable via the L1
-           sidebar tab. -->
-    </div>
-  </div>
-</div>
-
-<!-- NAV — hidden via CSS (#main-nav { display: none !important }) since
-     all simulator panels render stacked. Convergence banner stub
-     removed alongside the convergence-detection chain. -->
-
-<div style="display:none">
-<div class="nav" id="main-nav">
-  <button class="nav-btn active" onclick="showTab('config')">Configuration</button>
-  <button class="nav-btn" onclick="showTab('audience')">Audience</button>
-  <button class="nav-btn" onclick="showTab('agents')">Agent Settings</button>
-  <button class="nav-btn" onclick="showTab('arch')">Architecture</button>
-  <button class="nav-btn" onclick="showTab('tokens')">Token Analysis</button>
-  <button class="nav-btn" onclick="showTab('cost')">Cost Models</button>
-  <button class="nav-btn" onclick="showTab('sensitivity')">Sensitivity</button>
-  <button class="nav-btn" onclick="showTab('routing')">Routing</button>
-  <button class="nav-btn" onclick="showTab('methodology')">Methodology</button>
-  <button class="nav-btn" onclick="showTab('sim')">Simulation</button>
-</div>
-<div>
-  <input type="number" id="max-rounds" value="60" min="10" max="500">
-</div>
-</div>
 
 <!-- ═══ TAB: CONFIG ═══ -->
 <div class="axiom-section-divider" id="axiom-h-config">
@@ -4019,7 +3962,7 @@ Set Cap above to match your template's actual emission size (40 for status-only,
         <div>
           <div class="mlabel" style="display:flex;align-items:center;gap:8px"><span>Tools registry <span style="font-size:9px;color:var(--dim);font-weight:400">(Phase 1 — read-only)</span></span><span class="badge" style="background:rgba(0,212,255,0.10);color:var(--cyan,#0c8db3);border-color:rgba(0,212,255,0.3);font-size:8px;letter-spacing:0.04em">MCP-STYLE</span></div>
           <div style="margin-top:4px;font-size:10px;color:var(--dim);line-height:1.5">Workload-level catalog of available tools. Each agent will later (Phase 3) declare which tools it enables and at what frequency; today the registry is data-only and feeds future cost math. Add custom MCP tools by editing this workload's JSON.</div>
-          <div id="tools-registry-list" style="margin-top:8px;display:grid;grid-template-columns:1fr;gap:4px"></div>
+          <div id="tools-registry-list" style="margin-top:8px;display:grid;grid-template-columns:1fr;gap:8px"></div>
         </div>
       </div>
     </div>
@@ -4267,31 +4210,6 @@ For 1M queries/mo with 8 atoms each, FR2 → FR3 adds ~$15K/mo of NLI cost. Use 
     </div>
   </div>
 
-  <!-- ═══ TAB: ARCH ═══ (visually retired — animation JS still writes to
-       these DOM nodes per turn, so they live as a hidden stub. Remove the
-       JS in a follow-up if it's no longer needed.) -->
-<div class="axiom-section-divider" id="axiom-h-arch" style="display:none">
-  <span class="ix-num">C</span>
-  <span class="ix-title">Architecture</span>
-  <span class="ix-desc">live token-flow diagram across the agent pipeline</span>
-</div>
-<div id="tab-arch" class="tab-panel" style="display:none">
-  <div class="panel" style="flex:1">
-    <div class="ph">Live Architecture — Token Flow Diagram
-      <div style="display:flex;gap:5px;align-items:center">
-        <span class="badge-rag">RAG</span><span class="badge-reason">REASON</span><span class="badge-guard">GUARD</span>
-        <span class="badge" id="arch-status">Idle</span>
-      </div>
-    </div>
-    <canvas id="arch-canvas" height="480"></canvas>
-  </div>
-  <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px">
-    <div class="mcard"><div class="mlabel">Active node</div><div class="mval" id="arch-active-node" style="color:var(--cyan)">—</div><div class="msub" id="arch-active-detail">waiting</div></div>
-    <div class="mcard"><div class="mlabel">Tokens in flight</div><div class="mval" id="arch-tokens-flight" style="color:var(--amber)">0</div><div class="msub">current pipeline</div></div>
-    <div class="mcard"><div class="mlabel">Pipeline stage</div><div class="mval" id="arch-stage" style="color:var(--green)">—</div><div class="msub" id="arch-stage-detail">—</div></div>
-  </div>
-</div>
-
 <!-- ═══ TAB: TOKENS ═══ -->
 <div class="axiom-section-divider" id="axiom-h-tokens">
   <span class="ix-num">D</span>
@@ -4452,23 +4370,6 @@ For 1M queries/mo with 8 atoms each, FR2 → FR3 adds ~$15K/mo of NLI cost. Use 
   </div>
 </div>
 
-<!-- Live simulation grid removed for production. The static math
-     panels (Cost breakdown, Comparisons, Routing, Stress test) supply
-     all procurement-grade outputs. Real workload validation lives in
-     the bench/ harness. DOM stubs preserved so legacy callers don't
-     error (agent-list, chat-area, tool-log, util-bars, ctx-bars,
-     mini-ledger were animated by the simulation runtime). -->
-<div id="tab-sim" class="tab-panel" style="display:none!important"></div>
-<div id="tab-sim-grid" style="display:none">
-  <span id="agent-count-badge" style="display:none">0</span>
-  <span id="stream-count" style="display:none">0</span>
-  <div id="agent-list" style="display:none"></div>
-  <div id="chat-area" style="display:none"></div>
-  <div id="tool-log" style="display:none"></div>
-  <div id="util-bars" style="display:none"></div>
-  <div id="ctx-bars" style="display:none"></div>
-  <div id="mini-ledger" style="display:none"></div>
-</div>
 
 </div><!-- /root -->
 
