@@ -3975,7 +3975,8 @@ How agents coordinate, billed as extra input tokens per turn per agent.
         <input type="number" id="budget-input" value="10000" style="width:80px" oninput="onSlider()">
         <span id="budget-status" class="badge-ok">OK</span>
         <div style="flex:1"></div>
-        <select id="sim-speed-sel" style="font-size:8px" onchange="onSlider()" title="Simulation speed (replay only)">
+        <label for="sim-speed-sel" style="color:var(--dim);font-size:8px" title="Animation speed of the simulator-panel agent replay below — has no effect on cost.">Replay speed</label>
+        <select id="sim-speed-sel" style="font-size:8px" onchange="onSlider()" title="Animation speed of the simulator-panel agent replay below — no cost effect.">
           <option value="5">0.25×</option><option value="4">0.5×</option><option value="3">1×</option>
           <option value="2" selected>2×</option><option value="1">4×</option><option value="0">8×</option>
         </select>
@@ -4254,7 +4255,15 @@ How agents coordinate, billed as extra input tokens per turn per agent.
             <div class="sr" style="border-top:1px solid var(--b);border-bottom:none"><div class="sr-top"><span class="sr-label" data-tip="Per-message wire-format overhead — role tags, message boundaries, formatting metadata. Small per turn but accumulates across many turns and parallel agents.">IA msg overhead</span><span class="sr-val" id="v-iamsg" style="color:var(--teal)">80</span></div><input type="range" min="0" max="500" value="80" step="20" id="s-iamsg" oninput="onSlider()"></div>
           </div>
           <div style="margin-top:6px;padding:6px 8px;border:1px solid var(--b);border-radius:5px;display:flex;align-items:center;gap:8px;font-size:11px;flex-wrap:wrap">
-            <label for="s-tool-response-mode" style="color:var(--text-primary,#c8d8f0);font-weight:600">Tool return shape</label>
+            <label for="s-tool-response-mode" class="sr-label" style="color:var(--text-primary,#c8d8f0);font-weight:600" data-tip="How tool results flow back into the LLM's context — the single biggest non-cache cost lever in tool-heavy agents.
+
+**Freeform** *(default)*: every tool return goes verbatim into the conversation history. A 2,000-token search result becomes 2,000 tokens of input on the NEXT turn, the turn after, and every turn until the session ends. The feedback loop compounds aggressively — multi-turn agents can balloon to 10–50× the freeform baseline.
+
+**Templated**: the deployment routes every tool return through a centralized response-template layer. The LLM only sees a short status string (e.g. *'search returned 8 items, top result: lakefront_2024.tif'*); the structured payload stays server-side and is fetched on demand. Effective per-tool tokens collapse to the Cap value (default 40).
+
+**Why it matters:** in the paper's anonymized 50K-MAU geospatial workload, the templated-vs-freeform choice was an **~8× measured cost lever** — \$8K/mo templated vs. \$63K/mo freeform at the same traffic. Most production agents leave this on freeform by default; the templated wrapper is a 1-week engineering investment that pays for itself in weeks.
+
+Set Cap above to match your template's actual emission size (40 for status-only, ~120 for error+hint, ~250 for small structured summaries).">Tool return shape</label>
             <select id="s-tool-response-mode" data-bind="tool_response_mode" onchange="onSlider()" style="font-size:11px;border:1px solid var(--b);border-radius:4px;padding:2px 6px">
               <option value="freeform">Freeform — result tokens compound across turns</option>
               <option value="templated">Templated — result tokens capped</option>
