@@ -199,6 +199,14 @@
       w.federal.fedramp_tier = w.deployment.fedrampTier;
     }
     w.defaults = Object.assign({}, blank.defaults, w.defaults || {});
+    // Tools registry — merge the engine's DEFAULT_TOOLS_REGISTRY into
+    // workload.tools_registry so the UI (renderToolsRegistry) sees the
+    // built-in tools even on presets that pre-date the registry. The
+    // engine separately re-merges defaults inside normalizeWorkload,
+    // but UI rendering happens off window.workload, so we need the
+    // merge to happen on the app-side workload reference too.
+    const defaultRegistry = (window.CostEngine && window.CostEngine.DEFAULT_TOOLS_REGISTRY) || {};
+    w.tools_registry = Object.assign({}, defaultRegistry, w.tools_registry || {});
     return w;
   }
 

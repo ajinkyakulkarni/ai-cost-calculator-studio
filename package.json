@@ -10,6 +10,7 @@
   },
   "scripts": {
     "test": "node scripts/test-engine-smoke.js && node scripts/test-apply.js",
+    "test:e2e": "node scripts/test-e2e.js",
     "calc": "node scripts/calc.js",
     "verify-aws": "node scripts/verify-aws-instances.js"
   },
@@ -17,7 +18,15 @@
     "type": "git",
     "url": "git+https://github.com/ajinkyakulkarni/ai-cost-calculator-studio.git"
   },
-  "keywords": ["llm", "ai", "cost-calculator", "agent", "openai", "anthropic", "tco"],
+  "keywords": [
+    "llm",
+    "ai",
+    "cost-calculator",
+    "agent",
+    "openai",
+    "anthropic",
+    "tco"
+  ],
   "author": "Ajinkya Kulkarni <ajinkya.kulkarni@uah.edu>",
   "license": "MIT",
   "bugs": {
@@ -25,6 +34,7 @@
   },
   "homepage": "https://github.com/ajinkyakulkarni/ai-cost-calculator-studio#readme",
   "devDependencies": {
+    "playwright": "^1.60.0",
     "wrangler": "^4.87.0"
   }
 }

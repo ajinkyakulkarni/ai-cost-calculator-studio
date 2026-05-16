@@ -34,3 +34,7 @@ __pycache__/
 # infra endpoints, or credentials that don't belong in a public README.
 CLAUDE.local.md
 *.local.md
+
+# Playwright artifacts
+test-results/
+playwright-report/
