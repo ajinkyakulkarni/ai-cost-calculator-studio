@@ -3032,6 +3032,20 @@
     // schema/RAG/guard slider and the headline didn't move." Promotion is
     // sticky for this session; to restore measured-mode, reload the
     // example preset (the loader resets workload.agents = []).
+    // Per-agent simulator sliders whose first real drag promotes the
+    // workload from measured workload-mode → configuration-derived
+    // agent-mode. Listed in the same order as the UI panels so additions
+    // are easy to spot.
+    //
+    // Explicitly NOT in this set:
+    //   - s-users / s-turns / s-sessions     (drive segments in workload-mode)
+    //   - s-cache / s-cache-write-share      (bidirectional to anchor_query)
+    //   - s-batch                            (workload-mode tier discount)
+    //   - s-retry                            (workload-mode retry inflate)
+    //   - s-peak                             (workload-mode self-host TPS sizing)
+    //   - s-growth                           (projection chart input, not headline)
+    //   - s-lang-mult                        (applied in composeCosts in both modes)
+    //   - s-pauses / s-pause-hrs             (simulator-replay timing — no cost effect)
     const PROMOTE_TRIGGERS = new Set([
       's-agents',
       // Tools / prompt overhead
@@ -3043,18 +3057,30 @@
       // Guardrails
       's-guard-in', 's-guard-out', 's-guard-pii', 's-guard-policy',
       's-guard-block', 's-guard-model',
-      // Hosted tools (OpenAI web search, file search, code interpreter sessions)
+      // Hosted tools
       's-websearch-calls', 's-filesearch-calls', 's-container-sessions',
-      // Multimodal inputs (image / audio / pdf tokens, code-interpreter calls)
+      // Multimodal inputs
       's-images', 's-audio', 's-pdf', 's-codeinterp',
-      // Prompt overhead (few-shot examples, JSON schema, citations, memory)
+      // Prompt overhead
       's-fewshot', 's-jsonschema', 's-citations', 's-memory',
+      // Multi-agent / fleet topology
+      's-comm-pattern', 's-parallel-branches',
+      // Workflow handoff + reruns
+      's-stage-handoff', 's-rerun', 's-template-runs',
+      // Workflow document flow
+      's-doc-pages', 's-doc-pdfs', 's-doc-tok-page', 's-doc-stages-pct',
+      // Function-calling overhead (separate from generic tool calls)
+      's-fc-in', 's-fc-pct', 's-fc-price',
+      // Tool-return shape — paper's 8× cost lever
+      's-tool-response-mode',
+      // Rate-limit / quota / storage cost lines
+      's-concurrent-quota', 's-rate-overage', 's-storage-rate',
     ]);
 
-    document.addEventListener('input', (ev) => {
+    const handleSimChange = (ev) => {
       if (!ev.isTrusted) return;
       const t = ev.target;
-      if (!t || t.tagName !== 'INPUT') return;
+      if (!t || (t.tagName !== 'INPUT' && t.tagName !== 'SELECT')) return;
       const v = parseFloat(t.value);
       if (t.id === 's-users')         scaleSegments('mau',                   v, false);
       else if (t.id === 's-turns')    scaleSegments('questions_per_session', v, true);
@@ -3081,7 +3107,13 @@
           }
         }
       }
-    }, true);
+    };
+    // Capture-phase on document so we run before any target-phase inline
+    // oninput handler — needed by scaleSegments so the slider drag isn't
+    // clobbered by renderPreview's rollup writeback. SELECTs primarily
+    // fire 'change' not 'input', so we register for both.
+    document.addEventListener('input',  handleSimChange, true);
+    document.addEventListener('change', handleSimChange, true);
 
     // (Appbar example-loader removed — unified into the chat-builder
     // "Describe your AI system" picker. The handler below was looking
