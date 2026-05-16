@@ -1304,12 +1304,27 @@
     // silently exceed a $10K budget without firing the OVER badge.
     window.__lastHeadlineMonthly = headlineTotal;
 
-    // 3-year TCO: monthly LLM/fixed/federal × 36 + (one-time setup × 1, NOT × 36).
-    // For self-host, setup_amortized is already a monthly number (annual setup ÷ 12).
-    // Real 3-yr TCO multiplies the monthly recurring by 36, but adds setup ONCE (already amortized into the 12-month view).
-    // For consistency we use: 3yr = monthlyTotal × 36.
-    const annualTotal = headlineTotal * 12;
-    const threeYearTotal = headlineTotal * 36;
+    // Annual + 3-year TCO. The cost-over-time projection chart and the
+    // topbar pill's /3yr supplement both need to compound the monthly
+    // baseline by the Growth/month slider (otherwise the slider visibly
+    // does nothing — a long-running confusion).
+    //
+    //   sum_{m=1..N} baseline·(1+r)^(m-1)
+    //     = baseline·N                                  (r=0)
+    //     = baseline·((1+r)^N - 1) / r                  (r>0)
+    //
+    // setup_amortized is already a monthly number for self-host (annual
+    // setup ÷ 12), so the growth-compounded recurring sum is the right
+    // TCO without an extra one-time term.
+    const _growthEl = document.getElementById('s-growth');
+    const _growthPct = _growthEl ? parseFloat(_growthEl.value) : 0;
+    const _growthRate = Number.isFinite(_growthPct) ? _growthPct / 100 : 0;
+    const cumulativeOverMonths = (months) => {
+      if (_growthRate === 0) return headlineTotal * months;
+      return headlineTotal * (Math.pow(1 + _growthRate, months) - 1) / _growthRate;
+    };
+    const annualTotal = cumulativeOverMonths(12);
+    const threeYearTotal = cumulativeOverMonths(36);
     const tcoPeriod = (document.querySelector('input[name="tco-period"]:checked') || {}).value || 'monthly';
     const tcoLabel = tcoPeriod === 'annual' ? 'Annual cost' : tcoPeriod === '3yr' ? '3-year cumulative cost' : 'Total monthly cost';
     const tcoValue = tcoPeriod === 'annual' ? annualTotal : tcoPeriod === '3yr' ? threeYearTotal : headlineTotal;
@@ -3054,14 +3069,13 @@
     // are easy to spot.
     //
     // Explicitly NOT in this set:
-    //   - s-users / s-turns / s-sessions     (drive segments in workload-mode)
-    //   - s-cache / s-cache-write-share      (bidirectional to anchor_query)
-    //   - s-batch                            (workload-mode tier discount)
-    //   - s-retry                            (workload-mode retry inflate)
+    //   - s-users / s-turns / s-sessions     (capture-listener scales segments in workload-mode)
+    //   - s-cache                            (bidirectional listener to anchor_query.cache_rate_baseline)
+    //   - s-retry                            (workload-mode retry inflate, app.js feeds it to cost-engine)
     //   - s-peak                             (workload-mode self-host TPS sizing)
-    //   - s-growth                           (projection chart input, not headline)
-    //   - s-lang-mult                        (applied in composeCosts in both modes)
-    //   - s-pauses / s-pause-hrs             (simulator-replay timing — no cost effect)
+    //   - s-growth                           (projection chart input + /3yr pill supplement, not the
+    //                                         monthly headline — visible via pill's /3yr number)
+    //   - s-pauses / s-pause-hrs             (no cost effect anywhere)
     const PROMOTE_TRIGGERS = new Set([
       's-agents',
       // Tools / prompt overhead
@@ -3091,6 +3105,14 @@
       's-tool-response-mode', 's-tool-templated-cap',
       // Rate-limit / quota / storage cost lines
       's-concurrent-quota', 's-rate-overage', 's-storage-rate',
+      // Simulator-only knobs that previously appeared to do nothing in
+      // workload-mode because they're consumed by the simulator's own
+      // computeCost (not by cost-engine.js). Promotion lets them flow
+      // through autoSync into per-agent token / pricing math.
+      //   - s-batch              : batch-tier share split (simulator pricedInputCost)
+      //   - s-lang-mult          : language multiplier on input+output (simulator resolvePricingTier)
+      //   - s-cache-write-share  : cache-write premium share (simulator's effective cached rate)
+      's-batch', 's-lang-mult', 's-cache-write-share',
     ]);
 
     const handleSimChange = (ev) => {
