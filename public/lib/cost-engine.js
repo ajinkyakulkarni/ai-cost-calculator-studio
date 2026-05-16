@@ -666,11 +666,28 @@
   // overcharging by ~atoms× — the paper's per-query interpretation is
   // correct and the multiplication has been removed.
   const VARIANT_NLI_CALLS = { fr1: 24, fr2: 160, fr3: 350 };
-  // Flat monthly $ for self-hosting NLI on the listed GPU SKU
-  // (g6.xlarge / g5.xlarge on AWS, on-demand pricing). Used as the
-  // "self-host NLI" branch of computeVerification — alternative is
-  // routing NLI calls to the main API provider at per-token rates.
-  const NLI_HOSTING_FLAT = { 'ec2-g6': 588, 'ec2-g5': 735 };
+  // Flat monthly $ for hosting modes that price by capacity rather than
+  // per-token. EC2 entries are on-demand AWS GPU pricing (24/7 × 730h).
+  // Bedrock provisioned throughput buys a "model unit" reservation at
+  // ~$15/hr → ~$11K/mo for one unit; Azure PTU (Provisioned Throughput
+  // Unit) is roughly the same shape. Both are appropriate for steady
+  // high-volume verification where flat-rate beats per-token; use the
+  // crossover hint near the dropdown to pick.
+  const NLI_HOSTING_FLAT = {
+    'ec2-g6':              588,    // g6.xlarge on-demand × 730h
+    'ec2-g5':              735,    // g5.xlarge on-demand × 730h
+    'bedrock-provisioned': 10950,  // 1 model unit × $15/hr × 730h
+    'azure-ptu':           10000,  // 1 PTU × ~$13.70/hr × 730h
+  };
+  // Per-token-priced hosting modes. Multiplier applied to the resolved
+  // per-token cost from the rate card. Bedrock on-demand and Azure
+  // OpenAI typically bill at parity with the source provider's direct
+  // API for the same model — kept as 1.0× until we observe drift.
+  const NLI_HOSTING_TOKEN_MULT = {
+    'api':              1.0,
+    'bedrock-ondemand': 1.0,
+    'azure-openai':     1.0,
+  };
 
   function computeVerification(workload, monthlyQueries, options) {
     const w = workload;
@@ -709,12 +726,14 @@
     const reviserPerQuery = atoms * tokenCost(v.reviser_tokens || { input: 500, output: 30 });
     const nliHosting = opts.nliHosting || v.nli_hosting || 'api';
     let nliMonthly;
-    if (nliHosting === 'api') {
-      const nliPerCall = tokenCost(v.nli_tokens || { input: 1200, output: 20 });
+    if (NLI_HOSTING_TOKEN_MULT[nliHosting] != null) {
+      // Per-token hosting (direct API / Bedrock on-demand / Azure OpenAI).
       // nliCallsPerQuery is the per-query total, NOT per-atom — do not
       // multiply by `atoms` again. See VARIANT_NLI_CALLS comment.
-      nliMonthly = verifiedQueries * nliCallsPerQuery * nliPerCall;
+      const nliPerCall = tokenCost(v.nli_tokens || { input: 1200, output: 20 });
+      nliMonthly = verifiedQueries * nliCallsPerQuery * nliPerCall * NLI_HOSTING_TOKEN_MULT[nliHosting];
     } else {
+      // Flat-rate hosting (EC2 / Bedrock provisioned / Azure PTU).
       nliMonthly = NLI_HOSTING_FLAT[nliHosting] || 0;
     }
 
