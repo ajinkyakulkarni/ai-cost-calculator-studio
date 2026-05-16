@@ -1236,7 +1236,10 @@ function toggleSim(){
   if(sim.running){converged=false;costHistory=[];const cb=document.getElementById('conv-banner');if(cb)cb.className='conv-banner';btn.textContent='STOP';btn.className='sim-btn stop';st.textContent='RUNNING';st.style.color='var(--amber)';dot.style.background='var(--amber)';document.getElementById('empty-msg')?.remove();buildAgents();buildUsers();renderAgents();showTab('sim');scheduleTicks();}
   else{btn.textContent='START';btn.className='sim-btn';st.textContent='PAUSED';st.style.color='var(--red)';dot.style.background='var(--red)';clearInterval(sim.tickInterval);sim.tickInterval=null;}
 }
-function scheduleTicks(){const spds=[2000,1100,650,350,160,80];sim.tickInterval=setInterval(runTick,spds[parseInt(document.getElementById('sim-speed-sel')?.value||2)]);}
+// Replay-speed selector was removed when the simulator START button was
+// hidden (no longer reachable from the UI). If runTick is ever resurrected
+// via devtools toggleSim(), it now ticks at the legacy 2x default (650ms).
+function scheduleTicks(){sim.tickInterval=setInterval(runTick,650);}
 
 async function runTick(){
   if(sim.processing)return;sim.processing=true;clearInterval(sim.tickInterval);

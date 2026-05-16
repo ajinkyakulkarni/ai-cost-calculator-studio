@@ -3974,12 +3974,6 @@ How agents coordinate, billed as extra input tokens per turn per agent.
         <label style="color:var(--dim);font-size:8px" class="sr-label" data-tip="Monthly budget ceiling. The optimizer below compares projected cost against this and suggests specific knob adjustments to fit. Set to your actual approved budget.">Budget ($/mo)</label>
         <input type="number" id="budget-input" value="10000" style="width:80px" oninput="onSlider()">
         <span id="budget-status" class="badge-ok">OK</span>
-        <div style="flex:1"></div>
-        <label for="sim-speed-sel" style="color:var(--dim);font-size:8px" title="Animation speed of the simulator-panel agent replay below — has no effect on cost.">Replay speed</label>
-        <select id="sim-speed-sel" style="font-size:8px" onchange="onSlider()" title="Animation speed of the simulator-panel agent replay below — no cost effect.">
-          <option value="5">0.25×</option><option value="4">0.5×</option><option value="3">1×</option>
-          <option value="2" selected>2×</option><option value="1">4×</option><option value="0">8×</option>
-        </select>
       </div>
       <!-- Budget heuristic optimizer — when projected cost > budget, lists
            specific knob adjustments ranked by $ savings per knob. The
