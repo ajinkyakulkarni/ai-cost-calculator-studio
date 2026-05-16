@@ -1253,6 +1253,16 @@
       costMode: val('prev-cost-mode', workload.defaults.cost_mode),
       botFactor: numVal('prev-bot', 1.5),
       cacheRate: cacheFromAxiom !== null ? cacheFromAxiom : numVal('prev-cache', workload.anchor_query.cache_rate_baseline),
+      // s-cache-write-share threads the per-million premium for first-write
+      // cached tokens (Anthropic 1.25×–2× input, OpenAI 0× auto-prefix).
+      // Without this, the cost engine fell back to 0 (read-only blend) and
+      // the slider was visibly dead. Slider is 0-100%; engine wants 0-1.
+      cacheWriteShare: (() => {
+        const el = document.getElementById('s-cache-write-share');
+        if (!el) return undefined;
+        const v = parseFloat(el.value);
+        return Number.isFinite(v) ? v / 100 : undefined;
+      })(),
       verifCoverage: numVal('prev-verif', 0),
       // Threaded into the engine so Migration Timeline phase costs match
       // the canonical headline (engine applies it inside computeMigration).
@@ -3111,8 +3121,11 @@
       // through autoSync into per-agent token / pricing math.
       //   - s-batch              : batch-tier share split (simulator pricedInputCost)
       //   - s-lang-mult          : language multiplier on input+output (simulator resolvePricingTier)
-      //   - s-cache-write-share  : cache-write premium share (simulator's effective cached rate)
-      's-batch', 's-lang-mult', 's-cache-write-share',
+      's-batch', 's-lang-mult',
+      // NOTE: s-cache-write-share intentionally NOT here — it now flows
+      // through opts.cacheWriteShare into cost-engine.js (Eq. 2 cached-
+      // rate blend), so it affects both workload-mode and agent-mode
+      // without needing to promote.
     ]);
 
     const handleSimChange = (ev) => {
