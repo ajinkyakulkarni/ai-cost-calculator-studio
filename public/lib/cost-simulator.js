@@ -1150,7 +1150,23 @@ function agentRangeCtl(a,scope,k,label,min,max,step,color,type='int'){
   const v=a[k]??0;const lid=`a-${scope}-${a.id}-${k}`;const cast=type==='float'?'parseFloat(this.value)':'parseInt(this.value)';
   return `<div class="agent-mini-range"><div class="mini-label"><span>${label}</span><span class="mini-val" id="${lid}" style="color:${color}">${fmtAgentVal(k,v)}</span></div><input type="range" min="${min}" max="${max}" value="${v}" step="${step}" oninput="setAP(${a.id},'${k}',${cast},'${lid}',v=>fmtAgentVal('${k}',v))"></div>`;
 }
-function agentSection(title,color,on,body){return `<div class="agent-detail-section" style="border-color:${on?color+'44':'var(--b)'};opacity:${on?1:.45}"><div class="agent-section-title" style="color:${color}"><span>${title}</span><span style="font-size:7px;color:${on?color:'var(--dimmer)'}">${on?'active':'off - values retained'}</span></div><div class="agent-edit-grid">${body}</div></div>`;}
+function agentSection(title,color,on,body){
+  // OFF state: distinguish via border + a tinted muted status pill, but
+  // keep slider values + section heading legible (opacity:0.45 prior
+  // crushed every value to unreadable). Active stays color-saturated.
+  const borderColor = on ? color + '66' : 'var(--b)';
+  const titleColor  = on ? color : 'var(--ink-2,#3a3a3a)';
+  const statusBg    = on ? color + '18' : 'rgba(180,180,180,0.10)';
+  const statusFg    = on ? color : 'var(--ink-2,#3a3a3a)';
+  const statusText  = on ? 'ACTIVE' : 'OFF — values retained';
+  return `<div class="agent-detail-section" style="border-color:${borderColor}">
+    <div class="agent-section-title" style="color:${titleColor}">
+      <span>${title}</span>
+      <span style="font-size:8px;font-weight:600;letter-spacing:0.04em;padding:1px 5px;border-radius:3px;background:${statusBg};color:${statusFg}">${statusText}</span>
+    </div>
+    <div class="agent-edit-grid">${body}</div>
+  </div>`;
+}
 function taskBiasSelect(a){return `<select onchange="setAP(${a.id},'task_bias',this.value)" style="width:100%;font-size:8px"><option value="" ${!a.task_bias?'selected':''}>Balanced mix</option>${TASK_TYPES.map(t=>`<option value="${t.id}" ${a.task_bias===t.id?'selected':''}>${t.label}</option>`).join('')}</select>`;}
 function agentCardHtml(a,scope){
   const m=MODELS[a.model]||MODELS['claude-sonnet-4.6'];
