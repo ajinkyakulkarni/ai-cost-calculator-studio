@@ -222,14 +222,18 @@
   function updateHostingDependentVisibility(hosting) {
     const reservations = document.getElementById('sec-reservations');
     const selfhost     = document.getElementById('sec-selfhost');
-    if (reservations) {
-      const showRes = hosting === 'api' || hosting === 'hybrid';
-      reservations.style.display = showRes ? '' : 'none';
-    }
-    if (selfhost) {
-      const showSelf = hosting === 'self' || hosting === 'hybrid';
-      selfhost.style.display = showSelf ? '' : 'none';
-    }
+    // Auto-expand a section when it becomes visible (so the user actually
+    // sees the controls without hunting for the chevron). On collapse,
+    // close it so a re-show doesn't pop open stale content.
+    const setVis = (el, shouldShow) => {
+      if (!el) return;
+      const wasShown = el.style.display !== 'none';
+      el.style.display = shouldShow ? '' : 'none';
+      if (shouldShow && !wasShown) el.classList.add('open');
+      else if (!shouldShow) el.classList.remove('open');
+    };
+    setVis(reservations, hosting === 'api' || hosting === 'hybrid');
+    setVis(selfhost,     hosting === 'self' || hosting === 'hybrid');
   }
 
   // -----------------------------------------------------------------
