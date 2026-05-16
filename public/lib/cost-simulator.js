@@ -1331,22 +1331,15 @@ function normalizeAgentTurns(){const n=sim.agents.length||1;const sum=sim.agents
 
 /* ═══════ KPIs ═══════ */
 function updateKPIs(){
-  const tot=sim.totalIn+sim.totalOut;
-  document.getElementById('kpi-tokens').textContent=tot.toLocaleString();
-  document.getElementById('kpi-tr').textContent='p90:'+Math.round(p90(tot)).toLocaleString();
-  document.getElementById('kpi-cost').textContent='$'+sim.totalCost.toFixed(4);
-  document.getElementById('kpi-cr').textContent='p90:$'+p90(sim.totalCost).toFixed(4);
-  const monthly=sim.totalCost*(cfg('s-sessions')*30/Math.max(sim.apiCalls,1));
-  document.getElementById('kpi-monthly').textContent='$'+Math.round(monthly).toLocaleString();
-  document.getElementById('kpi-mr').textContent='p90:$'+Math.round(p90(monthly)).toLocaleString();
-  document.getElementById('kpi-rag').textContent=sim.ragTok.toLocaleString();
-  document.getElementById('kpi-reason').textContent=sim.reasonTok.toLocaleString();
-  document.getElementById('kpi-guard').textContent=sim.guardTok.toLocaleString();
-  document.getElementById('kpi-calls').textContent=sim.apiCalls.toLocaleString();
-  document.getElementById('kpi-er').textContent=sim.errCount+' err';
-  document.getElementById('arch-status').textContent=sim.running?'Running':'Idle';
-  const sc=computeCost();
-  document.getElementById('kpi-rag').textContent=(sim.ragTok||Math.round(sc.ragTokPerTurn*cfg('s-turns')*cfg('s-agents'))).toLocaleString();
+  // Gutted 2026-05-16: the kpi-* and arch-status DOM stubs this function
+  // wrote to all live inside the topbar block at index.html:3747+ which
+  // has been display:none since the per-agent redesign (their comments
+  // already noted 'whole block hidden; kept so legacy JS can write to
+  // these IDs without throwing'). The simulator-replay loop that fed
+  // sim.totalIn/totalOut/etc. is also gone (runTick deleted in 3448738),
+  // so even if the panel were re-shown, the values would all be 0.
+  // Kept as a no-op function so the many onSlider/renderLedger/etc.
+  // call sites stay valid; remove the call sites in a future pass.
 }
 
 /* ═══════ ONSLIDER ═══════ */
@@ -1505,7 +1498,8 @@ function iPts(){bPs=Array.from({length:20},()=>({x:Math.random()*bW,y:Math.rando
 function dBg(){bgX.clearRect(0,0,bW,bH);bPs.forEach(p=>{p.x+=p.vx;p.y+=p.vy;if(p.x<0||p.x>bW)p.vx*=-1;if(p.y<0||p.y>bH)p.vy*=-1;bgX.globalAlpha=.1;bgX.fillStyle=document.body.classList.contains('theme-tactical')?'#00d4ff':'#0077cc';bgX.beginPath();bgX.arc(p.x,p.y,p.r,0,Math.PI*2);bgX.fill();bPs.forEach(q=>{const d=Math.hypot(p.x-q.x,p.y-q.y);if(d<70){bgX.globalAlpha=(1-d/70)*.025;bgX.strokeStyle=document.body.classList.contains('theme-tactical')?'#00d4ff':'#0077cc';bgX.lineWidth=.4;bgX.beginPath();bgX.moveTo(p.x,p.y);bgX.lineTo(q.x,q.y);bgX.stroke();}});});bgX.globalAlpha=1;requestAnimationFrame(dBg);}
 rzBg();iPts();dBg();window.addEventListener('resize',()=>{rzBg();iPts();});
 
-function spawnSparks(){const vfx=document.getElementById('vfx');['RAG','GUARD','CoT','BPE','p90'].forEach((sym,i)=>{setTimeout(()=>{const s=document.createElement('div');s.className='spark';s.textContent=sym;s.style.left=(15+Math.random()*70)+'%';s.style.top=(25+Math.random()*55)+'%';s.style.color=['var(--rag)','var(--guard)','var(--reason)','var(--cyan)','var(--amber)'][i];vfx.appendChild(s);setTimeout(()=>s.remove(),1000);},i*65);});}
+// spawnSparks() removed — only ever called from runTick (deleted in
+// 3448738); fired animated overlay sparks during the live replay.
 function shuffle(a){return[...a].sort(()=>Math.random()-.5);}
 function wait(ms){return new Promise(r=>setTimeout(r,ms));}
 function now(){return new Date().toLocaleTimeString('en-US',{hour12:false,hour:'2-digit',minute:'2-digit',second:'2-digit'});}
