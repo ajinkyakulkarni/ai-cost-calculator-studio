@@ -3088,7 +3088,7 @@
       // Function-calling overhead (separate from generic tool calls)
       's-fc-in', 's-fc-pct', 's-fc-price',
       // Tool-return shape — paper's 8× cost lever
-      's-tool-response-mode',
+      's-tool-response-mode', 's-tool-templated-cap',
       // Rate-limit / quota / storage cost lines
       's-concurrent-quota', 's-rate-overage', 's-storage-rate',
     ]);
