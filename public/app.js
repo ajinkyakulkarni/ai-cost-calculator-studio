@@ -310,38 +310,76 @@
     const reg = workload.tools_registry;
     const entries = Object.entries(reg);
     const SHAPES = ['per_call', 'per_session', 'free'];
-    // Two-row card per tool: row 1 = label + description (full width),
-    // row 2 = edit controls in a 6-column grid. Avoids the horizontal-
-    // cramming bug where the 7-column single-row layout truncated every
-    // input below readability at the panel's width.
-    const rowHtml = (id, t) => `
-      <div data-tool-id="${id}" style="padding:9px 10px;background:rgba(0,0,0,0.02);border:1px solid var(--rule);border-radius:5px;font-size:12px">
-        <div style="display:flex;align-items:center;gap:8px;margin-bottom:7px">
-          <input type="text" data-field="label" value="${(t.label || id).replace(/"/g,'&quot;')}" style="flex:1;font-size:13px;font-weight:600;padding:3px 6px;border:1px solid var(--rule);border-radius:3px" placeholder="Tool name">
+    // Collapsible card per tool, like the agent card pattern. Built-in
+    // rows default collapsed (procurement reviewers rarely re-price the
+    // OpenAI list rate); custom rows default expanded (user just added
+    // it). Expansion state lives in a side Set so workload JSON stays
+    // clean — no _expanded keys polluting the share URL.
+    if (!window.__expandedTools) window.__expandedTools = new Set();
+    const rateHint = (t) => {
+      if (t.cost_shape === 'free' || !t.rate_usd) return 'free';
+      if (t.cost_shape === 'per_session') return '$' + (t.rate_usd).toFixed(3) + '/sess';
+      return '$' + (t.rate_usd * 1000).toFixed(2) + '/1k';
+    };
+    const rowHtml = (id, t) => {
+      const expanded = window.__expandedTools.has(id);
+      const label = (t.label || id).replace(/"/g,'&quot;');
+      const desc = (t.description || '').replace(/"/g,'&quot;');
+      return `
+      <div data-tool-id="${id}" style="background:rgba(0,0,0,0.02);border:1px solid var(--rule);border-radius:5px;font-size:12px;overflow:hidden">
+        <div data-tool-header="${id}" style="display:flex;align-items:center;gap:10px;padding:8px 10px;cursor:pointer;user-select:none;${expanded ? 'border-bottom:1px solid var(--rule)' : ''}" title="Click to ${expanded ? 'collapse' : 'expand'}">
+          <span style="display:inline-block;width:10px;font-family:var(--mono);color:var(--muted);transition:transform .15s;${expanded ? 'transform:rotate(90deg)' : ''}">▶</span>
+          <strong style="flex:1;font-size:13px">${label}</strong>
+          <span style="font-size:10px;padding:1px 6px;border-radius:3px;background:rgba(0,0,0,0.05);color:var(--ink-2,#3a4a62);font-weight:600">${t.cost_shape || 'per_call'}</span>
+          <span style="font-size:11px;color:var(--ink-2,#3a4a62);font-family:var(--mono);min-width:80px;text-align:right">${rateHint(t)}</span>
           ${t.builtin
-            ? '<span style="font-size:10px;color:var(--muted);padding:2px 6px;border:1px solid var(--rule);border-radius:3px" title="Built-in tool: rate / token estimates can be edited; row cannot be removed">BUILTIN</span>'
-            : `<button type="button" data-remove="${id}" style="background:none;border:1px solid var(--rule);color:var(--bad,#b3333d);font-size:14px;cursor:pointer;padding:2px 8px;border-radius:3px" title="Remove this tool">× remove</button>`}
+            ? '<span style="font-size:9px;color:var(--muted);padding:1px 5px;border:1px solid var(--rule);border-radius:3px">BUILTIN</span>'
+            : `<button type="button" data-remove="${id}" onclick="event.stopPropagation()" style="background:none;border:1px solid var(--rule);color:var(--bad,#b3333d);font-size:13px;cursor:pointer;padding:1px 7px;border-radius:3px" title="Remove this tool">×</button>`}
         </div>
-        <input type="text" data-field="description" value="${(t.description || '').replace(/"/g,'&quot;')}" style="width:100%;font-size:11px;color:var(--ink-2,#3a4a62);padding:3px 6px;border:1px dashed var(--rule);border-radius:3px;margin-bottom:8px" placeholder="(optional description — what does this tool do?)">
-        <div style="display:grid;grid-template-columns:repeat(auto-fit, minmax(115px, 1fr));gap:6px">
-          <label style="font-size:10px;color:var(--muted)"><span style="display:block;text-transform:uppercase;letter-spacing:0.04em;margin-bottom:2px">Cost shape</span>
-            <select data-field="cost_shape" style="width:100%;font-size:11px;padding:3px 5px">
-              ${SHAPES.map(s => `<option value="${s}" ${(t.cost_shape||'per_call')===s?'selected':''}>${s}</option>`).join('')}
-            </select></label>
-          <label style="font-size:10px;color:var(--muted)"><span style="display:block;text-transform:uppercase;letter-spacing:0.04em;margin-bottom:2px">Rate (USD)</span>
-            <input type="number" min="0" step="0.001" data-field="rate_usd" value="${t.rate_usd || 0}" style="width:100%;font-size:12px;padding:3px 5px;font-family:var(--mono)" title="USD per call (per_call) / per session (per_session) / 0 (free)"></label>
-          <label style="font-size:10px;color:var(--muted)"><span style="display:block;text-transform:uppercase;letter-spacing:0.04em;margin-bottom:2px">Schema tok</span>
-            <input type="number" min="0" step="10" data-field="schema_tokens" value="${t.schema_tokens || 0}" style="width:100%;font-size:12px;padding:3px 5px;font-family:var(--mono)" title="Tokens added to system prompt for this tool's schema"></label>
-          <label style="font-size:10px;color:var(--muted)"><span style="display:block;text-transform:uppercase;letter-spacing:0.04em;margin-bottom:2px">Result tok avg</span>
-            <input type="number" min="0" step="50" data-field="result_tokens_avg" value="${t.result_tokens_avg || 0}" style="width:100%;font-size:12px;padding:3px 5px;font-family:var(--mono)" title="Average tokens of tool result fed back to context"></label>
-          <label style="font-size:10px;color:var(--muted)"><span style="display:block;text-transform:uppercase;letter-spacing:0.04em;margin-bottom:2px">Provider</span>
-            <input type="text" data-field="provider" value="${(t.provider || 'managed').replace(/"/g,'&quot;')}" style="width:100%;font-size:11px;padding:3px 5px" title="Provider name (managed / self-hosted / bedrock / azure / etc.)"></label>
+        <div data-tool-body="${id}" style="${expanded ? '' : 'display:none;'}padding:9px 10px">
+          <input type="text" data-field="label" value="${label}" style="width:100%;font-size:13px;font-weight:600;padding:3px 6px;border:1px solid var(--rule);border-radius:3px;margin-bottom:6px" placeholder="Tool name" aria-label="Tool name">
+          <input type="text" data-field="description" value="${desc}" style="width:100%;font-size:11px;color:var(--ink-2,#3a4a62);padding:3px 6px;border:1px dashed var(--rule);border-radius:3px;margin-bottom:8px" placeholder="(optional description — what does this tool do?)" aria-label="Tool description">
+          <div style="display:grid;grid-template-columns:repeat(auto-fit, minmax(115px, 1fr));gap:6px">
+            <label style="font-size:10px;color:var(--muted)"><span style="display:block;text-transform:uppercase;letter-spacing:0.04em;margin-bottom:2px">Cost shape</span>
+              <select data-field="cost_shape" style="width:100%;font-size:11px;padding:3px 5px">
+                ${SHAPES.map(s => `<option value="${s}" ${(t.cost_shape||'per_call')===s?'selected':''}>${s}</option>`).join('')}
+              </select></label>
+            <label style="font-size:10px;color:var(--muted)"><span style="display:block;text-transform:uppercase;letter-spacing:0.04em;margin-bottom:2px">Rate (USD)</span>
+              <input type="number" min="0" step="0.001" data-field="rate_usd" value="${t.rate_usd || 0}" style="width:100%;font-size:12px;padding:3px 5px;font-family:var(--mono)" title="USD per call (per_call) / per session (per_session) / 0 (free)"></label>
+            <label style="font-size:10px;color:var(--muted)"><span style="display:block;text-transform:uppercase;letter-spacing:0.04em;margin-bottom:2px">Schema tok</span>
+              <input type="number" min="0" step="10" data-field="schema_tokens" value="${t.schema_tokens || 0}" style="width:100%;font-size:12px;padding:3px 5px;font-family:var(--mono)" title="Tokens added to system prompt for this tool's schema"></label>
+            <label style="font-size:10px;color:var(--muted)"><span style="display:block;text-transform:uppercase;letter-spacing:0.04em;margin-bottom:2px">Result tok avg</span>
+              <input type="number" min="0" step="50" data-field="result_tokens_avg" value="${t.result_tokens_avg || 0}" style="width:100%;font-size:12px;padding:3px 5px;font-family:var(--mono)" title="Average tokens of tool result fed back to context"></label>
+            <label style="font-size:10px;color:var(--muted)"><span style="display:block;text-transform:uppercase;letter-spacing:0.04em;margin-bottom:2px">Provider</span>
+              <input type="text" data-field="provider" value="${(t.provider || 'managed').replace(/"/g,'&quot;')}" style="width:100%;font-size:11px;padding:3px 5px" title="Provider name (managed / self-hosted / bedrock / azure / etc.)"></label>
+          </div>
         </div>
       </div>
-    `;
-    const headerHtml = `<div style="font-size:9px;color:var(--muted);text-transform:uppercase;letter-spacing:0.04em;font-weight:600;padding:0 4px;margin-bottom:2px">Registered tools</div>`;
+    `;};
+    const headerHtml = `<div style="display:flex;align-items:center;justify-content:space-between;font-size:9px;color:var(--muted);text-transform:uppercase;letter-spacing:0.04em;font-weight:600;padding:0 4px;margin-bottom:2px"><span>Registered tools (${entries.length})</span><span style="display:flex;gap:6px"><button type="button" id="tools-expand-all" style="background:none;border:1px solid var(--rule);font-size:9px;color:var(--muted);padding:1px 6px;border-radius:3px;cursor:pointer">Expand all</button><button type="button" id="tools-collapse-all" style="background:none;border:1px solid var(--rule);font-size:9px;color:var(--muted);padding:1px 6px;border-radius:3px;cursor:pointer">Collapse all</button></span></div>`;
     host.innerHTML = headerHtml + entries.map(([id, t]) => rowHtml(id, t)).join('') +
       `<button type="button" id="add-tool-btn" style="margin-top:4px;padding:5px 10px;border:1px dashed var(--cyan,#0c8db3);background:rgba(0,212,255,0.05);color:var(--cyan,#0c8db3);border-radius:3px;font-size:11px;cursor:pointer;font-weight:600">+ Add custom tool</button>`;
+
+    // Wire collapsible headers
+    host.querySelectorAll('[data-tool-header]').forEach(h => {
+      h.addEventListener('click', () => {
+        const tid = h.getAttribute('data-tool-header');
+        if (window.__expandedTools.has(tid)) window.__expandedTools.delete(tid);
+        else window.__expandedTools.add(tid);
+        renderToolsRegistry();
+      });
+    });
+    // Wire expand-all / collapse-all
+    const expAll = document.getElementById('tools-expand-all');
+    if (expAll) expAll.addEventListener('click', () => {
+      entries.forEach(([id]) => window.__expandedTools.add(id));
+      renderToolsRegistry();
+    });
+    const colAll = document.getElementById('tools-collapse-all');
+    if (colAll) colAll.addEventListener('click', () => {
+      window.__expandedTools.clear();
+      renderToolsRegistry();
+    });
 
     // Wire input bindings
     host.querySelectorAll('[data-field]').forEach(el => {
@@ -389,6 +427,8 @@
         provider: 'self-hosted',
         builtin: false,
       };
+      // Auto-expand newly added tools so the user sees the edit fields.
+      window.__expandedTools.add(newId);
       renderToolsRegistry();
       renderPreview();
     });
@@ -400,15 +440,16 @@
     for (const [name, shape] of Object.entries(workload.shapes)) {
       const div = document.createElement('div');
       div.className = 'item';
+      const safe = name.replace(/[^a-z0-9-]/gi, '_');
       div.innerHTML = `
-        <button class="item-remove" data-shape-remove="${name}">remove</button>
+        <button class="item-remove" data-shape-remove="${name}" aria-label="Remove shape ${name}">remove</button>
         <div class="item-title">${name}</div>
         <div class="row grid-3">
-          <div><label>Input factor</label><input type="number" step="0.01" value="${shape.input_factor}" data-shape="${name}" data-key="input_factor"></div>
-          <div><label>Output factor</label><input type="number" step="0.01" value="${shape.output_factor}" data-shape="${name}" data-key="output_factor"></div>
-          <div><label>Cache eligible</label><select data-shape="${name}" data-key="cache_eligible"><option value="true"${shape.cache_eligible?' selected':''}>yes</option><option value="false"${!shape.cache_eligible?' selected':''}>no</option></select></div>
+          <div><label for="shape-${safe}-input">Input factor</label><input id="shape-${safe}-input" type="number" min="0" step="0.01" value="${shape.input_factor}" data-shape="${name}" data-key="input_factor"></div>
+          <div><label for="shape-${safe}-output">Output factor</label><input id="shape-${safe}-output" type="number" min="0" step="0.01" value="${shape.output_factor}" data-shape="${name}" data-key="output_factor"></div>
+          <div><label for="shape-${safe}-cache">Cache eligible</label><select id="shape-${safe}-cache" data-shape="${name}" data-key="cache_eligible"><option value="true"${shape.cache_eligible?' selected':''}>yes</option><option value="false"${!shape.cache_eligible?' selected':''}>no</option></select></div>
         </div>
-        <div class="row"><label>Description</label><input type="text" value="${shape.description || ''}" data-shape="${name}" data-key="description"></div>
+        <div class="row"><label for="shape-${safe}-desc">Description</label><input id="shape-${safe}-desc" type="text" value="${shape.description || ''}" data-shape="${name}" data-key="description"></div>
       `;
       list.appendChild(div);
     }
