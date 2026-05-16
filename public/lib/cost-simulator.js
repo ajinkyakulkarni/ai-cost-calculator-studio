@@ -970,154 +970,11 @@ function renderModelSelector(){
   if(mi&&sm){const cached=sm.cacheRead!=null?('$'+sm.cacheRead+'/1M cached input'):'no published cache read discount';mi.textContent=`${sm.label||selectedModel} (${sm.api_id||selectedModel}) · ctx:${(sm.ctx/1000).toFixed(0)}k · input:${sm.in}/1M · output:${sm.out}/1M · ${cached} · batch disc:${Math.round((sm.bd||0)*100)}%${sm.longThreshold?' · long tier >'+Math.round(sm.longThreshold/1000)+'k ctx':''} · verified:${MODEL_PRICE_VERIFIED}`;}
 }
 function selectModel(k){selectedModel=k;renderModelSelector();onSlider();}
-
-/* ═══════ ARCHITECTURE DIAGRAM ═══════ */
-const ARCH_NODES={
-  users:    {x:.05,y:.45,w:.10,h:.12,label:'Users',color:'#c8d8f0',icon:'👤'},
-  ctx:      {x:.22,y:.38,w:.12,h:.14,label:'Context\nAssembler',color:'#42a5f5',icon:'📦'},
-  rag:      {x:.22,y:.15,w:.12,h:.12,label:'RAG\nPipeline',color:'#7c4dff',icon:'🔍'},
-  reason:   {x:.22,y:.62,w:.12,h:.12,label:'Fact\nReasoner',color:'#00bcd4',icon:'🧠'},
-  guard_in: {x:.40,y:.20,w:.12,h:.11,label:'Input\nGuardrails',color:'#ff6d00',icon:'🛡️'},
-  model:    {x:.40,y:.38,w:.13,h:.14,label:'LLM\nModel',color:'#00d4ff',icon:'⚡'},
-  guard_out:{x:.40,y:.62,w:.12,h:.11,label:'Output\nGuardrails',color:'#e65100',icon:'🛡️'},
-  tools:    {x:.60,y:.20,w:.12,h:.12,label:'Tool\nCalls',color:'#ce93d8',icon:'🔧'},
-  ia_route: {x:.60,y:.50,w:.12,h:.12,label:'IA\nRouter',color:'#4dd0e1',icon:'🔀'},
-  output:   {x:.80,y:.38,w:.10,h:.12,label:'Response\nOutput',color:'#00e676',icon:'📤'},
-};
-const ARCH_EDGES=[
-  {from:'users',to:'ctx',label:'user msg'},
-  {from:'rag',to:'ctx',label:'chunks'},
-  {from:'reason',to:'ctx',label:'CoT'},
-  {from:'ctx',to:'guard_in',label:'pre-check'},
-  {from:'ctx',to:'model',label:'full ctx'},
-  {from:'guard_in',to:'model',label:'cleared'},
-  {from:'model',to:'tools',label:'tool call'},
-  {from:'tools',to:'model',label:'results'},
-  {from:'model',to:'guard_out',label:'raw out'},
-  {from:'model',to:'ia_route',label:'handoff'},
-  {from:'guard_out',to:'output',label:'safe out'},
-  {from:'ia_route',to:'model',label:'re-route'},
-];
-const PIPELINE_STAGES=[
-  {nodes:['users'],label:'User message',detail:'Input received',color:'#c8d8f0'},
-  {nodes:['rag'],label:'RAG retrieval',detail:'Fetching chunks',color:'#7c4dff'},
-  {nodes:['reason'],label:'Fact reasoning',detail:'Extended thinking',color:'#00bcd4'},
-  {nodes:['ctx'],label:'Context assembly',detail:'Building full prompt',color:'#42a5f5'},
-  {nodes:['guard_in'],label:'Input guardrails',detail:'Safety classification',color:'#ff6d00'},
-  {nodes:['model'],label:'LLM inference',detail:'Token generation',color:'#00d4ff'},
-  {nodes:['tools'],label:'Tool execution',detail:'External API calls',color:'#ce93d8'},
-  {nodes:['guard_out'],label:'Output guardrails',detail:'Response scanning',color:'#e65100'},
-  {nodes:['ia_route'],label:'IA routing',detail:'Agent coordination',color:'#4dd0e1'},
-  {nodes:['output'],label:'Response delivery',detail:'Complete',color:'#00e676'},
-];
-
-let archAnim={stage:-1,particles:[],nodeGlow:{},activeEdges:[],interval:null,simRunning:false};
-
-function getNodeCenter(nk,W,H){const n=ARCH_NODES[nk];return{x:(n.x+n.w/2)*W,y:(n.y+n.h/2)*H};}
-function getStageNodes(){
-  const stageIdx=Math.abs(archAnim.stage)%PIPELINE_STAGES.length;
-  return PIPELINE_STAGES[stageIdx];
-}
-
-function drawArch(){
-  const canvas=document.getElementById('arch-canvas');if(!canvas)return;
-  const W=canvas.offsetWidth||800;canvas.width=W;const H=canvas.height=480;
-  const ctx2=canvas.getContext('2d');
-  ctx2.clearRect(0,0,W,H);
-  // BG
-  const _tc=getChartColors();ctx2.fillStyle=_tc.bg;ctx2.fillRect(0,0,W,H);
-  // Grid
-  ctx2.strokeStyle='rgba(0,212,255,.04)';ctx2.lineWidth=1;
-  for(let x=0;x<W;x+=40){ctx2.beginPath();ctx2.moveTo(x,0);ctx2.lineTo(x,H);ctx2.stroke();}
-  for(let y=0;y<H;y+=40){ctx2.beginPath();ctx2.moveTo(0,y);ctx2.lineTo(W,y);ctx2.stroke();}
-  // Edges
-  ARCH_EDGES.forEach(e=>{
-    const s=getNodeCenter(e.from,W,H),t=getNodeCenter(e.to,W,H);
-    const isActive=archAnim.activeEdges.includes(e.from+'-'+e.to);
-    ctx2.save();ctx2.strokeStyle=isActive?'rgba(0,212,255,.8)':'rgba(255,255,255,.12)';
-    ctx2.lineWidth=isActive?2:.8;
-    if(isActive){ctx2.shadowColor='rgba(0,212,255,.8)';ctx2.shadowBlur=8;}
-    ctx2.setLineDash(isActive?[]:[4,4]);
-    ctx2.beginPath();ctx2.moveTo(s.x,s.y);
-    const mx=(s.x+t.x)/2,my=(s.y+t.y)/2-20;
-    ctx2.quadraticCurveTo(mx,my,t.x,t.y);ctx2.stroke();
-    // Arrow
-    const dx=t.x-mx,dy=t.y-my;const ang=Math.atan2(dy,dx);
-    ctx2.fillStyle=isActive?'rgba(0,212,255,.8)':'rgba(255,255,255,.2)';
-    ctx2.beginPath();ctx2.moveTo(t.x,t.y);ctx2.lineTo(t.x-8*Math.cos(ang-0.4),t.y-8*Math.sin(ang-0.4));ctx2.lineTo(t.x-8*Math.cos(ang+0.4),t.y-8*Math.sin(ang+0.4));ctx2.closePath();ctx2.fill();
-    // Edge label
-    if(isActive&&e.label){ctx2.fillStyle='rgba(0,212,255,.9)';ctx2.font='bold 9px JetBrains Mono,monospace';ctx2.fillText(e.label,(s.x+t.x)/2-20,(s.y+t.y)/2-28);}
-    ctx2.restore();
-  });
-  // Particles
-  archAnim.particles=archAnim.particles.filter(p=>{
-    p.t+=.02;if(p.t>1)return false;
-    const sn=getNodeCenter(p.from,W,H),tn=getNodeCenter(p.to,W,H);
-    const mx=(sn.x+tn.x)/2,my=(sn.y+tn.y)/2-20;
-    const t2=p.t;const inv=1-t2;
-    const px=inv*inv*sn.x+2*inv*t2*mx+t2*t2*tn.x;
-    const py=inv*inv*sn.y+2*inv*t2*my+t2*t2*tn.y;
-    ctx2.save();ctx2.shadowColor=p.color;ctx2.shadowBlur=10;
-    ctx2.fillStyle=p.color;ctx2.beginPath();ctx2.arc(px,py,4,0,Math.PI*2);ctx2.fill();
-    // Token count label on particle
-    if(p.tokLabel){ctx2.font='bold 8px JetBrains Mono,monospace';ctx2.fillStyle=p.color;ctx2.fillText(p.tokLabel,px+6,py-4);}
-    ctx2.restore();
-    return true;
-  });
-  // Nodes
-  Object.entries(ARCH_NODES).forEach(([nk,n])=>{
-    const nx=n.x*W,ny=n.y*H,nw=n.w*W,nh=n.h*H;
-    const isActive=archAnim.nodeGlow[nk]>0;
-    const glow=archAnim.nodeGlow[nk]||0;
-    if(isActive)archAnim.nodeGlow[nk]=Math.max(0,glow-.02);
-    ctx2.save();
-    if(isActive){ctx2.shadowColor=n.color;ctx2.shadowBlur=20+glow*30;}
-    const alpha=isActive?Math.min(1,glow+.3):.15;
-    ctx2.fillStyle=n.color+Math.round(alpha*255).toString(16).padStart(2,'0');
-    ctx2.strokeStyle=n.color+(isActive?'cc':'44');ctx2.lineWidth=isActive?2:1;
-    ctx2.beginPath();ctx2.roundRect(nx,ny,nw,nh,6);ctx2.fill();ctx2.stroke();
-    ctx2.fillStyle=isActive?'#fff':n.color;ctx2.font=`bold ${isActive?10:9}px JetBrains Mono,monospace`;ctx2.textAlign='center';
-    const lines=n.label.split('\n');lines.forEach((l,i)=>ctx2.fillText(l,nx+nw/2,ny+nh/2+(i-lines.length/2+.5)*13));
-    // Token count badge if active
-    if(isActive&&archAnim.nodeTokens&&archAnim.nodeTokens[nk]){
-      ctx2.fillStyle='rgba(0,0,0,.7)';ctx2.beginPath();ctx2.roundRect(nx+nw-28,ny-12,28,14,4);ctx2.fill();
-      ctx2.fillStyle='#00d4ff';ctx2.font='bold 8px JetBrains Mono,monospace';ctx2.textAlign='center';
-      ctx2.fillText(archAnim.nodeTokens[nk]+'t',nx+nw-14,ny-2);
-    }
-    ctx2.restore();
-  });
-  ctx2.textAlign='left';
-  requestAnimationFrame(drawArch);
-}
-
-function fireParticle(from,to,color,tokLabel){
-  archAnim.particles.push({from,to,t:0,color,tokLabel});
-}
-function activateNode(nk,tokens){
-  archAnim.nodeGlow[nk]=1;
-  if(!archAnim.nodeTokens)archAnim.nodeTokens={};
-  archAnim.nodeTokens[nk]=tokens||'';
-}
-
-function runArchPipeline(turnData){
-  if(!turnData)return;
-  archAnim.stage=0;
-  const stages=[
-    ()=>{activateNode('users',turnData.userTok);document.getElementById('arch-active-node').textContent='Users';document.getElementById('arch-active-detail').textContent='User message: '+turnData.userTok+'t';document.getElementById('arch-stage').textContent='Input';document.getElementById('arch-stage-detail').textContent='Receiving query';document.getElementById('arch-tokens-flight').textContent=turnData.userTok;},
-    ()=>{if(turnData.ragTok>0){activateNode('rag',turnData.ragTok);archAnim.activeEdges=['rag-ctx'];fireParticle('rag','ctx','#7c4dff',turnData.ragTok+'t');document.getElementById('arch-active-node').textContent='RAG Pipeline';document.getElementById('arch-active-detail').textContent='Retrieving '+cfg('s-rag-chunks')+' chunks × '+cfg('s-rag-chunk-size')+'t';document.getElementById('arch-status').textContent='RAG active';}},
-    ()=>{if(turnData.reasonTok>0){activateNode('reason',turnData.reasonTok);archAnim.activeEdges=['reason-ctx'];fireParticle('reason','ctx','#00bcd4',turnData.reasonTok+'t');document.getElementById('arch-active-node').textContent='Fact Reasoner';document.getElementById('arch-active-detail').textContent='Extended thinking: '+turnData.reasonTok+'t';document.getElementById('arch-status').textContent='Reasoning';}},
-    ()=>{activateNode('ctx',turnData.ctxTok);archAnim.activeEdges=['users-ctx'];fireParticle('users','ctx','#42a5f5',turnData.ctxTok+'t');document.getElementById('arch-active-node').textContent='Context Assembler';document.getElementById('arch-active-detail').textContent='Full context: '+turnData.ctxTok+'t';document.getElementById('arch-stage').textContent='Assembly';document.getElementById('arch-tokens-flight').textContent=turnData.ctxTok;},
-    ()=>{if(turnData.guardTok>0){activateNode('guard_in',turnData.guardTok);archAnim.activeEdges=['ctx-guard_in','guard_in-model'];fireParticle('ctx','guard_in','#ff6d00',turnData.guardTok+'t');document.getElementById('arch-active-node').textContent='Input Guardrails';document.getElementById('arch-active-detail').textContent='Safety scan: '+turnData.guardTok+'t overhead';document.getElementById('arch-status').textContent='Guard active';}else{archAnim.activeEdges=['ctx-model'];fireParticle('ctx','model','#00d4ff',turnData.ctxTok+'t');}},
-    ()=>{activateNode('model',turnData.outTok);archAnim.activeEdges=['model'];document.getElementById('arch-active-node').textContent='LLM Model';document.getElementById('arch-active-detail').textContent='Generating: '+turnData.outTok+'t output';document.getElementById('arch-stage').textContent='Inference';document.getElementById('arch-stage-detail').textContent=selectedModel;document.getElementById('arch-status').textContent='Generating';},
-    ()=>{if(turnData.toolTok>0){activateNode('tools',turnData.toolTok);archAnim.activeEdges=['model-tools','tools-model'];fireParticle('model','tools','#ce93d8',turnData.toolTok+'t');setTimeout(()=>fireParticle('tools','model','#ab47bc',turnData.toolResultTok+'t'),300);document.getElementById('arch-active-node').textContent='Tool Calls';document.getElementById('arch-active-detail').textContent=cfg('s-tools')+' calls · schema:'+turnData.toolTok+'t · results:'+turnData.toolResultTok+'t';}},
-    ()=>{if(turnData.guardOutTok>0){activateNode('guard_out',turnData.guardOutTok);archAnim.activeEdges=['model-guard_out','guard_out-output'];fireParticle('model','guard_out','#e65100',turnData.guardOutTok+'t');}else{archAnim.activeEdges=['model-ia_route'];fireParticle('model','ia_route','#4dd0e1','');}},
-    ()=>{activateNode('ia_route',turnData.iaTok);archAnim.activeEdges=['ia_route-model'];fireParticle('model','ia_route','#4dd0e1',turnData.iaTok+'t');document.getElementById('arch-active-node').textContent='IA Router';document.getElementById('arch-active-detail').textContent='Agent handoff: '+turnData.iaTok+'t overhead';},
-    ()=>{activateNode('output',turnData.outTok);archAnim.activeEdges=['guard_out-output'];fireParticle('guard_out','output','#00e676',turnData.outTok+'t');document.getElementById('arch-active-node').textContent='Response Output';document.getElementById('arch-active-detail').textContent='Complete: net $'+turnData.cost.toFixed(5);document.getElementById('arch-stage').textContent='Complete';document.getElementById('arch-status').textContent='Done';archAnim.activeEdges=[];},
-  ];
-  let si=0;
-  const next=()=>{if(si<stages.length){stages[si]();si++;setTimeout(next,400);}};
-  next();
-}
+/* Architecture-canvas visualization removed 2026-05-16 — the panel
+   was display:none and the runTick loop that drove its animation was
+   deleted long ago. drawArch kept as no-op for the typeof-guarded
+   callers in showTab('arch') and the boot path. */
+function drawArch(){}
 
 /* SIMULATION AND PER-AGENT EDITOR */
 let sim={running:false,agents:[],users:[],totalIn:0,totalOut:0,totalCost:0,ragTok:0,reasonTok:0,guardTok:0,cacheSaved:0,apiCalls:0,toolUses:0,msgCount:0,errCount:0,tickInterval:null,processing:false,history:[]};
@@ -1227,7 +1084,12 @@ function agentCardHtml(a,scope){
   const provider=PROVIDERS[a.provider||m.providerDefault||'managed']||PROVIDERS.managed;
   const modelSelect=MK.map(k=>`<option value="${k}" ${k===a.model?'selected':''}>${modelLabel(k)}</option>`).join('');
   const providerSelect=Object.entries(PROVIDERS).map(([k,v])=>`<option value="${k}" ${k===(a.provider||'managed')?'selected':''}>${v.label}</option>`).join('');
-  const toolsBody=[agentRangeCtl(a,scope,'tools_per','Calls / turn',0,8,1,'#ce93d8'),agentRangeCtl(a,scope,'schema','Schema tok / call',0,2000,20,'#ce93d8'),agentRangeCtl(a,scope,'result','Result tok / call',0,8000,100,'#ce93d8'),agentEnabledToolsHtml(a)].join('');
+  // TOOLS section is now solely the registry-driven enabled-tools
+  // checklist. The legacy 'Calls/turn', 'Schema tok/call', 'Result tok/
+  // call' sliders were removed 2026-05-16 — they overlapped confusingly
+  // with the registry's per-tool schema_tokens / result_tokens_avg
+  // fields and were redundant once registry math went live in d09c426.
+  const toolsBody = agentEnabledToolsHtml(a);
   const ragBody=[agentRangeCtl(a,scope,'rag_chunks','Chunks',0,20,1,'#7c4dff'),agentRangeCtl(a,scope,'rag_size','Tokens / chunk',64,4096,64,'#7c4dff'),agentRangeCtl(a,scope,'rag_calls','Retrieval calls',0,5,1,'#7c4dff')].join('');
   const reasonBody=[agentRangeCtl(a,scope,'think_tok','Thinking budget',0,10000,500,'#00bcd4'),agentRangeCtl(a,scope,'think_pct','Reasoning turns',0,100,5,'#00bcd4'),agentRangeCtl(a,scope,'cot','CoT steps',0,20,1,'#00bcd4'),agentRangeCtl(a,scope,'factcheck','Fact-check passes',0,3,1,'#00bcd4')].join('');
   const guardModelSelect = guardModelDropdownHtml(a);
