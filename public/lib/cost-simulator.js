@@ -1230,74 +1230,15 @@ function applySelectedModelToAgents(){sim.agents.forEach(a=>{a.model=selectedMod
 function resetAgentFleet(){buildAgents(true);renderAgents();refreshAfterAgentEdit();}
 function normalizeAgentTurns(){const n=sim.agents.length||1;const sum=sim.agents.reduce((s,a)=>s+(a.turnsShare||1),0)||n;const scale=n/sum;sim.agents.forEach(a=>a.turnsShare=Math.max(.2,Math.min(3,Math.round((a.turnsShare||1)*scale*10)/10)));renderAgents();refreshAfterAgentEdit();}
 
-function toggleSim(){
-  sim.running=!sim.running;
-  const btn=document.getElementById('sim-btn');const dot=document.getElementById('status-dot');const st=document.getElementById('sys-status');
-  if(sim.running){converged=false;costHistory=[];const cb=document.getElementById('conv-banner');if(cb)cb.className='conv-banner';btn.textContent='STOP';btn.className='sim-btn stop';st.textContent='RUNNING';st.style.color='var(--amber)';dot.style.background='var(--amber)';document.getElementById('empty-msg')?.remove();buildAgents();buildUsers();renderAgents();showTab('sim');scheduleTicks();}
-  else{btn.textContent='START';btn.className='sim-btn';st.textContent='PAUSED';st.style.color='var(--red)';dot.style.background='var(--red)';clearInterval(sim.tickInterval);sim.tickInterval=null;}
-}
-// Replay-speed selector was removed when the simulator START button was
-// hidden (no longer reachable from the UI). If runTick is ever resurrected
-// via devtools toggleSim(), it now ticks at the legacy 2x default (650ms).
-function scheduleTicks(){sim.tickInterval=setInterval(runTick,650);}
-
-async function runTick(){
-  if(sim.processing)return;sim.processing=true;clearInterval(sim.tickInterval);
-  const nT=Math.min(cfg('s-turns'),3);
-  for(let t=0;t<nT;t++){
-    if(!sim.running)break;
-    const user=sim.users[t%Math.max(1,sim.users.length)];
-    const agent=sim.agents[t%sim.agents.length];
-    const model=MODELS[agent.model]||MODELS['claude-sonnet-4.6'];
-    const isWorkflow = (typeof executionMode!=='undefined' && executionMode==='workflow');
-    const userPool = isWorkflow ? UMSGS_LONG : UMSGS_SHORT;
-    const userText=userPool[Math.floor(Math.random()*userPool.length)];
-    const sysTok=tok(SYS_P[agent.role]||'')+cfg('s-sysprompt');
-    const histTok=sim.history.slice(-4).reduce((s,m)=>s+tok(m)+4,0);
-    const userTok=tok(userText)+4;
-    const maxTools=agent.toolsOn?Math.max(0,agent.tools_per??cfg('s-tools')):0;
-    const nTools=agent.toolsOn?Math.floor(Math.random()*(maxTools+1)):0;
-    const toolSch=nTools*(agent.schema??cfg('s-schema'));const toolRes=nTools*(agent.result??cfg('s-toolresult'));
-    const ragTokT=agent.ragOn?(((agent.rag_chunks??cfg('s-rag-chunks'))*(agent.rag_size??cfg('s-rag-chunk-size'))+(cfg('s-rag-query')||0))*(agent.rag_calls??cfg('s-rag-calls'))):0;
-    const thinkPct=agent.reasonOn?((agent.think_pct??cfg('s-think-pct'))/100):0;
-    const reasonTokT=agent.reasonOn?((agent.think_tok??cfg('s-think-tokens'))*thinkPct+(agent.cot??cfg('s-cot'))*150+(agent.factcheck??cfg('s-factcheck'))*200):0;
-    const guardTokT=agent.guardOn?((agent.guard_in??cfg('s-guard-in'))+(agent.guard_out??cfg('s-guard-out'))+(agent.guard_pii??cfg('s-guard-pii'))+(agent.guard_policy??cfg('s-guard-policy'))):0;
-    const iaMsgOH=cfg('s-iamsg');
-    const realIn=sysTok+histTok+userTok+toolSch+toolRes+ragTokT+reasonTokT+guardTokT+iaMsgOH+3;
-    const om=wOM();const tools=shuffle(TOOLS_LIST).slice(0,nTools);
-    const respPool = isWorkflow ? RESPS_LONG : RESPS_SHORT; const rfn=respPool[Math.floor(Math.random()*respPool.length)];const rawR=rfn(agent,agent.temp,tools);
-    const tW=Math.floor(agent.maxOut*om*.6);const words=rawR.split(' ');
-    const finalR=words.length>tW?words.slice(0,tW).join(' ')+'…':rawR;
-    const realOut=tok(finalR);
-    const cR=((agent.cache_rate!==undefined)?agent.cache_rate:cfg('s-cache'))/100;const bR=cfg('s-batch')/100;const retR=cfg('s-retry')/100;
-    const provider=providerForAgent(agent,agent.model,false);
-    const langMult=parseFloat(document.getElementById('s-lang-mult')?.value||'1.0')||1.0;
-    const tierInfo=resolvePricingTier(model,provider,langMult,realIn);
-    let base=0,cacheSave=0;
-    if(provider.in_mult===0&&provider.out_mult===0){base=provider.fixed_mo/Math.max(1,cfg('s-sessions')*30);}else{
-      const inPrice=pricedInputCost(realIn,tierInfo.inRate,tierInfo.priceModel,bR,cR);
-      const outPrice=pricedOutputCost(realOut,tierInfo.outRate,tierInfo.priceModel,bR);
-      base=inPrice.cost+outPrice.cost;cacheSave=inPrice.cacheSave;
-    }
-    const isErr=Math.random()<retR;const retryW=isErr?base*1.5:0;
-    const netCost=base+retryW;
-    sim.totalIn+=realIn;sim.totalOut+=realOut;sim.totalCost+=netCost;costHistory.push(netCost);if(!converged&&checkConvergence()){converged=true;showConvergence();toggleSim();}sim.cacheSaved+=cacheSave;
-    sim.ragTok+=ragTokT;sim.reasonTok+=reasonTokT;sim.guardTok+=guardTokT;
-    sim.apiCalls++;sim.toolUses+=nTools;sim.msgCount+=2;if(isErr)sim.errCount++;
-    agent.tokens+=realIn+realOut;agent.realIn+=realIn;agent.realOut+=realOut;
-    agent.ctxUsed=Math.min(agent.ctxUsed+realIn+realOut,model.ctx);
-    agent.calls++;agent.busy=true;agent.utilPct=Math.min(100,agent.utilPct+Math.floor(Math.random()*22+10));
-    sim.history.push(userText,finalR);if(sim.history.length>12)sim.history=sim.history.slice(-12);
-    // Fire arch animation
-    const turnData={userTok,ctxTok:realIn,outTok:realOut,ragTok:ragTokT,reasonTok:reasonTokT,guardTok:guardTokT,guardOutTok:(agent.guard_out??cfg('s-guard-out')),toolTok:toolSch,toolResultTok:toolRes,iaTok:iaMsgOH,cost:netCost};
-    runArchPipeline(turnData);
-    updateAgentChip(agent);addUserMsg(user,agent,userText,realIn);await wait(90+Math.random()*60);addTyping(agent);await wait(agent.stream?150+Math.random()*110:200+Math.random()*150);removeTyping();
-    addAgentMsg(agent,finalR,realIn,realOut,netCost,cacheSave,tools,isErr,ragTokT,reasonTokT,guardTokT);
-    tools.forEach(t=>logTool(agent,t));agent.busy=false;agent.utilPct=Math.max(0,agent.utilPct-Math.floor(Math.random()*18));
-    updateAgentChip(agent);updateKPIs();updateCostPanel();renderLedger();updateUtilBars();updateCtxBars();spawnSparks();
-  }
-  sim.processing=false;if(sim.running)scheduleTicks();
-}
+// Live simulator replay (toggleSim / scheduleTicks / runTick / convergence
+// detection) was removed when the START button was hidden from the UI.
+// The replay loop wrote into the same hidden topbar KPI stubs that
+// updateKPIs() also writes to, so static-math updates continue to work;
+// only the per-turn animated replay is gone. Helper functions that were
+// only called from runTick (runArchPipeline, addUserMsg, addTyping,
+// addAgentMsg, logTool, updateUtilBars, updateCtxBars, spawnSparks, etc.)
+// are now unused; they're left in place for a follow-up dead-code pass
+// rather than risking a wider deletion in this commit.
 function updateAgentChip(a){
   const m=MODELS[a.model]||MODELS['claude-sonnet-4.6'];const ctxP=Math.min(100,Math.round((a.ctxUsed||0)/m.ctx*100));
   ['sim','settings'].forEach(scope=>{
@@ -1585,38 +1526,10 @@ function getChartColors(){
   };
 }
 
-/* CONVERGENCE */
-const CONV_THRESHOLD=0.02,CONV_WINDOW=10;
-let costHistory=[],converged=false;
-function checkConvergence(){
-  const maxR=parseInt(document.getElementById('max-rounds')?.value)||60;
-  if(sim.apiCalls>=maxR)return true;
-  if(costHistory.length<CONV_WINDOW)return false;
-  const recent=costHistory.slice(-CONV_WINDOW);
-  const mean=recent.reduce((s,v)=>s+v,0)/recent.length;
-  return Math.max(...recent.map(v=>Math.abs(v-mean)/Math.max(mean,1e-10)))<CONV_THRESHOLD;
-}
-function showConvergence(){
-  const b=document.getElementById('conv-banner');
-  if(!b)return;
-  b.className='conv-banner show';
-  const sc=computeCost();
-  const sess=cfg('s-sessions');
-  const parts=[];
-  parts.push('<div style="width:8px;height:8px;border-radius:50%;background:var(--green);flex-shrink:0;animation:bl 1s ease-in-out infinite"></div>');
-  parts.push('<div>');
-  parts.push('<div style="font-weight:700;color:var(--green)">Simulation converged — cost estimate stable within &plusmn;2%</div>');
-  parts.push('<div style="font-size:8px;margin-top:2px">');
-  parts.push('p50: <b style="color:var(--green)">$' + (sc.netCost||0).toFixed(5) + '</b>');
-  parts.push(' &nbsp;&middot;&nbsp; p90: <b style="color:var(--amber)">$' + p90(sc.netCost).toFixed(5) + '</b>');
-  parts.push(' &nbsp;&middot;&nbsp; p99: <b style="color:var(--red)">$' + p99(sc.netCost).toFixed(5) + '</b>');
-  parts.push(' &nbsp;&middot;&nbsp; Monthly: <b style="color:var(--cyan)">$' + Math.round(sc.netCost*sess*30).toLocaleString() + '</b>');
-  parts.push('</div></div>');
-  parts.push('<button id="conv-close" style="margin-left:auto;background:none;border:none;color:var(--dim);cursor:pointer;font-size:16px;padding:0 4px">&#215;</button>');
-  b.innerHTML = parts.join('');
-  const cb = document.getElementById('conv-close');
-  if(cb) cb.onclick = function(){ b.className='conv-banner'; };
-}
+/* Convergence detection (checkConvergence / showConvergence) was only
+   used by the removed runTick loop to early-exit when 10 consecutive
+   ticks were within ±2% of the running mean. No live replay = no
+   convergence check; deleted with the rest of the replay chain. */
 /* THEMES — apply theme class to BOTH <body> (so calc's body-level
    overrides take effect) AND .simulator-pane (so the simulator's existing CSS
    keeps working). Use classList.toggle so unrelated body classes are
@@ -1823,9 +1736,8 @@ function setMode(mode){
     }
     executionMode = mode;
   }
-  // Sync the topology dropdown so URL/state restores show the right option.
-  const sel = document.getElementById('topology-select');
-  if (sel && sel.value !== mode) sel.value = mode;
+  // (Topology dropdown stub removed; the Section A topology cards below
+  // are now the only visible selector.)
   // Sync the Section A topology cards (visual selected-state + label).
   document.querySelectorAll('.topology-card').forEach(card => {
     const isActive = card.getAttribute('data-topology') === mode;

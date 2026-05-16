@@ -3763,17 +3763,10 @@ Hybrid is rarely cost-effective below 30% self-host share — fixed ops staff an
       <span id="sys-status" style="color:var(--green)">READY</span>
     </div>
     <div style="display:flex;gap:5px;align-items:center">
-      <!-- Topology dropdown + START button removed for production. The
-           canonical Topology selector is in Section A; live simulation
-           runtime was dropped in favor of static math + bench validation.
-           Hidden DOM stubs kept so existing setMode()/toggleSim() callers
-           continue to work without code changes. -->
-      <select id="topology-select" onchange="setMode(this.value)" style="display:none">
-        <option value="single">Single agent</option>
-        <option value="fleet" selected>Fleet</option>
-        <option value="workflow">Workflow</option>
-      </select>
-      <button class="sim-btn" id="sim-btn" onclick="toggleSim()" style="display:none">START</button>
+      <!-- Topology dropdown + START button stubs were removed when the
+           toggleSim/runTick replay chain was deleted. The canonical
+           topology selector is in Section A; the topbar topology dropdown
+           and START button were both already hidden in production. -->
       <!-- Report / CSV / JSON / Share / Reset live in the appbar's
            Share/Export dropdown — single source of truth, no duplicate
            chip toolbar here. Report itself is also reachable via the L1
@@ -3783,10 +3776,9 @@ Hybrid is rarely cost-effective below 30% self-host share — fixed ops staff an
 </div>
 
 <!-- NAV — hidden via CSS (#main-nav { display: none !important }) since
-     all simulator panels render stacked. Convergence banner + Max rounds
-     hidden too — simulation runtime removed. DOM stubs preserved so
-     legacy JS callers don't error. -->
-<div id="conv-banner" class="conv-banner" style="display:none"></div>
+     all simulator panels render stacked. Convergence banner stub
+     removed alongside the convergence-detection chain. -->
+
 <div style="display:none">
 <div class="nav" id="main-nav">
   <button class="nav-btn active" onclick="showTab('config')">Configuration</button>
@@ -4717,7 +4709,6 @@ For 1M queries/mo with 8 atoms each, FR2 → FR3 adds ~$15K/mo of NLI cost. Use 
   <span id="stream-count" style="display:none">0</span>
   <div id="agent-list" style="display:none"></div>
   <div id="chat-area" style="display:none"></div>
-  <div id="empty-msg" style="display:none"></div>
   <div id="tool-log" style="display:none"></div>
   <div id="util-bars" style="display:none"></div>
   <div id="ctx-bars" style="display:none"></div>
