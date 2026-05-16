@@ -23,11 +23,29 @@ What makes this different from generic per-token calculators:
 
 ### What you get out of the box
 
-- **8 realistic preset scenarios** spanning federal (NASA Earth Information
-  Explorer, NIH ClinicalTrials, NOAA Storm Tracking, DOE Grid Modeling)
-  and commercial (HIPAA patient portal, litigation discovery, bank
-  compliance Q&A, startup support chatbot). Click "Load example…" in the
-  top bar — populates ~50 sliders with realistic values.
+- **8 realistic preset scenarios** spanning federal (Public Geospatial
+  Q&A, NIH ClinicalTrials, NOAA Storm Tracking, DOE Grid Modeling) and
+  commercial (HIPAA patient portal, litigation discovery, bank
+  compliance Q&A, startup support chatbot), **plus a 9th demo preset**
+  (`mcp-research-fleet`) that walks through the per-agent tools-registry
+  end to end. Click "Load example…" in the top bar.
+- **MCP-style per-agent tools registry**: workload-level catalog of
+  available tools (web search, file search, container, Wikipedia, plus
+  custom MCP servers); each agent checks which tools it can call and
+  at what frequency. Cost engine bills per-agent against the registry's
+  per-tool rate. Mixed-provider fleets (Anthropic + OpenAI + Bedrock)
+  bill correctly per agent.
+- **Multi-approach fact-checking**: 10 verifier presets across 4 cost
+  shapes — FactReasoner FR1/FR2/FR3 (measured), MiniCheck and FactScore
+  (estimated), RAGAS faithfulness + Anthropic citations (self-check
+  overhead), Patronus and Galileo (commercial flat-rate). Verifier NLI
+  hosting picker: direct API, Bedrock on-demand/provisioned, Azure
+  OpenAI/PTU, EC2 self-host.
+- **Per-agent guard-model picker**: 11 options including Meta Llama
+  Guard 3, IBM Granite Guardian, AWS Bedrock Guardrails, Azure Content
+  Safety, OpenAI Moderation (free), Patronus Lynx, Lakera Guard, etc.
+  Each agent picks its own guardrail model + the engine bills the
+  right shape ($/1M tokens vs $/check vs free).
 - **AS-IS vs proposed**: enter what you're paying today (or what an
   incumbent quoted you) and the calculator shows annual delta, payback
   timeline, and a procurement-shaped verdict.
@@ -54,13 +72,32 @@ re-open the tour.
 ### Run the tests
 
 ```bash
-npm test
+npm test          # engine smoke + price-book apply (Node, fast)
+npm run test:e2e  # full Playwright UI suite against calc.ajinkya.ai
 ```
 
-Runs two suites: `test-engine-smoke.js` (50 invariants across all 8
-presets — finite cost, FedRAMP multipliers, MAU linearity, headline
-reconciliation, per-query > 0) and `test-apply.js` (regex-replacement
-unit tests for the price-book refresher).
+**`npm test`** runs two suites:
+- `test-engine-smoke.js` (78 invariants across all 8 presets — finite
+  cost, FedRAMP multipliers, MAU linearity, headline reconciliation,
+  per-query > 0, taskMix output multiplier, retry inflate, etc.)
+- `test-apply.js` (regex-replacement unit tests for the price-book
+  refresher)
+
+**`npm run test:e2e`** runs 9 Playwright scenarios in a real Chromium:
+boot + headline visibility, MAU/cache slider response, agent-mode
+promotion with badge fly-away animation, verifier preset switching,
+tools registry add/edit, per-agent enabled-tools, share-URL round-trip
+across reload, and the MCP Research Fleet demo preset. Suite completes
+in ~45s headless and is suitable for CI.
+
+Flags:
+- `--local` — run against `file://./public/index.html` instead of live
+- `--headed` — show the browser window
+- `--slow=400` — adjust slowMo (default 250ms)
+- `--only=<name>` — run a single scenario (`boot-and-defaults`,
+  `mau-slider`, `cache-slider`, `agent-promotion`, `verifier-preset`,
+  `tools-registry`, `agent-enabled-tools`, `share-url-roundtrip`,
+  `mcp-research-fleet`)
 
 > 🤖 **Picking this repo up cold (human or AI)?** Three things to
 > know:
@@ -87,12 +124,14 @@ ai-cost-calculator-studio/
 ├── wrangler.jsonc           # Cloudflare Workers Static Assets config
 ├── package.json             # npm deps (wrangler only — no build step)
 ├── public/                  # the live calculator (served at calc.ajinkya.ai)
-│   ├── index.html           # ~360KB, contains the cost simulator + calc UI
-│   ├── app.js               # state management, segment editor, scroll-spy nav
-│   ├── cost-engine.js       # pure-function TCO calculator
+│   ├── index.html           # markup + CSS for the calc + cost simulator
+│   ├── app.js               # state mgmt, editor, scroll-spy nav, registry UI
+│   ├── lib/
+│   │   ├── cost-engine.js   # pure-function TCO calculator + preset tables
+│   │   ├── cost-simulator.js # per-agent fleet editor + simulator math
+│   │   └── prices.js        # model rate cards (last_verified dates)
 │   ├── coefficients.json    # bench-produced empirical coefficients
-│   ├── examples/            # preset workload JSONs (public geospatial Q&A, NIH, etc.)
-│   └── prices/              # daily-refreshed model rate cards
+│   └── examples/            # 9 preset workload JSONs incl. mcp-research-fleet
 ├── bench/                   # agent-cost-bench — Python harness
 │   ├── README.md            # full bench docs (LiteLLM + LangGraph + OTEL)
 │   ├── pyproject.toml
@@ -203,6 +242,46 @@ size, and a provider — auditable down to the trace artifact in
 The full methodology is documented in
 [`docs/paper/validation-methodology.md`](./docs/paper/validation-methodology.md).
 
+## Architecture — per-agent canonical + tools registry
+
+The calc moved to a **per-agent-canonical** architecture in May 2026.
+Three things to understand:
+
+**1. Agent card is the editing surface.** Each agent has its own
+TOOLS / RAG / Reasoning / Guardrails sub-sections inside its expanded
+card. There's no global "RAG Pipeline Tokens" panel that broadcasts
+to all agents — that pattern silently overwrote per-agent edits on
+every tick. Bulk-edit lives as the "↧ Apply to all agents" link
+inside each agent card. The remaining global sliders (cache rate,
+batch %, retry, growth, peak, language multiplier) are workload-
+shape parameters, not per-agent concerns.
+
+**2. Tools registry is workload-level.** `workload.tools_registry`
+is a catalog of available tools — each entry has a label, cost
+shape (`per_call` / `per_session` / `free`), USD rate, schema
+tokens (in prompt), result tokens (fed back to context), and
+provider. Built-in entries (web_search, file_search,
+container_session, wikipedia_retrieval, plus a placeholder
+internal_db_query) are seeded by `normalizeWorkload`; users can
+override their rates and add custom MCP tools via the editable
+**Tools registry** panel in the "Tool routing & rates" section.
+
+**3. Per-agent enabled_tools declares usage.** Each agent has
+`agent.enabled_tools = { tool_id: { calls_per_query: N } }`.
+The cost engine walks each agent's enabled tools, looks up rate +
+shape in the registry, and bills correctly per agent. Mixed-
+provider fleets (Claude orchestrator + GPT researcher + Bedrock
+reporter) compute per-agent fees against each agent's own provider
+rate card. Workload-mode (no agents declared) contributes $0 in
+tool fees — the registry path is the only way to declare tool
+usage now.
+
+**Worked example:** load the **MCP Research Fleet** preset
+(Examples → Demo · MCP Research Fleet) to see a 3-agent fleet
+(Orchestrator + Researcher + Reporter) where each enables a
+different subset of registered tools, including 2 custom MCP
+entries.
+
 ## How the calc UI is structured
 
 calc.ajinkya.ai is a single-page app with three navigation layers:
@@ -275,14 +354,22 @@ methodology is documented separately at
 |---|---|
 | Calculator UI (`calc.ajinkya.ai`) | ✅ Live |
 | cost simulator (multi-agent token math) | ✅ Live, inlined into the calc |
+| **Per-agent canonical architecture** (no global broadcast loop) | ✅ Live |
+| **Tools registry + per-agent enabled_tools** (MCP-style) | ✅ Live |
+| **Multi-approach verifier picker** (10 presets, 4 cost shapes) | ✅ Live |
+| **Per-agent guard-model picker** (11 options inc. Granite Guardian) | ✅ Live |
+| **Bedrock + Azure hosting for verifier NLI** | ✅ Live |
 | State unification (auto-sync simulator ↔ Components) | ✅ Live |
 | Theme system (Tactical / Mission / Command) | ✅ Live |
 | `coefficients.json` calibration loop | ✅ Live, fetched at page load |
 | `agent-cost-bench` v0.2.0 | ✅ 12 scenarios validated (v0.1.0 pilot N=174, +N=238 templated re-cal May 13, +N=60 freeform anchor May 13, +N=18 Anthropic w=0.20 May 14) |
 | Anthropic provider in bench | ✅ Live (via LiteLLM) |
-| Self-host scenario | ⏸ planned (vLLM + open-weight model) |
+| Playwright E2E suite (9 scenarios) | ✅ Live (`npm run test:e2e`) |
+| Repo public on GitHub | ✅ Live |
+| Self-host bench scenario | ⏸ planned (vLLM + open-weight model) |
 | Public benchmark page (`calc.ajinkya.ai/benchmarks`) | ⏸ planned |
-| Repo public on GitHub | ⏸ private, will flip after polish |
+| MCP server discovery (auto-populate registry from URL) | ⏸ planned (Phase 4) |
+| CI hookup (E2E on PR) | ⏸ planned |
 
 ## Citing
 
