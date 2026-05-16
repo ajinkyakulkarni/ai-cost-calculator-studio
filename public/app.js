@@ -289,38 +289,90 @@
     renderRawJson();
   }
 
-  // Phase 1 tools-registry renderer. Read-only table inside the
-  // 'Tool routing & rates' panel showing each entry's label, cost
-  // shape, rate, schema/result token overhead, and provider. Edits
-  // happen via JSON-edit modal for now; Phase 2 adds inline editing.
+  // Tools registry renderer — inline-editable. Each row shows the tool's
+  // label, cost shape, rate, token overhead (schema in prompt + average
+  // result fed back to context), and provider. Built-in entries can have
+  // their rates / token estimates overridden but not removed; custom
+  // entries can be removed via the × button. The "+ Add custom tool"
+  // affordance at the bottom creates a new entry with a generated id.
   function renderToolsRegistry() {
     const host = document.getElementById('tools-registry-list');
     if (!host) return;
-    const reg = (workload && workload.tools_registry) || {};
+    if (!workload.tools_registry) workload.tools_registry = {};
+    const reg = workload.tools_registry;
     const entries = Object.entries(reg);
-    if (entries.length === 0) {
-      host.innerHTML = '<div style="font-size:10px;color:var(--muted);font-style:italic">No tools defined yet.</div>';
-      return;
-    }
-    const fmtRate = (t) => {
-      if (t.cost_shape === 'free' || !t.rate_usd) return '$0';
-      if (t.cost_shape === 'per_session') return `$${(t.rate_usd).toFixed(3)}/sess`;
-      // per_call: show $/1k for readability
-      return `$${(t.rate_usd * 1000).toFixed(2)}/1k calls`;
-    };
-    const shapeBadge = (s) => {
-      const colors = { per_call: 'var(--purple,#a050c8)', per_session: 'var(--rag,#7c4dff)', free: 'var(--good,#1f8a4c)' };
-      return `<span style="font-size:9px;padding:1px 5px;border-radius:3px;background:${colors[s]||'var(--muted)'}20;color:${colors[s]||'var(--ink)'};font-weight:600">${s}</span>`;
-    };
-    host.innerHTML = entries.map(([id, t]) => `
-      <div style="display:grid;grid-template-columns:1.2fr 0.6fr 1fr 1.4fr 0.8fr;gap:6px;align-items:center;padding:6px 8px;background:rgba(0,0,0,0.02);border:1px solid var(--rule);border-radius:4px;font-size:11px">
-        <div><strong>${t.label || id}</strong>${t.builtin ? '' : ' <span style="font-size:8px;color:var(--cyan,#0c8db3);font-weight:600">CUSTOM</span>'}<div style="font-size:9px;color:var(--muted);margin-top:2px">${t.description || ''}</div></div>
-        <div>${shapeBadge(t.cost_shape || 'per_call')}</div>
-        <div style="font-family:var(--mono);font-weight:600">${fmtRate(t)}</div>
-        <div style="font-size:10px;color:var(--muted)">schema: ${t.schema_tokens || 0} tok<br>result: ${t.result_tokens_avg || 0} tok avg</div>
-        <div style="font-size:10px;color:var(--muted)">${t.provider || '—'}</div>
+    const SHAPES = ['per_call', 'per_session', 'free'];
+    const rowHtml = (id, t) => `
+      <div data-tool-id="${id}" style="display:grid;grid-template-columns:1.4fr 0.7fr 0.9fr 0.7fr 0.7fr 0.7fr 28px;gap:5px;align-items:center;padding:6px 8px;background:rgba(0,0,0,0.02);border:1px solid var(--rule);border-radius:4px;font-size:11px">
+        <div>
+          <input type="text" data-field="label" value="${(t.label || id).replace(/"/g,'&quot;')}" style="width:100%;font-size:11px;font-weight:600;padding:2px 4px" placeholder="Tool name">
+          <input type="text" data-field="description" value="${(t.description || '').replace(/"/g,'&quot;')}" style="width:100%;font-size:9px;color:var(--muted);padding:2px 4px;margin-top:2px;border:1px dashed var(--rule)" placeholder="(description)">
+        </div>
+        <select data-field="cost_shape" style="font-size:11px;padding:2px 4px">
+          ${SHAPES.map(s => `<option value="${s}" ${(t.cost_shape||'per_call')===s?'selected':''}>${s}</option>`).join('')}
+        </select>
+        <div><input type="number" min="0" step="0.001" data-field="rate_usd" value="${t.rate_usd || 0}" style="width:100%;font-size:11px;padding:2px 4px;font-family:var(--mono)" title="USD per call (per_call) / per session (per_session) / 0 (free)"></div>
+        <div><input type="number" min="0" step="10" data-field="schema_tokens" value="${t.schema_tokens || 0}" style="width:100%;font-size:11px;padding:2px 4px;font-family:var(--mono)" title="Tokens added to system prompt for this tool's schema"></div>
+        <div><input type="number" min="0" step="50" data-field="result_tokens_avg" value="${t.result_tokens_avg || 0}" style="width:100%;font-size:11px;padding:2px 4px;font-family:var(--mono)" title="Average tokens of tool result fed back to context"></div>
+        <div><input type="text" data-field="provider" value="${(t.provider || 'managed').replace(/"/g,'&quot;')}" style="width:100%;font-size:11px;padding:2px 4px" title="Provider name (managed / self-hosted / bedrock / azure / etc.)"></div>
+        <div style="text-align:center">${t.builtin ? '<span style="color:var(--muted);font-size:8px" title="Built-in tools can be re-priced but not removed">·</span>' : `<button type="button" data-remove="${id}" style="background:none;border:1px solid var(--rule);color:var(--bad,#b3333d);font-size:13px;cursor:pointer;padding:0 4px;border-radius:3px" title="Remove this tool">×</button>`}</div>
       </div>
-    `).join('');
+    `;
+    const headerHtml = `<div style="display:grid;grid-template-columns:1.4fr 0.7fr 0.9fr 0.7fr 0.7fr 0.7fr 28px;gap:5px;padding:0 8px;font-size:9px;color:var(--muted);text-transform:uppercase;letter-spacing:0.04em;font-weight:600">
+      <div>Tool · description</div><div>Shape</div><div>Rate (USD)</div><div>Schema tok</div><div>Result tok</div><div>Provider</div><div></div>
+    </div>`;
+    host.innerHTML = headerHtml + entries.map(([id, t]) => rowHtml(id, t)).join('') +
+      `<button type="button" id="add-tool-btn" style="margin-top:4px;padding:5px 10px;border:1px dashed var(--cyan,#0c8db3);background:rgba(0,212,255,0.05);color:var(--cyan,#0c8db3);border-radius:3px;font-size:11px;cursor:pointer;font-weight:600">+ Add custom tool</button>`;
+
+    // Wire input bindings
+    host.querySelectorAll('[data-field]').forEach(el => {
+      el.addEventListener('input', () => {
+        const row = el.closest('[data-tool-id]');
+        if (!row) return;
+        const tid = row.dataset.toolId;
+        const field = el.dataset.field;
+        let v;
+        if (el.tagName === 'INPUT' && el.type === 'number') v = parseFloat(el.value) || 0;
+        else v = el.value;
+        if (!workload.tools_registry[tid]) workload.tools_registry[tid] = {};
+        workload.tools_registry[tid][field] = v;
+        renderPreview();
+      });
+    });
+    // Wire remove buttons
+    host.querySelectorAll('[data-remove]').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const tid = btn.getAttribute('data-remove');
+        if (!confirm(`Remove "${workload.tools_registry[tid].label || tid}" from the registry?`)) return;
+        delete workload.tools_registry[tid];
+        // Also clear any per-agent enabled_tools references to this id
+        for (const ag of (workload.agents || [])) {
+          if (ag.enabled_tools && ag.enabled_tools[tid]) delete ag.enabled_tools[tid];
+        }
+        renderToolsRegistry();
+        renderPreview();
+      });
+    });
+    // Wire add button
+    const addBtn = document.getElementById('add-tool-btn');
+    if (addBtn) addBtn.addEventListener('click', () => {
+      // Generate a unique id
+      let n = 1;
+      while (workload.tools_registry['custom_tool_' + n]) n++;
+      const newId = 'custom_tool_' + n;
+      workload.tools_registry[newId] = {
+        label: 'New custom tool',
+        description: 'Edit this description',
+        cost_shape: 'per_call',
+        rate_usd: 0.005,
+        schema_tokens: 100,
+        result_tokens_avg: 500,
+        provider: 'self-hosted',
+        builtin: false,
+      };
+      renderToolsRegistry();
+      renderPreview();
+    });
   }
 
   function renderShapesList() {
@@ -1355,43 +1407,37 @@
     // headline so the topbar pill is truly all-in.
     let providerToolFeesMonthly = 0;
     try {
-      const wsPerTurn = parseFloat(document.getElementById('s-websearch-calls')?.value) || 0;
-      const fsPerTurn = parseFloat(document.getElementById('s-filesearch-calls')?.value) || 0;
-      const ctSessions = parseFloat(document.getElementById('s-container-sessions')?.value) || 0;
-      if ((wsPerTurn || fsPerTurn || ctSessions)
-          && window.__TOOL_FEES && window.__feesFor && window.__MODELS) {
-        // Sessions/month and turns/month derived from this render's queries.
-        // turns ≈ queries (each turn = one query in workload-mode math).
-        // sessions = queries / turns_per_session.
-        const turnsPerSession = Math.max(1, numVal('s-turns', 8));
-        const sessionsMonthly = queries / turnsPerSession;
-        const monthlyPerTurn = queries; // each query = one turn
-        // Walk agents (if any) and average their provider rates; if no
-        // agents (workload-mode), use the workload's default model's
-        // family as the single provider.
-        const agentsList = (workload.agents && workload.agents.length > 0)
-          ? workload.agents
-          : [{ model: workload.defaults?.model, hosting: 'api' }];
-        let feeAccum = 0;
-        for (const ag of agentsList) {
-          const modelId = ag.model || workload.defaults?.model;
-          const m = window.__MODELS[modelId];
-          const family = (m && m.family) || 'other';
-          // Bedrock / Azure / self-host: zero per-call fees by design.
-          const provider = (ag.hosting === 'self') ? 'self-hosted' : 'managed';
-          const fees = window.__feesFor(provider, family);
-          // Share each agent's contribution by its calls_per_query (so a
-          // 3-turn agent triggers 3× the web-search billing of a 1-turn).
-          const callsShare = (ag.calls_per_query || 1) / agentsList.reduce(
-            (a, x) => a + (x.calls_per_query || 1), 0);
-          feeAccum +=
-              (wsPerTurn / 1000) * fees.webSearchPer1k       * monthlyPerTurn * callsShare
-            + (fsPerTurn / 1000) * fees.fileSearchPer1k      * monthlyPerTurn * callsShare
-            + (ctSessions)       * fees.container1GBSession  * sessionsMonthly * callsShare;
+      // Phase 3: per-agent enabled_tools × tools_registry math. Each agent
+      // declares which registry tools it can call and at what frequency
+      // (calls/query); the registry holds the rate + cost shape. Sums
+      // across agents into a single monthly tool-fees line on the
+      // headline. Works in both workload-mode (no agents → empty
+      // contributor list, $0) and agent-mode (per-agent enabled_tools
+      // drives the math). Agents without enabled_tools contribute $0,
+      // which is the correct default — the old hardcoded web/file/
+      // container slider math was deleted alongside the global panel
+      // in d03b276.
+      const registry = workload.tools_registry || {};
+      const turnsPerSession = Math.max(1, numVal('s-turns', 8));
+      const sessionsMonthly = queries / turnsPerSession;
+      const agentsList = (workload.agents && workload.agents.length > 0) ? workload.agents : [];
+      const totalCalls = agentsList.reduce((a, x) => a + (x.calls_per_query || 1), 0) || 1;
+      for (const ag of agentsList) {
+        const enabled = ag.enabled_tools || {};
+        const callsShare = (ag.calls_per_query || 1) / totalCalls;
+        for (const [toolId, useSpec] of Object.entries(enabled)) {
+          const tool = registry[toolId];
+          if (!tool || tool.cost_shape === 'free' || !tool.rate_usd) continue;
+          const callsPerQuery = (useSpec && useSpec.calls_per_query) || 0;
+          if (callsPerQuery <= 0) continue;
+          if (tool.cost_shape === 'per_call') {
+            providerToolFeesMonthly += callsPerQuery * tool.rate_usd * queries * callsShare;
+          } else if (tool.cost_shape === 'per_session') {
+            providerToolFeesMonthly += callsPerQuery * tool.rate_usd * sessionsMonthly * callsShare;
+          }
         }
-        providerToolFeesMonthly = feeAccum;
       }
-    } catch (_) { /* fee table not loaded yet on first paint */ }
+    } catch (_) { /* registry not ready yet on first paint */ }
     // Per-agent guardrail-model fees. Same shape as provider tool fees:
     // each agent picks a guard model preset (Llama Guard, Granite
     // Guardian, OpenAI Moderation, Bedrock Guardrails, etc.), each

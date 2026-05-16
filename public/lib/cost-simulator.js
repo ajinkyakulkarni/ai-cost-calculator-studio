@@ -1169,6 +1169,40 @@ function agentSection(title,color,on,body){
 }
 function taskBiasSelect(a){return `<select onchange="setAP(${a.id},'task_bias',this.value)" style="width:100%;font-size:12px;padding:3px 5px"><option value="" ${!a.task_bias?'selected':''}>Balanced mix</option>${TASK_TYPES.map(t=>`<option value="${t.id}" ${a.task_bias===t.id?'selected':''}>${t.label}</option>`).join('')}</select>`;}
 
+// Per-agent enabled-tools checklist (Phase 3 of the tools-registry
+// redesign). Reads the workload's tools_registry and renders a
+// checkbox + calls/query input per tool. Edits flow through
+// togAgentTool / setAgentToolCalls into agent.enabled_tools, which
+// app.js renderPreview reads to compute per-agent monthly tool fees.
+function agentEnabledToolsHtml(a) {
+  const reg = (window.workload && window.workload.tools_registry) || {};
+  const enabled = a.enabled_tools || {};
+  const entries = Object.entries(reg);
+  if (entries.length === 0) return '';
+  const fmtRate = (t) => {
+    if (t.cost_shape === 'free' || !t.rate_usd) return 'free';
+    if (t.cost_shape === 'per_session') return '$' + (t.rate_usd).toFixed(3) + '/sess';
+    return '$' + (t.rate_usd * 1000).toFixed(2) + '/1k';
+  };
+  return `<div style="grid-column:1 / -1;margin-top:6px">
+    <div class="mini-label" style="color:#ce93d8"><span>Enabled tools</span><span style="font-weight:500;color:var(--ink-2,#3a4a62)">tick to enable · set calls/query</span></div>
+    <div style="display:grid;grid-template-columns:1fr;gap:3px;margin-top:4px;padding:5px;border:1px solid var(--b);border-radius:5px;background:rgba(206,147,216,0.04)">
+      ${entries.map(([id, t]) => {
+        const isOn = id in enabled;
+        const calls = enabled[id] && enabled[id].calls_per_query != null ? enabled[id].calls_per_query : 1;
+        return `<div style="display:grid;grid-template-columns:1.4fr 0.6fr 0.7fr;gap:6px;align-items:center;font-size:11px">
+          <label style="display:flex;gap:5px;align-items:center;cursor:pointer">
+            <input type="checkbox" onchange="togAgentTool(${a.id},'${id}',this.checked)" ${isOn ? 'checked' : ''}>
+            <span style="font-weight:${isOn ? 600 : 500}">${t.label || id}</span>
+          </label>
+          <input type="number" min="0" step="1" value="${calls}" ${isOn ? '' : 'disabled'} onchange="setAgentToolCalls(${a.id},'${id}',this.value)" style="font-size:11px;padding:2px 4px;width:100%;font-family:var(--mono);${isOn ? '' : 'opacity:0.4;'}" placeholder="calls/q" title="Calls per query for this tool">
+          <span style="font-size:10px;color:var(--ink-2,#3a4a62);font-family:var(--mono)">${fmtRate(t)}</span>
+        </div>`;
+      }).join('')}
+    </div>
+  </div>`;
+}
+
 // Per-agent guard-model picker. Spans the full agent-edit-grid row so
 // the dropdown has room to show the long preset labels. Defers to the
 // cost engine's GUARD_MODEL_PRESETS table; reading window.CostEngine
@@ -1193,7 +1227,7 @@ function agentCardHtml(a,scope){
   const provider=PROVIDERS[a.provider||m.providerDefault||'managed']||PROVIDERS.managed;
   const modelSelect=MK.map(k=>`<option value="${k}" ${k===a.model?'selected':''}>${modelLabel(k)}</option>`).join('');
   const providerSelect=Object.entries(PROVIDERS).map(([k,v])=>`<option value="${k}" ${k===(a.provider||'managed')?'selected':''}>${v.label}</option>`).join('');
-  const toolsBody=[agentRangeCtl(a,scope,'tools_per','Calls / turn',0,8,1,'#ce93d8'),agentRangeCtl(a,scope,'schema','Schema tok / call',0,2000,20,'#ce93d8'),agentRangeCtl(a,scope,'result','Result tok / call',0,8000,100,'#ce93d8')].join('');
+  const toolsBody=[agentRangeCtl(a,scope,'tools_per','Calls / turn',0,8,1,'#ce93d8'),agentRangeCtl(a,scope,'schema','Schema tok / call',0,2000,20,'#ce93d8'),agentRangeCtl(a,scope,'result','Result tok / call',0,8000,100,'#ce93d8'),agentEnabledToolsHtml(a)].join('');
   const ragBody=[agentRangeCtl(a,scope,'rag_chunks','Chunks',0,20,1,'#7c4dff'),agentRangeCtl(a,scope,'rag_size','Tokens / chunk',64,4096,64,'#7c4dff'),agentRangeCtl(a,scope,'rag_calls','Retrieval calls',0,5,1,'#7c4dff')].join('');
   const reasonBody=[agentRangeCtl(a,scope,'think_tok','Thinking budget',0,10000,500,'#00bcd4'),agentRangeCtl(a,scope,'think_pct','Reasoning turns',0,100,5,'#00bcd4'),agentRangeCtl(a,scope,'cot','CoT steps',0,20,1,'#00bcd4'),agentRangeCtl(a,scope,'factcheck','Fact-check passes',0,3,1,'#00bcd4')].join('');
   const guardModelSelect = guardModelDropdownHtml(a);
@@ -1272,6 +1306,36 @@ function togAgent(id){const a=sim.agents.find(x=>x.id===id);if(a){a.expanded=!a.
 function setAllAgentsExpanded(open){sim.agents.forEach(a=>a.expanded=!!open);renderAgents();}
 function setAM(id,m){const a=sim.agents.find(x=>x.id===id);if(a){a.model=m;const md=MODELS[m];if(md&&(!a.provider||a.provider==='managed'||a.provider==='together'))a.provider=md.providerDefault||a.provider||'managed';renderAgents();refreshAfterAgentEdit();}}
 function setAP(id,k,v,lid,fmt){const a=sim.agents.find(x=>x.id===id);if(a){a[k]=v;if(lid){const el=document.getElementById(lid);if(el&&fmt)el.textContent=fmt(v);}refreshAfterAgentEdit();}}
+// Per-agent enabled-tools toggle. Mirrors the agent.enabled_tools shape
+// expected by app.js renderPreview (provider tool fees code).
+function togAgentTool(id, toolId, checked) {
+  const a = sim.agents.find(x => x.id === id);
+  if (!a) return;
+  if (!a.enabled_tools) a.enabled_tools = {};
+  if (checked) {
+    if (!a.enabled_tools[toolId]) a.enabled_tools[toolId] = { calls_per_query: 1 };
+  } else {
+    delete a.enabled_tools[toolId];
+  }
+  // Mirror to workload.agents so the cost-engine sees the change.
+  if (window.workload && Array.isArray(window.workload.agents)) {
+    const wa = window.workload.agents.find(x => x.id === a.id || x.label === a.name);
+    if (wa) wa.enabled_tools = JSON.parse(JSON.stringify(a.enabled_tools));
+  }
+  renderAgents();
+  refreshAfterAgentEdit();
+}
+function setAgentToolCalls(id, toolId, valueStr) {
+  const a = sim.agents.find(x => x.id === id);
+  if (!a || !a.enabled_tools || !a.enabled_tools[toolId]) return;
+  const v = parseFloat(valueStr);
+  a.enabled_tools[toolId].calls_per_query = Number.isFinite(v) && v >= 0 ? v : 0;
+  if (window.workload && Array.isArray(window.workload.agents)) {
+    const wa = window.workload.agents.find(x => x.id === a.id || x.label === a.name);
+    if (wa) wa.enabled_tools = JSON.parse(JSON.stringify(a.enabled_tools));
+  }
+  refreshAfterAgentEdit();
+}
 function togAF(id,f,btn){const a=sim.agents.find(x=>x.id===id);if(!a)return;a[f]=!a[f];const labels={ragOn:['RAG','rag-on'],reasonOn:['THINK','reason-on'],guardOn:['GUARD','guard-on'],toolsOn:['TOOLS','on']};const[l,cls]=labels[f]||['','on'];if(btn){btn.textContent=l+' '+(a[f]?'ON':'OFF');btn.className='tgl '+(a[f]?cls:'');}renderAgents();refreshAfterAgentEdit();}
 // applyGlobalsToAgents() removed — the global RAG/Tools/Guardrails sliders
 // it pulled from were deleted in the per-agent canonicalization redesign
