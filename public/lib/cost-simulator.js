@@ -300,14 +300,16 @@ function computeCost(mk){
     // Per-tool-result token budget. When the workload declares
     // tool_response_mode='templated' (deployment routes every tool
     // return through a fixed-template response layer), the budget is
-    // clamped to TEMPLATED_TOOL_RESULT_TOK — matching the ~40-tok
-    // generic status messages the bench emits in templated mode. We
-    // clamp rather than overwrite so a user who already set a low
-    // slider value doesn't see the number get bigger.
-    const TEMPLATED_TOOL_RESULT_TOK=40;
+    // clamped to the user-configurable cap on #s-tool-templated-cap
+    // (default 40 — matches the bench-validated public-geospatial-qa
+    // template; raise it for richer templated payloads). We clamp
+    // rather than overwrite so a user who already set a low slider
+    // value doesn't see the number get bigger.
     const _toolMode=document.getElementById('s-tool-response-mode')?.value||'freeform';
+    const _templatedCapRaw=parseInt(document.getElementById('s-tool-templated-cap')?.value,10);
+    const _templatedCap=Number.isFinite(_templatedCapRaw)&&_templatedCapRaw>0?_templatedCapRaw:40;
     const _myResultRaw=agent.result??cfg('s-toolresult');
-    const myResult=_toolMode==='templated'?Math.min(_myResultRaw,TEMPLATED_TOOL_RESULT_TOK):_myResultRaw;
+    const myResult=_toolMode==='templated'?Math.min(_myResultRaw,_templatedCap):_myResultRaw;
     const myToolSchemaOH=myToolsPer*mySchema;
     const myToolResultOH=myToolsPer*myResult;
     const ragCalls=agent.rag_calls??cfg('s-rag-calls');

@@ -1086,6 +1086,8 @@
   .appbar .cost-pill .cb-num { font-size: 13px; font-weight: 700; color: #ffd070; }
   .appbar .cost-pill .cb-label { font-size: 9.5px; color: rgba(255,255,255,0.65); text-transform: uppercase; letter-spacing: 0.06em; }
   .appbar .cost-pill .cb-suffix { font-size: 10px; color: rgba(255,255,255,0.55); }
+  .appbar .cost-pill .cb-tco-sep { color: rgba(255,255,255,0.30); font-size: 10px; margin-left: 2px; }
+  .appbar .cost-pill .cb-tco { font-size: 10.5px; color: rgba(255,255,255,0.78); font-weight: 600; }
 
   @media (max-width: 720px) {
     /* Hard caps so flex children with min-content widths can't widen the
@@ -3508,6 +3510,8 @@ body.config-basic .simulator-pane .block-advanced { display: none !important; }
     <span class="cb-label" data-tip="Headline figure rolling up everything: API/self-host LLM cost + verification + federal additives + fixed infra + reservations + personnel + agent-engineering amortization. Updates live as you change inputs. Hover the number itself to see the line-by-line derivation, or jump to the Report section for the full breakdown.">Total / mo (all-in)</span>
     <span class="cb-num" id="cb-num">—</span>
     <span class="cb-suffix" id="cb-suffix"></span>
+    <span class="cb-tco-sep" id="cb-tco-sep" aria-hidden="true">·</span>
+    <span class="cb-tco" id="cb-tco" title="3-year cumulative TCO at the current growth rate. Useful for federal contract budgeting (typical 3-year envelope)."></span>
   </div>
 </div>
 <div id="toast" style="position: fixed; bottom: 30px; left: 50%; transform: translateX(-50%); background: var(--ink); color: var(--paper); padding: 12px 20px; border-radius: 4px; font-family: var(--sans); font-size: 13px; opacity: 0; transition: opacity 0.3s; pointer-events: none; z-index: 1000;"></div>
@@ -3951,7 +3955,7 @@ This is pure waste. You pay for the failed call AND the retry. Going from a 10% 
 
 **Tip**
 The fix is usually backoff/rate-limit code on the app side, or an enterprise contract with the AI vendor for higher rate limits. Both are cheap relative to the savings.">Retry rate</span><span class="sr-val" id="v-retry" style="color:var(--red)">3%</span></div><input type="range" min="0" max="25" value="3" step="1" id="s-retry" oninput="onSlider()"></div>
-        <div class="sr"><div class="sr-top"><span class="sr-label" data-tip="Monthly compounding traffic growth used to project capacity headroom over the next 12 months. Mature steady product 0-10%; product-market-fit launch 30-100%.">Growth / month</span><span class="sr-val" id="v-growth" style="color:var(--lime)">20%</span></div><input type="range" min="0" max="100" value="20" step="5" id="s-growth" oninput="onSlider()"></div>
+        <div class="sr"><div class="sr-top"><span class="sr-label" data-tip="Monthly compounding traffic growth used to project capacity headroom over the next 12 months. Mature steady product 0-10%; product-market-fit launch 30-100%.">Growth / month</span><span class="sr-val" id="v-growth" style="color:var(--lime)">20%</span></div><input type="range" min="0" max="100" value="20" step="5" id="s-growth" oninput="onSlider()"><div class="sr-hint">Curves the cost-over-time projection — this month's headline isn't affected.</div></div>
         <div class="sr sr-advanced"><div class="sr-top"><span class="sr-label" data-tip="Peak-hour traffic divided by average traffic. Self-host has to size the fleet to peak; commercial APIs absorb peaks via shared capacity. 1× = perfectly flat. 3-5× = typical diurnal. 10×+ = launch / viral spike.">Peak / avg ratio</span><span class="sr-val" id="v-peak" style="color:var(--amber)">1×</span></div><input type="range" min="1" max="10" value="1" step="1" id="s-peak" oninput="onSlider()"><div class="sr-hint">Burstiness — &gt;2× adds 5%/level</div></div>
         <div class="sr sr-advanced"><div class="sr-top"><span class="sr-label" data-tip="Token-count multiplier for non-English content. English = 1.0; code = 1.3; Spanish/French ~1.1-1.2; CJK languages (Chinese, Japanese, Korean) = 1.8-2.2 because tokenizers fragment characters. Inflates input and output cost proportionally.
 
@@ -4253,9 +4257,11 @@ How agents coordinate, billed as extra input tokens per turn per agent.
             <label for="s-tool-response-mode" style="color:var(--text-primary,#c8d8f0);font-weight:600">Tool return shape</label>
             <select id="s-tool-response-mode" data-bind="tool_response_mode" onchange="onSlider()" style="font-size:11px;border:1px solid var(--b);border-radius:4px;padding:2px 6px">
               <option value="freeform">Freeform — result tokens compound across turns</option>
-              <option value="templated">Templated — result tokens capped (~40 tok)</option>
+              <option value="templated">Templated — result tokens capped</option>
             </select>
-            <span class="tip" data-tip="Production agents that pipe every tool return through a centralized response-template layer (one message string per status code, large structured payloads kept server-side) stop the per-turn feedback loop. 'Templated' clamps the effective Result tokens to ~40 regardless of the slider above — useful when validating a deployment that already wraps its tools this way. 'Freeform' (default) treats the slider value as the actual result size the LLM sees on every subsequent turn.">ⓘ</span>
+            <label for="s-tool-templated-cap" style="color:var(--muted);font-size:10.5px">Cap (tok)</label>
+            <input id="s-tool-templated-cap" type="number" min="1" max="4000" step="5" value="40" oninput="onSlider()" style="font-size:11px;width:64px;border:1px solid var(--b);border-radius:4px;padding:2px 6px;font-family:var(--mono)" title="Effective per-tool result tokens when the deployment routes every tool return through a fixed-template response layer. Default 40 matches the bench-validated public-geospatial-qa template; raise it if your template emits richer payloads (e.g. 120 for an error+payload hint, 250 for a small structured summary).">
+            <span class="tip" data-tip="Production agents that pipe every tool return through a centralized response-template layer (one message string per status code, large structured payloads kept server-side) stop the per-turn feedback loop. 'Templated' clamps the effective Result tokens to the Cap value regardless of the slider above. Default cap=40 matches the bench-validated public-geospatial-qa template. 'Freeform' (default) treats the slider value as the actual result size the LLM sees on every subsequent turn.">ⓘ</span>
           </div>
           <div style="margin-top:5px;padding:5px 8px;background:rgba(206,147,216,.06);border:1px solid rgba(206,147,216,.15);border-radius:5px;font-size:8px;color:var(--dim)">
             Provider tool fees/sess: <span id="tool-fee-cost" style="color:var(--purple);font-weight:700">$0</span> · Web search/file search/container line items are charged separately from tokens.

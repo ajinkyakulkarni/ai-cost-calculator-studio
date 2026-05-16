@@ -1323,6 +1323,22 @@
     const cbSuffix = document.getElementById('cb-suffix');
     if (cbNum) cbNum.textContent = fmt$(tcoValue);
     if (cbSuffix) cbSuffix.textContent = tcoPeriod === 'annual' ? '/yr' : (tcoPeriod === '3yr' ? '/3yr' : '/mo');
+    // Secondary 3-year TCO supplement on the pill. The growth slider only
+    // moves projections (not the headline-month), so without a 3-yr
+    // number visible the user gets no feedback from dragging it. Hide
+    // when the primary tcoPeriod is already 3yr to avoid duplication.
+    const cbTco = document.getElementById('cb-tco');
+    const cbTcoSep = document.getElementById('cb-tco-sep');
+    if (cbTco && cbTcoSep) {
+      if (tcoPeriod === '3yr') {
+        cbTco.style.display = 'none';
+        cbTcoSep.style.display = 'none';
+      } else {
+        cbTco.style.display = '';
+        cbTcoSep.style.display = '';
+        cbTco.textContent = fmt$(threeYearTotal) + '/3yr';
+      }
+    }
     const llmLabel = opts.hosting === 'self' ? 'Self-host'
                    : opts.hosting === 'hybrid' ? 'Hybrid'
                    : opts.hosting === 'onprem' ? 'On-prem (amortized)'
