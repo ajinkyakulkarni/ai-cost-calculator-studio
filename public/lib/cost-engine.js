@@ -106,6 +106,80 @@
   // Workload normalization — fills in defaults so downstream code can
   // assume every field is present.
   // -------------------------------------------------------------------
+  // -------------------------------------------------------------------
+  // Phase 1 tools registry (foundation, not yet wired into cost math).
+  //
+  // The registry is a workload-level catalog of available tools — name,
+  // provider, cost shape ($/call, $/session, or free), per-call rate,
+  // and token overheads (schema in prompt + average result fed back to
+  // context). Agents in Phase 3 will declare which tools they enable
+  // and at what frequency; until then the registry is read-only data
+  // that procurement reviewers can edit to document their tool stack.
+  //
+  // Cost shapes:
+  //   per_call    — billed each invocation (web search, file search,
+  //                 most MCP server calls)
+  //   per_session — billed once per session (code interpreter
+  //                 container, sandbox VMs)
+  //   free        — self-hosted or vendor-bundled, $0 per call
+  //
+  // Default registry seeded from the simulator's TOOL_FEES.managed_openai
+  // entry + a few common free placeholders. Producers can extend by
+  // adding entries to workload.tools_registry; the normalizer merges
+  // their entries over the defaults so user-defined tools always win.
+  const DEFAULT_TOOLS_REGISTRY = {
+    'web_search': {
+      label: 'Web Search',
+      description: 'Provider-managed web search (OpenAI / Anthropic / Vertex grounding)',
+      cost_shape: 'per_call',
+      rate_usd: 0.010,          // \$10 per 1k calls (OpenAI Assistants API rate)
+      schema_tokens: 120,
+      result_tokens_avg: 800,
+      provider: 'managed',
+      builtin: true,
+    },
+    'file_search': {
+      label: 'File Search',
+      description: 'Provider-managed vector retrieval over attached docs',
+      cost_shape: 'per_call',
+      rate_usd: 0.0025,         // \$2.50 per 1k calls
+      schema_tokens: 80,
+      result_tokens_avg: 1200,
+      provider: 'managed',
+      builtin: true,
+    },
+    'container_session': {
+      label: 'Code Interpreter / Container',
+      description: 'Sandboxed code-execution session (1GB, 30-min default)',
+      cost_shape: 'per_session',
+      rate_usd: 0.03,           // \$0.03 per session
+      schema_tokens: 200,
+      result_tokens_avg: 400,
+      provider: 'managed',
+      builtin: true,
+    },
+    'wikipedia_retrieval': {
+      label: 'Wikipedia Retrieval (free)',
+      description: 'Self-hosted or free public Wikipedia lookup',
+      cost_shape: 'free',
+      rate_usd: 0,
+      schema_tokens: 80,
+      result_tokens_avg: 600,
+      provider: 'self-hosted',
+      builtin: true,
+    },
+    'internal_db_query': {
+      label: 'Internal DB Query (placeholder)',
+      description: 'Example custom MCP server entry — replace with your real database tool',
+      cost_shape: 'free',
+      rate_usd: 0,
+      schema_tokens: 150,
+      result_tokens_avg: 500,
+      provider: 'self-hosted',
+      builtin: false,
+    },
+  };
+
   function normalizeWorkload(spec) {
     const w = JSON.parse(JSON.stringify(spec));  // deep copy
     w.rate_cards = Object.assign({}, DEFAULT_RATE_CARDS, w.rate_cards || {});
@@ -139,6 +213,13 @@
     if (w.anchor_query && !w.anchor_query.session_baseline_turns) {
       w.anchor_query.session_baseline_turns = 6;
     }
+    // Tools registry (Phase 1 — foundation). Built-in tool entries always
+    // come from DEFAULT_TOOLS_REGISTRY; user-defined entries layer over
+    // them so producers can add custom MCP tools or override built-in
+    // rates (e.g. their enterprise web-search contract is cheaper than
+    // the OpenAI list rate). Hash round-trip preserves user edits since
+    // workload.tools_registry is captured in the share-URL payload.
+    w.tools_registry = Object.assign({}, DEFAULT_TOOLS_REGISTRY, w.tools_registry || {});
     // Belt-and-suspenders: clamp the headline-driving numeric fields to >= 0.
     // 250+ <input type="number"> elements in the UI don't all carry min="0",
     // so a paste error or stale share-URL can produce a negative segment MAU
@@ -1823,6 +1904,7 @@
     compute,
     GUARD_MODEL_PRESETS,
     VERIFIER_PRESETS,
+    DEFAULT_TOOLS_REGISTRY,
   };
 
   if (typeof module !== 'undefined' && module.exports) {

@@ -282,10 +282,45 @@
     renderPersonnelList();
     renderAgentEngineeringList();
     renderMigrationList();
+    renderToolsRegistry();
     populateModelDropdowns();
     populateMixDropdowns();
     populateGpuDropdown();
     renderRawJson();
+  }
+
+  // Phase 1 tools-registry renderer. Read-only table inside the
+  // 'Tool routing & rates' panel showing each entry's label, cost
+  // shape, rate, schema/result token overhead, and provider. Edits
+  // happen via JSON-edit modal for now; Phase 2 adds inline editing.
+  function renderToolsRegistry() {
+    const host = document.getElementById('tools-registry-list');
+    if (!host) return;
+    const reg = (workload && workload.tools_registry) || {};
+    const entries = Object.entries(reg);
+    if (entries.length === 0) {
+      host.innerHTML = '<div style="font-size:10px;color:var(--muted);font-style:italic">No tools defined yet.</div>';
+      return;
+    }
+    const fmtRate = (t) => {
+      if (t.cost_shape === 'free' || !t.rate_usd) return '$0';
+      if (t.cost_shape === 'per_session') return `$${(t.rate_usd).toFixed(3)}/sess`;
+      // per_call: show $/1k for readability
+      return `$${(t.rate_usd * 1000).toFixed(2)}/1k calls`;
+    };
+    const shapeBadge = (s) => {
+      const colors = { per_call: 'var(--purple,#a050c8)', per_session: 'var(--rag,#7c4dff)', free: 'var(--good,#1f8a4c)' };
+      return `<span style="font-size:9px;padding:1px 5px;border-radius:3px;background:${colors[s]||'var(--muted)'}20;color:${colors[s]||'var(--ink)'};font-weight:600">${s}</span>`;
+    };
+    host.innerHTML = entries.map(([id, t]) => `
+      <div style="display:grid;grid-template-columns:1.2fr 0.6fr 1fr 1.4fr 0.8fr;gap:6px;align-items:center;padding:6px 8px;background:rgba(0,0,0,0.02);border:1px solid var(--rule);border-radius:4px;font-size:11px">
+        <div><strong>${t.label || id}</strong>${t.builtin ? '' : ' <span style="font-size:8px;color:var(--cyan,#0c8db3);font-weight:600">CUSTOM</span>'}<div style="font-size:9px;color:var(--muted);margin-top:2px">${t.description || ''}</div></div>
+        <div>${shapeBadge(t.cost_shape || 'per_call')}</div>
+        <div style="font-family:var(--mono);font-weight:600">${fmtRate(t)}</div>
+        <div style="font-size:10px;color:var(--muted)">schema: ${t.schema_tokens || 0} tok<br>result: ${t.result_tokens_avg || 0} tok avg</div>
+        <div style="font-size:10px;color:var(--muted)">${t.provider || '—'}</div>
+      </div>
+    `).join('');
   }
 
   function renderShapesList() {

@@ -4014,6 +4014,12 @@ Set Cap above to match your template's actual emission size (40 for status-only,
             <br>Embeddings model: <span style="color:var(--rag);font-weight:700">text-embedding-3-small @ $0.02/1M input tokens</span>.
           </div>
         </div>
+
+        <div>
+          <div class="mlabel" style="display:flex;align-items:center;gap:8px"><span>Tools registry <span style="font-size:9px;color:var(--dim);font-weight:400">(Phase 1 — read-only)</span></span><span class="badge" style="background:rgba(0,212,255,0.10);color:var(--cyan,#0c8db3);border-color:rgba(0,212,255,0.3);font-size:8px;letter-spacing:0.04em">MCP-STYLE</span></div>
+          <div style="margin-top:4px;font-size:10px;color:var(--dim);line-height:1.5">Workload-level catalog of available tools. Each agent will later (Phase 3) declare which tools it enables and at what frequency; today the registry is data-only and feeds future cost math. Add custom MCP tools by editing this workload's JSON.</div>
+          <div id="tools-registry-list" style="margin-top:8px;display:grid;grid-template-columns:1fr;gap:4px"></div>
+        </div>
       </div>
     </div>
   </div>
