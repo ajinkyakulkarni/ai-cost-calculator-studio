@@ -4446,6 +4446,8 @@
     t.style.opacity = '1';
     setTimeout(() => { t.style.opacity = '0'; }, ms);
   }
+  // Expose to simulator-side handlers (Apply-to-all link, promotion toast).
+  window.showToast = showToast;
 
   // -----------------------------------------------------------------
   // Excel export (SheetJS)

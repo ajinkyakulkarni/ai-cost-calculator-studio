@@ -1197,6 +1197,7 @@ function agentCardHtml(a,scope){
       ${agentSection('RAG / retrieval', '#7c4dff', a.ragOn, ragBody)}
       ${agentSection('Reasoning', '#00bcd4', a.reasonOn, reasonBody)}
       ${agentSection('Guardrails', '#ff6d00', a.guardOn, guardBody)}
+      ${sim.agents.length > 1 ? `<div style="margin-top:6px;padding:5px 8px;border:1px dashed var(--b);border-radius:5px;font-size:9px;color:var(--dim);display:flex;justify-content:space-between;align-items:center;gap:8px"><span>Want every agent to share this one's TOOLS / RAG / Reasoning / Guardrails settings?</span><button type="button" onclick="applyAgentSettingsToAll(${a.id});event.stopPropagation();" style="font-size:9px;padding:3px 8px;background:rgba(0,212,255,.08);border:1px solid rgba(0,212,255,.35);border-radius:3px;color:var(--cyan);cursor:pointer;white-space:nowrap;font-weight:600">↧ Apply to all agents</button></div>` : ''}
       <div style="font-size:7px;color:var(--dimmer);margin-top:5px">Task bias: ${a.task_bias||'balanced'} - ctx fill: ${ctxP}% - source: ${m.source||'static bootstrap'}</div>
     </div>
   </div>`;
@@ -1236,6 +1237,37 @@ function togAF(id,f,btn){const a=sim.agents.find(x=>x.id===id);if(!a)return;a[f]
 function applyGlobalsToAgents(){sim.agents.forEach(a=>{a.cache_rate=cfg('s-cache');a.tools_per=cfg('s-tools');a.schema=cfg('s-schema');a.result=cfg('s-toolresult');a.rag_chunks=cfg('s-rag-chunks');a.rag_size=cfg('s-rag-chunk-size');a.rag_calls=cfg('s-rag-calls');a.think_tok=cfg('s-think-tokens');a.think_pct=cfg('s-think-pct');a.cot=cfg('s-cot');a.factcheck=cfg('s-factcheck');a.guard_in=cfg('s-guard-in');a.guard_out=cfg('s-guard-out');a.guard_pii=cfg('s-guard-pii');a.guard_policy=cfg('s-guard-policy');});renderAgents();refreshAfterAgentEdit();}
 function applySelectedModelToAgents(){sim.agents.forEach(a=>{a.model=selectedModel;const md=MODELS[selectedModel];if(md)a.provider=md.providerDefault||a.provider||'managed';});renderAgents();refreshAfterAgentEdit();}
 function resetAgentFleet(){buildAgents(true);renderAgents();refreshAfterAgentEdit();}
+// Stage 3 of the per-agent redesign: bulk-set affordance from inside the
+// agent card itself, replacing the old global-broadcast pattern. Copies
+// every behavioral field (TOOLS / RAG / Reasoning / Guardrails / cache
+// rate / temperature / task bias / max output / turn share) from the
+// source agent to all others. Model and provider are intentionally NOT
+// copied — each agent typically keeps its own model choice; the link's
+// purpose is to bulk-equalize behavior settings, not to homogenize the
+// fleet model-wise. Use the per-agent Model dropdown to change models.
+window.applyAgentSettingsToAll = function(sourceId){
+  if (!sim || !Array.isArray(sim.agents) || sim.agents.length <= 1) return;
+  const src = sim.agents.find(x => x.id === sourceId);
+  if (!src) return;
+  // Same field list as AGENT_CONFIG_FIELDS minus model / provider.
+  const SHARED_FIELDS = ['temp','maxOut','turnsShare','toolsOn','ragOn','reasonOn','guardOn',
+    'tools_per','schema','result','rag_chunks','rag_size','rag_calls',
+    'think_tok','think_pct','cot','factcheck',
+    'guard_in','guard_out','guard_pii','guard_policy','cache_rate','task_bias'];
+  let copied = 0;
+  for (const a of sim.agents) {
+    if (a.id === sourceId) continue;
+    for (const k of SHARED_FIELDS) {
+      if (src[k] !== undefined) a[k] = src[k];
+    }
+    copied++;
+  }
+  renderAgents();
+  refreshAfterAgentEdit();
+  if (typeof window.showToast === 'function') {
+    window.showToast(`Copied ${src.name}'s settings to ${copied} other agent${copied===1?'':'s'} (model & provider preserved).`, 3500);
+  }
+};
 function normalizeAgentTurns(){const n=sim.agents.length||1;const sum=sim.agents.reduce((s,a)=>s+(a.turnsShare||1),0)||n;const scale=n/sum;sim.agents.forEach(a=>a.turnsShare=Math.max(.2,Math.min(3,Math.round((a.turnsShare||1)*scale*10)/10)));renderAgents();refreshAfterAgentEdit();}
 
 // Live simulator replay (toggleSim / scheduleTicks / runTick / convergence
