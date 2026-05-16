@@ -65,14 +65,6 @@ function toolFeeKey(provider, family){
 function feesFor(provider, family){
   return TOOL_FEES[toolFeeKey(provider, family)] || TOOL_FEES.managed_other;
 }
-// Expose to app.js (cost-engine.js doesn't know about provider tool fees;
-// app.js loops over workload.agents and sums fees into the headline so
-// mixed-provider fleets bill correctly).
-if (typeof window !== 'undefined') {
-  window.__TOOL_FEES = TOOL_FEES;
-  window.__feesFor = feesFor;
-  window.__MODELS = MODELS;
-}
 // Back-compat alias used by older display code paths
 const TOOL_FEE_PRICES = TOOL_FEES.managed_openai;
 const MODELS={
@@ -94,6 +86,17 @@ const MODELS={
 };
 const MK=Object.keys(MODELS);
 let selectedModel='claude-sonnet-4.6';
+
+// Expose tables to app.js (cost-engine.js doesn't know about provider
+// tool fees or per-model families; app.js loops over workload.agents
+// and sums fees into the headline so mixed-provider fleets bill
+// correctly). Must come AFTER const MODELS / TOOL_FEES are declared
+// (TDZ would otherwise throw at module-eval time and halt execution).
+if (typeof window !== 'undefined') {
+  window.__TOOL_FEES = TOOL_FEES;
+  window.__feesFor = feesFor;
+  window.__MODELS = MODELS;
+}
 
 const TASK_TYPES=[
   {id:'classify', label:'Classification', color:'#00d4ff',pct:20,outMult:.30},
