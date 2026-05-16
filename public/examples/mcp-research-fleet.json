@@ -1,0 +1,196 @@
+{
+  "schemaVersion": "1.0",
+  "deployment": {
+    "name": "MCP Research Fleet (demo)",
+    "agency": "(demonstration workload)",
+    "description": "Multi-agent research workflow demonstrating the tools-registry / per-agent enabled_tools architecture. Three specialized agents — Orchestrator, Researcher, Reporter — each enable a different subset of registered tools. Web search and the internal-DB MCP tool drive provider fees that fold into the headline via the registry path (no anchor_query implicit bake-in).",
+    "publicFacing": false,
+    "fedrampTier": "none"
+  },
+  "anchor_query": {
+    "input_tokens": 1200,
+    "output_tokens": 300,
+    "cache_rate_baseline": 0.55,
+    "session_baseline_turns": 6,
+    "example": "Summarize the last three quarters of safety-incident reports and flag anomalies above 2 sigma."
+  },
+  "tools_registry": {
+    "web_search": {
+      "label": "Web Search",
+      "description": "Provider-managed web search (OpenAI Assistants API)",
+      "cost_shape": "per_call",
+      "rate_usd": 0.010,
+      "schema_tokens": 120,
+      "result_tokens_avg": 800,
+      "provider": "managed",
+      "builtin": true
+    },
+    "file_search": {
+      "label": "File Search",
+      "description": "Provider-managed vector retrieval over attached docs",
+      "cost_shape": "per_call",
+      "rate_usd": 0.0025,
+      "schema_tokens": 80,
+      "result_tokens_avg": 1200,
+      "provider": "managed",
+      "builtin": true
+    },
+    "container_session": {
+      "label": "Code Interpreter / Container",
+      "description": "Sandboxed code-execution session",
+      "cost_shape": "per_session",
+      "rate_usd": 0.03,
+      "schema_tokens": 200,
+      "result_tokens_avg": 400,
+      "provider": "managed",
+      "builtin": true
+    },
+    "wikipedia_retrieval": {
+      "label": "Wikipedia Retrieval (free)",
+      "description": "Self-hosted Wikipedia lookup",
+      "cost_shape": "free",
+      "rate_usd": 0,
+      "schema_tokens": 80,
+      "result_tokens_avg": 600,
+      "provider": "self-hosted",
+      "builtin": true
+    },
+    "internal_db_query": {
+      "label": "Internal DB Query (MCP)",
+      "description": "Custom MCP server — internal incident-report database",
+      "cost_shape": "free",
+      "rate_usd": 0,
+      "schema_tokens": 150,
+      "result_tokens_avg": 500,
+      "provider": "self-hosted",
+      "builtin": false
+    },
+    "internal_compliance_check": {
+      "label": "Compliance Check (MCP)",
+      "description": "Custom MCP server — internal policy/regulation lookup",
+      "cost_shape": "per_call",
+      "rate_usd": 0.0008,
+      "schema_tokens": 200,
+      "result_tokens_avg": 350,
+      "provider": "self-hosted",
+      "builtin": false
+    }
+  },
+  "agents": [
+    {
+      "id": "orch",
+      "label": "Orchestrator (Coordinator)",
+      "input_tokens": 1500,
+      "output_tokens": 400,
+      "calls_per_query": 2,
+      "model": "claude-sonnet-4.6",
+      "cache_eligible": true,
+      "hosting": "api",
+      "description": "Routes queries to researcher / reporter, synthesizes final answer.",
+      "enabled_tools": {
+        "internal_compliance_check": { "calls_per_query": 1 }
+      }
+    },
+    {
+      "id": "researcher",
+      "label": "Researcher (Evidence gathering)",
+      "input_tokens": 3500,
+      "output_tokens": 600,
+      "calls_per_query": 3,
+      "model": "claude-sonnet-4.6",
+      "cache_eligible": true,
+      "hosting": "api",
+      "description": "Pulls evidence from web, Wikipedia, internal DB.",
+      "enabled_tools": {
+        "web_search": { "calls_per_query": 2 },
+        "wikipedia_retrieval": { "calls_per_query": 1 },
+        "internal_db_query": { "calls_per_query": 3 }
+      }
+    },
+    {
+      "id": "reporter",
+      "label": "Reporter (Synthesis + delivery)",
+      "input_tokens": 4500,
+      "output_tokens": 1200,
+      "calls_per_query": 1,
+      "model": "claude-opus-4.7",
+      "cache_eligible": true,
+      "hosting": "api",
+      "description": "Synthesizes findings into the final report. Uses container for any chart/table generation.",
+      "enabled_tools": {
+        "container_session": { "calls_per_query": 1 }
+      }
+    }
+  ],
+  "shapes": {
+    "full": { "input_factor": 1, "output_factor": 1, "cache_eligible": true, "description": "Full pipeline" },
+    "lookup": { "input_factor": 0.3, "output_factor": 0.4, "cache_eligible": true, "description": "Simple lookup, no research" },
+    "refusal": { "input_factor": 0.1, "output_factor": 0.15, "cache_eligible": false, "description": "Out-of-scope refusal" }
+  },
+  "mix": {
+    "default": {
+      "label": "Research-heavy (60% full · 30% lookup · 10% refusal)",
+      "weights": { "full": 0.6, "lookup": 0.3, "refusal": 0.1 }
+    }
+  },
+  "segments": [
+    {
+      "id": "researchers",
+      "label": "Internal researchers",
+      "mau": 200,
+      "sessions_per_day": 2,
+      "questions_per_session": 6,
+      "applyBotFactor": false,
+      "description": "Internal research team — multi-turn investigative sessions."
+    }
+  ],
+  "verification": {
+    "enabled": false,
+    "coverage": 0,
+    "atoms_per_response": 8,
+    "variant": "fr1",
+    "atomizer_tokens": { "input": 1500, "output": 400 },
+    "reviser_tokens": { "input": 500, "output": 30 },
+    "nli_tokens": { "input": 1200, "output": 20 },
+    "retrieval": "wikipedia",
+    "nli_hosting": "api",
+    "service_pod_monthly": 0
+  },
+  "rate_limit": { "strategy": "none", "monthly_cost": 0, "bot_ceiling": 1 },
+  "daily_cap": { "enabled": false, "amount_usd": 0, "burst_days": 0, "burst_factor": 1 },
+  "infrastructure": {
+    "Runtime · compute platform": 200,
+    "RAG service": 50,
+    "RDS Postgres": 150,
+    "S3 artifacts": 20,
+    "CloudWatch": 80
+  },
+  "defaults": {
+    "model": "claude-sonnet-4.6",
+    "tier": "standard",
+    "mix": "default",
+    "rate_limit": "none",
+    "hosting": "api",
+    "cost_mode": "optimistic"
+  },
+  "tier_multipliers": { "standard": 1, "flex": 0.5, "batch": 0.5, "priority": 2.5 },
+  "rate_cards": {},
+  "self_host": {
+    "gpu_options": {},
+    "diurnal_peak_factor": 4,
+    "headroom": 1.5,
+    "min_replicas": 2,
+    "tokens_per_query_default": 2000,
+    "cost_modes": {
+      "optimistic": { "ops_monthly": 350, "fte_monthly": 2500, "setup_amortized": 0, "throughput_derate": 1, "discount_1yr": 0.4, "discount_3yr": 0.6 },
+      "realistic":  { "ops_monthly": 1800, "fte_monthly": 8000, "setup_amortized": 8333, "throughput_derate": 0.75, "discount_1yr": 0.33, "discount_3yr": 0.55 }
+    }
+  },
+  "federal": { "fedramp_tier": "none", "multi_region": "single", "ato_monthly": 0, "egress_gb_per_query": 0.001, "egress_cost_per_gb": 0.09, "audit_log_kb_per_query": 0, "audit_retention_years": 0, "audit_storage_per_gb_month": 0, "retrieval_infra_monthly": 0, "pii_redaction_per_million_tokens": 0 },
+  "compliance": { "ato_tier": "none", "upfront_amortization_months": 36 },
+  "reservations": { "enabled": false, "type": "none", "units": 4 },
+  "embedding": { "enabled": false, "model": "text-embedding-3-small", "corpus_size_tokens": 50000000, "reembed_frequency_months": 6, "query_embedding_tokens": 8 },
+  "personnel": { "enabled": false, "roles": [] },
+  "risk": { "enabled": false },
+  "agent_engineering": { "enabled": false, "roles": [], "duration_months": 4, "amortization_months": 36, "helper_agent_monthly": 400, "maintenance_interval_months": 6, "maintenance_hours_per_session": 40 }
+}
