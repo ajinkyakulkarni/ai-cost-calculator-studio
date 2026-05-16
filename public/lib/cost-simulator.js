@@ -1167,7 +1167,7 @@ function agentSection(title,color,on,body){
     <div class="agent-edit-grid">${body}</div>
   </div>`;
 }
-function taskBiasSelect(a){return `<select onchange="setAP(${a.id},'task_bias',this.value)" style="width:100%;font-size:8px"><option value="" ${!a.task_bias?'selected':''}>Balanced mix</option>${TASK_TYPES.map(t=>`<option value="${t.id}" ${a.task_bias===t.id?'selected':''}>${t.label}</option>`).join('')}</select>`;}
+function taskBiasSelect(a){return `<select onchange="setAP(${a.id},'task_bias',this.value)" style="width:100%;font-size:12px;padding:3px 5px"><option value="" ${!a.task_bias?'selected':''}>Balanced mix</option>${TASK_TYPES.map(t=>`<option value="${t.id}" ${a.task_bias===t.id?'selected':''}>${t.label}</option>`).join('')}</select>`;}
 function agentCardHtml(a,scope){
   const m=MODELS[a.model]||MODELS['claude-sonnet-4.6'];
   const ctxP=Math.min(100,Math.round((a.ctxUsed||0)/m.ctx*100));
@@ -1182,24 +1182,24 @@ function agentCardHtml(a,scope){
     <div class="agent-header" onclick="togAgent(${a.id})">
       <div class="agent-av" style="background:${a.col}18;border:1px solid ${a.col}44;color:${a.col}">${a.name[0]}</div>
       <div style="flex:1;min-width:0">
-        <div style="font-size:10px;font-weight:700;color:${a.col}">${a.name} <span style="font-size:7px;color:var(--dim);font-weight:400">${a.role}</span></div>
-        <div style="font-size:7px;color:${m.color}">${modelLabel(a.model)} - ${provider.label}</div>
-        <div style="height:3px;background:var(--track);border-radius:2px;margin:2px 0"><div style="width:${a.utilPct||0}%;height:100%;background:${a.col}88;border-radius:2px;transition:width .5s" id="ab-${scope}-${a.id}"></div></div>
-        <div style="display:flex;gap:3px;margin-top:2px;flex-wrap:wrap">
+        <div style="font-size:13px;font-weight:700;color:${a.col}">${a.name} <span style="font-size:11px;color:var(--ink-2,#3a4a62);font-weight:500;margin-left:4px">${a.role}</span></div>
+        <div style="font-size:11px;color:${m.color};margin-top:2px">${modelLabel(a.model)} · ${provider.label}</div>
+        <div style="height:3px;background:var(--track);border-radius:2px;margin:4px 0"><div style="width:${a.utilPct||0}%;height:100%;background:${a.col}88;border-radius:2px;transition:width .5s" id="ab-${scope}-${a.id}"></div></div>
+        <div style="display:flex;gap:4px;margin-top:3px;flex-wrap:wrap">
           ${a.ragOn?'<span class="badge-rag">RAG</span>':''}${a.reasonOn?'<span class="badge-reason">THINK</span>':''}${a.guardOn?'<span class="badge-guard">GUARD</span>':''}${a.toolsOn?'<span class="badge">TOOLS</span>':''}
-          <span class="badge" style="background:rgba(124,77,255,.1);color:var(--purple);border-color:rgba(124,77,255,.2)">x${(a.turnsShare||1).toFixed(1)} turns</span>
+          <span class="badge" style="background:rgba(124,77,255,.1);color:var(--purple);border-color:rgba(124,77,255,.2)">×${(a.turnsShare||1).toFixed(1)} turns</span>
         </div>
-        <div style="font-size:7px;color:var(--dimmer)" id="as-${scope}-${a.id}">in:${(a.realIn||0).toLocaleString()} ctx:${ctxP}%</div>
+        <div style="font-size:10px;color:var(--ink-2,#3a4a62);margin-top:3px" id="as-${scope}-${a.id}">in:${(a.realIn||0).toLocaleString()} · ctx:${ctxP}%</div>
       </div>
       <span class="arrow ${a.expanded?'open':''}">▶</span>
     </div>
     <div class="agent-cfg-panel ${a.expanded?'open':''}" id="cfg-${scope}-${a.id}">
       <div class="agent-edit-grid">
-        <div><div style="font-size:7px;color:var(--dim);margin-bottom:2px">Model</div><select onchange="setAM(${a.id},this.value)" style="width:100%;font-size:8px">${modelSelect}</select></div>
-        <div><div style="font-size:7px;color:var(--dim);margin-bottom:2px">Provider</div><select onchange="setAP(${a.id},'provider',this.value)" style="width:100%;font-size:8px">${providerSelect}</select></div>
-        <div><div style="font-size:7px;color:var(--dim);margin-bottom:2px">Task bias</div>${taskBiasSelect(a)}</div>
+        <div><div style="font-size:11px;color:var(--ink-2,#3a4a62);margin-bottom:3px">Model</div><select onchange="setAM(${a.id},this.value)" style="width:100%;font-size:12px;padding:3px 5px">${modelSelect}</select></div>
+        <div><div style="font-size:11px;color:var(--ink-2,#3a4a62);margin-bottom:3px">Provider</div><select onchange="setAP(${a.id},'provider',this.value)" style="width:100%;font-size:12px;padding:3px 5px">${providerSelect}</select></div>
+        <div><div style="font-size:11px;color:var(--ink-2,#3a4a62);margin-bottom:3px">Task bias</div>${taskBiasSelect(a)}</div>
       </div>
-      <div style="font-size:7px;color:var(--dimmer);margin-bottom:6px">${provider.note}${provider.fixed_mo>0?' - $'+provider.fixed_mo.toLocaleString()+'/mo fixed':''}</div>
+      <div style="font-size:10px;color:var(--ink-2,#3a4a62);margin-bottom:7px">${provider.note}${provider.fixed_mo>0?' · $'+provider.fixed_mo.toLocaleString()+'/mo fixed':''}</div>
       <div class="agent-edit-grid">
         ${agentRangeCtl(a,scope,'turnsShare','Turn share x',0.2,3,0.1,'#00d4ff','float')}
         ${agentRangeCtl(a,scope,'cache_rate','Cache hit rate',0,95,5,'#00e676')}
@@ -1216,8 +1216,8 @@ function agentCardHtml(a,scope){
       ${agentSection('RAG / retrieval', '#7c4dff', a.ragOn, ragBody)}
       ${agentSection('Reasoning', '#00bcd4', a.reasonOn, reasonBody)}
       ${agentSection('Guardrails', '#ff6d00', a.guardOn, guardBody)}
-      ${sim.agents.length > 1 ? `<div style="margin-top:6px;padding:5px 8px;border:1px dashed var(--b);border-radius:5px;font-size:9px;color:var(--dim);display:flex;justify-content:space-between;align-items:center;gap:8px"><span>Want every agent to share this one's TOOLS / RAG / Reasoning / Guardrails settings?</span><button type="button" onclick="applyAgentSettingsToAll(${a.id});event.stopPropagation();" style="font-size:9px;padding:3px 8px;background:rgba(0,212,255,.08);border:1px solid rgba(0,212,255,.35);border-radius:3px;color:var(--cyan);cursor:pointer;white-space:nowrap;font-weight:600">↧ Apply to all agents</button></div>` : ''}
-      <div style="font-size:7px;color:var(--dimmer);margin-top:5px">Task bias: ${a.task_bias||'balanced'} - ctx fill: ${ctxP}% - source: ${m.source||'static bootstrap'}</div>
+      ${sim.agents.length > 1 ? `<div style="margin-top:8px;padding:7px 10px;border:1px dashed var(--b);border-radius:5px;font-size:11px;color:var(--ink-2,#3a4a62);display:flex;justify-content:space-between;align-items:center;gap:10px"><span>Want every agent to share this one's TOOLS / RAG / Reasoning / Guardrails settings?</span><button type="button" onclick="applyAgentSettingsToAll(${a.id});event.stopPropagation();" style="font-size:11px;padding:4px 10px;background:rgba(0,212,255,.08);border:1px solid rgba(0,212,255,.35);border-radius:3px;color:var(--cyan);cursor:pointer;white-space:nowrap;font-weight:600">↧ Apply to all agents</button></div>` : ''}
+      <div style="font-size:10px;color:var(--ink-2,#3a4a62);margin-top:7px">Task bias: ${a.task_bias||'balanced'} · ctx fill: ${ctxP}% · source: ${m.source||'static bootstrap'}</div>
     </div>
   </div>`;
 }
