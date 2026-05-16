@@ -1081,7 +1081,7 @@ function guardModelDropdownHtml(a){
     `<option value="${k}" ${k===cur?'selected':''}>${p.label}</option>`
   ).join('');
   const lid = `alb-guardmodel-${a.id}`;
-  return `<div style="grid-column:1 / -1"><div class="mini-label" style="color:#ff6d00"><span id="${lid}">Guard model</span><span style="font-weight:500;color:var(--ink-2,#3a4a62)">per-agent</span></div>
+  return `<div style="grid-column:1 / -1"><div class="mini-label" style="color:#ff6d00;display:flex;align-items:center;gap:6px"><span id="${lid}">Guard model</span><span style="font-weight:500;color:var(--ink-2,#3a4a62)">· per-agent</span></div>
     <select aria-labelledby="${lid}" onchange="setAP(${a.id},'guard_model',this.value)" style="width:100%;font-size:12px;padding:3px 5px">${opts}</select></div>`;
 }
 function agentCardHtml(a,scope){
