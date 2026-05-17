@@ -79,6 +79,23 @@ const EXPECTED = {
     monthly_with_retry: 21369.96,
     note: '20K auth + 5K anon MAU; 3-agent Triage/KB-Lookup/Responder with MiniCheck verifier on Responder.',
   },
+  // Voice support agent (Sierra / Bland-class) — 50K customers, ~4%
+  // call rate, 12-turn avg call → 720K voice turns/mo. One LLM call
+  // per turn on claude-sonnet-4.6 with 70% cache. STT/TTS billed
+  // separately via tool fees (added by app.js, not in LLM-only
+  // baseline). Computed 2026-05-17 against commit ac76812.
+  'voice-support-agent': {
+    monthly_with_retry: 7516.80,
+    note: '50K customers × 0.04 sess/day × 30 × 12 q/sess = 720K voice turns; sonnet-4.6 with 70% cache. STT/TTS fees added via app.js tool-fee path.',
+  },
+  // Legal-tech RAG (Harvey / Spellbook-class) — 50-attorney firm,
+  // 2-agent Retriever (sonnet, ReAct 1.5×) → Drafter (opus-4.7 with
+  // FR2 cascade at 20% escalate). cache_eligible=false (each case
+  // query unique). Computed 2026-05-17 against commit ac76812.
+  'legal-tech-rag': {
+    monthly_with_retry: 1628.44,
+    note: '50 attorneys × 1.5 sess/day × 30 × 3 q/sess = 6,750 queries; 2-agent Retriever/Drafter, opus-4.7 on Drafter, FR2 cascade @ 20% escalate.',
+  },
 };
 
 // ---------------------------------------------------------------------

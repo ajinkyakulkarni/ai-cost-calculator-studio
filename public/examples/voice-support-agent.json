@@ -1,0 +1,192 @@
+{
+  "schemaVersion": "1.0",
+  "deployment": {
+    "name": "Voice Support Agent (Sierra / Bland-class)",
+    "agency": "(commercial demonstration workload)",
+    "description": "Worked example for a voice-based customer support agent: real-time STT → LLM → TTS, multi-turn phone-style calls, latency-critical (no audit-class verifier — only inline gates fit the budget). Demonstrates: STT/TTS as registry tools with per-call pricing, high calls_per_query (one round per voice turn), inline-only verification (MiniCheck), no FactReasoner FR2/FR3 because the user is on the line waiting. Defaults model an inbound support line: 50K customers, ~4% call-rate per month, ~12-turn average call.",
+    "publicFacing": true,
+    "fedrampTier": "none"
+  },
+  "_calibration": {
+    "source": "Estimated from public voice-agent vendor pricing (OpenAI Whisper, OpenAI TTS, ElevenLabs, Sierra public talks). LLM token sizes reflect realistic support-call summarization patterns.",
+    "confidence": "estimated",
+    "reference": "Sierra public demos; OpenAI Whisper pricing page; ElevenLabs pricing page"
+  },
+  "anchor_query": {
+    "input_tokens": 2500,
+    "output_tokens": 400,
+    "cache_rate_baseline": 0.70,
+    "session_baseline_turns": 12,
+    "example": "Caller: 'I need to reschedule my appointment for next Tuesday.' Agent: looks up customer → confirms appointment exists → checks available slots → confirms new time → sends SMS confirmation."
+  },
+  "tools_registry": {
+    "voice_stt_whisper": {
+      "label": "Voice STT · OpenAI Whisper",
+      "description": "Speech-to-text via Whisper API. Billed per minute of audio. Each conversational turn (~5–10 sec speech) ≈ 0.15 min on average.",
+      "cost_shape": "per_call",
+      "rate_usd": 0.006,
+      "schema_tokens": 0,
+      "result_tokens_avg": 80,
+      "return_shape": "freeform",
+      "cap_tokens": 80,
+      "memoize": false,
+      "memoize_hit_rate": 0.0,
+      "provider": "managed",
+      "builtin": false
+    },
+    "voice_tts_openai": {
+      "label": "Voice TTS · OpenAI tts-1",
+      "description": "Text-to-speech via OpenAI tts-1. Billed at $15 per 1M chars; per-call rate baked in for an avg ~250-char spoken response (~4 sec).",
+      "cost_shape": "per_call",
+      "rate_usd": 0.0038,
+      "schema_tokens": 0,
+      "result_tokens_avg": 5,
+      "return_shape": "freeform",
+      "cap_tokens": 5,
+      "memoize": false,
+      "memoize_hit_rate": 0.0,
+      "provider": "managed",
+      "builtin": false
+    },
+    "voice_tts_elevenlabs": {
+      "label": "Voice TTS · ElevenLabs (premium voices)",
+      "description": "Higher-quality voice synthesis. ~5× the cost of OpenAI tts-1 but markedly better latency + naturalness for premium plans.",
+      "cost_shape": "per_call",
+      "rate_usd": 0.020,
+      "schema_tokens": 0,
+      "result_tokens_avg": 5,
+      "return_shape": "freeform",
+      "cap_tokens": 5,
+      "memoize": false,
+      "memoize_hit_rate": 0.0,
+      "provider": "managed",
+      "builtin": false
+    },
+    "customer_lookup": {
+      "label": "Customer Lookup (internal)",
+      "description": "Pull caller's account from internal CRM (Salesforce / HubSpot / internal). Free per-call; ~150 tok of record returned.",
+      "cost_shape": "free",
+      "rate_usd": 0,
+      "schema_tokens": 60,
+      "result_tokens_avg": 150,
+      "return_shape": "templated",
+      "cap_tokens": 80,
+      "memoize": true,
+      "memoize_hit_rate": 0.5,
+      "provider": "self-hosted",
+      "builtin": false
+    },
+    "calendar_check": {
+      "label": "Calendar / Booking System",
+      "description": "Check availability slots, modify booking. Internal API call.",
+      "cost_shape": "free",
+      "rate_usd": 0,
+      "schema_tokens": 80,
+      "result_tokens_avg": 200,
+      "return_shape": "templated",
+      "cap_tokens": 60,
+      "memoize": false,
+      "memoize_hit_rate": 0.0,
+      "provider": "self-hosted",
+      "builtin": false
+    }
+  },
+  "agents": [
+    {
+      "id": "voice_assistant",
+      "label": "Voice Assistant (single agent)",
+      "input_tokens": 2500,
+      "output_tokens": 400,
+      "calls_per_query": 1,
+      "model": "claude-sonnet-4.6",
+      "cache_eligible": true,
+      "hosting": "api",
+      "description": "Main conversational LLM. Each user turn = one LLM call. The 12-turn average call is captured via questions_per_session=12 on the segment. Sysprompt holds brand voice + escalation rules + brief tool catalog.",
+      "sysprompt_tokens": 1500,
+      "iamsg_tokens": 0,
+      "calls_per_turn_multiplier": 1.0,
+      "activation_rate": 1.0,
+      "verify_enabled": true,
+      "verify_coverage": 0.10,
+      "verifier_override": "minicheck",
+      "enabled_tools": {
+        "voice_stt_whisper": { "calls_per_query": 1, "trigger_rate": 1.0 },
+        "voice_tts_openai": { "calls_per_query": 1, "trigger_rate": 1.0 },
+        "customer_lookup": { "calls_per_query": 0.08, "trigger_rate": 1.0 },
+        "calendar_check": { "calls_per_query": 0.17, "trigger_rate": 1.0 }
+      }
+    }
+  ],
+  "shapes": {
+    "full": { "input_factor": 1, "output_factor": 1, "cache_eligible": true, "description": "Standard support call (default)" },
+    "quick": { "input_factor": 0.3, "output_factor": 0.4, "cache_eligible": true, "description": "Quick lookup, 2–3 turns" },
+    "complex": { "input_factor": 1.5, "output_factor": 1.6, "cache_eligible": true, "description": "Complex escalation, 20+ turns" }
+  },
+  "mix": {
+    "default": {
+      "label": "Mixed support calls (60% full · 25% quick · 15% complex)",
+      "weights": { "full": 0.6, "quick": 0.25, "complex": 0.15 }
+    }
+  },
+  "segments": [
+    {
+      "id": "customers",
+      "label": "Support callers",
+      "mau": 50000,
+      "sessions_per_day": 0.04,
+      "questions_per_session": 12,
+      "applyBotFactor": false,
+      "description": "Customer base; ~4% call support each month (60K calls / 50K customers / 30 days). 12-turn avg call."
+    }
+  ],
+  "verification": {
+    "enabled": true,
+    "coverage": 0.10,
+    "atoms_per_response": 3,
+    "variant": "minicheck",
+    "atomizer_tokens": { "input": 1500, "output": 400 },
+    "reviser_tokens": { "input": 500, "output": 30 },
+    "nli_tokens": { "input": 800, "output": 20 },
+    "retrieval": "wikipedia",
+    "nli_hosting": "api",
+    "service_pod_monthly": 0,
+    "escalate_to": null,
+    "escalate_rate": 0
+  },
+  "rate_limit": { "strategy": "none", "monthly_cost": 0, "bot_ceiling": 1 },
+  "daily_cap": { "enabled": false, "amount_usd": 0, "burst_days": 0, "burst_factor": 1 },
+  "infrastructure": {
+    "Telephony · Twilio inbound": { "rate": 0.013, "per": "per_session" },
+    "SIP trunk + audio routing": 250,
+    "Session state · Redis": 180,
+    "Observability · Datadog": 800
+  },
+  "defaults": {
+    "model": "claude-sonnet-4.6",
+    "tier": "standard",
+    "mix": "default",
+    "rate_limit": "none",
+    "hosting": "api",
+    "cost_mode": "realistic"
+  },
+  "tier_multipliers": { "standard": 1, "flex": 0.5, "batch": 0.5, "priority": 2.5 },
+  "rate_cards": {},
+  "self_host": {
+    "gpu_options": {},
+    "diurnal_peak_factor": 4,
+    "headroom": 1.5,
+    "min_replicas": 2,
+    "tokens_per_query_default": 2000,
+    "cost_modes": {
+      "optimistic": { "ops_monthly": 350, "fte_monthly": 2500, "setup_amortized": 0, "throughput_derate": 1, "discount_1yr": 0.4, "discount_3yr": 0.6 },
+      "realistic":  { "ops_monthly": 1800, "fte_monthly": 8000, "setup_amortized": 8333, "throughput_derate": 0.75, "discount_1yr": 0.33, "discount_3yr": 0.55 }
+    }
+  },
+  "federal": { "fedramp_tier": "none", "multi_region": "single", "ato_monthly": 0, "egress_gb_per_query": 0, "egress_cost_per_gb": 0, "audit_log_kb_per_query": 0, "audit_retention_years": 0, "audit_storage_per_gb_month": 0, "retrieval_infra_monthly": 0, "pii_redaction_per_million_tokens": 0 },
+  "compliance": { "ato_tier": "none", "upfront_amortization_months": 36 },
+  "reservations": { "enabled": false, "type": "none", "units": 4 },
+  "embedding": { "enabled": false, "model": "text-embedding-3-small", "corpus_size_tokens": 50000000, "reembed_frequency_months": 6, "query_embedding_tokens": 8 },
+  "personnel": { "enabled": false, "roles": [] },
+  "risk": { "enabled": false },
+  "agent_engineering": { "enabled": false, "roles": [], "duration_months": 4, "amortization_months": 36, "helper_agent_monthly": 400, "maintenance_interval_months": 6, "maintenance_hours_per_session": 40 }
+}

@@ -1,0 +1,184 @@
+{
+  "schemaVersion": "1.0",
+  "deployment": {
+    "name": "Legal-tech RAG Assistant (Harvey / Spellbook-class)",
+    "agency": "(commercial demonstration workload)",
+    "description": "Worked example for a legal-tech RAG assistant: heavy file_search over case law + statute corpus, two-agent pipeline (Retriever → Drafter), cascading verification (MiniCheck inline + FactReasoner FR2 on flagged) because legal work has zero tolerance for hallucinated citations. Demonstrates: high input_tokens (long retrieved context), cache_eligible=false on per-case queries (each is unique), full-coverage FR2 audit cascade, Serper retrieval for current case-law lookups when needed. Defaults model a 50-attorney mid-size firm.",
+    "publicFacing": false,
+    "fedrampTier": "none"
+  },
+  "_calibration": {
+    "source": "Estimated from Harvey AI / Spellbook / CaseText CoCounsel public talks + the SEC legal-RAG cost guidance. Token sizes reflect realistic legal-brief synthesis patterns where context windows commonly exceed 12K tokens.",
+    "confidence": "estimated",
+    "reference": "Harvey AI public Series A talks; Spellbook product docs; LexisNexis pricing"
+  },
+  "anchor_query": {
+    "input_tokens": 12000,
+    "output_tokens": 4000,
+    "cache_rate_baseline": 0.15,
+    "session_baseline_turns": 3,
+    "example": "Question: 'Summarize the holding and key reasoning in [specific case ID] and identify which parts apply to our pending motion to dismiss.'"
+  },
+  "tools_registry": {
+    "file_search": {
+      "label": "File Search (case-law corpus)",
+      "description": "Vector retrieval over the firm's case-law + statute + brief library. ~5-15 results per query, each chunk ~1500 tok.",
+      "cost_shape": "per_call",
+      "rate_usd": 0.0025,
+      "schema_tokens": 80,
+      "result_tokens_avg": 2000,
+      "return_shape": "freeform",
+      "cap_tokens": 200,
+      "memoize": true,
+      "memoize_hit_rate": 0.3,
+      "provider": "managed",
+      "builtin": true
+    },
+    "westlaw_lookup": {
+      "label": "Westlaw / Lexis citation lookup",
+      "description": "Validate citations against canonical legal databases. ~$0.50/lookup at Lexis enterprise tier.",
+      "cost_shape": "per_call",
+      "rate_usd": 0.50,
+      "schema_tokens": 100,
+      "result_tokens_avg": 400,
+      "return_shape": "templated",
+      "cap_tokens": 150,
+      "memoize": true,
+      "memoize_hit_rate": 0.4,
+      "provider": "managed",
+      "builtin": false
+    },
+    "internal_doc_search": {
+      "label": "Internal document search (matters, drafts)",
+      "description": "Search the firm's own document management (NetDocuments / iManage). Free for the firm; ~1500 tok per result.",
+      "cost_shape": "free",
+      "rate_usd": 0,
+      "schema_tokens": 80,
+      "result_tokens_avg": 1500,
+      "return_shape": "freeform",
+      "cap_tokens": 200,
+      "memoize": true,
+      "memoize_hit_rate": 0.5,
+      "provider": "self-hosted",
+      "builtin": false
+    }
+  },
+  "agents": [
+    {
+      "id": "retriever",
+      "label": "Retriever (Research)",
+      "input_tokens": 6000,
+      "output_tokens": 1000,
+      "calls_per_query": 1,
+      "model": "claude-sonnet-4.6",
+      "cache_eligible": false,
+      "hosting": "api",
+      "description": "Reads the user question, formulates retrieval queries, walks file_search + internal_doc_search to gather precedent and statutes. Output is a structured shortlist for the Drafter to use.",
+      "sysprompt_tokens": 2500,
+      "iamsg_tokens": 0,
+      "calls_per_turn_multiplier": 1.5,
+      "activation_rate": 1.0,
+      "verify_enabled": false,
+      "enabled_tools": {
+        "file_search": { "calls_per_query": 8, "trigger_rate": 1.0 },
+        "internal_doc_search": { "calls_per_query": 4, "trigger_rate": 0.9 },
+        "westlaw_lookup": { "calls_per_query": 2, "trigger_rate": 0.7 }
+      }
+    },
+    {
+      "id": "drafter",
+      "label": "Drafter (Synthesis)",
+      "input_tokens": 12000,
+      "output_tokens": 4000,
+      "calls_per_query": 1,
+      "model": "claude-opus-4.7",
+      "cache_eligible": false,
+      "hosting": "api",
+      "description": "Reads Retriever's shortlist + full case excerpts, composes the legal brief / memo / motion section. Flagship model required — accuracy of citation context is non-negotiable.",
+      "sysprompt_tokens": 3500,
+      "iamsg_tokens": 600,
+      "calls_per_turn_multiplier": 1.0,
+      "activation_rate": 1.0,
+      "verify_enabled": true,
+      "verify_coverage": 1.0,
+      "verifier_override": "minicheck",
+      "verify_escalate_to": "fr2",
+      "verify_escalate_rate": 0.20,
+      "enabled_tools": {
+        "westlaw_lookup": { "calls_per_query": 3, "trigger_rate": 0.6 }
+      }
+    }
+  ],
+  "shapes": {
+    "full": { "input_factor": 1, "output_factor": 1, "cache_eligible": false, "description": "Full brief / memo synthesis (default)" },
+    "lookup": { "input_factor": 0.4, "output_factor": 0.3, "cache_eligible": false, "description": "Quick citation lookup, no drafting" },
+    "review": { "input_factor": 1.2, "output_factor": 0.5, "cache_eligible": false, "description": "Review opposing brief, generate counter-points" }
+  },
+  "mix": {
+    "default": {
+      "label": "Legal mix (55% full · 30% lookup · 15% review)",
+      "weights": { "full": 0.55, "lookup": 0.3, "review": 0.15 }
+    }
+  },
+  "segments": [
+    {
+      "id": "attorneys",
+      "label": "Firm attorneys",
+      "mau": 50,
+      "sessions_per_day": 1.5,
+      "questions_per_session": 3,
+      "applyBotFactor": false,
+      "description": "Mid-size firm; 50 attorneys averaging 1.5 research sessions/day, ~3 distinct questions per session."
+    }
+  ],
+  "verification": {
+    "enabled": true,
+    "coverage": 1.0,
+    "atoms_per_response": 12,
+    "variant": "minicheck",
+    "atomizer_tokens": { "input": 2000, "output": 600 },
+    "reviser_tokens": { "input": 800, "output": 50 },
+    "nli_tokens": { "input": 1200, "output": 20 },
+    "retrieval": "wikipedia",
+    "nli_hosting": "api",
+    "service_pod_monthly": 0,
+    "escalate_to": "fr2",
+    "escalate_rate": 0.20
+  },
+  "rate_limit": { "strategy": "none", "monthly_cost": 0, "bot_ceiling": 1 },
+  "daily_cap": { "enabled": false, "amount_usd": 0, "burst_days": 0, "burst_factor": 1 },
+  "infrastructure": {
+    "Vector DB · Pinecone (case-law corpus)": 1200,
+    "Document store · S3 + DMS integration": 350,
+    "Redis · session state": 80,
+    "Observability · Datadog": 600
+  },
+  "defaults": {
+    "model": "claude-opus-4.7",
+    "tier": "standard",
+    "mix": "default",
+    "rate_limit": "none",
+    "hosting": "api",
+    "cost_mode": "realistic"
+  },
+  "tier_multipliers": { "standard": 1, "flex": 0.5, "batch": 0.5, "priority": 2.5 },
+  "rate_cards": {},
+  "self_host": {
+    "gpu_options": {},
+    "diurnal_peak_factor": 4,
+    "headroom": 1.5,
+    "min_replicas": 2,
+    "tokens_per_query_default": 2000,
+    "cost_modes": {
+      "optimistic": { "ops_monthly": 350, "fte_monthly": 2500, "setup_amortized": 0, "throughput_derate": 1, "discount_1yr": 0.4, "discount_3yr": 0.6 },
+      "realistic":  { "ops_monthly": 1800, "fte_monthly": 8000, "setup_amortized": 8333, "throughput_derate": 0.75, "discount_1yr": 0.33, "discount_3yr": 0.55 }
+    }
+  },
+  "federal": { "fedramp_tier": "none", "multi_region": "single", "ato_monthly": 0, "egress_gb_per_query": 0, "egress_cost_per_gb": 0, "audit_log_kb_per_query": 0, "audit_retention_years": 0, "audit_storage_per_gb_month": 0, "retrieval_infra_monthly": 0, "pii_redaction_per_million_tokens": 0 },
+  "compliance": { "ato_tier": "none", "upfront_amortization_months": 36 },
+  "reservations": { "enabled": false, "type": "none", "units": 4 },
+  "embedding": { "enabled": true, "model": "text-embedding-3-large", "corpus_size_tokens": 500000000, "reembed_frequency_months": 12, "query_embedding_tokens": 32 },
+  "personnel": { "enabled": false, "roles": [] },
+  "risk": { "enabled": false },
+  "agent_engineering": { "enabled": false, "roles": [], "duration_months": 4, "amortization_months": 36, "helper_agent_monthly": 400, "maintenance_interval_months": 6, "maintenance_hours_per_session": 40 }
+}
