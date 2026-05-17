@@ -483,18 +483,22 @@
     const list = document.getElementById('mixes-list');
     list.innerHTML = '';
     for (const [name, mix] of Object.entries(workload.mix)) {
-      const weightsHtml = Object.keys(workload.shapes).map(shape => `
+      const safe = name.replace(/[^a-z0-9-]/gi, '_');
+      const weightsHtml = Object.keys(workload.shapes).map(shape => {
+        const safeShape = shape.replace(/[^a-z0-9-]/gi, '_');
+        return `
         <div>
-          <label>${shape}</label>
-          <input type="number" step="0.01" min="0" max="1" value="${mix.weights[shape] != null ? mix.weights[shape] : 0}" data-mix="${name}" data-shape="${shape}">
+          <label for="mix-${safe}-weight-${safeShape}">${shape}</label>
+          <input id="mix-${safe}-weight-${safeShape}" type="number" step="0.01" min="0" max="1" value="${mix.weights[shape] != null ? mix.weights[shape] : 0}" data-mix="${name}" data-shape="${shape}">
         </div>
-      `).join('');
+      `;
+      }).join('');
       const div = document.createElement('div');
       div.className = 'item';
       div.innerHTML = `
-        <button class="item-remove" data-mix-remove="${name}">remove</button>
+        <button class="item-remove" data-mix-remove="${name}" aria-label="Remove mix ${name}">remove</button>
         <div class="item-title">${name}</div>
-        <div class="row"><label>Label</label><input type="text" value="${mix.label || ''}" data-mix-label="${name}"></div>
+        <div class="row"><label for="mix-${safe}-label">Label</label><input id="mix-${safe}-label" type="text" value="${mix.label || ''}" data-mix-label="${name}"></div>
         <div class="row grid-${Math.min(4, Math.max(2, Object.keys(workload.shapes).length))}">${weightsHtml}</div>
       `;
       list.appendChild(div);
@@ -528,17 +532,18 @@
     workload.segments.forEach((seg, idx) => {
       const div = document.createElement('div');
       div.className = 'item';
+      const safe = String(seg.id || idx).replace(/[^a-z0-9-]/gi, '_');
       div.innerHTML = `
-        <button class="item-remove" data-seg-remove="${idx}">remove</button>
+        <button class="item-remove" data-seg-remove="${idx}" aria-label="Remove segment ${seg.id}">remove</button>
         <div class="item-title">${seg.id}</div>
         <div class="row grid-2">
-          <div><label>ID</label><input type="text" value="${seg.id}" data-seg="${idx}" data-key="id"></div>
-          <div><label>Label</label><input type="text" value="${seg.label || ''}" data-seg="${idx}" data-key="label"></div>
+          <div><label for="seg-${safe}-id">ID</label><input id="seg-${safe}-id" type="text" value="${seg.id}" data-seg="${idx}" data-key="id"></div>
+          <div><label for="seg-${safe}-label">Label</label><input id="seg-${safe}-label" type="text" value="${seg.label || ''}" data-seg="${idx}" data-key="label"></div>
         </div>
         <div class="row grid-3">
-          <div><label>MAU</label><input type="number" value="${seg.mau}" data-seg="${idx}" data-key="mau"></div>
-          <div><label>Sessions / day</label><input type="number" step="0.1" value="${seg.sessions_per_day}" data-seg="${idx}" data-key="sessions_per_day"></div>
-          <div><label>Q / session</label><input type="number" value="${seg.questions_per_session}" data-seg="${idx}" data-key="questions_per_session"></div>
+          <div><label for="seg-${safe}-mau">MAU</label><input id="seg-${safe}-mau" type="number" value="${seg.mau}" data-seg="${idx}" data-key="mau"></div>
+          <div><label for="seg-${safe}-sessions_per_day">Sessions / day</label><input id="seg-${safe}-sessions_per_day" type="number" step="0.1" value="${seg.sessions_per_day}" data-seg="${idx}" data-key="sessions_per_day"></div>
+          <div><label for="seg-${safe}-questions_per_session">Q / session</label><input id="seg-${safe}-questions_per_session" type="number" value="${seg.questions_per_session}" data-seg="${idx}" data-key="questions_per_session"></div>
         </div>
         <div class="row checkbox">
           <input type="checkbox" id="bot-${idx}" ${seg.applyBotFactor ? 'checked' : ''} data-seg="${idx}" data-key="applyBotFactor">
@@ -692,18 +697,19 @@
       const div = document.createElement('div');
       div.className = 'item gpu-card' + (isActive ? ' active' : '');
       div.title = isActive ? 'Currently selected in Scenario controls' : '';
+      const safe = id.replace(/[^a-z0-9-]/gi, '_');
       div.innerHTML = `
-        <button class="item-remove" data-gpu-remove="${id}">remove</button>
+        <button class="item-remove" data-gpu-remove="${id}" aria-label="Remove GPU ${id}">remove</button>
         <div class="item-title">
           ${isActive ? '<span class="rc-dot" title="Active"></span>' : ''}
           ${id} <span style="color: var(--muted); font-weight: 400;">· ${gpu.name || ''}</span>
         </div>
         <div class="row grid-3">
-          <div><label>$ / hour</label><input type="number" step="0.01" value="${gpu.hourly}" data-gpu="${id}" data-key="hourly"></div>
-          <div><label>Throughput tok/s</label><input type="number" value="${gpu.tput_tps}" data-gpu="${id}" data-key="tput_tps"></div>
-          <div><label>Capable</label><input type="text" value="${gpu.capable || ''}" data-gpu="${id}" data-key="capable"></div>
+          <div><label for="gpu-${safe}-hourly">$ / hour</label><input id="gpu-${safe}-hourly" type="number" step="0.01" value="${gpu.hourly}" data-gpu="${id}" data-key="hourly"></div>
+          <div><label for="gpu-${safe}-tput_tps">Throughput tok/s</label><input id="gpu-${safe}-tput_tps" type="number" value="${gpu.tput_tps}" data-gpu="${id}" data-key="tput_tps"></div>
+          <div><label for="gpu-${safe}-capable">Capable</label><input id="gpu-${safe}-capable" type="text" value="${gpu.capable || ''}" data-gpu="${id}" data-key="capable"></div>
         </div>
-        <div class="row"><label>Hardware label</label><input type="text" value="${gpu.name || ''}" data-gpu="${id}" data-key="name"></div>
+        <div class="row"><label for="gpu-${safe}-name">Hardware label</label><input id="gpu-${safe}-name" type="text" value="${gpu.name || ''}" data-gpu="${id}" data-key="name"></div>
       `;
       list.appendChild(div);
     }
@@ -737,17 +743,18 @@
       const per = isObj ? (value.per || 'flat') : 'flat';
       const rate = isObj ? (value.rate != null ? value.rate : '') : '';
       const gb = isObj && value.gb != null ? value.gb : '';
+      const safe = name.replace(/[^a-z0-9-]/gi, '_');
       div.innerHTML = `
-        <button class="item-remove" data-infra-remove="${encodeURIComponent(name)}">remove</button>
+        <button class="item-remove" data-infra-remove="${encodeURIComponent(name)}" aria-label="Remove infrastructure line ${name}">remove</button>
         <div class="row grid-2">
-          <div><label>Line item</label><input type="text" value="${name.replace(/"/g, '&quot;')}" data-infra-name="${encodeURIComponent(name)}"></div>
-          <div><label>${scalingActive ? 'Computed monthly $' : 'Monthly $'} <span class="tip" data-tip="Flat = fixed $/mo. Toggle scaling to compute as a rate × your monthly query volume (S3, CloudWatch, NAT egress, etc.).">ⓘ</span></label>
-            <input type="number" step="1" value="${displayCost}" data-infra-cost="${encodeURIComponent(name)}" ${scalingActive ? 'disabled style="background:var(--card2, rgba(0,0,0,0.04)); color:var(--muted); cursor:not-allowed;"' : ''}>
+          <div><label for="infra-${safe}-name">Line item</label><input id="infra-${safe}-name" type="text" value="${name.replace(/"/g, '&quot;')}" data-infra-name="${encodeURIComponent(name)}"></div>
+          <div><label for="infra-${safe}-cost">${scalingActive ? 'Computed monthly $' : 'Monthly $'} <span class="tip" data-tip="Flat = fixed $/mo. Toggle scaling to compute as a rate × your monthly query volume (S3, CloudWatch, NAT egress, etc.).">ⓘ</span></label>
+            <input id="infra-${safe}-cost" type="number" step="1" value="${displayCost}" data-infra-cost="${encodeURIComponent(name)}" ${scalingActive ? 'disabled style="background:var(--card2, rgba(0,0,0,0.04)); color:var(--muted); cursor:not-allowed;"' : ''}>
           </div>
         </div>
         <div class="row" style="margin-top: 4px;">
-          <label style="font-size: 11px; color: var(--muted);">Scaling
-            <select data-infra-scaling="${encodeURIComponent(name)}" style="font-family: var(--mono); font-size: 11px; padding: 2px 6px; margin-left: 4px;">
+          <label for="infra-${safe}-scaling" style="font-size: 11px; color: var(--muted);">Scaling
+            <select id="infra-${safe}-scaling" data-infra-scaling="${encodeURIComponent(name)}" style="font-family: var(--mono); font-size: 11px; padding: 2px 6px; margin-left: 4px;">
               <option value="flat" ${per === 'flat' ? 'selected' : ''}>Flat $/mo</option>
               <option value="per_query" ${per === 'per_query' ? 'selected' : ''}>$ per query</option>
               <option value="per_1k_queries" ${per === 'per_1k_queries' ? 'selected' : ''}>$ per 1K queries</option>
@@ -756,12 +763,12 @@
             </select>
           </label>
           ${scalingActive ? `
-            <span style="margin-left: 8px;"><label style="font-size: 11px;">Rate $</label>
-              <input type="number" step="0.0001" value="${rate}" data-infra-rate="${encodeURIComponent(name)}" style="width: 90px; font-family: var(--mono); font-size: 11px;">
+            <span style="margin-left: 8px;"><label for="infra-${safe}-rate" style="font-size: 11px;">Rate $</label>
+              <input id="infra-${safe}-rate" type="number" step="0.0001" value="${rate}" data-infra-rate="${encodeURIComponent(name)}" style="width: 90px; font-family: var(--mono); font-size: 11px;">
             </span>
             ${per === 'per_gb_per_query' ? `
-              <span style="margin-left: 8px;"><label style="font-size: 11px;">GB/q</label>
-                <input type="number" step="0.0001" value="${gb}" data-infra-gb="${encodeURIComponent(name)}" style="width: 90px; font-family: var(--mono); font-size: 11px;">
+              <span style="margin-left: 8px;"><label for="infra-${safe}-gb" style="font-size: 11px;">GB/q</label>
+                <input id="infra-${safe}-gb" type="number" step="0.0001" value="${gb}" data-infra-gb="${encodeURIComponent(name)}" style="width: 90px; font-family: var(--mono); font-size: 11px;">
               </span>` : ''}
           ` : ''}
         </div>
@@ -878,16 +885,17 @@
       const monthly = (Number(r.fte) || 0) * loaded / 12;
       const div = document.createElement('div');
       div.className = 'item';
+      const safe = String(r.role || idx).replace(/[^a-z0-9-]/gi, '_');
       div.innerHTML = `
-        <button class="item-remove" data-personnel-remove="${idx}">remove</button>
+        <button class="item-remove" data-personnel-remove="${idx}" aria-label="Remove personnel role ${humanizeRole(r.role)}">remove</button>
         <div class="row grid-3">
-          <div><label>Role</label>
-            <select data-personnel-role="${idx}">
+          <div><label for="personnel-${safe}-${idx}-role">Role</label>
+            <select id="personnel-${safe}-${idx}-role" data-personnel-role="${idx}">
               ${roleKeys.map(k => `<option value="${k}"${k === r.role ? ' selected' : ''}>${humanizeRole(k)}</option>`).join('')}
             </select>
           </div>
-          <div><label>FTE allocation</label><input type="number" step="0.05" min="0" max="2" value="${r.fte}" data-personnel-fte="${idx}"></div>
-          <div><label>Monthly $</label><input type="text" value="${monthly.toFixed(0)}" disabled style="background:var(--card2, rgba(0,0,0,0.04)); color:var(--muted); cursor:not-allowed;"></div>
+          <div><label for="personnel-${safe}-${idx}-fte">FTE allocation</label><input id="personnel-${safe}-${idx}-fte" type="number" step="0.05" min="0" max="2" value="${r.fte}" data-personnel-fte="${idx}"></div>
+          <div><label for="personnel-${safe}-${idx}-monthly">Monthly $</label><input id="personnel-${safe}-${idx}-monthly" type="text" value="${monthly.toFixed(0)}" disabled style="background:var(--card2, rgba(0,0,0,0.04)); color:var(--muted); cursor:not-allowed;"></div>
         </div>
         <p class="helper" style="font-size: 11px; margin-top: 2px;">$${(def.annual_base || 0).toLocaleString()} base × ${(def.total_comp_multiplier || 1)} loaded × ${r.fte} FTE ÷ 12 = $${monthly.toFixed(0)}/mo. ${def.notes || ''}</p>
       `;
@@ -975,16 +983,17 @@
       const phaseTotal = (Number(r.fte) || 0) * loaded * (dur / 12);
       const div = document.createElement('div');
       div.className = 'item';
+      const safe = String(r.role || idx).replace(/[^a-z0-9-]/gi, '_');
       div.innerHTML = `
-        <button class="item-remove" data-aeng-remove="${idx}">remove</button>
+        <button class="item-remove" data-aeng-remove="${idx}" aria-label="Remove agent engineering role ${humanizeRole(r.role)}">remove</button>
         <div class="row grid-3">
-          <div><label>Role</label>
-            <select data-aeng-role="${idx}">
+          <div><label for="aeng-${safe}-${idx}-role">Role</label>
+            <select id="aeng-${safe}-${idx}-role" data-aeng-role="${idx}">
               ${roleKeys.map(k => `<option value="${k}"${k === r.role ? ' selected' : ''}>${humanizeRole(k)}</option>`).join('')}
             </select>
           </div>
-          <div><label>FTE during design</label><input type="number" step="0.05" min="0" max="2" value="${r.fte}" data-aeng-fte="${idx}"></div>
-          <div><label>Phase total $</label><input type="text" value="${Math.round(phaseTotal).toLocaleString()}" disabled style="background:var(--card2, rgba(0,0,0,0.04)); color:var(--muted); cursor:not-allowed;"></div>
+          <div><label for="aeng-${safe}-${idx}-fte">FTE during design</label><input id="aeng-${safe}-${idx}-fte" type="number" step="0.05" min="0" max="2" value="${r.fte}" data-aeng-fte="${idx}"></div>
+          <div><label for="aeng-${safe}-${idx}-phasetotal">Phase total $</label><input id="aeng-${safe}-${idx}-phasetotal" type="text" value="${Math.round(phaseTotal).toLocaleString()}" disabled style="background:var(--card2, rgba(0,0,0,0.04)); color:var(--muted); cursor:not-allowed;"></div>
         </div>
         <p class="helper" style="font-size: 11px; margin-top: 2px;">$${(def.annual_base || 0).toLocaleString()} base × ${(def.total_comp_multiplier || 1)} loaded × ${r.fte} FTE × ${dur} mo ÷ 12 = $${Math.round(phaseTotal).toLocaleString()} for the design phase. ${def.notes || ''}</p>
       `;
@@ -1031,24 +1040,25 @@
     workload.migration.phases.forEach((p, idx) => {
       const div = document.createElement('div');
       div.className = 'item';
+      const safe = String(p.label || idx).replace(/[^a-z0-9-]/gi, '_');
       div.innerHTML = `
-        <button class="item-remove" data-mig-remove="${idx}">remove</button>
+        <button class="item-remove" data-mig-remove="${idx}" aria-label="Remove migration phase ${p.label || idx}">remove</button>
         <div class="row grid-2">
-          <div><label>Label</label><input type="text" value="${(p.label || '').replace(/"/g, '&quot;')}" data-mig-field="label" data-mig-idx="${idx}"></div>
-          <div><label>Months</label><input type="number" min="1" step="1" value="${p.months || 12}" data-mig-field="months" data-mig-idx="${idx}"></div>
+          <div><label for="mig-${safe}-${idx}-label">Label</label><input id="mig-${safe}-${idx}-label" type="text" value="${(p.label || '').replace(/"/g, '&quot;')}" data-mig-field="label" data-mig-idx="${idx}"></div>
+          <div><label for="mig-${safe}-${idx}-months">Months</label><input id="mig-${safe}-${idx}-months" type="number" min="1" step="1" value="${p.months || 12}" data-mig-field="months" data-mig-idx="${idx}"></div>
         </div>
         <div class="row grid-2">
           <div>
-            <label>Hosting</label>
-            <select data-mig-field="hosting" data-mig-idx="${idx}">
+            <label for="mig-${safe}-${idx}-hosting">Hosting</label>
+            <select id="mig-${safe}-${idx}-hosting" data-mig-field="hosting" data-mig-idx="${idx}">
               <option value="api"${p.hosting === 'api' ? ' selected' : ''}>API (managed)</option>
               <option value="self"${p.hosting === 'self' ? ' selected' : ''}>Self-host on EC2</option>
               <option value="hybrid"${p.hosting === 'hybrid' ? ' selected' : ''}>Hybrid (split)</option>
             </select>
           </div>
           <div>
-            <label>API reservation</label>
-            <select data-mig-field="reservation_type" data-mig-idx="${idx}">
+            <label for="mig-${safe}-${idx}-reservation_type">API reservation</label>
+            <select id="mig-${safe}-${idx}-reservation_type" data-mig-field="reservation_type" data-mig-idx="${idx}">
               <option value="none"${(p.reservation_type === 'none' || !p.reservation_type) ? ' selected' : ''}>None — on-demand</option>
               <option value="azure-ptu-monthly"${p.reservation_type === 'azure-ptu-monthly' ? ' selected' : ''}>Azure PTU monthly</option>
               <option value="azure-ptu-yearly"${p.reservation_type === 'azure-ptu-yearly' ? ' selected' : ''}>Azure PTU yearly</option>
@@ -1094,6 +1104,7 @@
     for (const [id, card] of Object.entries(cards)) {
       const overridden = workload.rate_cards && workload.rate_cards[id];
       const isActive = id === activeModel;
+      const safe = id.replace(/[^a-z0-9-]/gi, '_');
       rows += `<tr class="${isActive ? 'active' : ''}" title="${isActive ? 'Currently selected in Scenario controls' : ''}">
         <td class="rc-name">
           ${isActive ? '<span class="rc-dot" title="Active"></span>' : ''}
@@ -1101,10 +1112,10 @@
           <span class="rc-provider">${card.provider || 'custom'}</span>
           ${overridden ? '<span class="rc-badge">edited</span>' : ''}
         </td>
-        <td><input type="number" step="0.01" min="0" value="${card.input_per_million}" data-card="${id}" data-key="input_per_million"></td>
-        <td><input type="number" step="0.001" min="0" value="${card.cached_per_million}" data-card="${id}" data-key="cached_per_million"></td>
-        <td><input type="number" step="0.01" min="0" value="${card.output_per_million}" data-card="${id}" data-key="output_per_million"></td>
-        <td class="rc-action">${overridden ? `<button class="rc-reset" data-card-remove="${id}" title="Reset to default">↺</button>` : ''}</td>
+        <td><input id="ratecard-${safe}-input_per_million" aria-label="${id} input $/M" type="number" step="0.01" min="0" value="${card.input_per_million}" data-card="${id}" data-key="input_per_million"></td>
+        <td><input id="ratecard-${safe}-cached_per_million" aria-label="${id} cached $/M" type="number" step="0.001" min="0" value="${card.cached_per_million}" data-card="${id}" data-key="cached_per_million"></td>
+        <td><input id="ratecard-${safe}-output_per_million" aria-label="${id} output $/M" type="number" step="0.01" min="0" value="${card.output_per_million}" data-card="${id}" data-key="output_per_million"></td>
+        <td class="rc-action">${overridden ? `<button class="rc-reset" data-card-remove="${id}" title="Reset to default" aria-label="Reset ${id} rate card to default">↺</button>` : ''}</td>
       </tr>`;
     }
     tbl.innerHTML = `<thead><tr>
