@@ -3526,7 +3526,7 @@ body.config-basic .simulator-pane .block-advanced { display: none !important; }
     <button class="tab-btn active" data-wiz="profile"      data-wiz-anchor="sec-deployment"><span class="nav-icon">◐</span><span class="step-num">1</span>Project profile</button>
     <button class="tab-btn"        data-wiz="token-cost"   data-wiz-anchor="sec-axiom-top"><span class="nav-icon">⚡</span><span class="step-num">2</span>Traffic &amp; efficiency</button>
     <button class="tab-btn"        data-wiz="agent-fleet"  data-wiz-axiom="agents" data-wiz-anchor="axiom-h-agents"><span class="nav-icon">▣</span><span class="step-num">3</span>Agent fleet</button>
-    <button class="tab-btn"        data-wiz="verification" data-wiz-anchor="sec-verification"><span class="nav-icon">✓</span><span class="step-num">4</span>Fact-checking</button>
+    <button class="tab-btn"        data-wiz="verification" data-wiz-axiom="verification" data-wiz-anchor="axiom-h-verification"><span class="nav-icon">✓</span><span class="step-num">4</span>Fact-checking</button>
     <button class="tab-btn"        data-wiz="agent-eng"    data-wiz-anchor="sec-agent-engineering"><span class="nav-icon">⚙</span><span class="step-num">5</span>Agent engineering</button>
     <button class="tab-btn"        data-wiz="hosting"      data-wiz-anchor="sec-reservations"><span class="nav-icon">☁</span><span class="step-num">6</span>Hosting &amp; infra</button>
     <button class="tab-btn"        data-wiz="budget"       data-wiz-anchor="sec-budget-solver"><span class="nav-icon">$</span><span class="step-num">7</span>Budget solver</button>
@@ -3975,11 +3975,58 @@ Set Cap above to match your template's actual emission size (40 for status-only,
     </div>
   </div>
 
-  <!-- FACT-CHECKING PIPELINE — relocated here from sec-verification.
-       Single source of truth for fact-checking cost (FactReasoner-style
-       NLI verification). The simpler simulator "FACT-CHECK PASSES" slider
-       it replaced is now a hidden compatibility shim above. The id and
-       all data-bind paths are preserved so calc-side wiring still works. -->
+</div>
+
+
+<!-- TAB: AUDIENCE — removed. Cohorts and auth/anon distinction were
+     a more elaborate version of Configuration's Concurrent Users /
+     Sessions/Day / Turns/Session sliders. The simpler Configuration
+     inputs are the canonical audience definition now. -->
+
+
+<!-- TAB: AGENTS -->
+<div class="axiom-section-divider" id="axiom-h-agents">
+  <span class="ix-num">B</span>
+  <span class="ix-title">Agent fleet</span>
+  <span class="ix-desc">per-agent role, model, prompt, RAG, tools, guardrails — <span id="agent-editor-badge" style="color:var(--cyan);font-weight:700;letter-spacing:1px">0 agents</span></span>
+</div>
+<div id="tab-agents" class="tab-panel">
+  <div class="panel">
+    <div style="padding:9px 11px;display:grid;grid-template-columns:260px 1fr;gap:8px">
+      <div style="display:flex;flex-direction:column;gap:8px">
+        <div class="mcard">
+          <div class="mlabel">Fleet actions</div>
+          <div class="agent-editor-toolbar" style="margin-top:5px">
+            <button class="abtn cyan" onclick="setAllAgentsExpanded(true)">Expand all</button>
+            <button class="abtn" onclick="setAllAgentsExpanded(false)">Collapse all</button>
+            <button class="abtn" onclick="normalizeAgentTurns()">Normalize turns</button>
+            <button class="abtn" onclick="applySelectedModelToAgents()">Selected model to all</button>
+            <button class="abtn" onclick="resetAgentFleet()" style="border-color:rgba(255,82,82,.3);color:var(--red)">Reset fleet</button>
+          </div>
+          <div style="font-size:8px;color:var(--dim);line-height:1.6;margin-top:7px">Use the main <strong>Agents</strong> slider to choose fleet size; expand any agent and use <strong>↧ Apply to all agents</strong> to broadcast that agent's TOOLS / RAG / Reasoning / Guardrails settings to the fleet. Agent edits are preserved when resizing where possible and included in Share/JSON export.</div>
+        </div>
+        <div class="mcard">
+          <div class="mlabel">What changes here</div>
+          <div id="agent-editor-summary" style="font-size:8px;color:var(--dim);line-height:1.7;margin-top:4px"></div>
+        </div>
+      </div>
+      <div id="agent-settings-list" class="agent-settings-list"></div>
+    </div>
+  </div>
+</div>
+
+
+<!-- ═══ TAB: VERIFICATION (fact-checking pipeline) ═══
+     Promoted out of the simulator tab-config area to its own top-level
+     section so reviewers see fact-checking as a peer concern alongside
+     Agent fleet and Cost breakdown. All data-bind IDs are unchanged so
+     cost-engine wiring needs no edits. -->
+<div class="axiom-section-divider" id="axiom-h-verification">
+  <span class="ix-num">C</span>
+  <span class="ix-title">Fact-checking pipeline</span>
+  <span class="ix-desc">verifier preset · NLI hosting · atomizer/reviser token budgets — pick a preset or stay at the simulator default</span>
+</div>
+<div id="tab-verification" class="tab-panel">
   <div class="panel" id="sec-verification" style="margin-top:8px">
     <div class="ph">Fact-checking pipeline <span class="badge-reason">VERIFY</span></div>
     <div class="section-body" style="padding:9px 12px;display:flex;flex-direction:column;gap:9px">
@@ -4103,45 +4150,6 @@ For 1M queries/mo with 8 atoms each, FR2 → FR3 adds ~$15K/mo of NLI cost. Use 
     </div>
   </div>
 </div>
-
-
-<!-- TAB: AUDIENCE — removed. Cohorts and auth/anon distinction were
-     a more elaborate version of Configuration's Concurrent Users /
-     Sessions/Day / Turns/Session sliders. The simpler Configuration
-     inputs are the canonical audience definition now. -->
-
-
-<!-- TAB: AGENTS -->
-<div class="axiom-section-divider" id="axiom-h-agents">
-  <span class="ix-num">B</span>
-  <span class="ix-title">Agent fleet</span>
-  <span class="ix-desc">per-agent role, model, prompt, RAG, tools, guardrails — <span id="agent-editor-badge" style="color:var(--cyan);font-weight:700;letter-spacing:1px">0 agents</span></span>
-</div>
-<div id="tab-agents" class="tab-panel">
-  <div class="panel">
-    <div style="padding:9px 11px;display:grid;grid-template-columns:260px 1fr;gap:8px">
-      <div style="display:flex;flex-direction:column;gap:8px">
-        <div class="mcard">
-          <div class="mlabel">Fleet actions</div>
-          <div class="agent-editor-toolbar" style="margin-top:5px">
-            <button class="abtn cyan" onclick="setAllAgentsExpanded(true)">Expand all</button>
-            <button class="abtn" onclick="setAllAgentsExpanded(false)">Collapse all</button>
-            <button class="abtn" onclick="normalizeAgentTurns()">Normalize turns</button>
-            <button class="abtn" onclick="applySelectedModelToAgents()">Selected model to all</button>
-            <button class="abtn" onclick="resetAgentFleet()" style="border-color:rgba(255,82,82,.3);color:var(--red)">Reset fleet</button>
-          </div>
-          <div style="font-size:8px;color:var(--dim);line-height:1.6;margin-top:7px">Use the main <strong>Agents</strong> slider to choose fleet size; expand any agent and use <strong>↧ Apply to all agents</strong> to broadcast that agent's TOOLS / RAG / Reasoning / Guardrails settings to the fleet. Agent edits are preserved when resizing where possible and included in Share/JSON export.</div>
-        </div>
-        <div class="mcard">
-          <div class="mlabel">What changes here</div>
-          <div id="agent-editor-summary" style="font-size:8px;color:var(--dim);line-height:1.7;margin-top:4px"></div>
-        </div>
-      </div>
-      <div id="agent-settings-list" class="agent-settings-list"></div>
-    </div>
-  </div>
-</div>
-
 
   <!-- WORKFLOW MODE PANEL — visible only in workflow mode -->
   <div class="panel" id="panel-workflow" style="display:none">
