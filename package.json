@@ -12,7 +12,8 @@
     "test": "node scripts/test-engine-smoke.js && node scripts/test-apply.js",
     "test:e2e": "node scripts/test-e2e.js",
     "calc": "node scripts/calc.js",
-    "verify-aws": "node scripts/verify-aws-instances.js"
+    "verify-aws": "node scripts/verify-aws-instances.js",
+    "bench:validate": "node scripts/bench-validate.mjs"
   },
   "repository": {
     "type": "git",

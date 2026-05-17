@@ -1132,11 +1132,38 @@
         totalVerified += verified;
         if (verified <= 0) continue;
         const r = _verifCostForPreset(agentPreset, verified, w, opts, atoms);
-        total += r.monthly;
+        // CASCADING verification: primary verifier runs on every verified
+        // output; if it flags (escalate_rate fraction), a SECONDARY
+        // verifier runs on the flagged subset. Common production
+        // pattern: MiniCheck inline → FR2 on flagged. Defaults:
+        //   verify_escalate_to:   null    (no cascade)
+        //   verify_escalate_rate: 0.10    (typical "escalate ~10% flagged"
+        //                                  rate; overridden per-agent)
+        let escalateMonthly = 0;
+        let escalatePresetLabel = null;
+        const escalateKey = a.verify_escalate_to || v.escalate_to;
+        if (escalateKey && VERIFIER_PRESETS[escalateKey]) {
+          const escalatePreset = Object.assign({ __variantKey: escalateKey }, VERIFIER_PRESETS[escalateKey]);
+          const escalateRate = Math.max(0, Math.min(1,
+            a.verify_escalate_rate != null ? a.verify_escalate_rate
+            : (v.escalate_rate != null ? v.escalate_rate : 0.10)));
+          const escalatedOutputs = verified * escalateRate;
+          if (escalatedOutputs > 0) {
+            const er = _verifCostForPreset(escalatePreset, escalatedOutputs, w, opts, atoms);
+            escalateMonthly = er.monthly;
+            escalatePresetLabel = escalatePreset.label;
+          }
+        }
+        const agentMonthly = r.monthly + escalateMonthly;
+        total += agentMonthly;
         perAgentBreakdown.push({
           id: a.id, label: a.label || a.id,
           verifier: agentPreset.label, latency_class: agentPreset.latency_class,
-          coverage: agentCov, verified_outputs: verified, monthly: r.monthly,
+          coverage: agentCov, verified_outputs: verified,
+          monthly: agentMonthly,
+          primary_monthly: r.monthly,
+          escalate_to: escalatePresetLabel,
+          escalate_monthly: escalateMonthly,
         });
       }
       return {
@@ -1159,6 +1186,26 @@
     }
     const verifiedQueries = monthlyQueries * coverage;
 
+    // WORKLOAD-WIDE cascading verification: if v.escalate_to is set, a
+    // secondary verifier runs on the escalate_rate fraction of outputs
+    // that the primary flagged. Common production pattern: cheap inline
+    // gate (MiniCheck) + audit cascade to FR2 on the 10% it can't
+    // confidently approve. Computed once below and added to the
+    // workload-wide return below.
+    let _cascadeMonthly = 0;
+    let _cascadePresetLabel = null;
+    let _cascadeRate = 0;
+    if (v.escalate_to && VERIFIER_PRESETS[v.escalate_to]) {
+      const escalatePreset = Object.assign({ __variantKey: v.escalate_to }, VERIFIER_PRESETS[v.escalate_to]);
+      _cascadeRate = Math.max(0, Math.min(1, v.escalate_rate != null ? v.escalate_rate : 0.10));
+      const escalatedCount = verifiedQueries * _cascadeRate;
+      if (escalatedCount > 0) {
+        const er = _verifCostForPreset(escalatePreset, escalatedCount, w, opts, atoms);
+        _cascadeMonthly = er.monthly;
+        _cascadePresetLabel = escalatePreset.label;
+      }
+    }
+
     // SELF-CHECK shape (RAGAS faithfulness, Anthropic citations): no
     // separate verifier model. Bills as output-token overhead on the
     // verified queries' main-model output. Short-circuit early; engine
@@ -1172,9 +1219,10 @@
       const overheadMonthly = verifiedQueries * overheadCostPerQuery;
       return {
         enabled: true, coverage, variant, verified_queries: verifiedQueries,
-        monthly: overheadMonthly,
-        breakdown: { self_check_output_overhead: overheadMonthly },
+        monthly: overheadMonthly + _cascadeMonthly,
+        breakdown: { self_check_output_overhead: overheadMonthly, cascade_escalation: _cascadeMonthly },
         preset: { label: preset.label, calibration: preset.calibration, shape: preset.shape },
+        cascade: _cascadePresetLabel ? { escalate_to: _cascadePresetLabel, escalate_rate: _cascadeRate, monthly: _cascadeMonthly } : null,
         nli_hosting: 'none',
         nli_calls_per_query: 0,
       };
@@ -1188,9 +1236,10 @@
       const servicePodFlat = v.service_pod_monthly || 0;
       return {
         enabled: true, coverage, variant, verified_queries: verifiedQueries,
-        monthly: flatMonthly + servicePodFlat,
-        breakdown: { commercial_flat: flatMonthly, service_pod: servicePodFlat },
+        monthly: flatMonthly + servicePodFlat + _cascadeMonthly,
+        breakdown: { commercial_flat: flatMonthly, service_pod: servicePodFlat, cascade_escalation: _cascadeMonthly },
         preset: { label: preset.label, calibration: preset.calibration, shape: preset.shape, perCheckUsd: preset.perCheckUsd },
+        cascade: _cascadePresetLabel ? { escalate_to: _cascadePresetLabel, escalate_rate: _cascadeRate, monthly: _cascadeMonthly } : null,
         nli_hosting: 'vendor',
         nli_calls_per_query: 0,
       };
@@ -1245,7 +1294,7 @@
     const factscoreLlmMonthly = verifiedQueries * factscoreLlmPerQuery;
     // servicePod was declared at the top of computeVerification (shared
     // with the per-agent branch above); re-use the outer binding here.
-    const monthly = atomizerMonthly + reviserMonthly + nliMonthly + factscoreLlmMonthly + retrievalMonthly + servicePod;
+    const monthly = atomizerMonthly + reviserMonthly + nliMonthly + factscoreLlmMonthly + retrievalMonthly + servicePod + _cascadeMonthly;
 
     return {
       enabled: true,
@@ -1260,8 +1309,10 @@
         factscore_llm_per_atom: factscoreLlmMonthly,
         retrieval: retrievalMonthly,
         service_pod: servicePod,
+        cascade_escalation: _cascadeMonthly,
       },
       preset: { label: preset.label, calibration: preset.calibration, shape: preset.shape },
+      cascade: _cascadePresetLabel ? { escalate_to: _cascadePresetLabel, escalate_rate: _cascadeRate, monthly: _cascadeMonthly } : null,
       nli_hosting: nliHosting,
       nli_calls_per_query: nliCallsPerQuery,
     };

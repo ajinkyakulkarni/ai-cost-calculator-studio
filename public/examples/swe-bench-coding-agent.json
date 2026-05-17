@@ -1,0 +1,188 @@
+{
+  "schemaVersion": "1.0",
+  "deployment": {
+    "name": "SWE-bench-class Single-Agent Coding Agent",
+    "agency": "(bench-validated workload — single-agent ReAct coder)",
+    "description": "SWE-bench-class single-agent coding workload, modeled after published Devin / Claude Code / SWE-Llama session traces. One Coder agent on a flagship model (claude-opus-4.7) executes a think-act-observe ReAct loop with heavy tool use (file_search, web_search, sandboxed container). Each user-visible turn expands to ~8 inner LLM calls per published Devin numbers, reflecting plan→edit→run-tests→read-output→revise cycles. Token sizes are large: full file context (~8K input/call), substantial diffs (~2.5K output/call), and a rich tool catalog in the system prompt (~3K). Use this preset to estimate API cost for developer-pilot deployments of autonomous coding agents.",
+    "publicFacing": false,
+    "fedrampTier": "none"
+  },
+
+  "anchor_query": {
+    "input_tokens": 8000,
+    "output_tokens": 2500,
+    "cache_rate_baseline": 0.70,
+    "session_baseline_turns": 2,
+    "example": "Fix the failing test in tests/test_parser.py — the regex doesn't handle escaped delimiters. Investigate, propose a diff, run the tests, and iterate until green.",
+    "_calibration": {
+      "source": "Estimated from SWE-bench-Lite published traces + Devin's reported ~10-20 LLM calls per resolved issue",
+      "confidence": "estimated",
+      "reference": "Jimenez et al. 2024 SWE-bench; Cognition Labs Devin blog post",
+      "notes": "Treat each user task as a session; each session ≈ 2 user-visible turns (initial prompt + one follow-up), each turn expanding to ~8 inner LLM calls via the ReAct loop. MAU = number of developers actively using the agent. Token sizes (8K input / 2.5K output) reflect full-file context windows typical of long-form coding turns; tighter agents (Aider-style narrow-diff) will be 30-50% lower."
+    }
+  },
+
+  "tools_registry": {
+    "web_search": {
+      "label": "Web Search",
+      "description": "Provider-managed web search for API docs, stack traces, error messages",
+      "cost_shape": "per_call",
+      "rate_usd": 0.010,
+      "schema_tokens": 120,
+      "result_tokens_avg": 800,
+      "return_shape": "templated",
+      "cap_tokens": 80,
+      "memoize": false,
+      "memoize_hit_rate": 0.0,
+      "provider": "managed",
+      "builtin": true
+    },
+    "file_search": {
+      "label": "File Search (repo grep + AST)",
+      "description": "Repository search: grep, AST queries, symbol lookups. Called heavily during exploration.",
+      "cost_shape": "per_call",
+      "rate_usd": 0.0025,
+      "schema_tokens": 80,
+      "result_tokens_avg": 1500,
+      "return_shape": "templated",
+      "cap_tokens": 60,
+      "memoize": true,
+      "memoize_hit_rate": 0.3,
+      "provider": "managed",
+      "builtin": true
+    },
+    "container_session": {
+      "label": "Container / Code Interpreter session",
+      "description": "Sandboxed exec environment — runs tests, executes patches, reads stack traces.",
+      "cost_shape": "per_session",
+      "rate_usd": 0.03,
+      "schema_tokens": 200,
+      "result_tokens_avg": 400,
+      "return_shape": "templated",
+      "cap_tokens": 200,
+      "memoize": false,
+      "memoize_hit_rate": 0.0,
+      "provider": "managed",
+      "builtin": true
+    },
+    "internal_repo_index": {
+      "label": "Internal repo index (MCP)",
+      "description": "Custom MCP server — pre-built repo embedding index for fast semantic search.",
+      "cost_shape": "free",
+      "rate_usd": 0,
+      "schema_tokens": 150,
+      "result_tokens_avg": 600,
+      "return_shape": "templated",
+      "cap_tokens": 80,
+      "memoize": true,
+      "memoize_hit_rate": 0.5,
+      "provider": "self-hosted",
+      "builtin": false
+    }
+  },
+
+  "agents": [
+    {
+      "id": "coder",
+      "label": "Coder (single-agent ReAct)",
+      "input_tokens": 8000,
+      "output_tokens": 2500,
+      "calls_per_query": 1,
+      "model": "claude-opus-4.7",
+      "cache_eligible": true,
+      "hosting": "api",
+      "description": "Single autonomous coding agent. Reads the task, plans, edits files, runs tests, reads test output, revises. The 8× loop multiplier reflects the think-act-observe inner cycle: each user-visible turn fires ~8 LLM calls before producing a visible response.",
+      "sysprompt_tokens": 3000,
+      "iamsg_tokens": 0,
+      "calls_per_turn_multiplier": 8.0,
+      "activation_rate": 1.0,
+      "verify_enabled": false,
+      "enabled_tools": {
+        "web_search":          { "calls_per_query": 2 },
+        "file_search":         { "calls_per_query": 6 },
+        "container_session":   { "calls_per_query": 3 },
+        "internal_repo_index": { "calls_per_query": 4 }
+      }
+    }
+  ],
+
+  "shapes": {
+    "full":    { "input_factor": 1.00, "output_factor": 1.00, "cache_eligible": true,  "description": "Full SWE-bench-class task (default)" },
+    "lookup":  { "input_factor": 0.25, "output_factor": 0.30, "cache_eligible": true,  "description": "Quick lookup / one-line change" },
+    "refusal": { "input_factor": 0.08, "output_factor": 0.10, "cache_eligible": false, "description": "Out-of-scope / unsupported task" }
+  },
+
+  "mix": {
+    "default": {
+      "label": "Pilot mix (70% full · 20% lookup · 10% refusal)",
+      "weights": { "full": 0.70, "lookup": 0.20, "refusal": 0.10 }
+    }
+  },
+
+  "segments": [
+    {
+      "id": "dev_pilot",
+      "label": "Developer pilots (early access)",
+      "mau": 100,
+      "sessions_per_day": 0.3,
+      "questions_per_session": 2,
+      "applyBotFactor": false,
+      "description": "100 developers with early-access seats; ~1 task every 3 days, ~2 user-visible turns per task."
+    }
+  ],
+
+  "verification": {
+    "enabled": false,
+    "coverage": 0,
+    "atoms_per_response": 4,
+    "variant": "minicheck",
+    "atomizer_tokens": { "input": 1500, "output": 400 },
+    "reviser_tokens": { "input": 500, "output": 30 },
+    "nli_tokens": { "input": 1200, "output": 20 },
+    "retrieval": "wikipedia",
+    "nli_hosting": "api",
+    "service_pod_monthly": 0
+  },
+
+  "rate_limit": { "strategy": "none", "monthly_cost": 0, "bot_ceiling": 1 },
+  "daily_cap": { "enabled": false, "amount_usd": 0, "burst_days": 0, "burst_factor": 1 },
+
+  "infrastructure": {
+    "Runtime · agent host (Fly.io)": 220,
+    "Container sandbox cluster": 480,
+    "Repo index store (Postgres + pgvector)": 180,
+    "Object storage · S3 (artifacts, traces)": 90,
+    "CloudWatch + traces": 140
+  },
+
+  "defaults": {
+    "model": "claude-opus-4.7",
+    "tier": "standard",
+    "mix": "default",
+    "rate_limit": "none",
+    "hosting": "api",
+    "cost_mode": "realistic"
+  },
+
+  "tier_multipliers": { "standard": 1, "flex": 0.5, "batch": 0.5, "priority": 2.5 },
+  "rate_cards": {},
+  "self_host": {
+    "gpu_options": {},
+    "diurnal_peak_factor": 4,
+    "headroom": 1.5,
+    "min_replicas": 2,
+    "tokens_per_query_default": 2000,
+    "cost_modes": {
+      "optimistic": { "ops_monthly": 350, "fte_monthly": 2500, "setup_amortized": 0, "throughput_derate": 1, "discount_1yr": 0.4, "discount_3yr": 0.6 },
+      "realistic":  { "ops_monthly": 1800, "fte_monthly": 8000, "setup_amortized": 8333, "throughput_derate": 0.75, "discount_1yr": 0.33, "discount_3yr": 0.55 }
+    }
+  },
+
+  "federal": { "fedramp_tier": "none", "multi_region": "single", "ato_monthly": 0, "egress_gb_per_query": 0, "egress_cost_per_gb": 0, "audit_log_kb_per_query": 0, "audit_retention_years": 0, "audit_storage_per_gb_month": 0, "retrieval_infra_monthly": 0, "pii_redaction_per_million_tokens": 0 },
+  "compliance": { "ato_tier": "none", "upfront_amortization_months": 36 },
+  "reservations": { "enabled": false, "type": "none", "units": 4 },
+  "embedding": { "enabled": false, "model": "text-embedding-3-small", "corpus_size_tokens": 50000000, "reembed_frequency_months": 6, "query_embedding_tokens": 8 },
+  "personnel": { "enabled": false, "roles": [] },
+  "risk": { "enabled": false },
+  "agent_engineering": { "enabled": false, "roles": [], "duration_months": 4, "amortization_months": 36, "helper_agent_monthly": 400, "maintenance_interval_months": 6, "maintenance_hours_per_session": 40 }
+}

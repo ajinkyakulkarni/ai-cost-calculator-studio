@@ -787,6 +787,37 @@ FR2 (160 NLI calls/query) ≈ 160× MiniCheck per check. At equal coverage, FR2 
                 }).join('')}
               </select>
             </div>
+          </div>
+          <div class="row grid-2" style="margin-top:6px;padding-top:6px;border-top:1px dashed rgba(120,180,255,0.25)">
+            <div>
+              <label for="agent-${idx}-verify-escalate-to" style="font-size:11px">Cascade to <em>(escalate flagged to deeper verifier — blank = no cascade)</em> <span class="tip" data-tip="### Cascading verification (production pattern)
+
+**The idea:** primary verifier runs fast on every output; a SECONDARY (slower, deeper) verifier only runs on the fraction flagged by the primary. Cost = (fast × 100%) + (slow × escalate_rate).
+
+**Why it matters**
+A flat 'always use FR2' on 100% of outputs costs ~$100 per 1000 outputs. A cascade of MiniCheck → FR2-on-10%-flagged costs ~$10 + $10 = $20 per 1000 — **5× cheaper** at the same final quality (because FR2 only runs on ambiguous cases).
+
+**Common production patterns**
+- **MiniCheck → FR2** — Claude Code subagents' default. Catches 90% with fast NLI; FR2 deep-checks the ambiguous 10%.
+- **Anthropic citations (inline) → FactReasoner FR2** — Inline citation hint is free; FR2 audits a sample.
+- **Patronus → FactReasoner FR3** — Commercial fast check + nightly batch deep audit.
+
+**How escalate_rate is set in real systems**
+Production teams measure their primary's confidence-score distribution; escalate_rate = fraction below confidence threshold. Typical 5–20%. Higher rates indicate the primary is too lax — tune the threshold.
+
+**Default (blank)**: no cascade. Single verifier runs on all verified outputs.">ⓘ</span></label>
+              <select id="agent-${idx}-verify-escalate-to" data-agent="${idx}" data-key="verify_escalate_to" style="font-size:12px">
+                <option value="">(no cascade)</option>
+                ${Object.entries((window.CostEngine && window.CostEngine.VERIFIER_PRESETS) || {}).map(([k, p]) => {
+                  const badge = p.latency_class === 'inline' ? '✓ inline' : p.latency_class === 'audit' ? '⚠ audit (~' + p.latency_sec + 's)' : '⚠ batch (~' + p.latency_sec + 's)';
+                  return `<option value="${k}" ${agent.verify_escalate_to === k ? 'selected' : ''}>${p.label} — ${badge}</option>`;
+                }).join('')}
+              </select>
+            </div>
+            <div>
+              <label for="agent-${idx}-verify-escalate-rate" style="font-size:11px">Escalate rate <em>(0–1, fraction the primary flags)</em></label>
+              <input id="agent-${idx}-verify-escalate-rate" type="number" min="0" max="1" step="0.05" value="${agent.verify_escalate_rate != null ? agent.verify_escalate_rate : ''}" data-agent="${idx}" data-key="verify_escalate_rate" placeholder="0.10 (typical)" style="font-size:12px" title="Fraction of outputs the primary verifier flags as ambiguous → escalated to the secondary. Typical 0.05–0.20. Default 0.10 if blank.">
+            </div>
           </div>` : ''}
         </div>
         <div class="row grid-3">
@@ -817,7 +848,8 @@ FR2 (160 NLI calls/query) ≈ 160× MiniCheck per check. At equal coverage, FR2 
           // Blank values: nullable for the optional per-agent verify fields
           // (so the engine falls back to workload defaults). Otherwise treat
           // model as null and numeric fields as 0.
-          if (key === 'model' || key === 'verifier_override' || key === 'verify_coverage') v = null;
+          if (key === 'model' || key === 'verifier_override' || key === 'verify_coverage'
+              || key === 'verify_escalate_to' || key === 'verify_escalate_rate') v = null;
           else v = 0;
         }
         else if (el.type === 'number') v = parseFloat(el.value) || 0;

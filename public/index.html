@@ -3461,6 +3461,8 @@ body.config-basic .simulator-pane .block-advanced { display: none !important; }
       <option value="finance-compliance-qa">Finance · Bank Compliance Q&amp;A</option>
       <option value="mcp-research-fleet">Demo · MCP Research Fleet (registry walkthrough)</option>
       <option value="saas-website-builder">Commercial · AI SaaS Website Builder (4-agent freemium)</option>
+      <option value="swe-bench-coding-agent">Bench · SWE-bench-class Single-Agent Coder (ReAct, Opus-4.7)</option>
+      <option value="customer-support-fleet">Bench · 3-Agent Customer Support Fleet (Triage → KB → Responder)</option>
     </select>
   </div>
 
@@ -4112,6 +4114,56 @@ For 1M queries/mo with 8 atoms each, FR2 → FR3 adds ~$15K/mo of NLI cost. Use 
           <option value="wikipedia">Wikipedia (free)</option>
           <option value="serper">Serper API ($5 per 1k calls)</option>
         </select>
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;padding-top:6px;border-top:1px dashed var(--b)">
+        <div>
+          <label for="verif-escalate-to" class="sr-label" data-tip="### Cascading verification
+
+**Pattern:** primary verifier (above) runs on every sampled output; this SECONDARY verifier only runs on the fraction the primary flags. Cost = primary × 100% + secondary × escalate_rate.
+
+**Why it matters**
+A flat 'always FR2' on 100% of outputs costs ~$100 per 1000 outputs. Cascade of MiniCheck → FR2-on-10%-flagged costs ~$20 per 1000 — 5× cheaper at the same quality, because the slow verifier only deep-checks the ambiguous cases.
+
+**Production patterns**
+- **MiniCheck → FR2** — Claude Code subagents' default cascade
+- **Anthropic citations (inline) → FR2 (audit)** — free inline + nightly sample
+- **Patronus → FR3** — commercial fast + batch deep audit
+
+**Default**: (none) — single verifier runs on all verified outputs. Set per-agent in the Agent fleet section for finer control.">Cascade to (escalate to deeper verifier)</label>
+          <select id="verif-escalate-to" data-bind="verification.escalate_to" style="width:100%;margin-top:3px;font-size:11.5px">
+            <option value="">(no cascade)</option>
+            <optgroup label="FactReasoner — deep audit">
+              <option value="fr1">FR1 · lean (24 NLI calls/q)</option>
+              <option value="fr2">FR2 · high-recall (160 NLI calls/q)</option>
+              <option value="fr3">FR3 · exhaustive (350 NLI calls/q)</option>
+            </optgroup>
+            <optgroup label="Inline-class">
+              <option value="minicheck">MiniCheck (1 NLI call/q)</option>
+              <option value="ragas-faithfulness">RAGAS faithfulness</option>
+              <option value="anthropic-citations">Anthropic citations</option>
+            </optgroup>
+            <optgroup label="Commercial flat-rate">
+              <option value="patronus">Patronus AI</option>
+              <option value="galileo">Galileo Luna</option>
+            </optgroup>
+          </select>
+        </div>
+        <div>
+          <label for="verif-escalate-rate" class="sr-label" data-tip="### Escalate rate
+
+Fraction of primary-verified outputs that the primary flags as ambiguous → escalated to the secondary verifier.
+
+**Typical production values**
+- **0.05–0.10**: well-tuned primary (most outputs pass cleanly)
+- **0.15–0.25**: lower-confidence threshold (catches more, costs more)
+- **>0.30**: primary is too lax — tighten its confidence threshold instead
+
+**How real teams set this**
+Measure primary's confidence-score histogram across a labeled validation set; pick the threshold below which secondary review is warranted; escalate_rate = fraction of production outputs below that threshold.
+
+**Default**: 0.10 when escalate_to is set, blank otherwise.">Escalate rate <em style="color:var(--dim);font-style:normal">(0–1)</em></label>
+          <input type="number" id="verif-escalate-rate" min="0" max="1" step="0.05" data-bind="verification.escalate_rate" style="width:100%;margin-top:3px" placeholder="0.10 (typical)">
+        </div>
       </div>
       <details style="font-size:9px">
         <summary style="cursor:pointer;color:var(--cyan);user-select:none;letter-spacing:1px;text-transform:uppercase;font-weight:700;font-size:9px">Advanced — token budgets per call</summary>
