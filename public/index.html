@@ -4041,7 +4041,7 @@ Set Cap above to match your template's actual emission size (40 for status-only,
       </label>
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
         <div>
-          <span class="sr-label" data-tip="### Sampling coverage (how much to fact-check)
+          <label for="verif-coverage" class="sr-label" data-tip="### Sampling coverage (how much to fact-check)
 
 **In plain English:** what percentage of the AI's responses get sent through an automated fact-check pipeline that verifies every claim against trusted sources before the user sees the reply. **0.10 means 10% — an audit sample**, not every reply.
 
@@ -4050,11 +4050,11 @@ Set Cap above to match your template's actual emission size (40 for status-only,
 - **0.1:** 10% audit sampling — federal compliance minimum
 - **0.5–1.0:** every reply checked — high-stakes, but very expensive (each check is its own AI call)
 
-**Cost note:** at 100% coverage, fact-checking can double the AI bill on its own — every response generates an extra round of analysis. Use audit sampling unless you really need 100%.">Sampling coverage <em style="color:var(--dim);font-style:normal">(0–1)</em></span>
-          <input type="number" step="0.01" min="0" max="1" data-bind="verification.coverage" style="width:100%;margin-top:3px">
+**Cost note:** at 100% coverage, fact-checking can double the AI bill on its own — every response generates an extra round of analysis. Use audit sampling unless you really need 100%.">Sampling coverage <em style="color:var(--dim);font-style:normal">(0–1)</em></label>
+          <input type="number" id="verif-coverage" step="0.01" min="0" max="1" data-bind="verification.coverage" style="width:100%;margin-top:3px">
         </div>
         <div>
-          <span class="sr-label" data-tip="### Verifier preset
+          <label for="verif-variant" class="sr-label" data-tip="### Verifier preset
 
 FactReasoner pipeline variants for automated factuality checking.
 
@@ -4065,8 +4065,8 @@ FactReasoner pipeline variants for automated factuality checking.
 | **FR3** exhaustive | 350 | ~14× | highest |
 
 **Why it matters**
-For 1M queries/mo with 8 atoms each, FR2 → FR3 adds ~$15K/mo of NLI cost. Use FR3 only when the cost of an unchecked false claim is high (e.g. clinical, financial, public-facing federal answers). For most deployments, FR2 is the right default.">Verifier preset</span>
-          <select data-bind="verification.variant" style="width:100%;margin-top:3px">
+For 1M queries/mo with 8 atoms each, FR2 → FR3 adds ~$15K/mo of NLI cost. Use FR3 only when the cost of an unchecked false claim is high (e.g. clinical, financial, public-facing federal answers). For most deployments, FR2 is the right default.">Verifier preset</label>
+          <select id="verif-variant" data-bind="verification.variant" style="width:100%;margin-top:3px">
             <optgroup label="FactReasoner (IBM Research) — bench-validated">
               <option value="fr1">FR1 · lean (24 NLI calls/query) — measured</option>
               <option value="fr2">FR2 · high-recall (160 NLI calls) — measured</option>
@@ -4088,23 +4088,23 @@ For 1M queries/mo with 8 atoms each, FR2 → FR3 adds ~$15K/mo of NLI cost. Use 
           </select>
         </div>
         <div>
-          <span class="sr-label" data-tip="### Atoms (factual claims) per response
+          <label for="verif-atoms-per-response" class="sr-label" data-tip="### Atoms (factual claims) per response
 
 **In plain English:** when fact-checking, the system breaks each AI reply into separate verifiable claims. One 'atom' = one statement of fact (e.g. *'NASA's TROPOMI sensor measures NO2'*). A typical paragraph-length reply contains 5–10 atoms. Each one gets checked separately against trusted sources.
 
-**Why it matters for cost:** more atoms per response = more verification work = higher fact-check bill. A complex policy answer with 20 claims costs 4× the verification of a simple FAQ answer with 5 claims.">Atoms (claims) per response</span>
-          <input type="number" min="0" data-bind="verification.atoms_per_response" style="width:100%;margin-top:3px">
+**Why it matters for cost:** more atoms per response = more verification work = higher fact-check bill. A complex policy answer with 20 claims costs 4× the verification of a simple FAQ answer with 5 claims.">Atoms (claims) per response</label>
+          <input type="number" id="verif-atoms-per-response" min="0" data-bind="verification.atoms_per_response" style="width:100%;margin-top:3px">
         </div>
         <div>
-          <span class="sr-label" data-tip="### Where the fact-check model runs
+          <label for="verif-nli-hosting" class="sr-label" data-tip="### Where the fact-check model runs
 
 **In plain English:** the fact-checker ('NLI model' — Natural Language Inference) decides whether the retrieved evidence actually supports the AI's claim, contradicts it, or is unrelated. You can run that model two ways:
 
 - **API:** pay per word — scales linearly with volume. Cheap at low volume, expensive at scale.
 - **EC2 (self-hosted on a cheap GPU):** flat monthly fee. Wasteful below ~1M checks/month, very cheap above that.
 
-**Crossover point:** roughly **5M atoms/month**. Below that, API is cheaper; above, EC2 is.">Where the fact-check model runs</span>
-          <select data-bind="verification.nli_hosting" style="width:100%;margin-top:3px">
+**Crossover point:** roughly **5M atoms/month**. Below that, API is cheaper; above, EC2 is.">Where the fact-check model runs</label>
+          <select id="verif-nli-hosting" data-bind="verification.nli_hosting" style="width:100%;margin-top:3px">
             <optgroup label="Per-token (variable cost)">
               <option value="api">API — OpenAI / Anthropic direct</option>
               <option value="bedrock-ondemand">AWS Bedrock on-demand</option>
@@ -4120,7 +4120,7 @@ For 1M queries/mo with 8 atoms each, FR2 → FR3 adds ~$15K/mo of NLI cost. Use 
         </div>
       </div>
       <div>
-        <span class="sr-label" data-tip="### Evidence source (where to look for facts)
+        <label for="verif-retrieval" class="sr-label" data-tip="### Evidence source (where to look for facts)
 
 **In plain English:** when the system fact-checks a claim, it has to look up evidence somewhere. This setting picks where.
 
@@ -4129,8 +4129,8 @@ For 1M queries/mo with 8 atoms each, FR2 → FR3 adds ~$15K/mo of NLI cost. Use 
 - **Serper (Google Search API):** ~$5 per 1,000 atoms checked — accurate and current, but costs add up fast at high coverage. Best for time-sensitive or specialized claims.
 - **Custom internal corpus:** depends on your setup — typically free if you already have it indexed.
 
-**Cost note:** at 100% fact-check coverage with 8 atoms per reply at 1M replies/month, Serper alone costs $40K/mo. Audit-sample at 10% (the default) to keep this manageable.">Source for evidence retrieval</span>
-        <select data-bind="verification.retrieval" style="width:100%;margin-top:3px">
+**Cost note:** at 100% fact-check coverage with 8 atoms per reply at 1M replies/month, Serper alone costs $40K/mo. Audit-sample at 10% (the default) to keep this manageable.">Source for evidence retrieval</label>
+        <select id="verif-retrieval" data-bind="verification.retrieval" style="width:100%;margin-top:3px">
           <option value="wikipedia">Wikipedia (free)</option>
           <option value="serper">Serper API ($5 per 1k calls)</option>
         </select>
@@ -4138,13 +4138,13 @@ For 1M queries/mo with 8 atoms each, FR2 → FR3 adds ~$15K/mo of NLI cost. Use 
       <details style="font-size:9px">
         <summary style="cursor:pointer;color:var(--cyan);user-select:none;letter-spacing:1px;text-transform:uppercase;font-weight:700;font-size:9px">Advanced — token budgets per call</summary>
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-top:6px">
-          <div><span class="sr-label" data-tip="Tokens consumed by the Atomizer model when it splits the LLM's response into discrete verifiable claims. Scales with response length and structural complexity. Default ~1500 input is realistic for a 600-token response with the standard FactReasoner prompt.">Atomizer · input tokens</span><input type="number" min="0" data-bind="verification.atomizer_tokens.input" style="width:100%;margin-top:3px"></div>
-          <div><span class="sr-label" data-tip="Tokens emitted by the Atomizer — typically a JSON list of atomic claims. ~400 output is typical for an 8-claim response; longer answers produce more atoms.">Atomizer · output tokens</span><input type="number" min="0" data-bind="verification.atomizer_tokens.output" style="width:100%;margin-top:3px"></div>
-          <div><span class="sr-label" data-tip="Tokens consumed by the Reviser when it rewrites the original answer to remove or attribute any unsupported claims found by NLI. Smaller than Atomizer because it only sees the flagged atoms + original passage.">Reviser · input tokens</span><input type="number" min="0" data-bind="verification.reviser_tokens.input" style="width:100%;margin-top:3px"></div>
-          <div><span class="sr-label" data-tip="Tokens emitted by the Reviser — the cleaned-up answer. Usually tiny (~30 tokens) because it only patches in citations or removes a phrase, not a full rewrite.">Reviser · output tokens</span><input type="number" min="0" data-bind="verification.reviser_tokens.output" style="width:100%;margin-top:3px"></div>
-          <div><span class="sr-label" data-tip="Tokens per single NLI (Natural Language Inference) call — claim + retrieved evidence + entailment prompt. Multiplied by NLI calls/atom × atoms/response (set by the FR1/FR2/FR3 verifier preset above).">NLI · input tokens</span><input type="number" min="0" data-bind="verification.nli_tokens.input" style="width:100%;margin-top:3px"></div>
-          <div><span class="sr-label" data-tip="Tokens emitted per NLI call — typically a 3-class label (entail/contradict/neutral) plus brief justification. ~20 tokens is normal; raise if your NLI prompt requests longer rationales.">NLI · output tokens</span><input type="number" min="0" data-bind="verification.nli_tokens.output" style="width:100%;margin-top:3px"></div>
-          <div style="grid-column:span 2"><span class="sr-label" data-tip="Flat monthly cost of the verification orchestration pod (the service that runs the Atomizer/NLI/Reviser pipeline). Charged independent of volume. Typical $30-100/mo on a small EKS deployment; 0 if you're calling NLI as an API.">Service pod monthly ($)</span><input type="number" min="0" data-bind="verification.service_pod_monthly" style="width:100%;margin-top:3px"></div>
+          <div><label for="verif-atomizer-input" class="sr-label" data-tip="Tokens consumed by the Atomizer model when it splits the LLM's response into discrete verifiable claims. Scales with response length and structural complexity. Default ~1500 input is realistic for a 600-token response with the standard FactReasoner prompt.">Atomizer · input tokens</label><input type="number" id="verif-atomizer-input" min="0" data-bind="verification.atomizer_tokens.input" style="width:100%;margin-top:3px"></div>
+          <div><label for="verif-atomizer-output" class="sr-label" data-tip="Tokens emitted by the Atomizer — typically a JSON list of atomic claims. ~400 output is typical for an 8-claim response; longer answers produce more atoms.">Atomizer · output tokens</label><input type="number" id="verif-atomizer-output" min="0" data-bind="verification.atomizer_tokens.output" style="width:100%;margin-top:3px"></div>
+          <div><label for="verif-reviser-input" class="sr-label" data-tip="Tokens consumed by the Reviser when it rewrites the original answer to remove or attribute any unsupported claims found by NLI. Smaller than Atomizer because it only sees the flagged atoms + original passage.">Reviser · input tokens</label><input type="number" id="verif-reviser-input" min="0" data-bind="verification.reviser_tokens.input" style="width:100%;margin-top:3px"></div>
+          <div><label for="verif-reviser-output" class="sr-label" data-tip="Tokens emitted by the Reviser — the cleaned-up answer. Usually tiny (~30 tokens) because it only patches in citations or removes a phrase, not a full rewrite.">Reviser · output tokens</label><input type="number" id="verif-reviser-output" min="0" data-bind="verification.reviser_tokens.output" style="width:100%;margin-top:3px"></div>
+          <div><label for="verif-nli-input" class="sr-label" data-tip="Tokens per single NLI (Natural Language Inference) call — claim + retrieved evidence + entailment prompt. Multiplied by NLI calls/atom × atoms/response (set by the FR1/FR2/FR3 verifier preset above).">NLI · input tokens</label><input type="number" id="verif-nli-input" min="0" data-bind="verification.nli_tokens.input" style="width:100%;margin-top:3px"></div>
+          <div><label for="verif-nli-output" class="sr-label" data-tip="Tokens emitted per NLI call — typically a 3-class label (entail/contradict/neutral) plus brief justification. ~20 tokens is normal; raise if your NLI prompt requests longer rationales.">NLI · output tokens</label><input type="number" id="verif-nli-output" min="0" data-bind="verification.nli_tokens.output" style="width:100%;margin-top:3px"></div>
+          <div style="grid-column:span 2"><label for="verif-service-pod-monthly" class="sr-label" data-tip="Flat monthly cost of the verification orchestration pod (the service that runs the Atomizer/NLI/Reviser pipeline). Charged independent of volume. Typical $30-100/mo on a small EKS deployment; 0 if you're calling NLI as an API.">Service pod monthly ($)</label><input type="number" id="verif-service-pod-monthly" min="0" data-bind="verification.service_pod_monthly" style="width:100%;margin-top:3px"></div>
         </div>
       </details>
     </div>
@@ -4387,7 +4387,7 @@ For 1M queries/mo with 8 atoms each, FR2 → FR3 adds ~$15K/mo of NLI cost. Use 
       <h3 style="margin: 12px 0 6px; font-size: 13px;">Hosting multipliers</h3>
       <div class="row grid-2">
         <div>
-          <label>FedRAMP tier <span class="tip" data-tip="### FedRAMP tier (federal cloud authorization level)
+          <label for="fed-fedramp-tier">FedRAMP tier <span class="tip" data-tip="### FedRAMP tier (federal cloud authorization level)
 
 **In plain English:** FedRAMP is the federal government's security stamp of approval for cloud services. Higher tiers = stricter rules + a price premium because the cloud provider has to maintain extra controls, audits, and dedicated infrastructure.
 
@@ -4402,7 +4402,7 @@ If your contract also requires a backup data center for disaster recovery (DR), 
 
 **Why it matters for cost**
 This is a quiet line item that federal proposals often miss in the first draft. A $20K/mo commercial deployment becomes ~$52K/mo at FedRAMP-High + active-active. Surface this early so the budget envelope is sized correctly.">ⓘ</span></label>
-          <select data-bind="federal.fedramp_tier">
+          <select id="fed-fedramp-tier" data-bind="federal.fedramp_tier">
             <option value="none">None / commercial (×1.00)</option>
             <option value="low">Low (×1.00)</option>
             <option value="moderate">Moderate (×1.15)</option>
@@ -4410,7 +4410,7 @@ This is a quiet line item that federal proposals often miss in the first draft. 
           </select>
         </div>
         <div>
-          <label>Multi-region / DR <span class="tip" data-tip="### Disaster recovery (second-region backup)
+          <label for="fed-multi-region">Multi-region / DR <span class="tip" data-tip="### Disaster recovery (second-region backup)
 
 **In plain English:** Federal contracts often require the system to keep running even if a whole AWS/Azure region goes offline. That means standing up the same setup in a second region — which roughly doubles infrastructure cost.
 
@@ -4420,7 +4420,7 @@ This is a quiet line item that federal proposals often miss in the first draft. 
 
 **Why it matters**
 Stacks with FedRAMP. A FedRAMP-High deployment with active-active DR pays 1.30 × 2.00 = **2.60×** the commercial baseline. Negotiate which one your contract actually requires — many DR clauses can be satisfied with active-passive at considerable savings.">ⓘ</span></label>
-          <select data-bind="federal.multi_region">
+          <select id="fed-multi-region" data-bind="federal.multi_region">
             <option value="single">Single region (×1.00)</option>
             <option value="active-passive">Active-passive (×1.50)</option>
             <option value="active-active">Active-active (×2.00)</option>
@@ -4432,7 +4432,7 @@ Stacks with FedRAMP. A FedRAMP-High deployment with active-active DR pays 1.30 �
       <h3 style="margin: 16px 0 6px; font-size: 13px;">Additive monthly costs</h3>
       <div class="row grid-2">
         <div>
-          <label>ATO compliance tier <span class="tip" data-tip="### ATO (Authority to Operate)
+          <label for="fed-ato-tier">ATO compliance tier <span class="tip" data-tip="### ATO (Authority to Operate)
 
 **In plain English:** an ATO is the formal sign-off a federal system needs before it can go live in production. Earning one means submitting a security package, having it reviewed, and committing to ongoing monitoring. It costs real money — usually paid to a 3rd-party assessor (3PAO) plus internal staff time.
 
@@ -4445,7 +4445,7 @@ Stacks with FedRAMP. A FedRAMP-High deployment with active-active DR pays 1.30 �
 
 **Why it matters for budget**
 Picking a tier here auto-computes the monthly amortized cost (upfront ÷ amortization months + annual continuous monitoring ÷ 12). If you have a custom ATO arrangement, set this to *none* and enter the monthly figure manually below.">ⓘ</span></label>
-          <select data-bind="compliance.ato_tier">
+          <select id="fed-ato-tier" data-bind="compliance.ato_tier">
             <option value="none">None / use manual field below</option>
             <option value="fedramp_li_saas">FedRAMP Low Impact SaaS</option>
             <option value="fedramp_low">FedRAMP Low</option>
@@ -4456,27 +4456,27 @@ Picking a tier here auto-computes the monthly amortized cost (upfront ÷ amortiz
           </select>
         </div>
         <div>
-          <label>Upfront amortization (months) <span class="tip" data-tip="How many months to spread the upfront ATO cost over. Default 36 (3-year cycle).">ⓘ</span></label>
-          <input type="number" min="1" step="1" data-bind="compliance.upfront_amortization_months">
+          <label for="fed-upfront-amortization-months">Upfront amortization (months) <span class="tip" data-tip="How many months to spread the upfront ATO cost over. Default 36 (3-year cycle).">ⓘ</span></label>
+          <input type="number" id="fed-upfront-amortization-months" min="1" step="1" data-bind="compliance.upfront_amortization_months">
         </div>
       </div>
       <div class="row grid-2">
         <div>
-          <label>ATO manual override ($/mo) <span class="tip" data-tip="Fallback if you don't want to use a tier. Direct $/month value. Overridden by tier if set to anything other than 'none'.">ⓘ</span></label>
-          <input type="number" min="0" step="100" data-bind="federal.ato_monthly">
+          <label for="fed-ato-monthly">ATO manual override ($/mo) <span class="tip" data-tip="Fallback if you don't want to use a tier. Direct $/month value. Overridden by tier if set to anything other than 'none'.">ⓘ</span></label>
+          <input type="number" id="fed-ato-monthly" min="0" step="100" data-bind="federal.ato_monthly">
         </div>
         <div>
-          <label>Vector DB / retrieval infra ($/mo) <span class="tip" data-tip="Managed vector DB (Pinecone, Weaviate) or self-hosted pgvector instance. Often more than the LLM itself for RAG-heavy workloads.">ⓘ</span></label>
-          <input type="number" min="0" step="50" data-bind="federal.retrieval_infra_monthly">
+          <label for="fed-retrieval-infra-monthly">Vector DB / retrieval infra ($/mo) <span class="tip" data-tip="Managed vector DB (Pinecone, Weaviate) or self-hosted pgvector instance. Often more than the LLM itself for RAG-heavy workloads.">ⓘ</span></label>
+          <input type="number" id="fed-retrieval-infra-monthly" min="0" step="50" data-bind="federal.retrieval_infra_monthly">
         </div>
       </div>
       <div class="row grid-2">
         <div>
-          <label>Egress per query (GB) <span class="tip" data-tip="Average response size leaving the cloud. Text-only ≈ 0.001 GB (1 KB). Image/document responses can be 0.01–0.1 GB.">ⓘ</span></label>
-          <input type="number" min="0" step="0.0001" data-bind="federal.egress_gb_per_query">
+          <label for="fed-egress-gb-per-query">Egress per query (GB) <span class="tip" data-tip="Average response size leaving the cloud. Text-only ≈ 0.001 GB (1 KB). Image/document responses can be 0.01–0.1 GB.">ⓘ</span></label>
+          <input type="number" id="fed-egress-gb-per-query" min="0" step="0.0001" data-bind="federal.egress_gb_per_query">
         </div>
         <div>
-          <label>Egress cost ($/GB) <span class="tip" data-tip="### Egress = data leaving the cloud
+          <label for="fed-egress-cost-per-gb">Egress cost ($/GB) <span class="tip" data-tip="### Egress = data leaving the cloud
 
 **In plain English:** when data flows OUT of a cloud region (back to a user's browser, to another datacenter, to a vendor), the cloud provider charges per gigabyte. Inbound is free; outbound is the expensive direction.
 
@@ -4489,25 +4489,25 @@ Picking a tier here auto-computes the monthly amortized cost (upfront ÷ amortiz
 **Set to 0** if your contract has flat-fee or unlimited egress (common in committed-spend deals). Some agencies also have private network paths that bypass egress charges.
 
 **Why it matters:** at high query volumes with large responses, this can quietly run into thousands per month. Audit your billing to see how much egress your real traffic generates.">ⓘ</span></label>
-          <input type="number" min="0" step="0.01" data-bind="federal.egress_cost_per_gb">
+          <input type="number" id="fed-egress-cost-per-gb" min="0" step="0.01" data-bind="federal.egress_cost_per_gb">
         </div>
       </div>
       <div class="row grid-3">
         <div>
-          <label>Audit log size (KB/query) <span class="tip" data-tip="Per-query structured log entry size. Federal CISO requirements typically 5–20 KB per query (request + response + metadata + lineage).">ⓘ</span></label>
-          <input type="number" min="0" step="1" data-bind="federal.audit_log_kb_per_query">
+          <label for="fed-audit-log-kb-per-query">Audit log size (KB/query) <span class="tip" data-tip="Per-query structured log entry size. Federal CISO requirements typically 5–20 KB per query (request + response + metadata + lineage).">ⓘ</span></label>
+          <input type="number" id="fed-audit-log-kb-per-query" min="0" step="1" data-bind="federal.audit_log_kb_per_query">
         </div>
         <div>
-          <label>Retention (years) <span class="tip" data-tip="Federal records retention. NARA default is 7 years for operational logs; some classified or financial systems require 25+.">ⓘ</span></label>
-          <input type="number" min="0" step="1" data-bind="federal.audit_retention_years">
+          <label for="fed-audit-retention-years">Retention (years) <span class="tip" data-tip="Federal records retention. NARA default is 7 years for operational logs; some classified or financial systems require 25+.">ⓘ</span></label>
+          <input type="number" id="fed-audit-retention-years" min="0" step="1" data-bind="federal.audit_retention_years">
         </div>
         <div>
-          <label>Storage ($/GB-mo) <span class="tip" data-tip="S3 Glacier Deep Archive = $0.00099, Glacier Flexible = $0.0036, S3 Standard-IA = $0.0125. GovCloud adds ~25%.">ⓘ</span></label>
-          <input type="number" min="0" step="0.001" data-bind="federal.audit_storage_per_gb_month">
+          <label for="fed-audit-storage-per-gb-month">Storage ($/GB-mo) <span class="tip" data-tip="S3 Glacier Deep Archive = $0.00099, Glacier Flexible = $0.0036, S3 Standard-IA = $0.0125. GovCloud adds ~25%.">ⓘ</span></label>
+          <input type="number" id="fed-audit-storage-per-gb-month" min="0" step="0.001" data-bind="federal.audit_storage_per_gb_month">
         </div>
       </div>
       <div class="row">
-        <label>PII redaction ($/M tokens) <span class="tip" data-tip="### PII redaction (scrub personal info before sending to AI)
+        <label for="fed-pii-redaction-per-million-tokens">PII redaction ($/M tokens) <span class="tip" data-tip="### PII redaction (scrub personal info before sending to AI)
 
 **In plain English:** PII = Personally Identifiable Information — names, emails, social security numbers, addresses, account numbers. For HIPAA, FedRAMP, or strict privacy contracts, you have to scrub these out of user messages BEFORE the AI sees them. That scrubbing is itself a billable step.
 
@@ -4519,7 +4519,7 @@ Picking a tier here auto-computes the monthly amortized cost (upfront ÷ amortiz
 **Set to 0** if your deployment doesn't process PII or if a separate compliance layer handles it for free.
 
 **Why it matters:** required for healthcare, federal, GDPR-sensitive deployments. Skipping it can be a compliance violation; over-spending on it (paying for full DLP when Presidio would do) can be a budget leak.">ⓘ</span></label>
-        <input type="number" min="0" step="1" data-bind="federal.pii_redaction_per_million_tokens">
+        <input type="number" id="fed-pii-redaction-per-million-tokens" min="0" step="1" data-bind="federal.pii_redaction_per_million_tokens">
       </div>
       <p class="helper" style="font-size: 11px; margin-top: 4px;"><strong>Not modeled:</strong> ATO assessment labor (use Agent engineering or Personnel for that), sole-source procurement overhead, GSA Schedule discounts, model availability constraints (some Anthropic/OpenAI models aren't in GovCloud). Add fixed-cost approximations as line items in <strong>Infrastructure</strong> below.</p>
       </div>
@@ -4915,7 +4915,7 @@ Start with -small. Upgrade only if your evaluation shows retrieval quality is th
       <div class="section-body">
       <p class="helper">A <strong>catalog</strong> of GPU specs the engine can use. The currently-selected GPU is marked with a <span style="color: var(--accent);">●</span>. Hosting strategy is set in <strong>Deployment posture</strong> at the top.</p>
       <div class="row grid-2">
-        <div><label>GPU instance <span class="tip" data-tip="### GPU instance type
+        <div><label for="prev-gpu-visible">GPU instance <span class="tip" data-tip="### GPU instance type
 
 **In plain English:** which kind of GPU server to rent from AWS. Different GPUs have different speeds, memory sizes, and prices. The number in the name (e.g., g6e.12xl) is AWS's product code.
 
@@ -4925,7 +4925,7 @@ Start with -small. Upgrade only if your evaluation shows retrieval quality is th
 - **p5.48xl** (8× H100, 80GB): ~$98/hr — flagship, runs the biggest models
 
 **How the cost lands:** hourly rate × number of replicas × 730 hours/month = monthly GPU bill. The catalog can be edited below if your contract has different rates.">ⓘ</span></label><select id="prev-gpu-visible"></select></div>
-        <div><label>Commitment <span class="tip" data-tip="### Commitment (Reserved Instance discount)
+        <div><label for="prev-commitment-visible">Commitment <span class="tip" data-tip="### Commitment (Reserved Instance discount)
 
 **In plain English:** if you promise to rent the GPU for a long time, AWS gives you a discount. The longer the commitment, the bigger the discount — but you can't back out without penalty.
 
@@ -4938,7 +4938,7 @@ Start with -small. Upgrade only if your evaluation shows retrieval quality is th
 The discounts AWS markets are best-case and assume 100% utilization. Real workloads see lower discounts because of warm-up time, idle gaps, and instance migrations. The calculator's *Realistic* cost mode applies a 25% throughput de-rate to reflect this.">ⓘ</span></label><select id="prev-commitment-visible"><option value="on-demand">On-demand</option><option value="ri-1y" selected>1-yr Reserved</option><option value="ri-3y">3-yr Reserved</option></select></div>
       </div>
       <div class="row">
-        <label>Cost mode <span class="tip" data-tip="### Cost mode (optimistic vs realistic)
+        <label for="prev-cost-mode-visible">Cost mode <span class="tip" data-tip="### Cost mode (optimistic vs realistic)
 
 **In plain English:** how rosy the numbers are. *Optimistic* uses the kind of figures a vendor would put on a sales slide — low operations cost, no setup, no people. *Realistic* uses the kind of figures a finance reviewer would use — actual staff time, real setup expense, real-world hardware utilization.
 
@@ -4955,7 +4955,7 @@ Optimistic figures can underestimate self-host TCO by **2–4×**. Use Optimisti
       <div class="item-list" id="gpu-list"></div>
       <div class="item add-row" id="gpu-add">+ Add another GPU instance</div>
       <div class="row grid-3" style="margin-top: 10px;">
-        <div><label>Diurnal peak factor <span class="tip" data-tip="### Diurnal peak factor (busy-hour multiplier)
+        <div><label for="selfhost-diurnal-peak-factor">Diurnal peak factor <span class="tip" data-tip="### Diurnal peak factor (busy-hour multiplier)
 
 **In plain English:** real traffic isn't spread evenly through the day — most of it happens during business hours. This number captures how concentrated the busy period is. A 4× means the peak hour is 4× the average hour.
 
@@ -4965,8 +4965,8 @@ Optimistic figures can underestimate self-host TCO by **2–4×**. Use Optimisti
 - **10×+:** launch spike, viral moment, or big news event
 
 **Why it matters for self-host**
-Owned GPUs have to be sized for peak load, not average. Higher peak factor = more GPUs needed = more cost. Commercial APIs absorb peaks for you (they share capacity across customers), so this number only affects self-host and on-prem.">ⓘ</span> <em>(peak ÷ avg)</em></label><input type="number" min="0" step="0.1" data-bind="self_host.diurnal_peak_factor"></div>
-        <div><label>Headroom multiplier <span class="tip" data-tip="### Headroom (safety margin above peak)
+Owned GPUs have to be sized for peak load, not average. Higher peak factor = more GPUs needed = more cost. Commercial APIs absorb peaks for you (they share capacity across customers), so this number only affects self-host and on-prem.">ⓘ</span> <em>(peak ÷ avg)</em></label><input type="number" id="selfhost-diurnal-peak-factor" min="0" step="0.1" data-bind="self_host.diurnal_peak_factor"></div>
+        <div><label for="selfhost-headroom">Headroom multiplier <span class="tip" data-tip="### Headroom (safety margin above peak)
 
 **In plain English:** how much extra capacity to keep on standby beyond the predicted peak. A 1.5× headroom means even at peak, the fleet has 50% spare capacity — so a real spike doesn't queue up requests.
 
@@ -4975,8 +4975,8 @@ Owned GPUs have to be sized for peak load, not average. Higher peak factor = mor
 - **1.5×:** standard production safety margin
 - **2.0×:** generous — used for SLA-critical or unpredictable workloads
 
-**Tradeoff:** every 0.1 in headroom adds ~10% to GPU cost. Pick the lowest value your SLA can tolerate.">ⓘ</span></label><input type="number" min="0" step="0.05" data-bind="self_host.headroom"></div>
-        <div><label>Min replicas (HA floor) <span class="tip" data-tip="### Minimum replicas (high-availability floor)
+**Tradeoff:** every 0.1 in headroom adds ~10% to GPU cost. Pick the lowest value your SLA can tolerate.">ⓘ</span></label><input type="number" id="selfhost-headroom" min="0" step="0.05" data-bind="self_host.headroom"></div>
+        <div><label for="selfhost-min-replicas">Min replicas (HA floor) <span class="tip" data-tip="### Minimum replicas (high-availability floor)
 
 **In plain English:** the smallest number of GPU servers that always have to be running, even at zero traffic. This guarantees the system can't fail if a single server crashes.
 
@@ -4985,17 +4985,17 @@ Owned GPUs have to be sized for peak load, not average. Higher peak factor = mor
 - **2:** the federal standard — most SLAs require it
 - **3+:** mission-critical / multi-region active-active
 
-**Cost impact:** even at zero traffic, you pay the floor × hourly rate × 730 hours/month. For 2× p5.48xl ($98/hr each), that's about **$143K/mo just for the always-on floor**.">ⓘ</span></label><input type="number" min="0" data-bind="self_host.min_replicas"></div>
+**Cost impact:** even at zero traffic, you pay the floor × hourly rate × 730 hours/month. For 2× p5.48xl ($98/hr each), that's about **$143K/mo just for the always-on floor**.">ⓘ</span></label><input type="number" id="selfhost-min-replicas" min="0" data-bind="self_host.min_replicas"></div>
       </div>
-      <div class="row"><label>Default tokens per query (sizing) <span class="tip" data-tip="Total tokens per query (input + output + retrieval). Used to compute peak tokens/sec the GPUs must serve. Override per-scenario in Section 0.">ⓘ</span></label><input type="number" min="0" data-bind="self_host.tokens_per_query_default"></div>
+      <div class="row"><label for="selfhost-tokens-per-query-default">Default tokens per query (sizing) <span class="tip" data-tip="Total tokens per query (input + output + retrieval). Used to compute peak tokens/sec the GPUs must serve. Override per-scenario in Section 0.">ⓘ</span></label><input type="number" id="selfhost-tokens-per-query-default" min="0" data-bind="self_host.tokens_per_query_default"></div>
       <div class="row">
-        <label>Duty cycle / scale-to-zero <span class="tip" data-tip="Fraction of the month GPUs are running. 1.0 = always on (730 hr). 0.25 = 6 hr/day (business hours only). 0.05 = ~36 hr/month (NOAA storm-style burst, on-demand only). Cuts GPU cost proportionally; ops/FTE/setup still apply.">ⓘ</span> <span style="color: var(--ink); font-weight: 600;" id="self-host-duty-val">100%</span></label>
+        <label for="self-host-duty">Duty cycle / scale-to-zero <span class="tip" data-tip="Fraction of the month GPUs are running. 1.0 = always on (730 hr). 0.25 = 6 hr/day (business hours only). 0.05 = ~36 hr/month (NOAA storm-style burst, on-demand only). Cuts GPU cost proportionally; ops/FTE/setup still apply.">ⓘ</span> <span style="color: var(--ink); font-weight: 600;" id="self-host-duty-val">100%</span></label>
         <input type="range" id="self-host-duty" min="5" max="100" step="5" value="100" style="width: 100%;">
         <p class="helper" style="font-size: 11px; margin-top: 2px;"><strong>Critical for bursty traffic.</strong> A NOAA storm explainer might run only ~10% of the month; cutting GPU hours 10× changes the API-vs-self-host tradeoff dramatically.</p>
       </div>
       <div class="row">
-        <label>Compute platform <span class="tip" data-tip="What runs the GPU containers. Fargate / EKS abstract the cluster ops away. Self-managed Kubernetes adds a hidden ~$5,333/mo (~0.4 FTE) of MLOps overhead for cluster operation. Pick k8s only if you have a reason — auto-scaling and observability come 'free' with managed options.">ⓘ</span></label>
-        <select data-bind="self_host.compute_platform">
+        <label for="selfhost-compute-platform">Compute platform <span class="tip" data-tip="What runs the GPU containers. Fargate / EKS abstract the cluster ops away. Self-managed Kubernetes adds a hidden ~$5,333/mo (~0.4 FTE) of MLOps overhead for cluster operation. Pick k8s only if you have a reason — auto-scaling and observability come 'free' with managed options.">ⓘ</span></label>
+        <select id="selfhost-compute-platform" data-bind="self_host.compute_platform">
           <option value="fargate">Fargate (managed, no extra FTE)</option>
           <option value="eks">EKS (managed K8s, no extra FTE)</option>
           <option value="k8s">Self-managed Kubernetes (+$5,333/mo hidden FTE)</option>
