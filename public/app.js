@@ -1376,9 +1376,100 @@
   }
 
   // -----------------------------------------------------------------
+  // Override-count badges. Scans the override hierarchy for tool
+  // return_shape and surfaces "(N overrides apply)" markers next to
+  // the global slider AND on per-tool registry rows. Users see at a
+  // glance whether their global default is being respected or shadowed
+  // by per-tool / per-(agent,tool) overrides downstream.
+  //
+  // Override precedence (lowest → highest):
+  //   1. global #s-tool-response-mode (workload-wide default)
+  //   2. workload.tools_registry[id].return_shape (per-tool)
+  //   3. workload.agents[i].enabled_tools[id].return_shape_override (per-agent-tool)
+  // -----------------------------------------------------------------
+  function updateOverrideBadges() {
+    try {
+      const reg = (workload && workload.tools_registry) || {};
+      const ag = (workload && Array.isArray(workload.agents)) ? workload.agents : [];
+      // Count tools whose per-tool return_shape exists (i.e., they
+      // declare a value rather than inheriting global). Tools default
+      // to 'freeform' in DEFAULT_TOOLS_REGISTRY, so "explicit override"
+      // means a non-default value OR a registry-set freeform when global
+      // is templated. Cleanest signal: count tools whose effective
+      // shape DIFFERS from the global slider's current value.
+      const globalShape = document.getElementById('s-tool-response-mode')?.value || 'freeform';
+      let perToolOverrides = 0;
+      const overriddenToolIds = new Set();
+      for (const [id, t] of Object.entries(reg)) {
+        // ONLY count tools that EXPLICITLY set return_shape AND it
+        // differs from the global default. Tools without return_shape
+        // (undefined) are inheriting global — not overriding.
+        if (t.return_shape && t.return_shape !== globalShape) {
+          perToolOverrides++;
+          overriddenToolIds.add(id);
+        }
+      }
+      // Count per-(agent,tool) overrides — any agent's enabled_tools[id]
+      // entry with return_shape_override or cap_tokens_override set.
+      let perAgentToolOverrides = 0;
+      const perToolAgentOverrideCount = {};  // toolId → count of agents overriding it
+      for (const a of ag) {
+        const enabled = a.enabled_tools || {};
+        for (const [tid, spec] of Object.entries(enabled)) {
+          if (spec && (spec.return_shape_override || Number.isFinite(spec.cap_tokens_override))) {
+            perAgentToolOverrides++;
+            perToolAgentOverrideCount[tid] = (perToolAgentOverrideCount[tid] || 0) + 1;
+          }
+        }
+      }
+      // Update the global "Tool return shape" badge
+      const globalBadge = document.getElementById('tool-return-shape-override-badge');
+      if (globalBadge) {
+        const parts = [];
+        if (perToolOverrides > 0) parts.push(`${perToolOverrides} per-tool`);
+        if (perAgentToolOverrides > 0) parts.push(`${perAgentToolOverrides} per-(agent,tool)`);
+        if (parts.length > 0) {
+          globalBadge.textContent = parts.join(' + ') + ' override' + (parts.length > 1 || perToolOverrides + perAgentToolOverrides > 1 ? 's' : '') + ' active';
+          globalBadge.style.display = '';
+          globalBadge.title = 'Specific tools / agents are overriding this default. Click a tool in the Tools registry to see its per-tool shape, or expand an agent\'s Tools section to see per-(agent,tool) overrides.';
+        } else {
+          globalBadge.style.display = 'none';
+          globalBadge.textContent = '';
+        }
+      }
+      // Update per-tool registry row badges (if rendered)
+      for (const [tid, count] of Object.entries(perToolAgentOverrideCount)) {
+        const row = document.querySelector(`[data-tool-id="${tid}"]`);
+        if (!row) continue;
+        let b = row.querySelector('[data-agent-override-badge]');
+        if (!b) {
+          // Lazy-insert badge into the row header (shows when collapsed too)
+          const hdr = row.querySelector('[data-tool-header]');
+          if (!hdr) continue;
+          b = document.createElement('span');
+          b.setAttribute('data-agent-override-badge', '1');
+          b.style.cssText = 'font-size:9px;color:#f59e00;background:rgba(245,158,0,.12);border:1px solid rgba(245,158,0,.3);padding:0 5px;border-radius:8px;font-weight:600;margin-left:6px';
+          // Place between cost_shape badge and rate hint (last child before BUILTIN / remove)
+          hdr.insertBefore(b, hdr.children[3] || null);
+        }
+        b.textContent = `${count} agent${count===1?'':'s'} override`;
+        b.title = `${count} agent${count===1?'':'s'} use a per-(agent,tool) override for this tool — their copy uses a different RETURN SHAPE or CAP TOK than this default.`;
+      }
+      // Remove stale badges for tools that lost their overrides
+      document.querySelectorAll('[data-agent-override-badge]').forEach(b => {
+        const row = b.closest('[data-tool-id]');
+        if (!row) return;
+        const tid = row.dataset.toolId;
+        if (!perToolAgentOverrideCount[tid]) b.remove();
+      });
+    } catch (e) { /* badges are decorative — silent on error */ }
+  }
+
+  // -----------------------------------------------------------------
   // Live preview (right pane)
   // -----------------------------------------------------------------
   function renderPreview() {
+    updateOverrideBadges();
     document.getElementById('prev-agency').textContent = workload.deployment.agency || '—';
     document.getElementById('prev-name').textContent = workload.deployment.name || '—';
     document.getElementById('prev-desc').textContent = workload.deployment.description || '—';

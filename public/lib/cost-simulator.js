@@ -354,8 +354,14 @@ function computeCost(mk){
         const callsEff=callsNominal*Math.max(0,1-memo);
         const sch=t.schema_tokens??cfg('s-schema');
         const rawResult=t.result_tokens_avg??cfg('s-toolresult');
-        const shape=t.return_shape||_toolMode;
-        const cap=Number.isFinite(t.cap_tokens)?t.cap_tokens:_templatedCap;
+        // Override precedence (highest wins):
+        //   per-(agent,tool)  — agent.enabled_tools[tid].return_shape_override
+        //   per-tool          — workload.tools_registry[tid].return_shape
+        //   workload-wide     — #s-tool-response-mode (default fallback)
+        // Same chain for cap_tokens.
+        const shape=spec.return_shape_override||t.return_shape||_toolMode;
+        const cap=Number.isFinite(spec.cap_tokens_override)?spec.cap_tokens_override
+                  :Number.isFinite(t.cap_tokens)?t.cap_tokens:_templatedCap;
         const res=shape==='templated'?Math.min(rawResult,cap):rawResult;
         totalCalls+=callsNominal;
         schemaSum+=callsNominal*sch;
@@ -1133,21 +1139,54 @@ function agentEnabledToolsHtml(a) {
     if (t.cost_shape === 'per_session') return '$' + (t.rate_usd).toFixed(3) + '/sess';
     return '$' + (t.rate_usd * 1000).toFixed(2) + '/1k';
   };
+  if (!a._toolExpanded) a._toolExpanded = {};
   return `<div style="grid-column:1 / -1;margin-top:6px">
-    <div class="mini-label" style="color:#ce93d8"><span>Enabled tools</span><span style="font-weight:500;color:var(--ink-2,#3a4a62)">tick to enable · set calls/query</span></div>
+    <div class="mini-label" style="color:#ce93d8"><span>Enabled tools</span><span style="font-weight:500;color:var(--ink-2,#3a4a62)">tick to enable · set calls/query · ▸ to override return shape</span></div>
     <div style="display:grid;grid-template-columns:1fr;gap:3px;margin-top:4px;padding:5px;border:1px solid var(--b);border-radius:5px;background:rgba(206,147,216,0.04)">
       ${entries.map(([id, t]) => {
         const isOn = id in enabled;
-        const calls = enabled[id] && enabled[id].calls_per_query != null ? enabled[id].calls_per_query : 1;
+        const spec = enabled[id] || {};
+        const calls = spec.calls_per_query != null ? spec.calls_per_query : 1;
         const labelName = (t.label || id).replace(/"/g, '&quot;');
-        return `<div style="display:grid;grid-template-columns:1.4fr 0.6fr 0.7fr;gap:6px;align-items:center;font-size:11px">
+        const hasOverride = !!spec.return_shape_override || Number.isFinite(spec.cap_tokens_override);
+        const expanded = !!a._toolExpanded[id];
+        const overrideBadge = hasOverride
+          ? '<span title="This agent overrides the tool\'s default return shape" style="font-size:9px;color:#f59e00;background:rgba(245,158,0,.12);border:1px solid rgba(245,158,0,.3);padding:0 5px;border-radius:8px;font-weight:600">override</span>'
+          : '';
+        const effShape = spec.return_shape_override || t.return_shape || 'freeform';
+        const effCap = Number.isFinite(spec.cap_tokens_override) ? spec.cap_tokens_override
+                       : (Number.isFinite(t.cap_tokens) ? t.cap_tokens : 40);
+        const rowHtml = `<div style="display:grid;grid-template-columns:auto 1.3fr 0.55fr 0.65fr auto;gap:6px;align-items:center;font-size:11px">
+          <button type="button" onclick="toggleAgentToolExpand(${a.id},'${id}');event.stopPropagation();" ${isOn ? '' : 'disabled'} title="Override return shape per-(agent, tool)" style="background:transparent;border:none;cursor:${isOn?'pointer':'not-allowed'};color:var(--ink-2,#3a4a62);font-size:10px;padding:0 2px;opacity:${isOn ? (expanded ? '1' : '.55') : '.25'}">▸</button>
           <label style="display:flex;gap:5px;align-items:center;cursor:pointer">
             <input type="checkbox" onchange="togAgentTool(${a.id},'${id}',this.checked)" ${isOn ? 'checked' : ''} aria-label="Enable ${labelName} for this agent">
             <span style="font-weight:${isOn ? 600 : 500}">${t.label || id}</span>
+            ${overrideBadge}
           </label>
           <input type="number" min="0" step="1" value="${calls}" ${isOn ? '' : 'disabled'} onchange="setAgentToolCalls(${a.id},'${id}',this.value)" style="font-size:11px;padding:2px 4px;width:100%;font-family:var(--mono);${isOn ? '' : 'opacity:0.4;'}" placeholder="calls/q" title="Calls per query for this tool" aria-label="${labelName} calls per query">
           <span style="font-size:10px;color:var(--ink-2,#3a4a62);font-family:var(--mono)">${fmtRate(t)}</span>
+          <span></span>
         </div>`;
+        const overrideRow = (isOn && expanded) ? `
+          <div style="grid-column:1/-1;margin:3px 0 5px 24px;padding:6px 8px;background:rgba(245,158,0,.06);border:1px solid rgba(245,158,0,.22);border-radius:4px;display:grid;grid-template-columns:1fr 1fr auto;gap:6px;align-items:center;font-size:10.5px">
+            <label style="display:flex;flex-direction:column;gap:2px">
+              <span style="color:var(--ink-2,#3a4a62);font-size:9.5px;text-transform:uppercase;letter-spacing:0.04em">Return shape (override)</span>
+              <select onchange="setAgentToolOverride(${a.id},'${id}','return_shape_override',this.value)" style="font-size:11px;padding:2px 4px">
+                <option value="">(use tool default: ${t.return_shape || 'freeform'})</option>
+                <option value="freeform" ${spec.return_shape_override==='freeform'?'selected':''}>freeform</option>
+                <option value="templated" ${spec.return_shape_override==='templated'?'selected':''}>templated</option>
+              </select>
+            </label>
+            <label style="display:flex;flex-direction:column;gap:2px">
+              <span style="color:var(--ink-2,#3a4a62);font-size:9.5px;text-transform:uppercase;letter-spacing:0.04em">Cap tok (override)</span>
+              <input type="number" min="0" step="5" value="${Number.isFinite(spec.cap_tokens_override) ? spec.cap_tokens_override : ''}" placeholder="(use tool default: ${Number.isFinite(t.cap_tokens) ? t.cap_tokens : 40})" onchange="setAgentToolOverride(${a.id},'${id}','cap_tokens_override',this.value)" style="font-size:11px;padding:2px 4px;font-family:var(--mono)">
+            </label>
+            <div style="font-size:9.5px;color:var(--ink-2,#3a4a62);min-width:90px;text-align:right">
+              <div>effective:</div>
+              <div style="font-family:var(--mono);font-weight:600">${effShape}, ${effShape==='templated' ? effCap+' tok' : (t.result_tokens_avg||0)+' tok'}</div>
+            </div>
+          </div>` : '';
+        return rowHtml + overrideRow;
       }).join('')}
     </div>
   </div>`;
@@ -1469,6 +1508,19 @@ function _mirrorAgentEditToWorkload(simAgentId, k, v) {
   }
   if (typeof window.renderPreview === 'function') window.renderPreview();
 }
+// Sim-agent index → workload.agents lookup. sim.agents[i].id is the
+// integer index (set by cloneAgentBase), but workload.agents[i].id is
+// the JSON-defined string ('orch', 'researcher', ...). The two are
+// joined positionally — sim.agents[i] mirrors workload.agents[i].
+// Earlier mirror code used `find(x => x.id === a.id)` which silently
+// failed for any preset whose JSON used string ids, leaving
+// enabled_tools out of sync with the headline.
+function _wlAgentForSimId(simId) {
+  const idx = sim.agents.findIndex(x => x.id === simId);
+  if (idx < 0) return null;
+  if (!window.workload || !Array.isArray(window.workload.agents)) return null;
+  return window.workload.agents[idx] || null;
+}
 // Per-agent enabled-tools toggle. Mirrors the agent.enabled_tools shape
 // expected by app.js renderPreview (provider tool fees code).
 function togAgentTool(id, toolId, checked) {
@@ -1480,24 +1532,61 @@ function togAgentTool(id, toolId, checked) {
   } else {
     delete a.enabled_tools[toolId];
   }
-  // Mirror to workload.agents so the cost-engine sees the change.
-  if (window.workload && Array.isArray(window.workload.agents)) {
-    const wa = window.workload.agents.find(x => x.id === a.id || x.label === a.name);
-    if (wa) wa.enabled_tools = JSON.parse(JSON.stringify(a.enabled_tools));
-  }
+  const wa = _wlAgentForSimId(id);
+  if (wa) wa.enabled_tools = JSON.parse(JSON.stringify(a.enabled_tools));
   renderAgents();
   refreshAfterAgentEdit();
+  if (typeof window.renderPreview === 'function') window.renderPreview();
+}
+// Expand/collapse the per-(agent, tool) override row beneath an
+// enabled-tool entry. Lives on the agent (a._toolExpanded[toolId])
+// so re-renders preserve which rows are open. Per-agent UI state —
+// not in workload.agents schema.
+function toggleAgentToolExpand(id, toolId) {
+  const a = sim.agents.find(x => x.id === id);
+  if (!a) return;
+  if (!a._toolExpanded) a._toolExpanded = {};
+  a._toolExpanded[toolId] = !a._toolExpanded[toolId];
+  renderAgents();
+}
+// Per-(agent, tool) override setter. Mirrors return_shape_override
+// and cap_tokens_override into agent.enabled_tools[toolId] and
+// workload.agents[i].enabled_tools[toolId]. Blank value = delete the
+// override so the engine falls back to per-tool registry default.
+function setAgentToolOverride(id, toolId, key, valueStr) {
+  const a = sim.agents.find(x => x.id === id);
+  if (!a || !a.enabled_tools || !a.enabled_tools[toolId]) return;
+  const spec = a.enabled_tools[toolId];
+  if (valueStr === '' || valueStr == null) {
+    delete spec[key];
+  } else if (key === 'cap_tokens_override') {
+    const v = parseFloat(valueStr);
+    if (Number.isFinite(v) && v >= 0) spec[key] = v;
+    else delete spec[key];
+  } else {
+    spec[key] = valueStr;
+  }
+  const wa2 = _wlAgentForSimId(id);
+  if (wa2) wa2.enabled_tools = JSON.parse(JSON.stringify(a.enabled_tools));
+  renderAgents();
+  refreshAfterAgentEdit();
+  if (typeof window.renderPreview === 'function') window.renderPreview();
 }
 function setAgentToolCalls(id, toolId, valueStr) {
   const a = sim.agents.find(x => x.id === id);
   if (!a || !a.enabled_tools || !a.enabled_tools[toolId]) return;
   const v = parseFloat(valueStr);
   a.enabled_tools[toolId].calls_per_query = Number.isFinite(v) && v >= 0 ? v : 0;
-  if (window.workload && Array.isArray(window.workload.agents)) {
-    const wa = window.workload.agents.find(x => x.id === a.id || x.label === a.name);
-    if (wa) wa.enabled_tools = JSON.parse(JSON.stringify(a.enabled_tools));
-  }
+  const wa = _wlAgentForSimId(id);
+  if (wa) wa.enabled_tools = JSON.parse(JSON.stringify(a.enabled_tools));
   refreshAfterAgentEdit();
+  // renderPreview was missing here — engine-side cost (provider tool
+  // fees) depends on calls_per_query but the headline pill wasn't
+  // re-rendering on a calls/q change. Stale-render bug confirmed:
+  // first renderPreview after tool enable showed old fees, second
+  // renderPreview showed correct fees. Calling renderPreview here
+  // closes the loop so the headline updates on every calls/q edit.
+  if (typeof window.renderPreview === 'function') window.renderPreview();
 }
 function togAF(id,f,btn){const a=sim.agents.find(x=>x.id===id);if(!a)return;a[f]=!a[f];const labels={ragOn:['RAG','rag-on'],reasonOn:['THINK','reason-on'],guardOn:['GUARD','guard-on'],toolsOn:['TOOLS','on']};const[l,cls]=labels[f]||['','on'];if(btn){btn.textContent=l+' '+(a[f]?'ON':'OFF');btn.className='tgl '+(a[f]?cls:'');}renderAgents();refreshAfterAgentEdit();}
 // applyGlobalsToAgents() removed — the global RAG/Tools/Guardrails sliders
