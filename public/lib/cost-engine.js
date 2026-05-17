@@ -206,6 +206,81 @@
       provider: 'self-hosted',
       builtin: false,
     },
+    // Image generation — first-class commercial-SaaS tool category.
+    // Billed per image generated. The LLM sees back only a URL or
+    // base64 thumbnail (~30 tok), so result_tokens_avg is small.
+    // schema_tokens covers the parameters block (prompt + size + style).
+    // Rates verified 2026-05 against published pricing pages:
+    'image_gen_dalle3': {
+      label: 'Image gen · DALL-E 3 (1024×1024 standard)',
+      description: 'OpenAI DALL-E 3 standard quality, 1024×1024. $0.040/image (verified 2026-05).',
+      cost_shape: 'per_call',
+      rate_usd: 0.040,
+      schema_tokens: 80,
+      result_tokens_avg: 30,    // image URL + revised prompt
+      return_shape: 'freeform',
+      cap_tokens: 40,
+      memoize: false,
+      memoize_hit_rate: 0.0,
+      provider: 'managed',
+      builtin: true,
+    },
+    'image_gen_dalle3_hd': {
+      label: 'Image gen · DALL-E 3 HD (1024×1024)',
+      description: 'OpenAI DALL-E 3 HD quality, 1024×1024. $0.080/image (2× standard for sharper detail).',
+      cost_shape: 'per_call',
+      rate_usd: 0.080,
+      schema_tokens: 80,
+      result_tokens_avg: 30,
+      return_shape: 'freeform',
+      cap_tokens: 40,
+      memoize: false,
+      memoize_hit_rate: 0.0,
+      provider: 'managed',
+      builtin: true,
+    },
+    'image_gen_stable_diffusion': {
+      label: 'Image gen · Stable Diffusion XL (Stability API)',
+      description: 'Stability AI hosted SDXL via REST API. ~$0.040/image at the listed rate.',
+      cost_shape: 'per_call',
+      rate_usd: 0.040,
+      schema_tokens: 80,
+      result_tokens_avg: 30,
+      return_shape: 'freeform',
+      cap_tokens: 40,
+      memoize: false,
+      memoize_hit_rate: 0.0,
+      provider: 'managed',
+      builtin: true,
+    },
+    'image_gen_bedrock_titan': {
+      label: 'Image gen · AWS Bedrock Titan Image',
+      description: 'Amazon Titan Image Generator G1 on Bedrock — cheapest commercial option at ~$0.008/image.',
+      cost_shape: 'per_call',
+      rate_usd: 0.008,
+      schema_tokens: 80,
+      result_tokens_avg: 30,
+      return_shape: 'freeform',
+      cap_tokens: 40,
+      memoize: false,
+      memoize_hit_rate: 0.0,
+      provider: 'bedrock',
+      builtin: true,
+    },
+    'image_gen_self_hosted': {
+      label: 'Image gen · Self-hosted SDXL (free per call)',
+      description: 'Self-hosted Stable Diffusion XL on your own GPU — zero per-call cost, but flat infra in self-host section.',
+      cost_shape: 'free',
+      rate_usd: 0,
+      schema_tokens: 80,
+      result_tokens_avg: 30,
+      return_shape: 'freeform',
+      cap_tokens: 40,
+      memoize: false,
+      memoize_hit_rate: 0.0,
+      provider: 'self-hosted',
+      builtin: true,
+    },
   };
 
   function normalizeWorkload(spec) {
@@ -1425,6 +1500,15 @@
         if (typeof val === 'object' && val) {
           if (val.per === 'per_query') formula = `  [${val.rate}/q × ${num(r.queries.total)} q]`;
           else if (val.per === 'per_1k_queries') formula = `  [${val.rate}/1K q × ${num(r.queries.total)} q ÷ 1000]`;
+          else if (val.per === 'per_mau') {
+            const segs = w.segments || []; const totalMau = segs.reduce((s,sg)=>s+(sg.mau||0),0);
+            formula = `  [${val.rate}/MAU × ${num(totalMau)} MAU]`;
+          }
+          else if (val.per === 'per_session') {
+            const turns = (w.anchor_query && w.anchor_query.session_baseline_turns) || 8;
+            const sessions = r.queries.total / Math.max(1, turns);
+            formula = `  [${val.rate}/sess × ${num(sessions)} sess]`;
+          }
           else if (val.per === 'per_million_queries') formula = `  [${val.rate}/1M q × ${num(r.queries.total)} q ÷ 1M]`;
           else if (val.per === 'per_gb_per_query') formula = `  [${val.rate}/GB × ${num(r.queries.total)} q × ${val.gb} GB/q]`;
         }
@@ -1533,7 +1617,7 @@
   //   { rate: 0.50,  per: 'per_million_queries' }        — $0.50 per 1M queries
   //   { rate: 0.045, per: 'per_gb_per_query', gb: 0.001 }— $0.045 × queries × 0.001 GB
   // -------------------------------------------------------------------
-  function resolveInfraCost(value, monthlyQueries) {
+  function resolveInfraCost(value, monthlyQueries, workload) {
     if (typeof value === 'number') return value;
     if (!value || typeof value !== 'object') return 0;
     if (value.flat != null) return Number(value.flat) || 0;
@@ -1545,6 +1629,20 @@
     if (per === 'per_gb_per_query') {
       const gbPerQ = Number(value.gb) || 0;
       return rate * monthlyQueries * gbPerQ;
+    }
+    // Per-active-user / per-session cost shapes for commercial SaaS
+    // deployment models (CDN, hosting, per-site storage). Both need
+    // access to workload context that the per_query / per_1k shapes
+    // don't — MAU sum across segments and sessions/month derivation.
+    if (per === 'per_mau') {
+      const segs = (workload && Array.isArray(workload.segments)) ? workload.segments : [];
+      const totalMau = segs.reduce((s, seg) => s + (seg.mau || 0), 0);
+      return rate * totalMau;
+    }
+    if (per === 'per_session') {
+      const turns = Math.max(1, (workload && workload.anchor_query && workload.anchor_query.session_baseline_turns) || 8);
+      const monthlySessions = monthlyQueries / turns;
+      return rate * monthlySessions;
     }
     return 0;
   }
@@ -2020,7 +2118,7 @@
     const infraBreakdown = {};
     let infraSum = 0;
     for (const [name, val] of Object.entries(infraItems)) {
-      const cost = resolveInfraCost(val, queries.total);
+      const cost = resolveInfraCost(val, queries.total, workload);
       infraBreakdown[name] = cost;
       infraSum += cost;
     }

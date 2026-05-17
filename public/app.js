@@ -819,6 +819,8 @@
               <option value="per_1k_queries" ${per === 'per_1k_queries' ? 'selected' : ''}>$ per 1K queries</option>
               <option value="per_million_queries" ${per === 'per_million_queries' ? 'selected' : ''}>$ per 1M queries</option>
               <option value="per_gb_per_query" ${per === 'per_gb_per_query' ? 'selected' : ''}>$/GB × queries × GB/q</option>
+              <option value="per_mau" ${per === 'per_mau' ? 'selected' : ''}>$ per active user / mo (CDN, hosting)</option>
+              <option value="per_session" ${per === 'per_session' ? 'selected' : ''}>$ per session (Vercel, serverless)</option>
             </select>
           </label>
           ${scalingActive ? `

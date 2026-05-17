@@ -1,0 +1,238 @@
+{
+  "schemaVersion": "1.0",
+  "deployment": {
+    "name": "Commercial AI SaaS · Multi-Agent Website Builder",
+    "agency": "(commercial demonstration workload)",
+    "description": "Worked example for an AI-powered website-builder SaaS — non-federal, freemium subscription pricing. Four specialized agents (Copywriter, Designer, Coder, SEO) cooperate to ship a complete website per user request. Demonstrates: per-agent model variation (cheap→flagship by complexity), first-class image-generation tool (DALL-E 3), per-MAU deployment infra (CDN, hosting), per-session serverless invocation cost. No FactReasoner (websites don't need claim verification); no FedRAMP / ATO. Load this preset, scroll to Budget Solver, and compare your COGS-per-user against your subscription price to see gross margin.",
+    "publicFacing": true,
+    "fedrampTier": "none"
+  },
+  "anchor_query": {
+    "input_tokens": 8000,
+    "output_tokens": 3000,
+    "cache_rate_baseline": 0.40,
+    "session_baseline_turns": 4,
+    "example": "Build a 5-page small-business website for a downtown bakery — modern design, ordering CTA, contact form, SEO-optimized for local search."
+  },
+  "tools_registry": {
+    "web_search": {
+      "label": "Web Search",
+      "description": "Provider-managed web search (for SEO-Agent keyword/competitor research)",
+      "cost_shape": "per_call",
+      "rate_usd": 0.010,
+      "schema_tokens": 120,
+      "result_tokens_avg": 800,
+      "return_shape": "templated",
+      "cap_tokens": 80,
+      "memoize": false,
+      "memoize_hit_rate": 0.0,
+      "provider": "managed",
+      "builtin": true
+    },
+    "image_gen_dalle3": {
+      "label": "Image gen · DALL-E 3 (1024×1024 standard)",
+      "description": "Hero image + section graphics. ~3-6 images per built site.",
+      "cost_shape": "per_call",
+      "rate_usd": 0.040,
+      "schema_tokens": 80,
+      "result_tokens_avg": 30,
+      "return_shape": "freeform",
+      "cap_tokens": 40,
+      "memoize": false,
+      "memoize_hit_rate": 0.0,
+      "provider": "managed",
+      "builtin": true
+    },
+    "image_gen_bedrock_titan": {
+      "label": "Image gen · AWS Bedrock Titan Image",
+      "description": "Cheaper alternative — 5× less than DALL-E 3 standard, slightly lower quality.",
+      "cost_shape": "per_call",
+      "rate_usd": 0.008,
+      "schema_tokens": 80,
+      "result_tokens_avg": 30,
+      "return_shape": "freeform",
+      "cap_tokens": 40,
+      "memoize": false,
+      "memoize_hit_rate": 0.0,
+      "provider": "bedrock",
+      "builtin": true
+    },
+    "file_search": {
+      "label": "File Search (template library)",
+      "description": "Designer-Agent retrieves design tokens, layouts, and component snippets from a curated template library.",
+      "cost_shape": "per_call",
+      "rate_usd": 0.0025,
+      "schema_tokens": 80,
+      "result_tokens_avg": 1200,
+      "return_shape": "templated",
+      "cap_tokens": 60,
+      "memoize": true,
+      "memoize_hit_rate": 0.4,
+      "provider": "managed",
+      "builtin": true
+    }
+  },
+  "agents": [
+    {
+      "id": "copywriter",
+      "label": "Copywriter (Copy-Agent)",
+      "input_tokens": 1500,
+      "output_tokens": 2500,
+      "calls_per_query": 1,
+      "model": "gpt-5-mini",
+      "cache_eligible": true,
+      "hosting": "api",
+      "description": "Generates all page copy from business description. Cheap model is sufficient — outputs are formulaic.",
+      "sysprompt_tokens": 600,
+      "iamsg_tokens": 0,
+      "calls_per_turn_multiplier": 1.0,
+      "verify_enabled": false,
+      "enabled_tools": {}
+    },
+    {
+      "id": "designer",
+      "label": "Designer (Design-Agent)",
+      "input_tokens": 2000,
+      "output_tokens": 800,
+      "calls_per_query": 1,
+      "model": "claude-sonnet-4.6",
+      "cache_eligible": true,
+      "hosting": "api",
+      "description": "Picks layout, color palette, typography. Generates hero + section images via DALL-E. Pulls component snippets via file_search.",
+      "sysprompt_tokens": 1200,
+      "iamsg_tokens": 200,
+      "calls_per_turn_multiplier": 1.0,
+      "verify_enabled": false,
+      "enabled_tools": {
+        "image_gen_dalle3": { "calls_per_query": 4 },
+        "file_search": { "calls_per_query": 5 }
+      }
+    },
+    {
+      "id": "coder",
+      "label": "Coder (Code-Agent)",
+      "input_tokens": 5000,
+      "output_tokens": 4500,
+      "calls_per_query": 1,
+      "model": "claude-opus-4.7",
+      "cache_eligible": true,
+      "hosting": "api",
+      "description": "Generates HTML/CSS/JS for all pages. Flagship model — output quality matters most here. ReAct-light loop (~2× inner calls) for self-correcting on validation errors.",
+      "sysprompt_tokens": 2500,
+      "iamsg_tokens": 400,
+      "calls_per_turn_multiplier": 2.0,
+      "verify_enabled": false,
+      "enabled_tools": {}
+    },
+    {
+      "id": "seo",
+      "label": "SEO-Agent",
+      "input_tokens": 3000,
+      "output_tokens": 1500,
+      "calls_per_query": 1,
+      "model": "gpt-5.2",
+      "cache_eligible": false,
+      "hosting": "api",
+      "description": "Researches keyword competition + writes meta tags, schema markup, optimized URL slugs. Output flagged for fact-check (claims like 'top-ranked for X' need validation).",
+      "sysprompt_tokens": 1500,
+      "iamsg_tokens": 100,
+      "calls_per_turn_multiplier": 1.0,
+      "verify_enabled": true,
+      "verify_coverage": 0.2,
+      "verifier_override": "minicheck",
+      "enabled_tools": {
+        "web_search": { "calls_per_query": 3 }
+      }
+    }
+  ],
+  "shapes": {
+    "full": { "input_factor": 1, "output_factor": 1, "cache_eligible": true, "description": "Full site build (default)" },
+    "redesign": { "input_factor": 0.6, "output_factor": 0.7, "cache_eligible": true, "description": "Refresh existing site (skip copy + SEO)" },
+    "tweak": { "input_factor": 0.2, "output_factor": 0.25, "cache_eligible": true, "description": "Single-page edit (no design, no images)" }
+  },
+  "mix": {
+    "default": {
+      "label": "SaaS mix (60% full · 25% redesign · 15% tweak)",
+      "weights": { "full": 0.6, "redesign": 0.25, "tweak": 0.15 }
+    }
+  },
+  "segments": [
+    {
+      "id": "free_tier",
+      "label": "Free-tier users (2 sites/mo)",
+      "mau": 5000,
+      "sessions_per_day": 0.1,
+      "questions_per_session": 4,
+      "applyBotFactor": true,
+      "description": "Free signups, low engagement, 2-site cap. Most just build 1 site to try the product."
+    },
+    {
+      "id": "creator_tier",
+      "label": "Creator-tier subscribers ($29/mo)",
+      "mau": 1500,
+      "sessions_per_day": 0.4,
+      "questions_per_session": 6,
+      "applyBotFactor": false,
+      "description": "Paying users at $29/mo, build / refresh multiple sites. Authenticated; higher cache rate."
+    },
+    {
+      "id": "business_tier",
+      "label": "Business-tier subscribers ($129/mo)",
+      "mau": 200,
+      "sessions_per_day": 0.8,
+      "questions_per_session": 8,
+      "applyBotFactor": false,
+      "description": "Agency/team accounts at $129/mo with 15-site quota. Highest LTV, lowest churn."
+    }
+  ],
+  "verification": {
+    "enabled": true,
+    "coverage": 0,
+    "atoms_per_response": 4,
+    "variant": "minicheck",
+    "atomizer_tokens": { "input": 1500, "output": 400 },
+    "reviser_tokens": { "input": 500, "output": 30 },
+    "nli_tokens": { "input": 1200, "output": 20 },
+    "retrieval": "wikipedia",
+    "nli_hosting": "api",
+    "service_pod_monthly": 0
+  },
+  "rate_limit": { "strategy": "none", "monthly_cost": 0, "bot_ceiling": 1 },
+  "daily_cap": { "enabled": false, "amount_usd": 0, "burst_days": 0, "burst_factor": 1 },
+  "infrastructure": {
+    "CDN · Cloudflare R2 + workers": { "rate": 0.45, "per": "per_mau" },
+    "Site hosting · Vercel / Fly.io": { "rate": 0.85, "per": "per_mau" },
+    "DB · Postgres + Redis": 380,
+    "Object storage · S3 (built sites)": { "rate": 0.05, "per": "per_session" },
+    "CDN egress": { "rate": 0.085, "per": "per_gb_per_query", "gb": 0.015 },
+    "Observability · Datadog": 1200
+  },
+  "defaults": {
+    "model": "gpt-5.2",
+    "tier": "standard",
+    "mix": "default",
+    "rate_limit": "none",
+    "hosting": "api",
+    "cost_mode": "realistic"
+  },
+  "tier_multipliers": { "standard": 1, "flex": 0.5, "batch": 0.5, "priority": 2.5 },
+  "rate_cards": {},
+  "self_host": {
+    "gpu_options": {},
+    "diurnal_peak_factor": 4,
+    "headroom": 1.5,
+    "min_replicas": 2,
+    "tokens_per_query_default": 2000,
+    "cost_modes": {
+      "optimistic": { "ops_monthly": 350, "fte_monthly": 2500, "setup_amortized": 0, "throughput_derate": 1, "discount_1yr": 0.4, "discount_3yr": 0.6 },
+      "realistic":  { "ops_monthly": 1800, "fte_monthly": 8000, "setup_amortized": 8333, "throughput_derate": 0.75, "discount_1yr": 0.33, "discount_3yr": 0.55 }
+    }
+  },
+  "federal": { "fedramp_tier": "none", "multi_region": "single", "ato_monthly": 0, "egress_gb_per_query": 0, "egress_cost_per_gb": 0, "audit_log_kb_per_query": 0, "audit_retention_years": 0, "audit_storage_per_gb_month": 0, "retrieval_infra_monthly": 0, "pii_redaction_per_million_tokens": 0 },
+  "compliance": { "ato_tier": "none", "upfront_amortization_months": 36 },
+  "reservations": { "enabled": false, "type": "none", "units": 4 },
+  "embedding": { "enabled": false, "model": "text-embedding-3-small", "corpus_size_tokens": 50000000, "reembed_frequency_months": 6, "query_embedding_tokens": 8 },
+  "personnel": { "enabled": false, "roles": [] },
+  "risk": { "enabled": false },
+  "agent_engineering": { "enabled": false, "roles": [], "duration_months": 4, "amortization_months": 36, "helper_agent_monthly": 400, "maintenance_interval_months": 6, "maintenance_hours_per_session": 40 }
+}
