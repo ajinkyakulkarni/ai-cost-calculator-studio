@@ -3908,21 +3908,6 @@ How agents coordinate, billed as extra input tokens per turn per agent.
 
 **Why it matters:** for N=5 agents, peer mesh adds 4 × 300 = 1,200 tok of overhead per turn per agent on top of the base prompt. At ~0.5K base prompt + 1.2K mesh = ~3.5× input vs. orchestrator. Single-agent runs (N=1) pay nothing.">Comm pattern</span><span class="sr-val" id="v-comm-pattern" style="color:var(--teal)">orch</span></div><input type="range" min="0" max="3" value="0" step="1" id="s-comm-pattern" oninput="onSlider()"><div class="sr-hint">orch=0 · sup=+150·(N−1) · peer=+300·(N−1) · pipeline=Σ prior outputs (Eq. 7)</div></div>
       </div>
-      <div style="padding:7px 10px;border-top:1px solid var(--b);display:flex;gap:6px;align-items:center;flex-wrap:wrap">
-        <label style="color:var(--dim);font-size:8px" class="sr-label" data-tip="Monthly budget ceiling. The optimizer below compares projected cost against this and suggests specific knob adjustments to fit. Set to your actual approved budget.">Budget ($/mo)</label>
-        <input type="number" min="0" id="budget-input" value="10000" style="width:80px" oninput="onSlider()">
-        <span id="budget-status" class="badge-ok">OK</span>
-      </div>
-      <!-- Budget heuristic optimizer — when projected cost > budget, lists
-           specific knob adjustments ranked by $ savings per knob. The
-           cost engine already exposes per-component cost; budgetSuggest()
-           subtracts and ranks. -->
-      <div id="budget-suggestions" style="padding:0 10px 9px;display:none">
-        <div style="background:rgba(255,82,82,0.06);border:1px solid rgba(255,82,82,0.25);border-radius:6px;padding:8px 10px;font-size:9px;line-height:1.6">
-          <div style="color:var(--red);font-weight:700;letter-spacing:1px;text-transform:uppercase;margin-bottom:4px">▼ To fit within budget</div>
-          <div id="budget-suggest-list" style="color:var(--text-primary,#c8d8f0)"></div>
-        </div>
-      </div>
     </div>
     <!-- TOOL ROUTING & RATES (workload-level — per-agent settings live inside each agent card) -->
     <div class="panel">
@@ -5044,6 +5029,40 @@ Procurement reviewers often work backwards: 'we have $50K/mo approved — how ma
         </div>
       </div>
       <div id="budget-result-detail" style="margin-top:14px"></div>
+
+      <!-- Over-budget check + auto-suggestions — relocated from the simulator
+           panel so the Budget solver is the single home for any budget
+           question. Reads #budget-input; cost-simulator.js::budgetSuggest()
+           toggles #budget-suggestions visibility when projected > budget. -->
+      <div style="margin-top:18px;padding-top:14px;border-top:1px solid var(--rule)">
+        <div class="row grid-2">
+          <div>
+            <label for="budget-input">Current-scale check — budget ceiling ($/mo) <span class="tip" data-tip="### Over-budget check
+
+Enter your approved monthly ceiling. If the calculator's *current* headline (the workload above, at today's MAU) is over this number, the right-hand panel lists the cheapest knobs to turn — ranked by $/mo saved.
+
+This is the **complement** of the inverse solver above:
+- *Inverse solver* — 'given a budget, what's the affordable scale?'
+- *Over-budget check* — 'at my current scale, am I over, and what trims fit me?'
+
+Both fields are independent; they don't have to match.">ⓘ</span></label>
+            <div style="display:flex;gap:8px;align-items:center;margin-top:4px">
+              <input type="number" min="0" id="budget-input" value="10000" style="width:140px;font-family:var(--mono);font-size:14px" oninput="onSlider()">
+              <span id="budget-status" class="badge-ok">OK</span>
+            </div>
+          </div>
+          <div>
+            <label>Suggestions to fit</label>
+            <div id="budget-suggestions" style="margin-top:4px;display:none">
+              <div style="background:rgba(255,82,82,0.06);border:1px solid rgba(255,82,82,0.25);border-radius:6px;padding:10px 12px;font-size:12px;line-height:1.55">
+                <div style="color:var(--red);font-weight:700;letter-spacing:1px;text-transform:uppercase;margin-bottom:5px;font-size:11px">▼ To fit within budget</div>
+                <div id="budget-suggest-list" style="color:var(--ink)"></div>
+              </div>
+            </div>
+            <div id="budget-ok-note" style="margin-top:4px;font-size:11.5px;color:var(--dim);line-height:1.5">When the projected monthly cost is at or under your ceiling, this panel stays empty.</div>
+          </div>
+        </div>
+      </div>
       </div>
     </div>
 
