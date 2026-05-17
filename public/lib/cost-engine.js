@@ -827,17 +827,22 @@
   // calibration: 'measured' (bench-validated, ±5%) |
   //              'estimated' (architecture-based, ±20%) |
   //              'vendor-listed' (published rate at time of write).
+  // latency_sec: typical wall-clock per verified response. Drives the
+  // 'inline' vs 'audit' UI hint — anything >5 sec is impractical to
+  // block on per-turn; anything >30 sec MUST run as a sidecar/audit
+  // sample. Used to render warning badges on the per-agent verify_mode
+  // toggle (e.g. 'FR2 + inline' = 'will block users for ~90 sec/turn').
   const VERIFIER_PRESETS = {
-    'fr1':                 { label: 'FactReasoner FR1 (lean)',                  calibration: 'measured',      shape: 'nliBased',     nliCallsPerQuery: 24 },
-    'fr2':                 { label: 'FactReasoner FR2 (dense)',                 calibration: 'measured',      shape: 'nliBased',     nliCallsPerQuery: 160 },
-    'fr3':                 { label: 'FactReasoner FR3 (exhaustive)',            calibration: 'estimated',     shape: 'nliBased',     nliCallsPerQuery: 350 },
-    'minicheck':           { label: 'MiniCheck (CMU 2024) — single-call NLI',   calibration: 'estimated',     shape: 'nliBased',     nliCallsPerQuery: 1,  skipAtomizer: true, skipReviser: true },
-    'factscore':           { label: 'FactScore (Min et al., UW 2023)',          calibration: 'estimated',     shape: 'nliBased',     nliCallsPerQuery: 0,  llmPerAtomTokens: { input: 800, output: 60 } },
-    'ragas-faithfulness':  { label: 'RAGAS faithfulness — LLM self-check',      calibration: 'estimated',     shape: 'selfCheck',    outputOverheadPct: 0.30 },
-    'anthropic-citations': { label: 'Anthropic Claude citations (inline)',      calibration: 'estimated',     shape: 'selfCheck',    outputOverheadPct: 0.10 },
-    'patronus':            { label: 'Patronus AI (commercial)',                 calibration: 'vendor-listed', shape: 'flatPerCheck', perCheckUsd: 0.010 },
-    'galileo':             { label: 'Galileo Luna (commercial)',                calibration: 'vendor-listed', shape: 'flatPerCheck', perCheckUsd: 0.015 },
-    'custom':              { label: 'Custom (sliders below)',                   calibration: 'user-defined',  shape: 'nliBased' },
+    'fr1':                 { label: 'FactReasoner FR1 (lean)',                  calibration: 'measured',      shape: 'nliBased',     nliCallsPerQuery: 24,  latency_sec: 10,  latency_class: 'audit'  },
+    'fr2':                 { label: 'FactReasoner FR2 (dense)',                 calibration: 'measured',      shape: 'nliBased',     nliCallsPerQuery: 160, latency_sec: 60,  latency_class: 'audit'  },
+    'fr3':                 { label: 'FactReasoner FR3 (exhaustive)',            calibration: 'estimated',     shape: 'nliBased',     nliCallsPerQuery: 350, latency_sec: 120, latency_class: 'batch'  },
+    'minicheck':           { label: 'MiniCheck (CMU 2024) — single-call NLI',   calibration: 'estimated',     shape: 'nliBased',     nliCallsPerQuery: 1,   latency_sec: 1,   latency_class: 'inline', skipAtomizer: true, skipReviser: true },
+    'factscore':           { label: 'FactScore (Min et al., UW 2023)',          calibration: 'estimated',     shape: 'nliBased',     nliCallsPerQuery: 0,   latency_sec: 20,  latency_class: 'audit',  llmPerAtomTokens: { input: 800, output: 60 } },
+    'ragas-faithfulness':  { label: 'RAGAS faithfulness — LLM self-check',      calibration: 'estimated',     shape: 'selfCheck',    outputOverheadPct: 0.30, latency_sec: 4,  latency_class: 'inline' },
+    'anthropic-citations': { label: 'Anthropic Claude citations (inline)',      calibration: 'estimated',     shape: 'selfCheck',    outputOverheadPct: 0.10, latency_sec: 0,  latency_class: 'inline' },
+    'patronus':            { label: 'Patronus AI (commercial)',                 calibration: 'vendor-listed', shape: 'flatPerCheck', perCheckUsd: 0.010,    latency_sec: 2,   latency_class: 'inline' },
+    'galileo':             { label: 'Galileo Luna (commercial)',                calibration: 'vendor-listed', shape: 'flatPerCheck', perCheckUsd: 0.015,    latency_sec: 2,   latency_class: 'inline' },
+    'custom':              { label: 'Custom (sliders below)',                   calibration: 'user-defined',  shape: 'nliBased',                            latency_sec: 5,   latency_class: 'inline' },
   };
 
   // Guard-model preset table. Same dual-purpose pattern as the verifier
@@ -894,6 +899,67 @@
     'azure-openai':     1.0,
   };
 
+  // Per-preset cost-for-N-verified helper. Returns { monthly, breakdown }
+  // for a single preset and a given verified-query count. Used twice:
+  // (a) workload-wide path with verifiedQueries = monthlyQueries × coverage,
+  // (b) per-agent path with verifiedQueries = agent_outputs × agent_coverage.
+  // Caller adds servicePod (charged once, not per-agent) on top.
+  function _verifCostForPreset(preset, verifiedCount, workload, opts, atoms) {
+    const w = workload;
+    const v = w.verification || {};
+    const modelId = opts.verifModel || opts.model || w.defaults.model;
+    const tierId = opts.tier || w.defaults.tier;
+    const rates = w.rate_cards[modelId];
+    const mult = w.tier_multipliers[tierId] || 1.0;
+    if (preset.shape === 'selfCheck') {
+      const anchorOut = (w.anchor_query && w.anchor_query.output_tokens) || 0;
+      const overheadTokens = anchorOut * (preset.outputOverheadPct || 0);
+      const overheadCostPerQuery = (rates ? overheadTokens * rates.output_per_million / 1e6 : 0) * mult;
+      const monthly = verifiedCount * overheadCostPerQuery;
+      return { monthly, breakdown: { self_check_output_overhead: monthly } };
+    }
+    if (preset.shape === 'flatPerCheck') {
+      const monthly = verifiedCount * (preset.perCheckUsd || 0);
+      return { monthly, breakdown: { commercial_flat: monthly } };
+    }
+    // nliBased
+    const nliCallsPerQuery =
+      (v.atoms_per_response_nli_calls && v.atoms_per_response_nli_calls[preset.__variantKey])
+      || preset.nliCallsPerQuery || VARIANT_NLI_CALLS[preset.__variantKey] || 24;
+    const tokenCost = (tokens) =>
+      ((tokens.input || 0) * rates.input_per_million / 1e6 +
+       (tokens.output || 0) * rates.output_per_million / 1e6) * mult;
+    const atomizerPerQuery = preset.skipAtomizer ? 0 : tokenCost(v.atomizer_tokens || { input: 1500, output: 400 });
+    const reviserPerQuery  = preset.skipReviser  ? 0 : atoms * tokenCost(v.reviser_tokens || { input: 500, output: 30 });
+    const factscoreLlmPerQuery = preset.llmPerAtomTokens ? atoms * tokenCost(preset.llmPerAtomTokens) : 0;
+    const nliHosting = opts.nliHosting || v.nli_hosting || 'api';
+    let nliMonthly;
+    if (NLI_HOSTING_TOKEN_MULT[nliHosting] != null) {
+      const nliPerCall = tokenCost(v.nli_tokens || { input: 1200, output: 20 });
+      nliMonthly = verifiedCount * nliCallsPerQuery * nliPerCall * NLI_HOSTING_TOKEN_MULT[nliHosting];
+    } else {
+      nliMonthly = NLI_HOSTING_FLAT[nliHosting] || 0;
+    }
+    const retrieval = opts.retrieval || v.retrieval || 'wikipedia';
+    const retrievalMonthly = retrieval === 'serper' ? verifiedCount * atoms * (5 / 1000) : 0;
+    const atomizerMonthly = verifiedCount * atomizerPerQuery;
+    const reviserMonthly = verifiedCount * reviserPerQuery;
+    const factscoreLlmMonthly = verifiedCount * factscoreLlmPerQuery;
+    const monthly = atomizerMonthly + reviserMonthly + nliMonthly + factscoreLlmMonthly + retrievalMonthly;
+    return {
+      monthly,
+      breakdown: {
+        atomizer: atomizerMonthly,
+        reviser: reviserMonthly,
+        nli: nliMonthly,
+        factscore_llm_per_atom: factscoreLlmMonthly,
+        retrieval: retrievalMonthly,
+      },
+      nli_hosting: nliHosting,
+      nli_calls_per_query: nliCallsPerQuery,
+    };
+  }
+
   function computeVerification(workload, monthlyQueries, options) {
     const w = workload;
     const v = w.verification;
@@ -902,13 +968,63 @@
     }
     const opts = options || {};
     const coverage = opts.verifCoverage !== undefined ? opts.verifCoverage : (v.coverage || 0);
-    if (coverage <= 0) {
-      return { enabled: true, coverage: 0, monthly: 0, verified_queries: 0, breakdown: {}, variant: v.variant, nli_hosting: v.nli_hosting };
-    }
     const variant = opts.verifVariant || v.variant || 'fr1';
     const atoms = v.atoms_per_response || 8;
+    const preset = Object.assign({ __variantKey: variant }, VERIFIER_PRESETS[variant] || VERIFIER_PRESETS.fr1);
+    const servicePod = v.service_pod_monthly || 0;
+
+    // -------------------------------------------------------------------
+    // PER-AGENT verification: when any agent declares verify_enabled,
+    // walk agents and sum their contributions instead of applying one
+    // workload-wide coverage. Each agent can override the preset
+    // (verifier_override) and the coverage (verify_coverage). Common
+    // pattern: orchestrator + tool-executors skip verification (their
+    // outputs aren't user-facing claims); reporter / synthesizer agents
+    // get verify_enabled with coverage=1.0 for every final response.
+    // -------------------------------------------------------------------
+    const agents = Array.isArray(w.agents) ? w.agents : [];
+    const perAgentMode = agents.some(a => a.verify_enabled);
+    if (perAgentMode) {
+      let total = 0;
+      const breakdown = { service_pod: servicePod };
+      const perAgentBreakdown = [];
+      let totalVerified = 0;
+      for (const a of agents) {
+        if (!a.verify_enabled) continue;
+        const agentPresetKey = a.verifier_override || variant;
+        const agentPreset = Object.assign({ __variantKey: agentPresetKey }, VERIFIER_PRESETS[agentPresetKey] || preset);
+        const agentCov = a.verify_coverage != null ? a.verify_coverage : coverage;
+        const agentOutputs = monthlyQueries * (a.calls_per_query || 1);
+        const verified = agentOutputs * agentCov;
+        totalVerified += verified;
+        if (verified <= 0) continue;
+        const r = _verifCostForPreset(agentPreset, verified, w, opts, atoms);
+        total += r.monthly;
+        perAgentBreakdown.push({
+          id: a.id, label: a.label || a.id,
+          verifier: agentPreset.label, latency_class: agentPreset.latency_class,
+          coverage: agentCov, verified_outputs: verified, monthly: r.monthly,
+        });
+      }
+      return {
+        enabled: true, coverage, variant,
+        per_agent_mode: true,
+        verified_queries: totalVerified,
+        monthly: total + servicePod,
+        breakdown,
+        per_agent_breakdown: perAgentBreakdown,
+        preset: { label: preset.label, calibration: preset.calibration, shape: preset.shape, latency_sec: preset.latency_sec, latency_class: preset.latency_class },
+      };
+    }
+
+    // -------------------------------------------------------------------
+    // WORKLOAD-WIDE verification: original path. coverage × monthlyQueries
+    // sets verified count; one preset applies to the whole bill.
+    // -------------------------------------------------------------------
+    if (coverage <= 0) {
+      return { enabled: true, coverage: 0, monthly: 0, verified_queries: 0, breakdown: {}, variant, nli_hosting: v.nli_hosting };
+    }
     const verifiedQueries = monthlyQueries * coverage;
-    const preset = VERIFIER_PRESETS[variant] || VERIFIER_PRESETS.fr1;
 
     // SELF-CHECK shape (RAGAS faithfulness, Anthropic citations): no
     // separate verifier model. Bills as output-token overhead on the
@@ -994,7 +1110,8 @@
     const atomizerMonthly = verifiedQueries * atomizerPerQuery;
     const reviserMonthly = verifiedQueries * reviserPerQuery;
     const factscoreLlmMonthly = verifiedQueries * factscoreLlmPerQuery;
-    const servicePod = v.service_pod_monthly || 0;
+    // servicePod was declared at the top of computeVerification (shared
+    // with the per-agent branch above); re-use the outer binding here.
     const monthly = atomizerMonthly + reviserMonthly + nliMonthly + factscoreLlmMonthly + retrievalMonthly + servicePod;
 
     return {

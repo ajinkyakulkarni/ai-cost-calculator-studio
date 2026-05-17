@@ -1172,6 +1172,66 @@ function guardModelDropdownHtml(a){
   return `<div style="grid-column:1 / -1"><div class="mini-label" style="color:#ff6d00;display:flex;align-items:center;gap:6px"><span id="${lid}">Guard model</span><span style="font-weight:500;color:var(--ink-2,#3a4a62)">· per-agent</span></div>
     <select aria-labelledby="${lid}" onchange="setAP(${a.id},'guard_model',this.value)" style="width:100%;font-size:12px;padding:3px 5px">${opts}</select></div>`;
 }
+
+// Per-agent fact-checking sub-section. Mirrors the workload.agents
+// editor's verify_enabled / verify_coverage / verifier_override fields
+// so the simulator card and the calculator share the same controls
+// (the bridge mirrors them to workload.agents[i] in lockstep).
+// Latency badges on each preset option tell the user whether an
+// inline-per-turn fact-check is realistic (FR2 + inline = 90 sec wait
+// per turn = won't ship).
+function verifyAgentHtml(a){
+  const presets = (typeof window !== 'undefined' && window.CostEngine && window.CostEngine.VERIFIER_PRESETS) || {};
+  const enabled = !!a.verify_enabled;
+  const cov = a.verify_coverage;
+  const ovr = a.verifier_override || '';
+  const presetOpts = `<option value="">(use workload preset)</option>` +
+    Object.entries(presets).map(([k, p]) => {
+      const badge = p.latency_class === 'inline' ? '✓ inline'
+                  : p.latency_class === 'audit'  ? '⚠ audit (~' + p.latency_sec + 's)'
+                  :                                '⚠ batch (~' + p.latency_sec + 's)';
+      return `<option value="${k}" ${ovr===k?'selected':''}>${p.label} — ${badge}</option>`;
+    }).join('');
+  const sub = enabled ? `
+    <div class="agent-edit-grid" style="margin-top:6px">
+      <div>
+        <div class="mini-label" style="color:#1565c0">Coverage override</div>
+        <input type="number" min="0" max="1" step="0.05" value="${cov != null ? cov : ''}" placeholder="(use workload)" oninput="setAPVerify(${a.id},'verify_coverage',this.value)" style="width:100%;font-size:12px;padding:3px 5px">
+      </div>
+      <div style="grid-column:span 1">
+        <div class="mini-label" style="color:#1565c0">Verifier override</div>
+        <select onchange="setAPVerify(${a.id},'verifier_override',this.value)" style="width:100%;font-size:12px;padding:3px 5px">${presetOpts}</select>
+      </div>
+    </div>` : '';
+  return `<div style="margin-top:8px;padding:7px 9px;background:rgba(21,101,192,0.05);border:1px solid rgba(21,101,192,0.18);border-radius:5px">
+    <label style="display:flex;align-items:center;gap:6px;font-size:12px;cursor:pointer;color:#1565c0;font-weight:600">
+      <input type="checkbox" ${enabled?'checked':''} onchange="setAPVerify(${a.id},'verify_enabled',this.checked);event.stopPropagation();" style="margin:0">
+      Fact-check this agent's output
+    </label>
+    <div style="font-size:10px;color:var(--ink-2,#3a4a62);margin-top:3px;line-height:1.4">Default off. Turn on for synthesizer / reporter agents that produce user-facing factual claims. Skip for orchestrators and tool-executors.</div>
+    ${sub}
+  </div>`;
+}
+
+// Verify-field setter. Same shape as setAP but handles the nullable
+// override fields (blank → delete the property so engine falls back to
+// workload defaults) and re-renders the agent card so the coverage +
+// override controls appear/disappear when verify_enabled toggles.
+function setAPVerify(id, k, v){
+  const a = sim.agents.find(x => x.id === id);
+  if (!a) return;
+  if (k === 'verify_enabled') a.verify_enabled = !!v;
+  else if (v === '' || v == null) delete a[k];
+  else if (k === 'verify_coverage') {
+    const n = parseFloat(v);
+    if (Number.isFinite(n) && n >= 0 && n <= 1) a.verify_coverage = n;
+    else delete a.verify_coverage;
+  }
+  else a[k] = v;
+  _mirrorAgentEditToWorkload(id, k, a[k]);
+  if (k === 'verify_enabled') renderAgents();
+  refreshAfterAgentEdit();
+}
 function agentCardHtml(a,scope){
   const m=MODELS[a.model]||MODELS['claude-sonnet-4.6'];
   const ctxP=Math.min(100,Math.round((a.ctxUsed||0)/m.ctx*100));
@@ -1234,6 +1294,7 @@ function agentCardHtml(a,scope){
       ${agentSection('RAG / retrieval', '#7c4dff', a.ragOn, ragBody)}
       ${agentSection('Reasoning', '#00bcd4', a.reasonOn, reasonBody)}
       ${agentSection('Guardrails', '#ff6d00', a.guardOn, guardBody)}
+      ${verifyAgentHtml(a)}
       ${sim.agents.length > 1 ? `<div style="margin-top:8px;padding:7px 10px;border:1px dashed var(--b);border-radius:5px;font-size:11px;color:var(--ink-2,#3a4a62);display:flex;justify-content:space-between;align-items:center;gap:10px"><span>Want every agent to share this one's TOOLS / RAG / Reasoning / Guardrails settings?</span><button type="button" onclick="applyAgentSettingsToAll(${a.id});event.stopPropagation();" style="font-size:11px;padding:4px 10px;background:rgba(0,212,255,.08);border:1px solid rgba(0,212,255,.35);border-radius:3px;color:var(--cyan);cursor:pointer;white-space:nowrap;font-weight:600">↧ Apply to all agents</button></div>` : ''}
       <div style="font-size:10px;color:var(--ink-2,#3a4a62);margin-top:7px">Task bias: ${a.task_bias||'balanced'} · ctx fill: ${ctxP}% · source: ${m.source||'static bootstrap'}</div>
     </div>
@@ -1292,10 +1353,20 @@ function _mirrorAgentEditToWorkload(simAgentId, k, v) {
     model: 'model',
     guard_model: 'guard_model',
     cache_rate: 'cache_eligible_rate',  // engine uses cache_eligible bool + cache_rate
+    verify_enabled: 'verify_enabled',
+    verify_coverage: 'verify_coverage',
+    verifier_override: 'verifier_override',
   };
   const wlKey = mapping[k];
   if (!wlKey) return;
-  wl.agents[idx][wlKey] = v;
+  // Nullable verify-override fields: blank/null in sim → DELETE from wl
+  // so the engine falls back to workload-wide defaults instead of
+  // treating `null` as an explicit zero override.
+  if ((wlKey === 'verifier_override' || wlKey === 'verify_coverage') && (v == null || v === '')) {
+    delete wl.agents[idx][wlKey];
+  } else {
+    wl.agents[idx][wlKey] = v;
+  }
   if (typeof window.renderPreview === 'function') window.renderPreview();
 }
 // Per-agent enabled-tools toggle. Mirrors the agent.enabled_tools shape
@@ -2113,6 +2184,9 @@ window.__setSimulatorFromWorkload = function(workload) {
       if (w.iamsg_tokens != null) base.iamsg = w.iamsg_tokens;
       if (w.calls_per_turn_multiplier != null) base.calls_per_turn_multiplier = w.calls_per_turn_multiplier;
       if (w.guard_model) base.guard_model = w.guard_model;
+      if (w.verify_enabled) base.verify_enabled = true;
+      if (w.verify_coverage != null) base.verify_coverage = w.verify_coverage;
+      if (w.verifier_override) base.verifier_override = w.verifier_override;
       return base;
     });
     const sAgents = document.getElementById('s-agents');

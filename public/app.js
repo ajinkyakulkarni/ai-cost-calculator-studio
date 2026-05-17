@@ -666,6 +666,30 @@
           <label>LLM calls / turn multiplier <em>(ReAct, reflection, self-critique loops)</em></label>
           <input type="number" min="0.1" step="0.5" value="${agent.calls_per_turn_multiplier || 1.0}" data-agent="${idx}" data-key="calls_per_turn_multiplier" title="Inner LLM-call loop multiplier per user-visible 'turn'. Simple chat: 1.0×. ReAct (think→act→observe→think): 3–5×. Deep reflection (self-critique pass): 5–8×. Multiplies the per-call bill — sysprompt amortization and cache accounting stay correct (each inner iteration hits the same cached prefix).">
         </div>
+        <div class="row" style="margin-top:6px;padding:6px 8px;background:rgba(120,180,255,0.06);border:1px solid rgba(120,180,255,0.18);border-radius:5px">
+          <div style="display:flex;align-items:center;gap:8px;font-size:12px;margin-bottom:5px">
+            <input type="checkbox" id="agent-${idx}-verify-enabled" data-agent="${idx}" data-key="verify_enabled" ${agent.verify_enabled ? 'checked' : ''} style="margin:0">
+            <label for="agent-${idx}-verify-enabled" style="margin:0;cursor:pointer">Fact-check this agent's output</label>
+            <span style="font-size:10px;color:var(--dim)">(default off — orchestrators and tool-executors rarely produce checkable claims)</span>
+          </div>
+          ${agent.verify_enabled ? `
+          <div class="row grid-2" style="margin-top:4px">
+            <div>
+              <label for="agent-${idx}-verify-coverage" style="font-size:11px">Coverage override <em>(0–1, blank = workload default)</em></label>
+              <input id="agent-${idx}-verify-coverage" type="number" min="0" max="1" step="0.05" value="${agent.verify_coverage != null ? agent.verify_coverage : ''}" data-agent="${idx}" data-key="verify_coverage" placeholder="(use workload coverage)" style="font-size:12px">
+            </div>
+            <div>
+              <label for="agent-${idx}-verifier-override" style="font-size:11px">Verifier override <em>(blank = workload preset)</em></label>
+              <select id="agent-${idx}-verifier-override" data-agent="${idx}" data-key="verifier_override" style="font-size:12px">
+                <option value="">(use workload preset)</option>
+                ${Object.entries((window.CostEngine && window.CostEngine.VERIFIER_PRESETS) || {}).map(([k, p]) => {
+                  const badge = p.latency_class === 'inline' ? '✓ inline' : p.latency_class === 'audit' ? '⚠ audit (~' + p.latency_sec + 's)' : '⚠ batch (~' + p.latency_sec + 's)';
+                  return `<option value="${k}" ${agent.verifier_override === k ? 'selected' : ''}>${p.label} — ${badge}</option>`;
+                }).join('')}
+              </select>
+            </div>
+          </div>` : ''}
+        </div>
         <div class="row grid-3">
           <div>
             <label>Hosting <em>(who pays?)</em></label>
@@ -684,21 +708,33 @@
       list.appendChild(div);
     });
     list.querySelectorAll('[data-agent]').forEach(el => {
-      el.addEventListener('input', () => {
+      const handler = () => {
         const idx = parseInt(el.dataset.agent, 10);
         const key = el.dataset.key;
         let v;
-        if (el.tagName === 'SELECT' && (el.value === 'true' || el.value === 'false')) v = el.value === 'true';
-        else if (el.value === '') v = key === 'model' ? null : 0;
+        if (el.type === 'checkbox') v = el.checked;
+        else if (el.tagName === 'SELECT' && (el.value === 'true' || el.value === 'false')) v = el.value === 'true';
+        else if (el.value === '') {
+          // Blank values: nullable for the optional per-agent verify fields
+          // (so the engine falls back to workload defaults). Otherwise treat
+          // model as null and numeric fields as 0.
+          if (key === 'model' || key === 'verifier_override' || key === 'verify_coverage') v = null;
+          else v = 0;
+        }
         else if (el.type === 'number') v = parseFloat(el.value) || 0;
         else v = el.value;
-        workload.agents[idx][key] = v;
-        // Hosting changes need a full re-render to update the hint text;
-        // other fields just refresh the preview.
-        if (key === 'hosting') renderAgentsList();
+        if (v === null) delete workload.agents[idx][key];
+        else workload.agents[idx][key] = v;
+        // Hosting and verify_enabled changes need a full re-render to update
+        // visibility of dependent rows (hint text / verify coverage + override).
+        if (key === 'hosting' || key === 'verify_enabled') renderAgentsList();
         renderPreview();
         renderRawJson();
-      });
+      };
+      el.addEventListener('input', handler);
+      // Checkboxes don't fire 'input' in some older browsers; register
+      // 'change' as a belt-and-braces backup.
+      if (el.type === 'checkbox') el.addEventListener('change', handler);
     });
     list.querySelectorAll('[data-agent-remove]').forEach(b => {
       b.addEventListener('click', e => {
