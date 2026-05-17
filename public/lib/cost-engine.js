@@ -145,6 +145,8 @@
       result_tokens_avg: 800,
       return_shape: 'freeform',
       cap_tokens: 80,           // status + top-result url + snippet
+      memoize: false,
+      memoize_hit_rate: 0.0,    // typical when memoization disabled
       provider: 'managed',
       builtin: true,
     },
@@ -157,6 +159,8 @@
       result_tokens_avg: 1200,
       return_shape: 'freeform',
       cap_tokens: 60,           // file id + offset + brief excerpt
+      memoize: false,
+      memoize_hit_rate: 0.0,
       provider: 'managed',
       builtin: true,
     },
@@ -169,6 +173,8 @@
       result_tokens_avg: 400,
       return_shape: 'freeform',
       cap_tokens: 80,           // exit code + last few stdout lines
+      memoize: false,
+      memoize_hit_rate: 0.0,
       provider: 'managed',
       builtin: true,
     },
@@ -181,6 +187,8 @@
       result_tokens_avg: 600,
       return_shape: 'freeform',
       cap_tokens: 50,           // page id + lede sentence
+      memoize: false,
+      memoize_hit_rate: 0.0,
       provider: 'self-hosted',
       builtin: true,
     },
@@ -193,6 +201,8 @@
       result_tokens_avg: 500,
       return_shape: 'freeform',
       cap_tokens: 40,           // row count + id list
+      memoize: false,
+      memoize_hit_rate: 0.0,
       provider: 'self-hosted',
       builtin: false,
     },

@@ -344,15 +344,22 @@ function computeCost(mk){
       let totalCalls=0, schemaSum=0, resultSum=0;
       for(const [tid,spec] of _enabledList){
         const t=_registry[tid];
-        const calls=spec.calls_per_query;
+        // Per-tool memoization (same-session result cache). Effective
+        // call count = nominal × (1 - hit_rate). Schema tokens still
+        // count for every call (the LLM sees the tool definition in
+        // sysprompt regardless of cache hits); result tokens scale
+        // down with the cache.
+        const memo=t.memoize&&Number.isFinite(t.memoize_hit_rate)?t.memoize_hit_rate:0;
+        const callsNominal=spec.calls_per_query;
+        const callsEff=callsNominal*Math.max(0,1-memo);
         const sch=t.schema_tokens??cfg('s-schema');
         const rawResult=t.result_tokens_avg??cfg('s-toolresult');
         const shape=t.return_shape||_toolMode;
         const cap=Number.isFinite(t.cap_tokens)?t.cap_tokens:_templatedCap;
         const res=shape==='templated'?Math.min(rawResult,cap):rawResult;
-        totalCalls+=calls;
-        schemaSum+=calls*sch;
-        resultSum+=calls*res;
+        totalCalls+=callsNominal;
+        schemaSum+=callsNominal*sch;
+        resultSum+=callsEff*res;
       }
       // calls_per_query is per session; per-turn rate = calls/turn.
       myToolsPer=totalCalls/Math.max(1,myTurns);

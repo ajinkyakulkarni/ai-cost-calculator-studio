@@ -357,6 +357,13 @@
               </select></label>
             <label style="font-size:10px;color:var(--muted)"><span style="display:block;text-transform:uppercase;letter-spacing:0.04em;margin-bottom:2px">Cap tok</span>
               <input type="number" min="0" step="5" data-field="cap_tokens" value="${Number.isFinite(t.cap_tokens) ? t.cap_tokens : 40}" style="width:100%;font-size:12px;padding:3px 5px;font-family:var(--mono)" title="Effective result tokens when return_shape='templated' (this tool's typical wrapper payload)."></label>
+            <label style="font-size:10px;color:var(--muted)"><span style="display:block;text-transform:uppercase;letter-spacing:0.04em;margin-bottom:2px">Memoize</span>
+              <select data-field="memoize" style="width:100%;font-size:11px;padding:3px 5px" title="Same-session result memoization. Enable when this tool is called repeatedly with the same args in one session (file_search, db_query, wikipedia). Disable for tools that rarely repeat (web_search of current events).">
+                <option value="false" ${!t.memoize?'selected':''}>off</option>
+                <option value="true" ${t.memoize?'selected':''}>on</option>
+              </select></label>
+            <label style="font-size:10px;color:var(--muted)"><span style="display:block;text-transform:uppercase;letter-spacing:0.04em;margin-bottom:2px">Hit rate</span>
+              <input type="number" min="0" max="0.95" step="0.05" data-field="memoize_hit_rate" value="${Number.isFinite(t.memoize_hit_rate) ? t.memoize_hit_rate : 0}" style="width:100%;font-size:12px;padding:3px 5px;font-family:var(--mono)" title="Fraction of calls served from the local result cache (0.0–0.95). Typical: file_search ~0.4, db_query ~0.6, web_search ~0.05."></label>
             <label style="font-size:10px;color:var(--muted)"><span style="display:block;text-transform:uppercase;letter-spacing:0.04em;margin-bottom:2px">Provider</span>
               <input type="text" data-field="provider" value="${(t.provider || 'managed').replace(/"/g,'&quot;')}" style="width:100%;font-size:11px;padding:3px 5px" title="Provider name (managed / self-hosted / bedrock / azure / etc.)"></label>
           </div>
@@ -397,6 +404,7 @@
         const field = el.dataset.field;
         let v;
         if (el.tagName === 'INPUT' && el.type === 'number') v = parseFloat(el.value) || 0;
+        else if (el.tagName === 'SELECT' && (el.value === 'true' || el.value === 'false')) v = el.value === 'true';
         else v = el.value;
         if (!workload.tools_registry[tid]) workload.tools_registry[tid] = {};
         workload.tools_registry[tid][field] = v;
@@ -1516,10 +1524,18 @@
           if (!tool || tool.cost_shape === 'free' || !tool.rate_usd) continue;
           const callsPerQuery = (useSpec && useSpec.calls_per_query) || 0;
           if (callsPerQuery <= 0) continue;
+          // Per-tool result memoization — when a tool is called twice
+          // with the same args inside the same session, the second
+          // call hits a local cache and skips the provider call. Hit
+          // rate is per-tool (web_search rarely repeats; file_search
+          // / db_query commonly do). 0% hit rate = no memoization
+          // (paper-faithful default). Hit rate × rate cost reduction.
+          const memo = tool.memoize && Number.isFinite(tool.memoize_hit_rate) ? tool.memoize_hit_rate : 0;
+          const callMult = Math.max(0, 1 - memo);
           if (tool.cost_shape === 'per_call') {
-            providerToolFeesMonthly += callsPerQuery * tool.rate_usd * queries * callsShare;
+            providerToolFeesMonthly += callsPerQuery * tool.rate_usd * queries * callsShare * callMult;
           } else if (tool.cost_shape === 'per_session') {
-            providerToolFeesMonthly += callsPerQuery * tool.rate_usd * sessionsMonthly * callsShare;
+            providerToolFeesMonthly += callsPerQuery * tool.rate_usd * sessionsMonthly * callsShare * callMult;
           }
         }
       }
