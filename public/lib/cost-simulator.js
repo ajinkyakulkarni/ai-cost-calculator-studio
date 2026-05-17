@@ -295,9 +295,14 @@ function computeCost(mk){
   let pipelineCumulativeOutTok = 0;
 
   const imgTok=cfg('s-images')*1568, audioTok=cfg('s-audio')*25, pdfTok=cfg('s-pdf')*1500, codeInterp=cfg('s-codeinterp');
-  const fewshot=cfg('s-fewshot')*250, jsonSchema=cfg('s-jsonschema'), citations=cfg('s-citations'), memory=cfg('s-memory');
+  // Workload-wide fewshot/jsonschema/memory/citations are fallbacks.
+  // Per-agent values (agent.fewshot, .jsonschema, .memory, .citations)
+  // override inside the per-agent loop below — only the formatter and
+  // structured-output agents typically carry few-shots and JSON schema;
+  // only persistent agents carry memory; only fact-grounded agents emit
+  // citation tokens. Applying workload-wide to every agent overestimates.
+  const fewshotGlobal=cfg('s-fewshot')*250, jsonSchemaGlobal=cfg('s-jsonschema'), citationsGlobal=cfg('s-citations'), memoryGlobal=cfg('s-memory');
   const modalTurnTok=imgTok+audioTok+pdfTok+codeInterp;
-  const promptOHTurn=fewshot+jsonSchema+memory;
 
   agentsToProcess.forEach(agent=>{
     const usedModel=overrideModel ? mk : agent.model;
@@ -415,8 +420,17 @@ function computeCost(mk){
     // the agent doesn't carry per-row values (preserves paper math).
     const mySysTok=agent.sysprompt??sysTokGlobal;
     const myIaMsg=agent.iamsg??iaMsg;
-    const turnIn=(mySysTok/myTurns)+200+myToolSchemaOH+myToolResultOH+myIaMsg+myRagTok+myReasonTok+myGuardTokInTurn+_commOverheadPerTurn+modalTurnTok+promptOHTurn;
-    const rawTurnOut=Math.round(200*myOM)+citations;
+    // Per-agent prompt overhead (few-shot, JSON schema, persistent
+    // memory, citation output). Same "per-agent overrides workload-
+    // wide" pattern — only certain agents have these (formatter has
+    // few-shots, planner has memory, researcher emits citations).
+    const myFewshot=(agent.fewshot!==undefined?agent.fewshot*250:fewshotGlobal);
+    const myJsonSchema=agent.jsonschema??jsonSchemaGlobal;
+    const myMemory=agent.memory??memoryGlobal;
+    const myCitations=agent.citations??citationsGlobal;
+    const myPromptOHTurn=myFewshot+myJsonSchema+myMemory;
+    const turnIn=(mySysTok/myTurns)+200+myToolSchemaOH+myToolResultOH+myIaMsg+myRagTok+myReasonTok+myGuardTokInTurn+_commOverheadPerTurn+modalTurnTok+myPromptOHTurn;
+    const rawTurnOut=Math.round(200*myOM)+myCitations;
     const turnOut=Math.min(rawTurnOut, agent.maxOut||rawTurnOut);
     const tierInfo=resolvePricingTier(m,provider,langMult,turnIn);
     const inRate=tierInfo.inRate,outRate=tierInfo.outRate,priceModel=tierInfo.priceModel;
@@ -1059,6 +1073,7 @@ const _agentFallbackSlider={
   rag_chunks:'s-rag-chunks', rag_size:'s-rag-chunk-size', rag_calls:'s-rag-calls',
   think_tok:'s-think-tokens', think_pct:'s-think-pct', cot:'s-cot', factcheck:'s-factcheck',
   guard_in:'s-guard-in', guard_out:'s-guard-out', guard_pii:'s-guard-pii', guard_policy:'s-guard-policy',
+  fewshot:'s-fewshot', jsonschema:'s-jsonschema', memory:'s-memory', citations:'s-citations',
 };
 function _agentEffectiveVal(a,k){
   if(a[k]!==undefined&&a[k]!==null)return a[k];
@@ -1197,6 +1212,10 @@ function agentCardHtml(a,scope){
       <div class="agent-edit-grid">
         ${agentRangeCtl(a,scope,'sysprompt','Sysprompt tok',0,4000,50,'#42a5f5')}
         ${agentRangeCtl(a,scope,'iamsg','Inter-agent msg tok',0,2000,20,'#4dd0e1')}
+        ${agentRangeCtl(a,scope,'fewshot','Few-shot examples',0,10,1,'#1565c0')}
+        ${agentRangeCtl(a,scope,'jsonschema','JSON schema tok',0,1500,50,'#0d47a1')}
+        ${agentRangeCtl(a,scope,'memory','Persistent memory tok',0,2000,50,'#42a5f5')}
+        ${agentRangeCtl(a,scope,'citations','Citation output tok',0,500,10,'#558b2f')}
       </div>
       <div style="display:flex;gap:3px;flex-wrap:wrap;margin-bottom:5px">
         <button class="tgl ${a.toolsOn?'on':''}" onclick="togAF(${a.id},'toolsOn',this);event.stopPropagation();">TOOLS ${a.toolsOn?'ON':'OFF'}</button>
