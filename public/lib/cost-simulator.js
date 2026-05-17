@@ -408,7 +408,14 @@ function computeCost(mk){
     const _commOverheadPerTurn = _commPattern === 1 ? _commSiblings * 300
                               : _commPattern === 2 ? _commSiblings * 150
                               : 0;  // pattern 3 handled after per-turn math
-    const turnIn=(sysTokGlobal/myTurns)+200+myToolSchemaOH+myToolResultOH+iaMsg+myRagTok+myReasonTok+myGuardTokInTurn+_commOverheadPerTurn+modalTurnTok+promptOHTurn;
+    // Per-agent sysprompt and inter-agent message size. Orchestrator
+    // sysprompts run 1,500–3,000 tok (role + tool catalog + decision
+    // rules); worker sysprompts are often 200–500 tok. iamsg size
+    // varies by sender role. Fall back to workload-wide sliders when
+    // the agent doesn't carry per-row values (preserves paper math).
+    const mySysTok=agent.sysprompt??sysTokGlobal;
+    const myIaMsg=agent.iamsg??iaMsg;
+    const turnIn=(mySysTok/myTurns)+200+myToolSchemaOH+myToolResultOH+myIaMsg+myRagTok+myReasonTok+myGuardTokInTurn+_commOverheadPerTurn+modalTurnTok+promptOHTurn;
     const rawTurnOut=Math.round(200*myOM)+citations;
     const turnOut=Math.min(rawTurnOut, agent.maxOut||rawTurnOut);
     const tierInfo=resolvePricingTier(m,provider,langMult,turnIn);
@@ -451,7 +458,7 @@ function computeCost(mk){
     // already spent — so the waste is billed at inRate (main model),
     // not gpr (guard model). If your deployment runs guards on the input
     // BEFORE the main model, this formula will overstate cost.
-    const myGuardWaste=(cfg('s-guard-block')/100)*(((sysTokGlobal/myTurns)+200+myRagTok)/1e6)*inRate*myTurns;
+    const myGuardWaste=(cfg('s-guard-block')/100)*(((mySysTok/myTurns)+200+myRagTok)/1e6)*inRate*myTurns;
     totalGuardCost+=guardBaseCost+myGuardWaste;
     guardWaste+=myGuardWaste;
 
@@ -1042,8 +1049,26 @@ function fmtAgentVal(k,v){
   if(k==='cache_rate'||k==='think_pct')return Math.round(n)+'%';
   return Math.round(n).toLocaleString();
 }
+// Workload-wide fallback for per-agent sliders that delegate to a global
+// slider when the agent doesn't carry its own value. Keeps the rendered
+// slider position in sync with the effective compute value so users
+// don't see "0" while the engine quietly uses 512.
+const _agentFallbackSlider={
+  sysprompt:'s-sysprompt', iamsg:'s-iamsg', schema:'s-schema', tools_per:'s-tools',
+  result:'s-toolresult', cache_rate:null /* uses cacheGlobal in engine */,
+  rag_chunks:'s-rag-chunks', rag_size:'s-rag-chunk-size', rag_calls:'s-rag-calls',
+  think_tok:'s-think-tokens', think_pct:'s-think-pct', cot:'s-cot', factcheck:'s-factcheck',
+  guard_in:'s-guard-in', guard_out:'s-guard-out', guard_pii:'s-guard-pii', guard_policy:'s-guard-policy',
+};
+function _agentEffectiveVal(a,k){
+  if(a[k]!==undefined&&a[k]!==null)return a[k];
+  const sid=_agentFallbackSlider[k];
+  if(!sid)return 0;
+  const el=document.getElementById(sid);
+  return el?(parseFloat(el.value)||0):0;
+}
 function agentRangeCtl(a,scope,k,label,min,max,step,color,type='int'){
-  const v=a[k]??0;
+  const v=_agentEffectiveVal(a,k);
   const lid=`a-${scope}-${a.id}-${k}`;            // visual value id (existing)
   const labelId=`alb-${scope}-${a.id}-${k}`;      // a11y label-id (new) — referenced by aria-labelledby on the input
   const cast=type==='float'?'parseFloat(this.value)':'parseInt(this.value)';
@@ -1168,6 +1193,10 @@ function agentCardHtml(a,scope){
         ${agentRangeCtl(a,scope,'cache_rate','Cache hit rate',0,95,5,'#00e676')}
         ${agentRangeCtl(a,scope,'temp','Temperature',0,1,0.05,'#ffab40','float')}
         ${agentRangeCtl(a,scope,'maxOut','Max output tok',64,4096,64,'#42a5f5')}
+      </div>
+      <div class="agent-edit-grid">
+        ${agentRangeCtl(a,scope,'sysprompt','Sysprompt tok',0,4000,50,'#42a5f5')}
+        ${agentRangeCtl(a,scope,'iamsg','Inter-agent msg tok',0,2000,20,'#4dd0e1')}
       </div>
       <div style="display:flex;gap:3px;flex-wrap:wrap;margin-bottom:5px">
         <button class="tgl ${a.toolsOn?'on':''}" onclick="togAF(${a.id},'toolsOn',this);event.stopPropagation();">TOOLS ${a.toolsOn?'ON':'OFF'}</button>

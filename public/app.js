@@ -650,6 +650,10 @@
           <div><label>Output tokens / call</label><input type="number" value="${agent.output_tokens || 0}" data-agent="${idx}" data-key="output_tokens"></div>
           <div><label>Calls per user query</label><input type="number" step="0.1" value="${agent.calls_per_query != null ? agent.calls_per_query : 1}" data-agent="${idx}" data-key="calls_per_query"></div>
         </div>
+        <div class="row grid-2">
+          <div><label>Sysprompt tokens <em>(amortized across calls)</em></label><input type="number" min="0" step="50" value="${agent.sysprompt_tokens || 0}" data-agent="${idx}" data-key="sysprompt_tokens" title="Role description + tool catalog + decision rules per agent. Orchestrators: 1500–3000 tok; workers: 200–500 tok. Engine amortizes by calls_per_query."></div>
+          <div><label>Inter-agent msg tokens / call <em>(handoff overhead)</em></label><input type="number" min="0" step="20" value="${agent.iamsg_tokens || 0}" data-agent="${idx}" data-key="iamsg_tokens" title="Tokens this agent reads from/writes to peers per call. Orchestrator → workers: short (50 tok); worker → orchestrator: long (200+ tok)."></div>
+        </div>
         <div class="row grid-3">
           <div>
             <label>Hosting <em>(who pays?)</em></label>

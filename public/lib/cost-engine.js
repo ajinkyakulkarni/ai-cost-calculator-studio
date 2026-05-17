@@ -310,9 +310,18 @@
       const modelId = agent.model || mainModelId;
       const rates = w.rate_cards[modelId];
       if (!rates) continue;
+      // Per-agent sysprompt and inter-agent message overhead. These
+      // were previously workload-wide sliders (s-sysprompt / s-iamsg)
+      // applied uniformly across all agents — wrong by 5–10× for
+      // orchestrator (3000-tok sysprompt) vs. worker (500-tok). When
+      // set per-agent, sysprompt amortizes across calls_per_query
+      // (cache-hot prefix), iamsg adds to every call (varies per turn).
+      const sysAmortized = (agent.sysprompt_tokens || 0) / Math.max(1, calls);
+      const iaPerCall = agent.iamsg_tokens || 0;
+      const effInT = inT + sysAmortized + iaPerCall;
       const eff = agent.cache_eligible ? cacheRate : 0;
-      const cached = inT * eff;
-      const uncached = inT - cached;
+      const cached = effInT * eff;
+      const uncached = effInT - cached;
       // Eq. 2 blend, per-agent (agent may override workload-wide write share).
       const agentWriteShare = agent.cache_write_share != null
         ? agent.cache_write_share
