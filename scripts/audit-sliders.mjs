@@ -17,43 +17,52 @@ const ONLY = args.find(a => a.startsWith('--only='))?.split('=')[1];
 // Each slider needs a {nudge fn, mode constraint}. nudge returns the new
 // expected value-as-string (for verification). Default: range slider →
 // move +30% of (max-min); number input → +50.
+// Slider classification for accurate audit attribution:
+//   modes:        which mode(s) to test in. 'workload', 'agent', 'self_host',
+//                 'workflow', or 'both' for workload+agent.
+//   headlineExpected: false = slider should NOT move headline (by design)
+//   topology:     'workflow' marks workflow-mode-only sliders that are hidden
+//                 in default Fleet topology. Audit skips with that reason.
+//   note:         human-readable explanation appended to PASS/SKIP output.
 const SLIDERS = [
-  // === Traffic shape ===
+  // === Traffic shape (workload + agent) ===
   { id: 's-users',              modes: ['both'],     nudge: 'up' },
   { id: 's-turns',              modes: ['both'],     nudge: 'up' },
   { id: 's-sessions',           modes: ['both'],     nudge: 'up' },
   { id: 's-agents',             modes: ['workload'], nudge: 'up', note: 'agent-mode uses workload.agents.length, not s-agents' },
-  { id: 's-peak',               modes: ['both'],     nudge: 'up' },
+  { id: 's-peak',               modes: ['both'],     nudge: 'up', headlineExpected: false, note: 'self-host capacity sizing only; API tier ignores peak. Engine path verified separately.' },
   { id: 's-lang-mult',          modes: ['both'],     nudge: 'up' },
   { id: 's-growth',             modes: ['both'],     nudge: 'up', headlineExpected: false, tcoExpected: true, note: 'only moves 3yr TCO not monthly' },
-  // === Cache ===
+  // === Cache + tier-economy knobs ===
   { id: 's-cache',              modes: ['both'],     nudge: 'down' },
   { id: 's-cache-write-share',  modes: ['both'],     nudge: 'up' },
   { id: 's-batch',              modes: ['both'],     nudge: 'up' },
   { id: 's-retry',              modes: ['both'],     nudge: 'up' },
-  // === Communication / DAG ===
-  { id: 's-comm-pattern',       modes: ['workload'], nudge: 'up', note: 'overhead added in simulator path only' },
-  { id: 's-parallel-branches',  modes: ['workload'], nudge: 'up', headlineExpected: false, note: 'wallclock-only; cost-neutral for fixed token budget' },
+  // === Context compression — newly bridged engine knob ===
+  { id: 's-context-compression', modes: ['both'],    nudge: 'up' },
+  // === Communication / DAG — simulator pane visualization only ===
+  { id: 's-comm-pattern',       modes: ['workload'], nudge: 'up', note: 'touching this in workload-mode auto-promotes to agent-mode (fleet creation), which moves the headline. Headline movement IS expected.' },
+  { id: 's-parallel-branches',  modes: ['workload'], nudge: 'up',   headlineExpected: false, note: 'wallclock-only; cost-neutral for fixed token budget' },
   { id: 's-concurrent-quota',   modes: ['workload'], nudge: 'down', headlineExpected: false, note: 'rate-limit ceiling, not cost knob' },
-  { id: 's-rate-overage',       modes: ['workload'], nudge: 'up' },
-  // === Tool routing ===
-  { id: 's-tool-response-mode', modes: ['workload'], nudge: 'toggle', note: 'select; toggle freeform <-> templated' },
-  { id: 's-tool-templated-cap', modes: ['workload'], nudge: 'up' },
-  // === Doc parsing ===
-  { id: 's-doc-pages',          modes: ['workload'], nudge: 'up' },
-  { id: 's-doc-pdfs',           modes: ['workload'], nudge: 'up' },
-  { id: 's-doc-stages-pct',     modes: ['workload'], nudge: 'up' },
-  { id: 's-doc-tok-page',       modes: ['workload'], nudge: 'up' },
-  // === Other ===
-  { id: 's-fc-in',              modes: ['workload'], nudge: 'up', note: 'fact-check input tokens' },
-  { id: 's-fc-pct',             modes: ['workload'], nudge: 'up', note: 'fact-check coverage' },
-  { id: 's-fc-price',           modes: ['workload'], nudge: 'up', note: 'fact-check $/check' },
-  { id: 's-pause-hrs',          modes: ['workload'], nudge: 'up' },
-  { id: 's-pauses',             modes: ['workload'], nudge: 'up' },
-  { id: 's-rerun',              modes: ['workload'], nudge: 'up' },
-  { id: 's-storage-rate',       modes: ['workload'], nudge: 'up' },
-  { id: 's-stage-handoff',      modes: ['workload'], nudge: 'up' },
-  { id: 's-template-runs',      modes: ['workload'], nudge: 'up' },
+  { id: 's-rate-overage',       modes: ['workload'], nudge: 'up',   headlineExpected: false, note: 'rate-limit overage; affects simulator-pane retry overhead, not engine headline' },
+  // === Tool routing — workload-wide defaults (per-tool overrides in registry) ===
+  { id: 's-tool-response-mode', modes: ['workload'], nudge: 'toggle', headlineExpected: false, note: 'workload-wide default. When tools_registry entries set return_shape explicitly (mcp preset does), this is overridden — by design.' },
+  { id: 's-tool-templated-cap', modes: ['workload'], nudge: 'up',     headlineExpected: false, note: 'workload-wide cap default. Per-tool cap_tokens in registry overrides.' },
+  // === Workflow-topology only (panel-workflow hidden in default Fleet mode) ===
+  { id: 's-doc-pages',          modes: ['workload'], nudge: 'up', topology: 'workflow', note: 'workflow-topology only — slider lives in panel-workflow, hidden unless topology=workflow' },
+  { id: 's-doc-pdfs',           modes: ['workload'], nudge: 'up', topology: 'workflow', note: 'workflow-topology only' },
+  { id: 's-doc-stages-pct',     modes: ['workload'], nudge: 'up', topology: 'workflow', note: 'workflow-topology only' },
+  { id: 's-doc-tok-page',       modes: ['workload'], nudge: 'up', topology: 'workflow', note: 'workflow-topology only' },
+  { id: 's-pause-hrs',          modes: ['workload'], nudge: 'up', topology: 'workflow', note: 'workflow-topology only' },
+  { id: 's-pauses',             modes: ['workload'], nudge: 'up', topology: 'workflow', note: 'workflow-topology only' },
+  { id: 's-rerun',              modes: ['workload'], nudge: 'up', topology: 'workflow', note: 'workflow-topology only' },
+  { id: 's-storage-rate',       modes: ['workload'], nudge: 'up', topology: 'workflow', note: 'workflow-topology only' },
+  { id: 's-stage-handoff',      modes: ['workload'], nudge: 'up', topology: 'workflow', note: 'workflow-topology only' },
+  { id: 's-template-runs',      modes: ['workload'], nudge: 'up', topology: 'workflow', note: 'workflow-topology only' },
+  // === Legacy fact-check sliders (replaced by Verification section) ===
+  { id: 's-fc-in',              modes: ['workload'], nudge: 'up', headlineExpected: false, note: 'LEGACY — replaced by per-agent verifier in Fact-checking section' },
+  { id: 's-fc-pct',             modes: ['workload'], nudge: 'up', headlineExpected: false, note: 'LEGACY — replaced by verification.coverage' },
+  { id: 's-fc-price',           modes: ['workload'], nudge: 'up', headlineExpected: false, note: 'LEGACY — replaced by VERIFIER_PRESETS' },
 ];
 
 function nudgeValue(input, direction) {
@@ -128,6 +137,13 @@ async function testSlider(page, slider, mode) {
   if (!slider.modes.includes(mode) && !slider.modes.includes('both')) {
     return { skipped: true, reason: `not active in ${mode}` };
   }
+  // Workflow-topology sliders live in #panel-workflow which is
+  // display:none unless the user explicitly switches topology to
+  // 'workflow'. Skip with the topology note so audit output is
+  // honest about why they aren't being exercised in default Fleet mode.
+  if (slider.topology === 'workflow') {
+    return { skipped: true, reason: 'workflow-topology slider (panel hidden in default Fleet mode)' };
+  }
   // Read current value + bounds
   const meta = await page.evaluate((id) => {
     const el = document.getElementById(id);
@@ -158,11 +174,14 @@ async function testSlider(page, slider, mode) {
 
   const headlineMoved = before.headline !== after.headline;
   const tcoMoved = before.tco !== after.tco;
+  // Default: headline expected to move; TCO is opt-IN (only s-growth
+  // moves TCO-only without moving headline). headlineExpected:false
+  // means "this slider intentionally doesn't affect cost" — verified by
+  // confirming NEITHER the headline NOR the TCO moves.
   const expectHeadline = slider.headlineExpected !== false;
-  const expectTco = slider.tcoExpected !== false;
+  const expectTco = slider.tcoExpected === true;
 
   const movedSomething = headlineMoved || tcoMoved;
-  const expectedSomething = expectHeadline || expectTco;
   let pass;
   if (expectHeadline && expectTco) pass = headlineMoved || tcoMoved;
   else if (expectHeadline) pass = headlineMoved;

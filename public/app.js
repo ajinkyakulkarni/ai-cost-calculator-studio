@@ -659,33 +659,126 @@
           <div><label>Calls per user query</label><input type="number" step="0.1" value="${agent.calls_per_query != null ? agent.calls_per_query : 1}" data-agent="${idx}" data-key="calls_per_query"></div>
         </div>
         <div class="row grid-2">
-          <div><label>Sysprompt tokens <em>(amortized across calls)</em></label><input type="number" min="0" step="50" value="${agent.sysprompt_tokens || 0}" data-agent="${idx}" data-key="sysprompt_tokens" title="Role description + tool catalog + decision rules per agent. Orchestrators: 1500–3000 tok; workers: 200–500 tok. Engine amortizes by calls_per_query."></div>
-          <div><label>Inter-agent msg tokens / call <em>(handoff overhead)</em></label><input type="number" min="0" step="20" value="${agent.iamsg_tokens || 0}" data-agent="${idx}" data-key="iamsg_tokens" title="Tokens this agent reads from/writes to peers per call. Orchestrator → workers: short (50 tok); worker → orchestrator: long (200+ tok)."></div>
+          <div><label>Sysprompt tokens <em>(amortized across calls)</em> <span class="tip" data-tip="### Sysprompt tokens (per agent)
+
+**What it is:** the role description, tool catalog, decision rules, and any persistent instructions sent to the LLM at the start of every call by this specific agent.
+
+**Why it varies per agent**
+- **Orchestrator / supervisor:** 1500–3000 tok (full role description + tool list + routing rules + when to delegate)
+- **Worker / specialist:** 200–500 tok (focused task description, no tool catalog if they don't have tools)
+- **Tool-runner only:** 100–200 tok (just 'run this tool, return result')
+
+**Why per-agent matters**
+Previously this was workload-wide (s-sysprompt), applied uniformly to every agent. Using one number is wrong by 5–10× for heterogeneous fleets (orchestrator's 3000-tok sysprompt vs worker's 300-tok). The engine amortizes by calls_per_query (it's a stable prefix that benefits from prompt cache, doesn't repeat per turn).">ⓘ</span></label><input type="number" min="0" step="50" value="${agent.sysprompt_tokens || 0}" data-agent="${idx}" data-key="sysprompt_tokens"></div>
+          <div><label>Inter-agent msg tokens / call <em>(handoff overhead)</em> <span class="tip" data-tip="### Inter-agent message tokens (per call)
+
+**What it is:** tokens this agent sends to / receives from peer agents on each call. Counted as input on top of the agent's normal input_tokens.
+
+**Why it varies by role**
+- **Orchestrator → workers:** short (~50 tok per handoff — 'do X with these args')
+- **Workers → orchestrator:** long (~200+ tok per response — full result summary)
+- **Peer mesh:** symmetric ~150 tok each direction
+- **Pipeline (sequential stages):** Σ prior stage outputs accumulate
+
+**Why per-agent matters**
+The workload-wide s-iamsg slider treats every agent's handoff cost as identical. In real fleets the orchestrator's outbound messages are tiny while the synthesizer's inbound messages are large — applying one constant misprices the fleet.">ⓘ</span></label><input type="number" min="0" step="20" value="${agent.iamsg_tokens || 0}" data-agent="${idx}" data-key="iamsg_tokens"></div>
         </div>
         <div class="row grid-2">
           <div>
-            <label>LLM calls / turn multiplier <em>(ReAct / reflection)</em></label>
-            <input type="number" min="0.1" step="0.5" value="${agent.calls_per_turn_multiplier || 1.0}" data-agent="${idx}" data-key="calls_per_turn_multiplier" title="Inner LLM-call loop multiplier per user-visible 'turn'. Simple chat: 1.0×. ReAct: 3–5×. Reflection / self-critique: 5–8×.">
+            <label>LLM calls / turn multiplier <em>(ReAct / reflection)</em> <span class="tip" data-tip="### LLM calls / turn multiplier (ReAct loop expansion)
+
+**What it is:** how many LLM calls this agent fires per logical 'turn' the user sees. The engine bills calls_per_query × multiplier per query.
+
+**Typical values**
+- **1.0** (default): simple chat — one prompt, one response
+- **3–5**: ReAct loop (think → act → observe → think → act → final)
+- **5–8**: deep reflection / self-critique (initial answer → critique → revise → critique → finalize)
+- **10+**: agentic exploration (long-running task with many tool roundtrips)
+
+**Why it matters for cost**
+A ReAct loop with 4 inner calls bills 4× the per-call cost. Sysprompt amortization stays correct (the cached prefix benefits every inner iteration), but per-turn input + output bills compound. This is a common pre-shipping surprise — designers build 'just one turn per query' and discover the agent loops 5× before responding.
+
+**Reference**
+Yao et al. (ReAct, 2022) — formalized the think-act-observe loop. Production ReAct agents (e.g. Devin, Claude Code subagents) commonly run 5-20 inner LLM calls per user-visible turn.">ⓘ</span></label>
+            <input type="number" min="0.1" step="0.5" value="${agent.calls_per_turn_multiplier || 1.0}" data-agent="${idx}" data-key="calls_per_turn_multiplier">
           </div>
           <div>
-            <label>Activation rate <em>(0–1, fraction of queries this agent runs on)</em></label>
-            <input type="number" min="0" max="1" step="0.05" value="${agent.activation_rate != null ? agent.activation_rate : 1}" data-agent="${idx}" data-key="activation_rate" title="Fraction of queries this agent actually runs on. 1.0 = always runs (default). 0.3 = only fires on 30% of queries (e.g. conditional Image-Enhancer that only triggers when the request mentions images). Multiplies this agent's contribution to the headline.">
+            <label>Activation rate <em>(0–1, fraction of queries this agent runs on)</em> <span class="tip" data-tip="### Activation rate (per agent)
+
+**What it is:** fraction of queries this agent actually runs on. 1.0 = always (default). 0.3 = fires on 30% of queries.
+
+**When to use < 1.0**
+- **Conditional agents** that fire only on specific request types (Image-Enhancer fires when the user uploads / mentions images → 0.3)
+- **Auth-gated agents** that only run for authenticated users (Compliance agent → 0.65 if 65% of traffic is authenticated)
+- **Rare-path specialists** (Refund-handler fires on the 5% of support tickets requesting refunds → 0.05)
+- **Quality-gated agents** that only fire when the previous stage flagged uncertainty (Fact-checker → 0.10 for audit sampling)
+
+**Why this matters**
+Without activation_rate, the only way to model a conditional agent was to either omit it (loses traceability) or fake it with fractional calls_per_query (ugly and breaks the per-call cost intuition).
+
+**Math**
+Engine multiplies this agent's monthly contribution by activation_rate. Per-(agent,tool) trigger_rate inside enabled_tools chains on top — total effective fires = activation_rate × calls_per_query × trigger_rate per tool.">ⓘ</span></label>
+            <input type="number" min="0" max="1" step="0.05" value="${agent.activation_rate != null ? agent.activation_rate : 1}" data-agent="${idx}" data-key="activation_rate">
           </div>
         </div>
         <div class="row" style="margin-top:6px;padding:6px 8px;background:rgba(120,180,255,0.06);border:1px solid rgba(120,180,255,0.18);border-radius:5px">
           <div style="display:flex;align-items:center;gap:8px;font-size:12px;margin-bottom:5px">
             <input type="checkbox" id="agent-${idx}-verify-enabled" data-agent="${idx}" data-key="verify_enabled" ${agent.verify_enabled ? 'checked' : ''} style="margin:0">
             <label for="agent-${idx}-verify-enabled" style="margin:0;cursor:pointer">Fact-check this agent's output</label>
+            <span class="tip" data-tip="### Per-agent fact-checking
+
+**When to enable**
+Turn ON for agents that produce user-facing factual claims that need verification — typically:
+- **Synthesizer / Reporter** agents (compose the final answer)
+- **Research** agents (extract claims from sources)
+- **Customer-facing** agents that quote policies, prices, dates
+
+**When to leave OFF (the default)**
+- **Orchestrators / Routers** — they don't generate facts, just route tasks
+- **Tool-executors** — return raw data, not interpretations
+- **Internal pipeline stages** that hand off to a later agent which IS fact-checked
+
+**The latency trap**
+FactReasoner FR2 takes ~60s per response. Putting it on every agent's output blocks the user for 60s × N agents. The per-agent toggle lets you fact-check only the FINAL user-facing output (typically just one agent).
+
+**Why this matters for cost**
+Verification cost = monthly_outputs × coverage × per-output_cost. Setting verify_enabled only on the reporter agent (one of three) cuts verification spend by ~3×. Combined with verifier_override (use MiniCheck inline on the orchestrator, FR2 audit-sample on the reporter), you can match production latency budgets while still catching hallucinations.">ⓘ</span>
             <span style="font-size:10px;color:var(--dim)">(default off — orchestrators and tool-executors rarely produce checkable claims)</span>
           </div>
           ${agent.verify_enabled ? `
           <div class="row grid-2" style="margin-top:4px">
             <div>
-              <label for="agent-${idx}-verify-coverage" style="font-size:11px">Coverage override <em>(0–1, blank = workload default)</em></label>
+              <label for="agent-${idx}-verify-coverage" style="font-size:11px">Coverage override <em>(0–1, blank = workload default)</em> <span class="tip" data-tip="### Per-agent coverage override
+
+Fraction of THIS agent's outputs sampled for fact-checking. Leave blank to inherit the workload-wide coverage from the Fact-checking section (typically 0.10 for audit sampling).
+
+**When to override**
+- **User-facing final answers** → coverage = 1.0 (check every reply)
+- **Internal pipeline outputs** → coverage = 0.05 (occasional spot-check)
+- **Production-critical agents** (clinical, financial) → coverage = 1.0
+- **Audit-only mode** → coverage = 0.10 (paper default)
+
+Engine math: verified_outputs = monthly_queries × agent.calls_per_query × this_coverage. Each verified output runs the chosen verifier preset once.">ⓘ</span></label>
               <input id="agent-${idx}-verify-coverage" type="number" min="0" max="1" step="0.05" value="${agent.verify_coverage != null ? agent.verify_coverage : ''}" data-agent="${idx}" data-key="verify_coverage" placeholder="(use workload coverage)" style="font-size:12px">
             </div>
             <div>
-              <label for="agent-${idx}-verifier-override" style="font-size:11px">Verifier override <em>(blank = workload preset)</em></label>
+              <label for="agent-${idx}-verifier-override" style="font-size:11px">Verifier override <em>(blank = workload preset)</em> <span class="tip" data-tip="### Per-agent verifier override
+
+Pick a DIFFERENT verifier preset for this agent than the workload-wide default. Leave blank to use the preset configured in the Fact-checking section.
+
+**Common mixed setups**
+- **Orchestrator** (fast inline gate): MiniCheck (~1s, 1 NLI call)
+- **Researcher** (medium audit): FactReasoner FR1 (~10s, 24 NLI calls)
+- **Reporter** (deep audit): FactReasoner FR2 (~60s, 160 NLI calls)
+- **Compliance agent** (strict): FactReasoner FR3 (~120s, 350 NLI calls)
+
+**Latency badges** in the dropdown:
+- ✓ inline = sub-5s, can block per-turn (MiniCheck, Patronus, RAGAS)
+- ⚠ audit = 10–60s, run async on a sample (FR1, FR2, FactScore)
+- ⚠ batch = 60s+, nightly/offline only (FR3)
+
+**Cost spread**
+FR2 (160 NLI calls/query) ≈ 160× MiniCheck per check. At equal coverage, FR2 is 160× the LLM bill — picking inline-class verifiers for high-coverage agents saves ~99% of verification spend.">ⓘ</span></label>
               <select id="agent-${idx}-verifier-override" data-agent="${idx}" data-key="verifier_override" style="font-size:12px">
                 <option value="">(use workload preset)</option>
                 ${Object.entries((window.CostEngine && window.CostEngine.VERIFIER_PRESETS) || {}).map(([k, p]) => {
@@ -1606,6 +1699,29 @@
         const el = document.getElementById('s-context-compression');
         const v = el ? parseFloat(el.value) : NaN;
         return Number.isFinite(v) ? v / 100 : undefined;
+      })(),
+      // Document parsing — bridges the s-doc-* sliders to per-query
+      // extra input tokens. (PDFs ingested) × (pages/PDF) × (tok/page)
+      // × (% stages reading docs). Default product is 0 (no docs) so
+      // existing workloads are unaffected. Engine adds this as an
+      // additive input-token cost line, cache-blended at the segment's
+      // effective cache rate.
+      extraInputTokensPerQuery: (() => {
+        const pdfs = parseFloat(document.getElementById('s-doc-pdfs')?.value) || 0;
+        const pages = parseFloat(document.getElementById('s-doc-pages')?.value) || 0;
+        const tokPage = parseFloat(document.getElementById('s-doc-tok-page')?.value) || 0;
+        const stagesPct = parseFloat(document.getElementById('s-doc-stages-pct')?.value) || 0;
+        const tokens = pdfs * pages * tokPage * (stagesPct / 100);
+        return tokens > 0 ? tokens : undefined;
+      })(),
+      // Self-host diurnal peak factor — bridges s-peak. Only overrides
+      // engine's safer 4× default when slider is dialed above 1 so the
+      // slider's lazy 1× default doesn't accidentally undersize the
+      // fleet for users who never touched it.
+      diurnalPeakFactor: (() => {
+        const el = document.getElementById('s-peak');
+        const v = el ? parseFloat(el.value) : NaN;
+        return Number.isFinite(v) && v > 1 ? v : undefined;
       })(),
       verifCoverage: numVal('prev-verif', 0),
       // Threaded into the engine so Migration Timeline phase costs match
@@ -3532,27 +3648,22 @@
     // the page. Per-agent edits now happen inside agent cards directly,
     // which mutate sim.agents and autoSync into workload.agents on their
     // own — no global promotion needed for those.
+    // PROMOTE_TRIGGERS — sliders that, when touched in workload-mode,
+    // imply "I want per-agent customization" and should auto-promote
+    // workload.agents = [] → a synthesized fleet.
+    //
+    // PRUNED 2026-05-17: removed knobs that have been bridged to engine
+    // opts (s-batch, s-lang-mult, s-tool-response-mode, s-tool-templated-cap,
+    // s-doc-*) — touching them now flows through opts directly and
+    // shouldn't trigger a surprise mode flip. Same for workflow-only
+    // sliders that mostly affect visualization (s-storage-rate,
+    // s-rerun, etc.). What remains is the literal fleet-size knob and
+    // multi-agent topology controls — sliders whose UX explicitly
+    // implies "I'm building a fleet".
     const PROMOTE_TRIGGERS = new Set([
       's-agents',
-      // Multi-agent / fleet topology (workflow-mode controls)
-      's-comm-pattern', 's-parallel-branches',
-      // Workflow handoff + reruns
-      's-stage-handoff', 's-rerun', 's-template-runs',
-      // Workflow document flow
-      's-doc-pages', 's-doc-pdfs', 's-doc-tok-page', 's-doc-stages-pct',
-      // Function-calling overhead (separate from generic tool calls)
-      's-fc-in', 's-fc-pct', 's-fc-price',
-      // Tool-return shape — paper's 8× cost lever (workload-level)
-      's-tool-response-mode', 's-tool-templated-cap',
-      // Rate-limit / quota / storage cost lines
-      's-concurrent-quota', 's-rate-overage', 's-storage-rate',
-      // Simulator-only knobs consumed by computeCost (not cost-engine):
-      //   s-batch         batch-tier share split (pricedInputCost)
-      //   s-lang-mult     language multiplier on input+output (resolvePricingTier)
-      's-batch', 's-lang-mult',
-      // s-cache-write-share intentionally NOT here — it now flows through
-      // opts.cacheWriteShare into cost-engine.js Eq. 2 cached-rate blend
-      // and works in both workload-mode and agent-mode (ec5f108).
+      's-comm-pattern',
+      's-parallel-branches',
     ]);
 
     const handleSimChange = (ev) => {

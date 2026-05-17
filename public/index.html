@@ -5735,8 +5735,21 @@ Both fields are independent; they don't have to match.">ⓘ</span></label>
   // and traffic sliders (s-agents, s-users, s-turns, s-sessions) still
   // sync normally.
   const _SKIP_AUTOSYNC_SLIDERS = new Set([
+    // Workload-wide engine knobs (opts.X)
     's-context-compression', 's-lang-mult', 's-batch', 's-retry',
-    's-cache-write-share', 's-growth', 's-cache',
+    's-cache-write-share', 's-growth', 's-cache', 's-peak',
+    // Tool routing / per-tool defaults (registry → engine, not agent state)
+    's-tool-response-mode', 's-tool-templated-cap',
+    // DAG / workflow knobs (simulator-visualization only or workflow topology)
+    's-comm-pattern', 's-parallel-branches', 's-concurrent-quota', 's-rate-overage',
+    // Document parsing (engine via extraInputTokensPerQuery; not per-agent)
+    's-doc-pages', 's-doc-pdfs', 's-doc-tok-page', 's-doc-stages-pct',
+    // Workflow handoff / pauses / storage / rerun (workflow topology only)
+    's-stage-handoff', 's-rerun', 's-template-runs',
+    's-pauses', 's-pause-hrs', 's-storage-rate',
+    // Legacy fact-check sliders (replaced by Verification section)
+    's-fc-in', 's-fc-pct', 's-fc-price',
+    // Language multiplier already above (s-lang-mult)
   ]);
   function installAutoSync() {
     if (typeof window.onSlider !== 'function') return setTimeout(installAutoSync, 200);

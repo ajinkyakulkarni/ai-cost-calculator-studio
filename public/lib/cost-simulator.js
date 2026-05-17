@@ -1178,7 +1178,15 @@ function agentEnabledToolsHtml(a) {
             ${overrideBadge}
           </label>
           <input type="number" min="0" step="1" value="${calls}" ${isOn ? '' : 'disabled'} onchange="setAgentToolCalls(${a.id},'${id}',this.value)" style="font-size:11px;padding:2px 4px;width:100%;font-family:var(--mono);${isOn ? '' : 'opacity:0.4;'}" placeholder="calls/q" title="Calls per query when this tool fires" aria-label="${labelName} calls per query">
-          <span style="display:flex;align-items:center;gap:2px;font-size:10px;color:var(--ink-2,#3a4a62)" title="Trigger rate — % of this agent's invocations on which this tool actually fires. 100% = always; 30% = conditional (e.g., image_gen on the 30% of requests needing new images)."><span>×</span><input type="number" min="0" max="100" step="5" value="${triggerPct}" ${isOn ? '' : 'disabled'} onchange="setAgentToolTriggerRate(${a.id},'${id}',this.value)" style="font-size:11px;padding:2px 3px;width:100%;font-family:var(--mono);${isOn ? '' : 'opacity:0.4;'}" aria-label="${labelName} trigger rate percent"><span>%</span></span>
+          <span style="display:flex;align-items:center;gap:2px;font-size:10px;color:var(--ink-2,#3a4a62)" title="Trigger rate — % of this agent's invocations on which this tool actually fires.
+
+Examples:
+• 100% = always (default, simple tool use)
+• 60% = Designer uses image_gen on 60% of sites (some users bring their own images)
+• 30% = SEO-Agent runs web_search on 30% of queries (skips for cached domains)
+• 10% = Image-Enhancer's image_gen fires on 10% of requests (only when uploads detected)
+
+Engine math: effective_calls = calls_per_query × trigger_rate × (1 − memoize_hit_rate). Multiplies both the per-call fee and the result-token overhead so the bill reflects the realistic average across queries, not the worst case where every tool always fires."><span>×</span><input type="number" min="0" max="100" step="5" value="${triggerPct}" ${isOn ? '' : 'disabled'} onchange="setAgentToolTriggerRate(${a.id},'${id}',this.value)" style="font-size:11px;padding:2px 3px;width:100%;font-family:var(--mono);${isOn ? '' : 'opacity:0.4;'}" aria-label="${labelName} trigger rate percent"><span>%</span></span>
           <span style="font-size:10px;color:var(--ink-2,#3a4a62);font-family:var(--mono)">${fmtRate(t)}</span>
           <span></span>
         </div>`;

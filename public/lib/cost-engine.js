@@ -688,8 +688,38 @@
     const compressionSavings = Math.max(0, Math.min(0.7, opts.contextCompressionPct != null ? opts.contextCompressionPct : 0));
     const compressionScalar = 1 - compressionSavings;
 
+    // Extra input tokens per query — document parsing, long-form context
+    // injection, anything that adds to per-query input beyond the
+    // anchor_query / per-agent input_tokens. Bridged from the simulator's
+    // s-doc-* sliders (PDFs ingested × pages × tokens/page × % stages
+    // reading). Cache-eligible: docs in the same session re-hit cache,
+    // so we blend at the segment's effective cache rate.
+    const extraInTokensPerQ = Math.max(0, Number(opts.extraInputTokensPerQuery) || 0);
+    let extraInputCost = 0;
+    if (extraInTokensPerQ > 0) {
+      const rates = w.rate_cards[modelId];
+      if (rates) {
+        // Use the first segment's effective cache for blending (workload-wide
+        // approximation — exact per-segment math would double-loop). Cache
+        // savings still apply since docs are typically the same across turns.
+        const firstSeg = w.segments[0] || { questions_per_session: 6 };
+        const eff = effectiveCacheRate(cacheBase, firstSeg.questions_per_session, w.anchor_query.session_baseline_turns);
+        const pCachedEff = effectiveCachedRate(rates, writeShare);
+        const tokens = extraInTokensPerQ * queries.total;
+        const uncached = tokens * (1 - eff);
+        const cached = tokens * eff;
+        // tierMult / hostMult: declared earlier in this function via
+        // the per-query/agent paths above. Re-derive here so the doc
+        // bill applies the same multipliers as the rest of the API
+        // cost (Priority tier = 2.5× input rate, FedRAMP 1.30× etc.).
+        const tierMult = w.tier_multipliers[tierId] || 1.0;
+        extraInputCost = (uncached * rates.input_per_million / 1e6
+                        + cached   * pCachedEff / 1e6) * tierMult * hostMult;
+      }
+    }
+
     const llmScalar = langMult * batchScalar * compressionScalar;
-    const cappedScaled = cappedWithHost * llmScalar;
+    const cappedScaled = (cappedWithHost + extraInputCost) * llmScalar;
 
     // Eq. 5 retry inflate: LLM_api · (1 + 1.5r). retry_rate is the fraction
     // of calls that fail rate-limit / transient and are retried; 1.5× accounts
@@ -740,7 +770,15 @@
                 : /* ri-3y */                   params.discount_3yr;
     const effTput = gpu.tput_tps * params.throughput_derate;
     const qpsAvg = monthlyQueries / (30 * 86400);
-    const peakTps = qpsAvg * tokensPerQ * w.self_host.diurnal_peak_factor * w.self_host.headroom;
+    // Diurnal peak factor — capacity sizing multiplier (peak/avg traffic).
+    // Engine workload default is 4 (typical diurnal); explicit opts
+    // override (from the simulator's s-peak slider) only applies when > 1
+    // so the slider's lazy default 1× doesn't undercut the safer 4×.
+    const userPeak = Number(opts.diurnalPeakFactor);
+    const effectivePeak = (Number.isFinite(userPeak) && userPeak > 1)
+      ? userPeak
+      : w.self_host.diurnal_peak_factor;
+    const peakTps = qpsAvg * tokensPerQ * effectivePeak * w.self_host.headroom;
     const neededByLoad = effTput > 0 ? Math.ceil(peakTps / effTput) : 0;
     const minFloor = Math.max(w.self_host.min_replicas, replicas);
     const instances = Math.max(neededByLoad, minFloor);
