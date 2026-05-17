@@ -350,8 +350,14 @@ function computeCost(mk){
         // sysprompt regardless of cache hits); result tokens scale
         // down with the cache.
         const memo=t.memoize&&Number.isFinite(t.memoize_hit_rate)?t.memoize_hit_rate:0;
+        // Per-(agent,tool) trigger rate — fraction of agent invocations
+        // this tool actually fires on. Affects effective call count
+        // (and therefore both result tokens and the upstream fee math
+        // in app.js). Schema tokens still amortize over every turn
+        // because the tool definition stays in sysprompt regardless.
+        const trig=Number.isFinite(spec.trigger_rate)&&spec.trigger_rate>=0&&spec.trigger_rate<=1?spec.trigger_rate:1.0;
         const callsNominal=spec.calls_per_query;
-        const callsEff=callsNominal*Math.max(0,1-memo);
+        const callsEff=callsNominal*Math.max(0,1-memo)*trig;
         const sch=t.schema_tokens??cfg('s-schema');
         const rawResult=t.result_tokens_avg??cfg('s-toolresult');
         // Override precedence (highest wins):
@@ -507,8 +513,14 @@ function computeCost(mk){
       mySumm=(summTokens/1e6)*inRate+(summTokens*0.3/1e6)*outRate;
       summarisationCost+=mySumm;
     }
-    const myNet=myModelCost+guardBaseCost+myGuardWaste+mySumm+myFixed;
-    agentBreakdown.push({name:agent.name,role:agent.role,model:usedModel,provider:provider.label,col:agent.col||m.color,netCost:myNet,totalIn:myTotalIn,totalOut:myTotalOut,turns:myTurns,cacheReadTok:myCacheReadTok,cacheWriteTok:myCacheWriteTok,cacheSave:myCacheSave,batchSave:myBatchSave,pricingTier:tierInfo.tier,source:m.source||''});
+    // Agent activation rate — fraction of queries the agent actually
+    // runs on. Sim-side stores as percent 0-100 (slider direct value);
+    // engine-side workload.agents.activation_rate is 0-1. The mirror
+    // function converts. Default 1.0 (always runs) when not set.
+    const _aRatePct=Number(agent.activation_rate);
+    const _aRate=Number.isFinite(_aRatePct)&&_aRatePct>=0&&_aRatePct<=100?_aRatePct/100:1.0;
+    const myNet=(myModelCost+guardBaseCost+myGuardWaste+mySumm+myFixed)*_aRate;
+    agentBreakdown.push({name:agent.name,role:agent.role,model:usedModel,provider:provider.label,col:agent.col||m.color,netCost:myNet,totalIn:myTotalIn*_aRate,totalOut:myTotalOut*_aRate,turns:myTurns,cacheReadTok:myCacheReadTok*_aRate,cacheWriteTok:myCacheWriteTok*_aRate,cacheSave:myCacheSave*_aRate,batchSave:myBatchSave*_aRate,pricingTier:tierInfo.tier,source:m.source||'',activeRate:_aRate});
     // Eq. 7 pipeline cumulative-output tracking. Accumulate this agent's
     // UNCLAMPED per-turn output (rawTurnOut), not the maxOut-truncated
     // turnOut — the clamp is a UI safety on what the model is asked to
@@ -1073,7 +1085,8 @@ function fmtAgentVal(k,v){
   const n=Number(v)||0;
   if(k==='turnsShare')return n.toFixed(1);
   if(k==='temp')return n.toFixed(2);
-  if(k==='cache_rate'||k==='think_pct')return Math.round(n)+'%';
+  if(k==='cache_rate'||k==='think_pct'||k==='activation_rate')return Math.round(n)+'%';
+  if(k==='calls_per_turn_multiplier')return n.toFixed(1)+'×';
   return Math.round(n).toLocaleString();
 }
 // Workload-wide fallback for per-agent sliders that delegate to a global
@@ -1156,14 +1169,16 @@ function agentEnabledToolsHtml(a) {
         const effShape = spec.return_shape_override || t.return_shape || 'freeform';
         const effCap = Number.isFinite(spec.cap_tokens_override) ? spec.cap_tokens_override
                        : (Number.isFinite(t.cap_tokens) ? t.cap_tokens : 40);
-        const rowHtml = `<div style="display:grid;grid-template-columns:auto 1.3fr 0.55fr 0.65fr auto;gap:6px;align-items:center;font-size:11px">
+        const triggerPct = Number.isFinite(spec.trigger_rate) ? Math.round(spec.trigger_rate * 100) : 100;
+        const rowHtml = `<div style="display:grid;grid-template-columns:auto 1.2fr 0.45fr 0.4fr 0.55fr auto;gap:5px;align-items:center;font-size:11px">
           <button type="button" onclick="toggleAgentToolExpand(${a.id},'${id}');event.stopPropagation();" ${isOn ? '' : 'disabled'} title="Override return shape per-(agent, tool)" style="background:transparent;border:none;cursor:${isOn?'pointer':'not-allowed'};color:var(--ink-2,#3a4a62);font-size:10px;padding:0 2px;opacity:${isOn ? (expanded ? '1' : '.55') : '.25'}">▸</button>
           <label style="display:flex;gap:5px;align-items:center;cursor:pointer">
             <input type="checkbox" onchange="togAgentTool(${a.id},'${id}',this.checked)" ${isOn ? 'checked' : ''} aria-label="Enable ${labelName} for this agent">
             <span style="font-weight:${isOn ? 600 : 500}">${t.label || id}</span>
             ${overrideBadge}
           </label>
-          <input type="number" min="0" step="1" value="${calls}" ${isOn ? '' : 'disabled'} onchange="setAgentToolCalls(${a.id},'${id}',this.value)" style="font-size:11px;padding:2px 4px;width:100%;font-family:var(--mono);${isOn ? '' : 'opacity:0.4;'}" placeholder="calls/q" title="Calls per query for this tool" aria-label="${labelName} calls per query">
+          <input type="number" min="0" step="1" value="${calls}" ${isOn ? '' : 'disabled'} onchange="setAgentToolCalls(${a.id},'${id}',this.value)" style="font-size:11px;padding:2px 4px;width:100%;font-family:var(--mono);${isOn ? '' : 'opacity:0.4;'}" placeholder="calls/q" title="Calls per query when this tool fires" aria-label="${labelName} calls per query">
+          <span style="display:flex;align-items:center;gap:2px;font-size:10px;color:var(--ink-2,#3a4a62)" title="Trigger rate — % of this agent's invocations on which this tool actually fires. 100% = always; 30% = conditional (e.g., image_gen on the 30% of requests needing new images)."><span>×</span><input type="number" min="0" max="100" step="5" value="${triggerPct}" ${isOn ? '' : 'disabled'} onchange="setAgentToolTriggerRate(${a.id},'${id}',this.value)" style="font-size:11px;padding:2px 3px;width:100%;font-family:var(--mono);${isOn ? '' : 'opacity:0.4;'}" aria-label="${labelName} trigger rate percent"><span>%</span></span>
           <span style="font-size:10px;color:var(--ink-2,#3a4a62);font-family:var(--mono)">${fmtRate(t)}</span>
           <span></span>
         </div>`;
@@ -1326,6 +1341,7 @@ function agentCardHtml(a,scope){
         ${agentRangeCtl(a,scope,'jsonschema','JSON schema tok',0,1500,50,'#0d47a1')}
         ${agentRangeCtl(a,scope,'memory','Persistent memory tok',0,2000,50,'#42a5f5')}
         ${agentRangeCtl(a,scope,'citations','Citation output tok',0,500,10,'#558b2f')}
+        ${agentRangeCtl(a,scope,'activation_rate','Activation rate (% queries)',0,100,5,'#26a69a')}
       </div>
       <div style="display:flex;gap:3px;flex-wrap:wrap;margin-bottom:5px">
         <button class="tgl ${a.toolsOn?'on':''}" onclick="togAF(${a.id},'toolsOn',this);event.stopPropagation();">TOOLS ${a.toolsOn?'ON':'OFF'}</button>
@@ -1495,6 +1511,7 @@ function _mirrorAgentEditToWorkload(simAgentId, k, v) {
     verify_enabled: 'verify_enabled',
     verify_coverage: 'verify_coverage',
     verifier_override: 'verifier_override',
+    activation_rate: 'activation_rate',
   };
   const wlKey = mapping[k];
   if (!wlKey) return;
@@ -1503,6 +1520,14 @@ function _mirrorAgentEditToWorkload(simAgentId, k, v) {
   // treating `null` as an explicit zero override.
   if ((wlKey === 'verifier_override' || wlKey === 'verify_coverage') && (v == null || v === '')) {
     delete wl.agents[idx][wlKey];
+  } else if (wlKey === 'activation_rate') {
+    // Sim slider is 0-100 percent; engine expects 0-1. Convert at the
+    // mirror boundary so each side keeps its native units (sliders
+    // show integer % to the user; engine math reads a clean fraction).
+    const pct = Number(v);
+    if (Number.isFinite(pct) && pct >= 0 && pct <= 100) {
+      wl.agents[idx][wlKey] = pct / 100;
+    }
   } else {
     wl.agents[idx][wlKey] = v;
   }
@@ -1569,6 +1594,20 @@ function setAgentToolOverride(id, toolId, key, valueStr) {
   const wa2 = _wlAgentForSimId(id);
   if (wa2) wa2.enabled_tools = JSON.parse(JSON.stringify(a.enabled_tools));
   renderAgents();
+  refreshAfterAgentEdit();
+  if (typeof window.renderPreview === 'function') window.renderPreview();
+}
+// Per-(agent, tool) trigger rate. UI value is 0-100 (percent); stored
+// on agent.enabled_tools[toolId].trigger_rate as 0-1 so it matches the
+// workload-schema convention used elsewhere (engine reads 0-1).
+function setAgentToolTriggerRate(id, toolId, valueStr) {
+  const a = sim.agents.find(x => x.id === id);
+  if (!a || !a.enabled_tools || !a.enabled_tools[toolId]) return;
+  const pct = parseFloat(valueStr);
+  if (!Number.isFinite(pct) || pct < 0 || pct > 100) return;
+  a.enabled_tools[toolId].trigger_rate = pct / 100;
+  const wa = _wlAgentForSimId(id);
+  if (wa) wa.enabled_tools = JSON.parse(JSON.stringify(a.enabled_tools));
   refreshAfterAgentEdit();
   if (typeof window.renderPreview === 'function') window.renderPreview();
 }
@@ -2378,6 +2417,8 @@ window.__setSimulatorFromWorkload = function(workload) {
       if (w.verify_enabled) base.verify_enabled = true;
       if (w.verify_coverage != null) base.verify_coverage = w.verify_coverage;
       if (w.verifier_override) base.verifier_override = w.verifier_override;
+      // activation_rate: engine stores 0-1, sim slider shows 0-100.
+      if (Number.isFinite(w.activation_rate)) base.activation_rate = Math.round(w.activation_rate * 100);
       return base;
     });
     const sAgents = document.getElementById('s-agents');

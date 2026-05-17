@@ -427,7 +427,16 @@
       // the same cached prefix).
       const loopMult = Number(agent.calls_per_turn_multiplier);
       const llmCallMult = Number.isFinite(loopMult) && loopMult > 0 ? loopMult : 1.0;
-      const monthlyContrib = calls * perCall * llmCallMult;
+      // Agent activation rate — fraction of queries this agent runs on.
+      // Default 1.0 (always runs). Use for conditional agents that only
+      // trigger on certain query types (e.g. an Image-Enhancer agent
+      // that only fires on the 30% of requests mentioning images).
+      // Multiplies the monthly contribution so the bill reflects the
+      // expected average across queries, not the worst case.
+      const activationRate = Number(agent.activation_rate);
+      const activeRate = Number.isFinite(activationRate) && activationRate >= 0 && activationRate <= 1
+        ? activationRate : 1.0;
+      const monthlyContrib = calls * perCall * llmCallMult * activeRate;
       total += monthlyContrib;
       breakdown.push({
         id: agent.id, label: agent.label || agent.id,

@@ -662,9 +662,15 @@
           <div><label>Sysprompt tokens <em>(amortized across calls)</em></label><input type="number" min="0" step="50" value="${agent.sysprompt_tokens || 0}" data-agent="${idx}" data-key="sysprompt_tokens" title="Role description + tool catalog + decision rules per agent. Orchestrators: 1500–3000 tok; workers: 200–500 tok. Engine amortizes by calls_per_query."></div>
           <div><label>Inter-agent msg tokens / call <em>(handoff overhead)</em></label><input type="number" min="0" step="20" value="${agent.iamsg_tokens || 0}" data-agent="${idx}" data-key="iamsg_tokens" title="Tokens this agent reads from/writes to peers per call. Orchestrator → workers: short (50 tok); worker → orchestrator: long (200+ tok)."></div>
         </div>
-        <div class="row">
-          <label>LLM calls / turn multiplier <em>(ReAct, reflection, self-critique loops)</em></label>
-          <input type="number" min="0.1" step="0.5" value="${agent.calls_per_turn_multiplier || 1.0}" data-agent="${idx}" data-key="calls_per_turn_multiplier" title="Inner LLM-call loop multiplier per user-visible 'turn'. Simple chat: 1.0×. ReAct (think→act→observe→think): 3–5×. Deep reflection (self-critique pass): 5–8×. Multiplies the per-call bill — sysprompt amortization and cache accounting stay correct (each inner iteration hits the same cached prefix).">
+        <div class="row grid-2">
+          <div>
+            <label>LLM calls / turn multiplier <em>(ReAct / reflection)</em></label>
+            <input type="number" min="0.1" step="0.5" value="${agent.calls_per_turn_multiplier || 1.0}" data-agent="${idx}" data-key="calls_per_turn_multiplier" title="Inner LLM-call loop multiplier per user-visible 'turn'. Simple chat: 1.0×. ReAct: 3–5×. Reflection / self-critique: 5–8×.">
+          </div>
+          <div>
+            <label>Activation rate <em>(0–1, fraction of queries this agent runs on)</em></label>
+            <input type="number" min="0" max="1" step="0.05" value="${agent.activation_rate != null ? agent.activation_rate : 1}" data-agent="${idx}" data-key="activation_rate" title="Fraction of queries this agent actually runs on. 1.0 = always runs (default). 0.3 = only fires on 30% of queries (e.g. conditional Image-Enhancer that only triggers when the request mentions images). Multiplies this agent's contribution to the headline.">
+          </div>
         </div>
         <div class="row" style="margin-top:6px;padding:6px 8px;background:rgba(120,180,255,0.06);border:1px solid rgba(120,180,255,0.18);border-radius:5px">
           <div style="display:flex;align-items:center;gap:8px;font-size:12px;margin-bottom:5px">
@@ -1671,6 +1677,11 @@
       const totalCalls = agentsList.reduce((a, x) => a + (x.calls_per_query || 1), 0) || 1;
       for (const ag of agentsList) {
         const enabled = ag.enabled_tools || {};
+        // Agent activation rate carries through to its tool fees too —
+        // if the agent only runs 30% of queries, its tool calls only
+        // happen on those 30%. Default 1.0 preserves existing math.
+        const agActive = Number.isFinite(ag.activation_rate) && ag.activation_rate >= 0 && ag.activation_rate <= 1
+          ? ag.activation_rate : 1.0;
         const callsShare = (ag.calls_per_query || 1) / totalCalls;
         for (const [toolId, useSpec] of Object.entries(enabled)) {
           const tool = registry[toolId];
@@ -1685,10 +1696,16 @@
           // (paper-faithful default). Hit rate × rate cost reduction.
           const memo = tool.memoize && Number.isFinite(tool.memoize_hit_rate) ? tool.memoize_hit_rate : 0;
           const callMult = Math.max(0, 1 - memo);
+          // Per-(agent,tool) trigger rate — fraction of agent
+          // invocations this tool actually fires on (e.g., Designer
+          // uses image_gen on 60% of sites; some users bring their
+          // own images). Default 1.0 preserves existing math.
+          const tr = Number.isFinite(useSpec.trigger_rate) && useSpec.trigger_rate >= 0 && useSpec.trigger_rate <= 1
+            ? useSpec.trigger_rate : 1.0;
           if (tool.cost_shape === 'per_call') {
-            providerToolFeesMonthly += callsPerQuery * tool.rate_usd * queries * callsShare * callMult;
+            providerToolFeesMonthly += callsPerQuery * tool.rate_usd * queries * callsShare * callMult * tr * agActive;
           } else if (tool.cost_shape === 'per_session') {
-            providerToolFeesMonthly += callsPerQuery * tool.rate_usd * sessionsMonthly * callsShare * callMult;
+            providerToolFeesMonthly += callsPerQuery * tool.rate_usd * sessionsMonthly * callsShare * callMult * tr * agActive;
           }
         }
       }
