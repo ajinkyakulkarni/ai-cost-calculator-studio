@@ -3879,6 +3879,23 @@ The single highest-leverage cost lever in the whole calculator. Every 10 percent
         <div class="sr sr-advanced"><div class="sr-top"><span class="sr-label" data-tip="Fraction of traffic eligible for the batch / async tier (~50% cheaper, latency in minutes-to-hours). Good for offline analytics, summarization, embedding refresh. Set to 0 for interactive chat — users won't wait.
 
 **Why it matters:** ~50% discount on routed traffic. Even small fractions help — if 20% of your queries are eligible (nightly reports, ETL pipelines), that alone trims ~10% off total spend. Don't apply to interactive chat; users abandon.">Batch async %</span><span class="sr-val" id="v-batch" style="color:var(--lime)">0%</span></div><input type="range" min="0" max="100" value="0" step="5" id="s-batch" oninput="onSlider()" aria-label="Batch async percentage"><div class="sr-hint">50% discount</div></div>
+        <div class="sr sr-advanced"><div class="sr-top"><span class="sr-label" data-tip="### Context compression (history summarization)
+
+**In plain English:** when conversation history grows large, the deployment summarizes older turns into a shorter representation. The LLM sees the summary instead of the full transcript on subsequent turns.
+
+**Production patterns**
+- **Claude Code subagents** — sub-agent gets fresh context; reports a summary back to parent. Compression is at the agent-to-agent handoff.
+- **LangChain ConversationSummaryBufferMemory** — auto-summarize when buffer exceeds limit
+- **Devin's memory layer** — context-pressure-driven compression of older actions
+- **OpenAI Assistants `truncation_strategy: auto`** — truncates older messages when context window is reached
+
+**Typical net savings** (after summarization overhead)
+- **0%:** no compression, raw history (default — preserves paper math)
+- **15–25%:** light compression on long sessions only
+- **30–50%:** aggressive compression for long-running agents (Claude Code, Devin-class)
+- **>50%:** rare — usually means summarization is too lossy for the use case
+
+**Why it matters:** for long multi-turn agents (research, coding, customer support), compression can be the second-biggest cost lever after prompt-caching. A 30% net saving on a $50K/mo deployment is $15K/mo. Distinct from prompt cache (which prices reads cheaper but doesn't shrink tokens) — compression actually replaces tokens with a shorter representation.">Context compression %</span><span class="sr-val" id="v-context-compression" style="color:var(--green)">0%</span></div><input type="range" min="0" max="70" value="0" step="5" id="s-context-compression" oninput="onSlider()" aria-label="Context compression percentage"><div class="sr-hint">Net LLM-bill saving from history summarization (after summarization overhead). 30%=Claude-Code-like.</div></div>
         <div class="sr sr-advanced"><div class="sr-top"><span class="sr-label" data-tip="### Retry rate (failed-call do-overs)
 
 **In plain English:** the percentage of calls to the AI that fail the first time and have to be sent again. Failures happen when the AI vendor is overloaded, when the network blips, or when the AI's answer doesn't pass a validation check. Each retry costs real money — the bill is paid even if the answer is unusable.
@@ -3917,7 +3934,7 @@ How agents coordinate, billed as extra input tokens per turn per agent.
           Per-agent Tool / RAG / Reasoning / Guardrail tokens, schema sizes, and counts now live <strong>inside each agent card</strong>. This panel keeps workload-level switches: how tool returns flow back into context, and the provider-fee rate card.
         </div>
         <div>
-          <div class="mlabel">Tool return shape <span style="font-size:7px;color:var(--dim);font-weight:400">(workload-wide default — per-tool fields in the Tools registry override this)</span></div>
+          <div class="mlabel">Tool return shape <span title="Highest-leverage cost knob in tool-heavy agents — see paper §3.3 (templated vs freeform = up to 8× cost difference at the same MAU)" style="color:#f59e00;cursor:help;font-size:10px">✨</span> <span style="font-size:7px;color:var(--dim);font-weight:400">(default — per-tool RETURN SHAPE in the Tools registry overrides this)</span></div>
           <div style="margin-top:6px;padding:6px 8px;border:1px solid var(--b);border-radius:5px;display:flex;align-items:center;gap:8px;font-size:11px;flex-wrap:wrap">
             <label for="s-tool-response-mode" class="sr-label" style="color:var(--text-primary,#c8d8f0);font-weight:600" data-tip="How tool results flow back into the LLM's context — the single biggest non-cache cost lever in tool-heavy agents.
 
@@ -5691,11 +5708,35 @@ Both fields are independent; they don't have to match.">ⓘ</span></label>
   // the boot-time onSlider() inside cost-simulator.js used to inject the
   // default Claude fleet into every fresh preset load, which clobbered the
   // validated anchor. Writeback is now host-controlled.
+  // Workload-wide sliders that feed cost-engine via `opts` (langMult,
+  // batchShare, retry, cacheWriteShare, context compression, growth).
+  // They DON'T represent per-agent state edits — so autoSync writing
+  // sim.agents back to workload.agents would clobber curated preset
+  // input_tokens (e.g. mcp-research-fleet's [1500, 3500, 4500]) with
+  // simulator-computed values (~6320/20738/25832), inflating the cost
+  // ~10× on the first touch. Skip writeback when the active element
+  // is one of these. Per-agent slider edits (sysprompt, iamsg, etc.)
+  // and traffic sliders (s-agents, s-users, s-turns, s-sessions) still
+  // sync normally.
+  const _SKIP_AUTOSYNC_SLIDERS = new Set([
+    's-context-compression', 's-lang-mult', 's-batch', 's-retry',
+    's-cache-write-share', 's-growth', 's-cache',
+  ]);
   function installAutoSync() {
     if (typeof window.onSlider !== 'function') return setTimeout(installAutoSync, 200);
     const origOnSlider = window.onSlider;
     window.onSlider = function() {
       const r = origOnSlider.apply(this, arguments);
+      const activeId = document.activeElement && document.activeElement.id;
+      if (_SKIP_AUTOSYNC_SLIDERS.has(activeId)) {
+        // Just re-render the preview so the new opts.X scalar reaches
+        // the engine — but skip the writeback that would destroy
+        // workload.agents richness.
+        if (typeof window.renderPreview === 'function') {
+          try { window.renderPreview(); } catch (e) {}
+        }
+        return r;
+      }
       try { autoSync(); } catch (e) { console.warn('[autosync] failed:', e); }
       return r;
     };

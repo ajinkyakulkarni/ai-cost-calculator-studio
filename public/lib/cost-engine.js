@@ -593,7 +593,18 @@
     const batchTierMult = (w.tier_multipliers && w.tier_multipliers.batch) || 0.5;
     const batchScalar = (1 - batchShare) + batchShare * batchTierMult;
 
-    const llmScalar = langMult * batchScalar;
+    // Context compression: net % saving on the LLM bill from periodic
+    // history summarization (Claude Code subagent pattern, LangChain
+    // ConversationSummaryBufferMemory, Devin's "memory layer"). When set,
+    // older turns are summarized into shorter representations, reducing
+    // the input cost on subsequent turns. The knob is the NET saving
+    // after subtracting summarization overhead (i.e., what a production
+    // team would report: "compression cuts our input bill by 30% net").
+    // Default 0 = no compression (legacy behavior, preserves paper math).
+    const compressionSavings = Math.max(0, Math.min(0.7, opts.contextCompressionPct != null ? opts.contextCompressionPct : 0));
+    const compressionScalar = 1 - compressionSavings;
+
+    const llmScalar = langMult * batchScalar * compressionScalar;
     const cappedScaled = cappedWithHost * llmScalar;
 
     // Eq. 5 retry inflate: LLM_api · (1 + 1.5r). retry_rate is the fraction

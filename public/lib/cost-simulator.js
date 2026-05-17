@@ -1576,6 +1576,8 @@ function onSlider(){
   document.getElementById('v-cache').textContent=cfg('s-cache')+'%';
   document.getElementById('v-cache-write-share').textContent=cfg('s-cache-write-share')+'%';
   document.getElementById('v-batch').textContent=cfg('s-batch')+'%';
+  const _vcc=document.getElementById('v-context-compression');
+  if(_vcc) _vcc.textContent=cfg('s-context-compression')+'%';
   document.getElementById('v-retry').textContent=cfg('s-retry')+'%';
   document.getElementById('v-growth').textContent=cfg('s-growth')+'%';
   sv('rag-chunks',v=>v);sv('rag-chunk-size',v=>v);sv('rag-query',v=>v);sv('rag-calls',v=>v);

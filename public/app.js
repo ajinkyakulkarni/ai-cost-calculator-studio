@@ -350,7 +350,7 @@
               <input type="number" min="0" step="10" data-field="schema_tokens" value="${t.schema_tokens || 0}" style="width:100%;font-size:12px;padding:3px 5px;font-family:var(--mono)" title="Tokens added to system prompt for this tool's schema"></label>
             <label style="font-size:10px;color:var(--muted)"><span style="display:block;text-transform:uppercase;letter-spacing:0.04em;margin-bottom:2px">Result tok avg</span>
               <input type="number" min="0" step="50" data-field="result_tokens_avg" value="${t.result_tokens_avg || 0}" style="width:100%;font-size:12px;padding:3px 5px;font-family:var(--mono)" title="Average tokens of tool result fed back to context (freeform path)"></label>
-            <label style="font-size:10px;color:var(--muted)"><span style="display:block;text-transform:uppercase;letter-spacing:0.04em;margin-bottom:2px">Return shape</span>
+            <label style="font-size:10px;color:var(--muted)"><span style="display:block;text-transform:uppercase;letter-spacing:0.04em;margin-bottom:2px">Return shape <span title="Highest-leverage cost knob in tool-heavy agents — paper §3.3 measures up to 8× cost difference (templated vs freeform) at the same MAU. EIE-style: templating is done once at the agent wrapper layer (json.dumps({status, message, key_fields})) — zero engineering cost, large bill reduction." style="color:#f59e00;cursor:help;font-size:10px;text-transform:none;letter-spacing:0">✨</span></span>
               <select data-field="return_shape" style="width:100%;font-size:11px;padding:3px 5px" title="Freeform = full result tokens flow back; Templated = wrapper layer collapses result to Cap tok (status-only / id-only / summary).">
                 <option value="freeform" ${(t.return_shape||'freeform')==='freeform'?'selected':''}>freeform</option>
                 <option value="templated" ${(t.return_shape||'freeform')==='templated'?'selected':''}>templated</option>
@@ -1497,6 +1497,14 @@
       // langMult — bridged now so the slider actually moves the bill.
       batchShare: (() => {
         const el = document.getElementById('s-batch');
+        const v = el ? parseFloat(el.value) : NaN;
+        return Number.isFinite(v) ? v / 100 : undefined;
+      })(),
+      // Context compression — net % saving on LLM bill from history
+      // summarization (Claude Code subagent / LangChain memory / Devin
+      // memory-layer patterns). 0 = legacy, preserves paper math.
+      contextCompressionPct: (() => {
+        const el = document.getElementById('s-context-compression');
         const v = el ? parseFloat(el.value) : NaN;
         return Number.isFinite(v) ? v / 100 : undefined;
       })(),
