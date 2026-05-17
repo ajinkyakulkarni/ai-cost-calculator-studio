@@ -1252,7 +1252,11 @@ function agentCardHtml(a,scope){
     <div class="agent-header" onclick="togAgent(${a.id})">
       <div class="agent-av" style="background:${a.col}18;border:1px solid ${a.col}44;color:${a.col}">${a.name[0]}</div>
       <div style="flex:1;min-width:0">
-        <div style="font-size:13px;font-weight:700;color:${a.col}">${a.name} <span style="font-size:11px;color:var(--ink-2,#3a4a62);font-weight:500;margin-left:4px">${a.role}</span></div>
+        <div style="font-size:13px;font-weight:700;color:${a.col};display:flex;align-items:center;gap:6px">
+          <span>${a.name} <span style="font-size:11px;color:var(--ink-2,#3a4a62);font-weight:500;margin-left:4px">${a.role}</span></span>
+          <button type="button" onclick="event.stopPropagation();renameAgentRow(${a.id});" title="Rename agent" style="background:transparent;border:none;cursor:pointer;color:var(--ink-2,#3a4a62);padding:0 2px;font-size:11px;opacity:.6" onmouseover="this.style.opacity=1" onmouseout="this.style.opacity=.6">✎</button>
+          <button type="button" onclick="event.stopPropagation();removeAgentRow(${a.id});" title="Remove agent" style="background:transparent;border:none;cursor:pointer;color:var(--red,#c62828);padding:0 2px;font-size:13px;opacity:.5" onmouseover="this.style.opacity=1" onmouseout="this.style.opacity=.5">×</button>
+        </div>
         <div style="font-size:11px;color:${m.color};margin-top:2px">${modelLabel(a.model)} · ${provider.label}</div>
         <div style="height:3px;background:var(--track);border-radius:2px;margin:4px 0"><div style="width:${a.utilPct||0}%;height:100%;background:${a.col}88;border-radius:2px;transition:width .5s" id="ab-${scope}-${a.id}"></div></div>
         <div style="display:flex;gap:4px;margin-top:3px;flex-wrap:wrap">
@@ -1329,6 +1333,102 @@ function refreshAfterAgentEdit(){
 }
 function togAgent(id){const a=sim.agents.find(x=>x.id===id);if(a){a.expanded=!a.expanded;renderAgents();}}
 function setAllAgentsExpanded(open){sim.agents.forEach(a=>a.expanded=!!open);renderAgents();}
+
+// User-driven add/remove/rename for sim.agents. Three rules:
+// 1. Mutate sim.agents directly (don't go through buildAgents which
+//    would rebuild from AGENT_DEF and wipe the user's edits).
+// 2. Sync the #s-agents slider's value to sim.agents.length so the
+//    global "Agents" pill reads correct. We set .value programmatically
+//    so onSlider doesn't fire (which would trigger buildAgents).
+// 3. Mirror to workload.agents via the existing bridge so the headline
+//    pill reflects the new fleet size.
+function _syncAgentsSlider() {
+  const el = document.getElementById('s-agents');
+  if (!el) return;
+  // If the new length exceeds the slider's max, bump max so the slider
+  // doesn't visually clamp. sim.agents.length is the source of truth.
+  const max = parseInt(el.max || '8', 10);
+  if (sim.agents.length > max) el.max = String(sim.agents.length);
+  el.value = String(sim.agents.length);
+  const v = document.getElementById('v-agents');
+  if (v) v.textContent = String(sim.agents.length);
+}
+function _syncAgentsToWorkload() {
+  // Push a full sim.agents snapshot into workload.agents so the engine
+  // sees the new fleet size + per-agent richness. Uses the existing
+  // __promoteAgentModeFromSimulator helper (which calls buildPayload →
+  // __importFromSimulator) — same path the auto-sync wrapper uses.
+  if (typeof window.__promoteAgentModeFromSimulator === 'function') {
+    window.__promoteAgentModeFromSimulator();
+  }
+  if (typeof window.renderPreview === 'function') window.renderPreview();
+}
+function addAgentRow() {
+  const n = sim.agents.length;
+  // Pick a template — cycle through AGENT_DEF so colors / roles vary.
+  const def = AGENT_DEF[n % AGENT_DEF.length] || AGENT_DEF[0];
+  // Unique id: max existing id + 1 (sim agents historically use 0..N-1
+  // but we don't enforce contiguity — id is just a stable handle).
+  const nextId = sim.agents.length === 0 ? 0
+               : Math.max(...sim.agents.map(a => Number(a.id) || 0)) + 1;
+  const base = cloneAgentBase(def, nextId);
+  // Give the new agent a distinct name so the list doesn't double up
+  // ("Worker · Worker · Worker"). If the cloned base's name already
+  // appears, append " #2" / " #3" etc.
+  const existingNames = new Set(sim.agents.map(a => a.name));
+  if (existingNames.has(base.name)) {
+    let n = 2;
+    while (existingNames.has(`${base.name} #${n}`)) n++;
+    base.name = `${base.name} #${n}`;
+  }
+  base.expanded = true; // open the new agent so the user can edit it
+  sim.agents.push(base);
+  _syncAgentsSlider();
+  renderAgents();
+  refreshAfterAgentEdit();
+  _syncAgentsToWorkload();
+}
+function removeAgentRow(id) {
+  if (sim.agents.length <= 1) {
+    if (typeof showToast === 'function') showToast('A fleet needs at least one agent. Add another before removing this one.', 3500);
+    return;
+  }
+  const idx = sim.agents.findIndex(a => a.id === id);
+  if (idx < 0) return;
+  const removed = sim.agents.splice(idx, 1)[0];
+  _syncAgentsSlider();
+  renderAgents();
+  refreshAfterAgentEdit();
+  _syncAgentsToWorkload();
+  if (typeof showToast === 'function') showToast(`Removed agent "${removed.name}".`, 2500);
+}
+function renameAgentRow(id) {
+  const a = sim.agents.find(x => x.id === id);
+  if (!a) return;
+  const current = `${a.name}${a.role ? ' / ' + a.role : ''}`;
+  const next = prompt('Rename agent — use "Name / Role" to set both, or just a name:', current);
+  if (next == null) return;
+  const trimmed = next.trim();
+  if (!trimmed) return;
+  const slash = trimmed.indexOf('/');
+  if (slash > 0) {
+    a.name = trimmed.slice(0, slash).trim();
+    a.role = trimmed.slice(slash + 1).trim();
+  } else {
+    a.name = trimmed;
+  }
+  renderAgents();
+  refreshAfterAgentEdit();
+  // Mirror to workload.agents — the bridge maps a.name/role to
+  // workload.agents[i].label = `${name} (${role})`.
+  if (window.workload && Array.isArray(window.workload.agents)) {
+    const idx = sim.agents.findIndex(x => x.id === id);
+    if (idx >= 0 && window.workload.agents[idx]) {
+      window.workload.agents[idx].label = a.role ? `${a.name} (${a.role})` : a.name;
+      if (typeof window.renderPreview === 'function') window.renderPreview();
+    }
+  }
+}
 function setAM(id,m){const a=sim.agents.find(x=>x.id===id);if(a){a.model=m;const md=MODELS[m];if(md&&(!a.provider||a.provider==='managed'||a.provider==='together'))a.provider=md.providerDefault||a.provider||'managed';_mirrorAgentEditToWorkload(id,'model',m);renderAgents();refreshAfterAgentEdit();}}
 function setAP(id,k,v,lid,fmt){const a=sim.agents.find(x=>x.id===id);if(a){a[k]=v;if(lid){const el=document.getElementById(lid);if(el&&fmt)el.textContent=fmt(v);}_mirrorAgentEditToWorkload(id,k,v);refreshAfterAgentEdit();}}
 
