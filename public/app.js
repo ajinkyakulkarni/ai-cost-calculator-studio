@@ -349,7 +349,14 @@
             <label style="font-size:10px;color:var(--muted)"><span style="display:block;text-transform:uppercase;letter-spacing:0.04em;margin-bottom:2px">Schema tok</span>
               <input type="number" min="0" step="10" data-field="schema_tokens" value="${t.schema_tokens || 0}" style="width:100%;font-size:12px;padding:3px 5px;font-family:var(--mono)" title="Tokens added to system prompt for this tool's schema"></label>
             <label style="font-size:10px;color:var(--muted)"><span style="display:block;text-transform:uppercase;letter-spacing:0.04em;margin-bottom:2px">Result tok avg</span>
-              <input type="number" min="0" step="50" data-field="result_tokens_avg" value="${t.result_tokens_avg || 0}" style="width:100%;font-size:12px;padding:3px 5px;font-family:var(--mono)" title="Average tokens of tool result fed back to context"></label>
+              <input type="number" min="0" step="50" data-field="result_tokens_avg" value="${t.result_tokens_avg || 0}" style="width:100%;font-size:12px;padding:3px 5px;font-family:var(--mono)" title="Average tokens of tool result fed back to context (freeform path)"></label>
+            <label style="font-size:10px;color:var(--muted)"><span style="display:block;text-transform:uppercase;letter-spacing:0.04em;margin-bottom:2px">Return shape</span>
+              <select data-field="return_shape" style="width:100%;font-size:11px;padding:3px 5px" title="Freeform = full result tokens flow back; Templated = wrapper layer collapses result to Cap tok (status-only / id-only / summary).">
+                <option value="freeform" ${(t.return_shape||'freeform')==='freeform'?'selected':''}>freeform</option>
+                <option value="templated" ${(t.return_shape||'freeform')==='templated'?'selected':''}>templated</option>
+              </select></label>
+            <label style="font-size:10px;color:var(--muted)"><span style="display:block;text-transform:uppercase;letter-spacing:0.04em;margin-bottom:2px">Cap tok</span>
+              <input type="number" min="0" step="5" data-field="cap_tokens" value="${Number.isFinite(t.cap_tokens) ? t.cap_tokens : 40}" style="width:100%;font-size:12px;padding:3px 5px;font-family:var(--mono)" title="Effective result tokens when return_shape='templated' (this tool's typical wrapper payload)."></label>
             <label style="font-size:10px;color:var(--muted)"><span style="display:block;text-transform:uppercase;letter-spacing:0.04em;margin-bottom:2px">Provider</span>
               <input type="text" data-field="provider" value="${(t.provider || 'managed').replace(/"/g,'&quot;')}" style="width:100%;font-size:11px;padding:3px 5px" title="Provider name (managed / self-hosted / bedrock / azure / etc.)"></label>
           </div>

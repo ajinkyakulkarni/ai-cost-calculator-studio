@@ -3917,7 +3917,7 @@ How agents coordinate, billed as extra input tokens per turn per agent.
           Per-agent Tool / RAG / Reasoning / Guardrail tokens, schema sizes, and counts now live <strong>inside each agent card</strong>. This panel keeps workload-level switches: how tool returns flow back into context, and the provider-fee rate card.
         </div>
         <div>
-          <div class="mlabel">Tool return shape <span style="font-size:7px;color:var(--dim);font-weight:400">(workload-wide)</span></div>
+          <div class="mlabel">Tool return shape <span style="font-size:7px;color:var(--dim);font-weight:400">(workload-wide default — per-tool fields in the Tools registry override this)</span></div>
           <div style="margin-top:6px;padding:6px 8px;border:1px solid var(--b);border-radius:5px;display:flex;align-items:center;gap:8px;font-size:11px;flex-wrap:wrap">
             <label for="s-tool-response-mode" class="sr-label" style="color:var(--text-primary,#c8d8f0);font-weight:600" data-tip="How tool results flow back into the LLM's context — the single biggest non-cache cost lever in tool-heavy agents.
 

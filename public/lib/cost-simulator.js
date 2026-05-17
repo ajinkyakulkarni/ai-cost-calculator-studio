@@ -306,23 +306,64 @@ function computeCost(mk){
     modelTouched[usedModel]=true;
 
     const myTurns=Math.max(1,Math.round(baseTurns*(agent.turnsShare||1.0)));
-    const myToolsPer=agent.toolsOn?(agent.tools_per??cfg('s-tools')):0;
-    const mySchema=agent.schema??cfg('s-schema');
-    // Per-tool-result token budget. When the workload declares
-    // tool_response_mode='templated' (deployment routes every tool
-    // return through a fixed-template response layer), the budget is
-    // clamped to the user-configurable cap on #s-tool-templated-cap
-    // (default 40 — matches the bench-validated public-geospatial-qa
-    // template; raise it for richer templated payloads). We clamp
-    // rather than overwrite so a user who already set a low slider
-    // value doesn't see the number get bigger.
+    // Per-tool-result token budget — two paths.
+    //
+    // (A) Per-tool walk: when this agent declares `enabled_tools`
+    // (the canonical MCP-style registry walk introduced in the per-agent
+    // redesign), schema and result tokens are computed PER TOOL from the
+    // registry entry. Each tool can set its own `return_shape`
+    // ('freeform' | 'templated') and `cap_tokens`; templated tools have
+    // their result tokens clamped to cap. This matches the paper's
+    // implicit assumption that different tools have different return
+    // sizes (web_search ~800 tok freeform vs. internal_db_query ~500 tok
+    // freeform vs. 40 tok templated).
+    //
+    // (B) Workload-wide fallback: when `enabled_tools` is empty (the
+    // public-geospatial-qa reference workload uses this path), we honor
+    // the workload-wide #s-tool-response-mode + #s-tool-templated-cap
+    // controls. This preserves the paper's bench-validated headline
+    // because that workload has never used per-tool fields.
     const _toolMode=document.getElementById('s-tool-response-mode')?.value||'freeform';
     const _templatedCapRaw=parseInt(document.getElementById('s-tool-templated-cap')?.value,10);
     const _templatedCap=Number.isFinite(_templatedCapRaw)&&_templatedCapRaw>0?_templatedCapRaw:40;
-    const _myResultRaw=agent.result??cfg('s-toolresult');
-    const myResult=_toolMode==='templated'?Math.min(_myResultRaw,_templatedCap):_myResultRaw;
-    const myToolSchemaOH=myToolsPer*mySchema;
-    const myToolResultOH=myToolsPer*myResult;
+    const _registry=(window.workload&&window.workload.tools_registry)||{};
+    const _enabledTools=agent.enabled_tools||(window.workload&&window.workload.agents||[])
+      .find(a=>String(a.id)===String(agent.id))?.enabled_tools||{};
+    const _enabledList=Object.entries(_enabledTools).filter(([id,spec])=>(spec&&spec.calls_per_query>0)&&_registry[id]);
+    let myToolsPer, mySchema, myResult, myToolSchemaOH, myToolResultOH;
+    if(agent.toolsOn&&_enabledList.length>0){
+      // Per-tool walk (path A). Sum calls/turn across all enabled tools;
+      // schema/result tokens are call-weighted averages so the existing
+      // headline-overhead computation (uniform myToolsPer * myResult)
+      // produces the same total as a per-tool sum.
+      let totalCalls=0, schemaSum=0, resultSum=0;
+      for(const [tid,spec] of _enabledList){
+        const t=_registry[tid];
+        const calls=spec.calls_per_query;
+        const sch=t.schema_tokens??cfg('s-schema');
+        const rawResult=t.result_tokens_avg??cfg('s-toolresult');
+        const shape=t.return_shape||_toolMode;
+        const cap=Number.isFinite(t.cap_tokens)?t.cap_tokens:_templatedCap;
+        const res=shape==='templated'?Math.min(rawResult,cap):rawResult;
+        totalCalls+=calls;
+        schemaSum+=calls*sch;
+        resultSum+=calls*res;
+      }
+      // calls_per_query is per session; per-turn rate = calls/turn.
+      myToolsPer=totalCalls/Math.max(1,myTurns);
+      mySchema=totalCalls>0?(schemaSum/totalCalls):0;
+      myResult=totalCalls>0?(resultSum/totalCalls):0;
+      myToolSchemaOH=schemaSum/Math.max(1,myTurns);
+      myToolResultOH=resultSum/Math.max(1,myTurns);
+    } else {
+      // Workload-wide fallback (path B). Preserves paper math.
+      myToolsPer=agent.toolsOn?(agent.tools_per??cfg('s-tools')):0;
+      mySchema=agent.schema??cfg('s-schema');
+      const _myResultRaw=agent.result??cfg('s-toolresult');
+      myResult=_toolMode==='templated'?Math.min(_myResultRaw,_templatedCap):_myResultRaw;
+      myToolSchemaOH=myToolsPer*mySchema;
+      myToolResultOH=myToolsPer*myResult;
+    }
     const ragCalls=agent.rag_calls??cfg('s-rag-calls');
     const myRagTok=agent.ragOn?(((agent.rag_chunks??cfg('s-rag-chunks'))*(agent.rag_size??cfg('s-rag-chunk-size'))+(cfg('s-rag-query')||0))*ragCalls):0;
     const myReasonTok=agent.reasonOn?((agent.think_tok??cfg('s-think-tokens'))*((agent.think_pct??cfg('s-think-pct'))/100)+(agent.cot??cfg('s-cot'))*150+(agent.factcheck??cfg('s-factcheck'))*200):0;

@@ -127,6 +127,14 @@
   // entry + a few common free placeholders. Producers can extend by
   // adding entries to workload.tools_registry; the normalizer merges
   // their entries over the defaults so user-defined tools always win.
+  //
+  // return_shape: 'freeform' | 'templated' — when 'templated', the
+  // deployment routes the tool's return through a centralized response
+  // layer so the LLM only sees a short status string. Effective result
+  // tokens collapse to cap_tokens. When 'freeform', the full
+  // result_tokens_avg flows back into context. Per-tool defaults reflect
+  // realistic out-of-the-box behavior; cap_tokens reflects realistic
+  // template payload sizes for that tool's typical response.
   const DEFAULT_TOOLS_REGISTRY = {
     'web_search': {
       label: 'Web Search',
@@ -135,6 +143,8 @@
       rate_usd: 0.010,          // \$10 per 1k calls (OpenAI Assistants API rate)
       schema_tokens: 120,
       result_tokens_avg: 800,
+      return_shape: 'freeform',
+      cap_tokens: 80,           // status + top-result url + snippet
       provider: 'managed',
       builtin: true,
     },
@@ -145,6 +155,8 @@
       rate_usd: 0.0025,         // \$2.50 per 1k calls
       schema_tokens: 80,
       result_tokens_avg: 1200,
+      return_shape: 'freeform',
+      cap_tokens: 60,           // file id + offset + brief excerpt
       provider: 'managed',
       builtin: true,
     },
@@ -155,6 +167,8 @@
       rate_usd: 0.03,           // \$0.03 per session
       schema_tokens: 200,
       result_tokens_avg: 400,
+      return_shape: 'freeform',
+      cap_tokens: 80,           // exit code + last few stdout lines
       provider: 'managed',
       builtin: true,
     },
@@ -165,6 +179,8 @@
       rate_usd: 0,
       schema_tokens: 80,
       result_tokens_avg: 600,
+      return_shape: 'freeform',
+      cap_tokens: 50,           // page id + lede sentence
       provider: 'self-hosted',
       builtin: true,
     },
@@ -175,6 +191,8 @@
       rate_usd: 0,
       schema_tokens: 150,
       result_tokens_avg: 500,
+      return_shape: 'freeform',
+      cap_tokens: 40,           // row count + id list
       provider: 'self-hosted',
       builtin: false,
     },
