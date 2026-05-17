@@ -654,6 +654,10 @@
           <div><label>Sysprompt tokens <em>(amortized across calls)</em></label><input type="number" min="0" step="50" value="${agent.sysprompt_tokens || 0}" data-agent="${idx}" data-key="sysprompt_tokens" title="Role description + tool catalog + decision rules per agent. Orchestrators: 1500–3000 tok; workers: 200–500 tok. Engine amortizes by calls_per_query."></div>
           <div><label>Inter-agent msg tokens / call <em>(handoff overhead)</em></label><input type="number" min="0" step="20" value="${agent.iamsg_tokens || 0}" data-agent="${idx}" data-key="iamsg_tokens" title="Tokens this agent reads from/writes to peers per call. Orchestrator → workers: short (50 tok); worker → orchestrator: long (200+ tok)."></div>
         </div>
+        <div class="row">
+          <label>LLM calls / turn multiplier <em>(ReAct, reflection, self-critique loops)</em></label>
+          <input type="number" min="0.1" step="0.5" value="${agent.calls_per_turn_multiplier || 1.0}" data-agent="${idx}" data-key="calls_per_turn_multiplier" title="Inner LLM-call loop multiplier per user-visible 'turn'. Simple chat: 1.0×. ReAct (think→act→observe→think): 3–5×. Deep reflection (self-critique pass): 5–8×. Multiplies the per-call bill — sysprompt amortization and cache accounting stay correct (each inner iteration hits the same cached prefix).">
+        </div>
         <div class="row grid-3">
           <div>
             <label>Hosting <em>(who pays?)</em></label>

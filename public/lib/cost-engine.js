@@ -332,7 +332,17 @@
         cached   * pCachedEff / 1e6 +
         outT     * rates.output_per_million / 1e6
       ) * mult;
-      const monthlyContrib = calls * perCall;
+      // ReAct / reflection multiplier — agents that internally loop
+      // (think → act → observe → think) fire N LLM calls per logical
+      // "call" the user sees. Defaults to 1.0 (one LLM call = one call
+      // billed). Typical: simple chat 1.0×, ReAct 3–5×, deep
+      // reflection 5–8×. Multiplies the per-call bill; sysprompt
+      // amortization above used the OUTER `calls` so the cache
+      // accounting stays correct (each inner loop iteration still hits
+      // the same cached prefix).
+      const loopMult = Number(agent.calls_per_turn_multiplier);
+      const llmCallMult = Number.isFinite(loopMult) && loopMult > 0 ? loopMult : 1.0;
+      const monthlyContrib = calls * perCall * llmCallMult;
       total += monthlyContrib;
       breakdown.push({
         id: agent.id, label: agent.label || agent.id,
