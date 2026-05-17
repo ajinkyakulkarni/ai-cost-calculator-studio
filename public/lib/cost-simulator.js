@@ -1268,8 +1268,36 @@ function refreshAfterAgentEdit(){
 }
 function togAgent(id){const a=sim.agents.find(x=>x.id===id);if(a){a.expanded=!a.expanded;renderAgents();}}
 function setAllAgentsExpanded(open){sim.agents.forEach(a=>a.expanded=!!open);renderAgents();}
-function setAM(id,m){const a=sim.agents.find(x=>x.id===id);if(a){a.model=m;const md=MODELS[m];if(md&&(!a.provider||a.provider==='managed'||a.provider==='together'))a.provider=md.providerDefault||a.provider||'managed';renderAgents();refreshAfterAgentEdit();}}
-function setAP(id,k,v,lid,fmt){const a=sim.agents.find(x=>x.id===id);if(a){a[k]=v;if(lid){const el=document.getElementById(lid);if(el&&fmt)el.textContent=fmt(v);}refreshAfterAgentEdit();}}
+function setAM(id,m){const a=sim.agents.find(x=>x.id===id);if(a){a.model=m;const md=MODELS[m];if(md&&(!a.provider||a.provider==='managed'||a.provider==='together'))a.provider=md.providerDefault||a.provider||'managed';_mirrorAgentEditToWorkload(id,'model',m);renderAgents();refreshAfterAgentEdit();}}
+function setAP(id,k,v,lid,fmt){const a=sim.agents.find(x=>x.id===id);if(a){a[k]=v;if(lid){const el=document.getElementById(lid);if(el&&fmt)el.textContent=fmt(v);}_mirrorAgentEditToWorkload(id,k,v);refreshAfterAgentEdit();}}
+
+// Sim-agent → workload.agents bridge for engine-consumed per-agent fields.
+// Without this, editing a per-agent slider in the simulator card (sysprompt,
+// iamsg, calls_per_turn_multiplier, model, guard_model) updated only the
+// simulator-pane visualization — the cost engine never saw the change, so
+// the headline pill stayed put. Maps sim-side keys to the engine's
+// workload.agents schema and triggers renderPreview so the pill updates.
+function _mirrorAgentEditToWorkload(simAgentId, k, v) {
+  const wl = window.workload;
+  if (!wl || !Array.isArray(wl.agents) || wl.agents.length === 0) return;
+  // sim.agents[i].id is currently the index i (see cloneAgentBase); same
+  // index addresses workload.agents[i]. If that invariant ever changes,
+  // this mapping needs to swap to an explicit id lookup.
+  const idx = simAgentId;
+  if (!wl.agents[idx]) return;
+  const mapping = {
+    sysprompt: 'sysprompt_tokens',
+    iamsg: 'iamsg_tokens',
+    calls_per_turn_multiplier: 'calls_per_turn_multiplier',
+    model: 'model',
+    guard_model: 'guard_model',
+    cache_rate: 'cache_eligible_rate',  // engine uses cache_eligible bool + cache_rate
+  };
+  const wlKey = mapping[k];
+  if (!wlKey) return;
+  wl.agents[idx][wlKey] = v;
+  if (typeof window.renderPreview === 'function') window.renderPreview();
+}
 // Per-agent enabled-tools toggle. Mirrors the agent.enabled_tools shape
 // expected by app.js renderPreview (provider tool fees code).
 function togAgentTool(id, toolId, checked) {
@@ -2076,6 +2104,15 @@ window.__setSimulatorFromWorkload = function(workload) {
       if (w.calls_per_query) base.turnsShare = Number(w.calls_per_query) || base.turnsShare;
       if (w.output_tokens)   base.maxOut    = Math.max(64, Math.round(w.output_tokens));
       if (w.cache_eligible === false) base.cache_rate = 0;
+      // Seed engine-driven per-agent fields so the simulator card sliders
+      // open to the SAME values that drive the headline pill. Without
+      // this, mcp-research-fleet's per-agent sysprompt_tokens=1500 would
+      // render as Sysprompt slider value 512 (workload-wide fallback) and
+      // any user nudge would visibly jump from the wrong starting point.
+      if (w.sysprompt_tokens != null) base.sysprompt = w.sysprompt_tokens;
+      if (w.iamsg_tokens != null) base.iamsg = w.iamsg_tokens;
+      if (w.calls_per_turn_multiplier != null) base.calls_per_turn_multiplier = w.calls_per_turn_multiplier;
+      if (w.guard_model) base.guard_model = w.guard_model;
       return base;
     });
     const sAgents = document.getElementById('s-agents');
