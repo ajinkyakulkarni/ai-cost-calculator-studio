@@ -579,6 +579,23 @@
     const monthlyRefused = 0;
     const monthlyCapped = cappedWithHost / (hostMult || 1);  // pre-multiplier view
 
+    // Language-token multiplier (paper §3.3 tooltip): EN=1.0, code=1.3,
+    // Spanish/French ~1.1-1.2, CJK 1.8-2.2. Inflates input+output token
+    // count proportionally — applied as a scalar on the LLM bill since
+    // both input and output rates scale with token count. Default 1.0.
+    const langMult = (opts.langMult != null && opts.langMult > 0) ? opts.langMult : 1.0;
+
+    // Batch-tier share (paper §3.3 tier_multipliers): fraction of traffic
+    // routed to the batch tier (50% discount). batchShare=0.30 with
+    // batch_discount=0.5 → effective scalar = (1 - 0.30 * 0.5) = 0.85.
+    // Default 0 → no batch routing → 1.0 scalar.
+    const batchShare = Math.max(0, Math.min(1, opts.batchShare != null ? opts.batchShare : 0));
+    const batchTierMult = (w.tier_multipliers && w.tier_multipliers.batch) || 0.5;
+    const batchScalar = (1 - batchShare) + batchShare * batchTierMult;
+
+    const llmScalar = langMult * batchScalar;
+    const cappedScaled = cappedWithHost * llmScalar;
+
     // Eq. 5 retry inflate: LLM_api · (1 + 1.5r). retry_rate is the fraction
     // of calls that fail rate-limit / transient and are retried; 1.5× accounts
     // for partial output before the failure. Accept either `retry_rate` (paper
@@ -587,18 +604,21 @@
     const retryInflate = opts.retryInflate != null
       ? opts.retryInflate
       : (1 + 1.5 * (opts.retry_rate || 0));
-    const monthlyWithRetry = cappedWithHost * retryInflate;
+    const monthlyWithRetry = cappedScaled * retryInflate;
 
     return {
       monthly_gross: grossWithHost,
-      monthly_capped: cappedWithHost,
+      monthly_capped: cappedScaled,
       monthly_with_retry: monthlyWithRetry,
       retry_inflate: retryInflate,
+      lang_mult: langMult,
+      batch_share: batchShare,
+      batch_scalar: batchScalar,
       monthly_gross_pre_federal: totalCost,
-      monthly_capped_pre_federal: monthlyCapped,
+      monthly_capped_pre_federal: monthlyCapped * llmScalar,
       hosting_multiplier: hostMult,
       monthly_refused_queries: monthlyRefused,
-      per_query_blended: blended * hostMult,
+      per_query_blended: blended * hostMult * llmScalar,
       per_segment: segPerQuery,
       agent_mode: agentMode,
       agent_breakdown: agentBreakdown,

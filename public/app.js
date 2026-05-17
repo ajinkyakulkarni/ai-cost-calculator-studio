@@ -1448,6 +1448,22 @@
         const v = parseFloat(el.value);
         return Number.isFinite(v) ? v / 100 : undefined;
       })(),
+      // Language-token multiplier (s-lang-mult: 1.0–2.5). Was silent —
+      // simulator's `langMult` only flowed into computeCost (simulator
+      // pane), not the engine that drives the headline pill. Now bridged.
+      langMult: (() => {
+        const el = document.getElementById('s-lang-mult');
+        const v = el ? parseFloat(el.value) : NaN;
+        return Number.isFinite(v) && v > 0 ? v : undefined;
+      })(),
+      // Batch-tier share (s-batch: 0–100% of traffic routed to batch
+      // tier with 50% discount). Same silent-broadcast pattern as
+      // langMult — bridged now so the slider actually moves the bill.
+      batchShare: (() => {
+        const el = document.getElementById('s-batch');
+        const v = el ? parseFloat(el.value) : NaN;
+        return Number.isFinite(v) ? v / 100 : undefined;
+      })(),
       verifCoverage: numVal('prev-verif', 0),
       // Threaded into the engine so Migration Timeline phase costs match
       // the canonical headline (engine applies it inside computeMigration).
