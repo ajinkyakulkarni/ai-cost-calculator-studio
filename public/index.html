@@ -3441,7 +3441,17 @@ body.config-basic .simulator-pane .block-advanced { display: none !important; }
 <body>
 
 <div class="appbar">
-  <h1>AI Cost Calculator</h1>
+  <h1>AI Cost Calculator
+    <!-- Fleet inventory pill — tools first (you build tools, then assemble
+         agents that use them, then plug in RAG/vector stores). Sourced from
+         workload.tools_registry length, sim.agents.length, and the count of
+         agents with ragOn. Updated by renderAgentSettingsSummary() in
+         cost-simulator.js. -->
+    <span id="appbar-fleet-stats" class="pill" style="margin-left:10px;letter-spacing:.5px"
+          title="What you've configured: tools in the registry · agents in the fleet · agents that use RAG/vector retrieval">
+      0 tools · 0 agents · 0 RAG
+    </span>
+  </h1>
   <!-- Preset workload picker lives inside the chat-builder ("Describe
        your AI system in plain English") below — single source of
        truth, no duplicate dropdown in the appbar. -->
@@ -3994,7 +4004,7 @@ Set Cap above to match your template's actual emission size (40 for status-only,
 <div class="axiom-section-divider" id="axiom-h-agents">
   <span class="ix-num">C</span>
   <span class="ix-title">Agent fleet</span>
-  <span class="ix-desc">per-agent role, model, prompt, RAG, tools, guardrails — <span id="agent-editor-badge" style="color:var(--cyan);font-weight:700;letter-spacing:1px">0 agents · 0 tools · 0 RAG</span></span>
+  <span class="ix-desc">per-agent role, model, prompt, RAG, tools, guardrails — <span id="agent-editor-badge" style="color:var(--cyan);font-weight:700;letter-spacing:1px">0 tools · 0 agents · 0 RAG</span></span>
 </div>
 <div id="tab-agents" class="tab-panel">
 
