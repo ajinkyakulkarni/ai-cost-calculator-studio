@@ -1506,7 +1506,10 @@ function renderArchDiagram(){
   const agents=(typeof sim!=='undefined' && Array.isArray(sim.agents))?sim.agents:[];
   const n=agents.length;
   if(n===0){canvas.innerHTML=`<div class="helper" style="text-align:center;padding:6px 0">No agents configured.</div>`;return;}
-  const mode = (n===1) ? 'single' : (executionMode==='workflow' ? 'workflow' : 'fleet');
+  // Pick layout from the user's explicit topology choice (preserved in
+  // userTopology), not from n. This way clicking Fleet with 1 agent still
+  // renders the Router/Synth fan-out — which is what Fleet means.
+  const mode = (typeof userTopology!=='undefined' && userTopology) ? userTopology : 'fleet';
 
   const userNode='<div class="arch-node arch-edge"><div style="font-size:14px">👤</div><div>User</div></div>';
   const respNode='<div class="arch-node arch-edge"><div style="font-size:14px">💬</div><div>Response</div></div>';
@@ -2220,8 +2223,15 @@ function resetDefaults(){
 /* MODE: single agent / fleet (parallel) / workflow (sequential DAG)
    'single' is a convenience preset that sets agents=1 and underlying
    mode='fleet'; the cost engine treats it as a one-agent fleet. */
-let executionMode = 'fleet'; // 'fleet' or 'workflow'
+let executionMode = 'fleet'; // 'fleet' or 'workflow' — what the cost engine bills for
+// userTopology preserves the user's explicit Topology-card choice
+// ('single' | 'fleet' | 'workflow'). executionMode collapses 'single' to
+// 'fleet' because the cost engine treats Single as a 1-agent fleet, but
+// the architecture diagram needs the original choice so toggling between
+// Single ↔ Fleet ↔ Workflow with N=1 agents still re-shapes the canvas.
+let userTopology = 'fleet';
 function setMode(mode){
+  userTopology = (mode==='single'||mode==='fleet'||mode==='workflow') ? mode : 'fleet';
   const agentSlider = document.getElementById('s-agents');
   if (mode === 'single') {
     // Force agent count to 1 AND lock the slider so the user can't drift
