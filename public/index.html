@@ -3530,9 +3530,9 @@ body.config-basic .simulator-pane .block-advanced { display: none !important; }
     <div class="nav-group-header">Configure</div>
     <button class="tab-btn active" data-wiz="profile"      data-wiz-anchor="sec-deployment"><span class="nav-icon">◐</span><span class="step-num">1</span>Project profile</button>
     <button class="tab-btn"        data-wiz="token-cost"   data-wiz-anchor="axiom-h-config"><span class="nav-icon">⚡</span><span class="step-num">2</span>Global parameters</button>
-    <button class="tab-btn"        data-wiz="agent-fleet"  data-wiz-axiom="agents" data-wiz-anchor="axiom-h-agents"><span class="nav-icon">▣</span><span class="step-num">3</span>Agent fleet</button>
-    <button class="tab-btn"        data-wiz="verification" data-wiz-axiom="verification" data-wiz-anchor="axiom-h-verification"><span class="nav-icon">✓</span><span class="step-num">4</span>Fact-checking</button>
-    <button class="tab-btn"        data-wiz="tools"        data-wiz-axiom="tools" data-wiz-anchor="axiom-h-tools"><span class="nav-icon">⚒</span><span class="step-num">5</span>Tools &amp; rates</button>
+    <button class="tab-btn"        data-wiz="tools"        data-wiz-axiom="tools" data-wiz-anchor="axiom-h-tools"><span class="nav-icon">⚒</span><span class="step-num">3</span>Tools &amp; rates</button>
+    <button class="tab-btn"        data-wiz="agent-fleet"  data-wiz-axiom="agents" data-wiz-anchor="axiom-h-agents"><span class="nav-icon">▣</span><span class="step-num">4</span>Agent fleet</button>
+    <button class="tab-btn"        data-wiz="verification" data-wiz-axiom="verification" data-wiz-anchor="axiom-h-verification"><span class="nav-icon">✓</span><span class="step-num">5</span>Fact-checking</button>
     <button class="tab-btn"        data-wiz="agent-eng"    data-wiz-anchor="sec-agent-engineering"><span class="nav-icon">⚙</span><span class="step-num">6</span>Agent engineering</button>
     <button class="tab-btn"        data-wiz="hosting"      data-wiz-anchor="sec-reservations"><span class="nav-icon">☁</span><span class="step-num">7</span>Hosting &amp; infra</button>
     <button class="tab-btn"        data-wiz="budget"       data-wiz-anchor="sec-budget-solver"><span class="nav-icon">$</span><span class="step-num">8</span>Budget solver</button>
@@ -3965,9 +3965,58 @@ How agents coordinate, billed as extra input tokens per turn per agent.
      inputs are the canonical audience definition now. -->
 
 
+<div class="axiom-section-divider" id="axiom-h-tools">
+  <span class="ix-num">B</span>
+  <span class="ix-title">Tools registry &amp; rates</span>
+  <span class="ix-desc">workload-wide tool catalog · return-shape default · provider rate hints</span>
+</div>
+<div id="tab-tools" class="tab-panel">
+    <div class="panel">
+      <div class="ph">Tool routing &amp; rates <span class="badge-guard">FEES</span></div>
+      <div style="flex:1;overflow-y:auto;padding:8px 10px;display:flex;flex-direction:column;gap:8px">
+        <div style="padding:6px 8px;background:rgba(0,212,255,0.05);border:1px solid rgba(0,212,255,0.18);border-radius:5px;font-size:9px;color:var(--dim);line-height:1.5">
+          Per-agent Tool / RAG / Reasoning / Guardrail tokens, schema sizes, and counts now live <strong>inside each agent card</strong>. This panel keeps workload-level switches: how tool returns flow back into context, and the provider-fee rate card.
+        </div>
+        <div>
+          <div class="mlabel">Tool return shape <span title="Highest-leverage cost knob in tool-heavy agents — see paper §3.3 (templated vs freeform = up to 8× cost difference at the same MAU)" style="color:#f59e00;cursor:help;font-size:10px">✨</span> <span style="font-size:7px;color:var(--dim);font-weight:400">(default — per-tool RETURN SHAPE in the Tools registry overrides this)</span> <span id="tool-return-shape-override-badge" style="display:none;font-size:8px;color:#f59e00;background:rgba(245,158,0,.12);border:1px solid rgba(245,158,0,.3);padding:0 5px;border-radius:8px;font-weight:600;margin-left:6px"></span></div>
+          <div style="margin-top:6px;padding:6px 8px;border:1px solid var(--b);border-radius:5px;display:flex;align-items:center;gap:8px;font-size:11px;flex-wrap:wrap">
+            <label for="s-tool-response-mode" class="sr-label" style="color:var(--text-primary,#c8d8f0);font-weight:600" data-tip="How tool results flow back into the LLM's context — the single biggest non-cache cost lever in tool-heavy agents.
+
+**Freeform** *(default)*: every tool return goes verbatim into the conversation history. A 2,000-token search result becomes 2,000 tokens of input on the NEXT turn, the turn after, and every turn until the session ends. The feedback loop compounds aggressively — multi-turn agents can balloon to 10–50× the freeform baseline.
+
+**Templated**: the deployment routes every tool return through a centralized response-template layer. The LLM only sees a short status string (e.g. *'search returned 8 items, top result: lakefront_2024.tif'*); the structured payload stays server-side and is fetched on demand. Effective per-tool tokens collapse to the Cap value (default 40).
+
+**Why it matters:** in the paper's anonymized 50K-MAU geospatial workload, the templated-vs-freeform choice was an **~8× measured cost lever** — \$8K/mo templated vs. \$63K/mo freeform at the same traffic. Most production agents leave this on freeform by default; the templated wrapper is a 1-week engineering investment that pays for itself in weeks.
+
+Set Cap above to match your template's actual emission size (40 for status-only, ~120 for error+hint, ~250 for small structured summaries).">Tool return shape</label>
+            <select id="s-tool-response-mode" data-bind="tool_response_mode" onchange="onSlider()" style="font-size:11px;border:1px solid var(--b);border-radius:4px;padding:2px 6px">
+              <option value="freeform">Freeform — result tokens compound across turns</option>
+              <option value="templated">Templated — result tokens capped</option>
+            </select>
+            <label for="s-tool-templated-cap" style="color:var(--muted);font-size:10.5px">Cap (tok)</label>
+            <input id="s-tool-templated-cap" type="number" min="1" max="4000" step="5" value="40" oninput="onSlider()" style="font-size:11px;width:64px;border:1px solid var(--b);border-radius:4px;padding:2px 6px;font-family:var(--mono)" title="Effective per-tool result tokens when the deployment routes every tool return through a fixed-template response layer. Default 40 matches the bench-validated public-geospatial-qa template; raise it if your template emits richer payloads.">
+          </div>
+        </div>
+        <div>
+          <div class="mlabel">Provider rate card</div>
+          <div style="margin-top:5px;padding:6px 8px;background:rgba(206,147,216,.06);border:1px solid rgba(206,147,216,.18);border-radius:5px;font-size:9px;color:var(--dim);line-height:1.6">
+            Provider tool fees/sess: <span id="tool-fee-cost" style="color:var(--purple);font-weight:700">$0</span> · Per-agent web search / file search / container counts live inside each agent card; rates are looked up by the agent's provider+family (Anthropic web $10/1k · OpenAI web $10/1k + fs $2.50/1k + container $0.03/sess · Bedrock/Azure $0 pass-through).
+            <br>Embeddings model: <span style="color:var(--rag);font-weight:700">text-embedding-3-small @ $0.02/1M input tokens</span>.
+          </div>
+        </div>
+
+        <div>
+          <div class="mlabel" style="display:flex;align-items:center;gap:8px"><span>Tools registry <span style="font-size:9px;color:var(--dim);font-weight:400">(Phase 1 — read-only)</span></span><span class="badge" style="background:rgba(0,212,255,0.10);color:var(--cyan,#0c8db3);border-color:rgba(0,212,255,0.3);font-size:8px;letter-spacing:0.04em">MCP-STYLE</span></div>
+          <div style="margin-top:4px;font-size:10px;color:var(--dim);line-height:1.5">Workload-level catalog of available tools. Each agent will later (Phase 3) declare which tools it enables and at what frequency; today the registry is data-only and feeds future cost math. Add custom MCP tools by editing this workload's JSON.</div>
+          <div id="tools-registry-list" style="margin-top:8px;display:grid;grid-template-columns:1fr;gap:8px"></div>
+        </div>
+      </div>
+    </div>
+</div>
+
 <!-- TAB: AGENTS -->
 <div class="axiom-section-divider" id="axiom-h-agents">
-  <span class="ix-num">B</span>
+  <span class="ix-num">C</span>
   <span class="ix-title">Agent fleet</span>
   <span class="ix-desc">per-agent role, model, prompt, RAG, tools, guardrails — <span id="agent-editor-badge" style="color:var(--cyan);font-weight:700;letter-spacing:1px">0 agents</span></span>
 </div>
@@ -4007,7 +4056,7 @@ How agents coordinate, billed as extra input tokens per turn per agent.
      Agent fleet and Cost breakdown. All data-bind IDs are unchanged so
      cost-engine wiring needs no edits. -->
 <div class="axiom-section-divider" id="axiom-h-verification">
-  <span class="ix-num">C</span>
+  <span class="ix-num">D</span>
   <span class="ix-title">Fact-checking pipeline</span>
   <span class="ix-desc">verifier preset · NLI hosting · atomizer/reviser token budgets — pick a preset or stay at the simulator default</span>
 </div>
@@ -4193,55 +4242,6 @@ Measure primary's confidence-score histogram across a labeled validation set; pi
      traffic/efficiency stack. Houses the workload-wide return-shape
      default, the provider rate card hint, and the MCP-style tools
      registry. -->
-<div class="axiom-section-divider" id="axiom-h-tools">
-  <span class="ix-num">D</span>
-  <span class="ix-title">Tools registry &amp; rates</span>
-  <span class="ix-desc">workload-wide tool catalog · return-shape default · provider rate hints</span>
-</div>
-<div id="tab-tools" class="tab-panel">
-    <div class="panel">
-      <div class="ph">Tool routing &amp; rates <span class="badge-guard">FEES</span></div>
-      <div style="flex:1;overflow-y:auto;padding:8px 10px;display:flex;flex-direction:column;gap:8px">
-        <div style="padding:6px 8px;background:rgba(0,212,255,0.05);border:1px solid rgba(0,212,255,0.18);border-radius:5px;font-size:9px;color:var(--dim);line-height:1.5">
-          Per-agent Tool / RAG / Reasoning / Guardrail tokens, schema sizes, and counts now live <strong>inside each agent card</strong>. This panel keeps workload-level switches: how tool returns flow back into context, and the provider-fee rate card.
-        </div>
-        <div>
-          <div class="mlabel">Tool return shape <span title="Highest-leverage cost knob in tool-heavy agents — see paper §3.3 (templated vs freeform = up to 8× cost difference at the same MAU)" style="color:#f59e00;cursor:help;font-size:10px">✨</span> <span style="font-size:7px;color:var(--dim);font-weight:400">(default — per-tool RETURN SHAPE in the Tools registry overrides this)</span> <span id="tool-return-shape-override-badge" style="display:none;font-size:8px;color:#f59e00;background:rgba(245,158,0,.12);border:1px solid rgba(245,158,0,.3);padding:0 5px;border-radius:8px;font-weight:600;margin-left:6px"></span></div>
-          <div style="margin-top:6px;padding:6px 8px;border:1px solid var(--b);border-radius:5px;display:flex;align-items:center;gap:8px;font-size:11px;flex-wrap:wrap">
-            <label for="s-tool-response-mode" class="sr-label" style="color:var(--text-primary,#c8d8f0);font-weight:600" data-tip="How tool results flow back into the LLM's context — the single biggest non-cache cost lever in tool-heavy agents.
-
-**Freeform** *(default)*: every tool return goes verbatim into the conversation history. A 2,000-token search result becomes 2,000 tokens of input on the NEXT turn, the turn after, and every turn until the session ends. The feedback loop compounds aggressively — multi-turn agents can balloon to 10–50× the freeform baseline.
-
-**Templated**: the deployment routes every tool return through a centralized response-template layer. The LLM only sees a short status string (e.g. *'search returned 8 items, top result: lakefront_2024.tif'*); the structured payload stays server-side and is fetched on demand. Effective per-tool tokens collapse to the Cap value (default 40).
-
-**Why it matters:** in the paper's anonymized 50K-MAU geospatial workload, the templated-vs-freeform choice was an **~8× measured cost lever** — \$8K/mo templated vs. \$63K/mo freeform at the same traffic. Most production agents leave this on freeform by default; the templated wrapper is a 1-week engineering investment that pays for itself in weeks.
-
-Set Cap above to match your template's actual emission size (40 for status-only, ~120 for error+hint, ~250 for small structured summaries).">Tool return shape</label>
-            <select id="s-tool-response-mode" data-bind="tool_response_mode" onchange="onSlider()" style="font-size:11px;border:1px solid var(--b);border-radius:4px;padding:2px 6px">
-              <option value="freeform">Freeform — result tokens compound across turns</option>
-              <option value="templated">Templated — result tokens capped</option>
-            </select>
-            <label for="s-tool-templated-cap" style="color:var(--muted);font-size:10.5px">Cap (tok)</label>
-            <input id="s-tool-templated-cap" type="number" min="1" max="4000" step="5" value="40" oninput="onSlider()" style="font-size:11px;width:64px;border:1px solid var(--b);border-radius:4px;padding:2px 6px;font-family:var(--mono)" title="Effective per-tool result tokens when the deployment routes every tool return through a fixed-template response layer. Default 40 matches the bench-validated public-geospatial-qa template; raise it if your template emits richer payloads.">
-          </div>
-        </div>
-        <div>
-          <div class="mlabel">Provider rate card</div>
-          <div style="margin-top:5px;padding:6px 8px;background:rgba(206,147,216,.06);border:1px solid rgba(206,147,216,.18);border-radius:5px;font-size:9px;color:var(--dim);line-height:1.6">
-            Provider tool fees/sess: <span id="tool-fee-cost" style="color:var(--purple);font-weight:700">$0</span> · Per-agent web search / file search / container counts live inside each agent card; rates are looked up by the agent's provider+family (Anthropic web $10/1k · OpenAI web $10/1k + fs $2.50/1k + container $0.03/sess · Bedrock/Azure $0 pass-through).
-            <br>Embeddings model: <span style="color:var(--rag);font-weight:700">text-embedding-3-small @ $0.02/1M input tokens</span>.
-          </div>
-        </div>
-
-        <div>
-          <div class="mlabel" style="display:flex;align-items:center;gap:8px"><span>Tools registry <span style="font-size:9px;color:var(--dim);font-weight:400">(Phase 1 — read-only)</span></span><span class="badge" style="background:rgba(0,212,255,0.10);color:var(--cyan,#0c8db3);border-color:rgba(0,212,255,0.3);font-size:8px;letter-spacing:0.04em">MCP-STYLE</span></div>
-          <div style="margin-top:4px;font-size:10px;color:var(--dim);line-height:1.5">Workload-level catalog of available tools. Each agent will later (Phase 3) declare which tools it enables and at what frequency; today the registry is data-only and feeds future cost math. Add custom MCP tools by editing this workload's JSON.</div>
-          <div id="tools-registry-list" style="margin-top:8px;display:grid;grid-template-columns:1fr;gap:8px"></div>
-        </div>
-      </div>
-    </div>
-</div>
-
   <!-- WORKFLOW MODE PANEL — visible only in workflow mode -->
   <div class="panel" id="panel-workflow" style="display:none">
     <div class="ph">Workflow DAG Configuration <span class="badge" id="workflow-badge">sequential pipeline</span></div>
