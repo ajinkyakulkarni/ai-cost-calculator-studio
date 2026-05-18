@@ -940,14 +940,22 @@ function buildWhatIf(base){
   // has reasonOn=false and think_pct=0 would compute to zero added
   // tokens — the slider would move but nothing downstream would care.
   const scenarios=[
-    {name:'Double RAG chunks',   id:'s-rag-chunks',fn:v=>v*2, ensure:{ragOn:true}},
-    {name:'Enable 10K thinking', multi:[['s-think-tokens',10000],['s-think-pct',50]], ensure:{reasonOn:true}},
-    {name:'Add full guardrails', multi:[['s-guard-in',500],['s-guard-out',500],['s-guard-pii',200],['s-guard-policy',800]], ensure:{guardOn:true}},
-    {name:'Cache 80% hit rate',  id:'s-cache',fn:_=>80},
-    {name:'50% batch async',     id:'s-batch',fn:_=>50},
-    {name:'Triple fact-checking',id:'s-factcheck',fn:_=>3, ensure:{reasonOn:true}},
-    {name:'RAG 20 chunks×512t',  multi:[['s-rag-chunks',20],['s-rag-chunk-size',512]], ensure:{ragOn:true}},
-    {name:'Minimal guardrails',  multi:[['s-guard-in',0],['s-guard-out',0],['s-guard-pii',0],['s-guard-policy',0]]},
+    {name:'Double RAG chunks',   id:'s-rag-chunks',fn:v=>v*2, ensure:{ragOn:true},
+      desc:'Doubles the retrieved chunks-per-query knob. Tests sensitivity to retrieval depth — each extra chunk rides along with every prompt as input tokens, so deep-RAG fleets can see this knob dominate the bill. Reads 0% if your preset has chunks=0 (RAG effectively off).'},
+    {name:'Enable 10K thinking', multi:[['s-think-tokens',10000],['s-think-pct',50]], ensure:{reasonOn:true},
+      desc:'Turns extended thinking on with 10K hidden reasoning tokens at 50% activation. Tests the cost shock of switching from "answer directly" to a thinking/reasoning model — thinking tokens are billed as output but never shown to the user.'},
+    {name:'Add full guardrails', multi:[['s-guard-in',500],['s-guard-out',500],['s-guard-pii',200],['s-guard-policy',800]], ensure:{guardOn:true},
+      desc:'Adds the four guardrail prompts (input scan, output scan, PII redaction, policy check ≈ 2K tokens total). Tests the overhead of running a full safety stack on every turn — visible mostly on high-volume, low-token-per-turn fleets.'},
+    {name:'Cache 80% hit rate',  id:'s-cache',fn:_=>80,
+      desc:'Pins prompt-cache hit rate to 80%. Tests the savings ceiling from aggressive caching — cached input tokens bill at 10–25% of full price, so chatty workloads with stable system prompts see large drops.'},
+    {name:'50% batch async',     id:'s-batch',fn:_=>50,
+      desc:'Routes half of traffic through the provider Batch API (50% discount on most providers). Tests savings if you can defer non-interactive work — useless for real-time chat, big for nightly summarization / ingest pipelines.'},
+    {name:'Triple fact-checking',id:'s-factcheck',fn:_=>3, ensure:{reasonOn:true},
+      desc:'Runs 3 verification passes per response instead of 1. Tests cost of high-assurance setups (legal, medical, regulated) where you cross-check the answer against multiple verifiers before returning.'},
+    {name:'RAG 20 chunks×512t',  multi:[['s-rag-chunks',20],['s-rag-chunk-size',512]], ensure:{ragOn:true},
+      desc:'Aggressive retrieval: 20 chunks × 512 tokens = 10K extra input tokens per query. Tests the "throw more context at it" ceiling — common in legal / research / code-search fleets that lean on retrieval over fine-tuning.'},
+    {name:'Minimal guardrails',  multi:[['s-guard-in',0],['s-guard-out',0],['s-guard-pii',0],['s-guard-policy',0]],
+      desc:'Strips all guardrail prompts. Tests the savings floor if you remove the safety stack — informative bound, not a recommendation. Reads 0% if your preset already has guardrails at zero.'},
   ];
   const el=document.getElementById('whatif-cards');if(!el)return;
   // Slider → agent-field mapping. When an imported preset's agents
@@ -1005,7 +1013,12 @@ function buildWhatIf(base){
     }
     restoreAll(sliderSaves,agentSaves);
     const d=((nc-base)/base*100);const c=d>0?'var(--red)':'var(--green)';
-    return `<div class="mcard"><div class="mlabel">${sc.name}</div><div style="font-size:14px;font-weight:700;color:${c}">${d>0?'+':''}${d.toFixed(1)}%</div><div style="font-size:7px;color:var(--dim);margin-top:2px">${nc.toFixed(5)}/sess</div></div>`;
+    const tip=(sc.desc||'').replace(/"/g,'&quot;');
+    const zero=Math.abs(d)<0.05;
+    const labelStr=zero
+      ? `${sc.name} <span style="color:var(--dimmer);font-weight:400;font-size:7px">· n/a here</span>`
+      : sc.name;
+    return `<div class="mcard" title="${tip}" style="cursor:help"><div class="mlabel">${labelStr}</div><div style="font-size:14px;font-weight:700;color:${zero?'var(--dim)':c}">${d>0?'+':''}${d.toFixed(1)}%</div><div style="font-size:7px;color:var(--dim);margin-top:2px">${nc.toFixed(5)}/sess</div></div>`;
   }).join('');
 }
 
