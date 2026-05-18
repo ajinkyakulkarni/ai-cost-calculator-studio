@@ -1462,7 +1462,95 @@ function renderAgentSettingsSummary(){
   const eb=document.getElementById('agent-editor-badge');if(eb)eb.textContent=fleetLine;
   const ap=document.getElementById('appbar-fleet-stats');if(ap)ap.textContent=fleetLine;
   const sb=document.getElementById('agent-count-badge');if(sb)sb.textContent=n;
+  // Refresh the topology diagram if its panel is currently open — keeps
+  // chips/agent names in sync with edits without forcing the user to
+  // re-toggle the panel.
+  const archBody=document.getElementById('arch-diagram-body');
+  if(archBody && archBody.style.display!=='none') renderArchDiagram();
 }
+
+/* ═══════ ARCHITECTURE DIAGRAM ═══════
+   Live, hand-rolled HTML+CSS visualization of the fleet's coordination
+   shape. Three canonical layouts, picked from sim.agents.length + the
+   global executionMode:
+     - Single   (1 agent, any mode)     User → Agent → Response
+     - Workflow (executionMode==workflow) User → S1 → S2 → ... → Response
+     - Fleet    (default, >1 agent)     User → Router → [Agents] → Synth → Response
+   Per-agent chips (🛠 📚 🧠 🛡) light up from a.toolsOn / ragOn / reasonOn /
+   guardOn so the diagram doubles as a sanity-check on per-agent config.
+   The bottom icon strip flags behaviors that real fleets have but the
+   canvas doesn't draw (retries / cascade / conditional / fallback) — each
+   tooltip points at where that setting lives in the simulator. */
+function _archEscape(s){return String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'})[c]);}
+function _archChips(a){
+  const out=[];
+  if(a.toolsOn) out.push(`<span title="Calls registered tools (~${(a.tools_per||0)|0}/turn). See Section B for the tool registry.">🛠</span>`);
+  if(a.ragOn)   out.push(`<span title="Retrieves ~${(a.rag_chunks||0)|0} chunks/query × ${(a.rag_size||0)|0} tok from vector DB before answering.">📚</span>`);
+  if(a.reasonOn)out.push(`<span title="Extended thinking enabled (~${(a.think_tok||0)|0} hidden reasoning tokens at ${(a.think_pct||0)|0}% activation).">🧠</span>`);
+  if(a.guardOn) out.push(`<span title="Guardrails active (input/output/PII/policy scans on every turn).">🛡</span>`);
+  return out.length ? `<div class="arch-chips">${out.join('')}</div>` : '';
+}
+function _archAgentBox(a,i){
+  const col=a.col||'rgba(0,212,255,.45)';
+  const name=_archEscape(a.name||('Agent '+(i+1)));
+  const role=_archEscape(a.role||'');
+  return `<div class="arch-node arch-agent" style="border-color:${col}55">
+    <div style="color:${col};font-weight:700">${name}</div>
+    ${role?`<div style="font-size:9px;color:var(--dim);font-weight:500">${role}</div>`:''}
+    ${_archChips(a)}
+  </div>`;
+}
+function renderArchDiagram(){
+  const canvas=document.getElementById('arch-diagram-canvas');
+  if(!canvas)return;
+  const agents=(typeof sim!=='undefined' && Array.isArray(sim.agents))?sim.agents:[];
+  const n=agents.length;
+  if(n===0){canvas.innerHTML=`<div class="helper" style="text-align:center;padding:6px 0">No agents configured.</div>`;return;}
+  const mode = (n===1) ? 'single' : (executionMode==='workflow' ? 'workflow' : 'fleet');
+
+  const userNode='<div class="arch-node arch-edge"><div style="font-size:14px">👤</div><div>User</div></div>';
+  const respNode='<div class="arch-node arch-edge"><div style="font-size:14px">💬</div><div>Response</div></div>';
+  const arrow  ='<span class="arch-arrow">→</span>';
+
+  let row;
+  if(mode==='single'){
+    row=[userNode,arrow,_archAgentBox(agents[0],0),arrow,respNode].join('');
+  } else if(mode==='workflow'){
+    const stages=agents.map((a,i)=>_archAgentBox(a,i)).join(arrow);
+    row=[userNode,arrow,stages,arrow,respNode].join('');
+  } else { // fleet
+    const router=`<div class="arch-node arch-router" title="Fan-out: dispatches the same query to all agents in parallel."><div style="font-size:13px">⇆</div><div>Router</div></div>`;
+    const synth =`<div class="arch-node arch-synth"  title="Fan-in: combines parallel agent outputs into one response."><div style="font-size:13px">⤇</div><div>Synth</div></div>`;
+    const stack =`<div style="display:flex;flex-direction:column;gap:6px">${agents.map((a,i)=>_archAgentBox(a,i)).join('')}</div>`;
+    row=[userNode,arrow,router,arrow,stack,arrow,synth,arrow,respNode].join('');
+  }
+  canvas.innerHTML=`<div style="display:flex;align-items:center;gap:9px;justify-content:center;flex-wrap:wrap;min-width:max-content">${row}</div>`;
+
+  const extras=document.getElementById('arch-diagram-extras');
+  if(extras){
+    const retry = (typeof cfg==='function') ? (cfg('s-retry')||0) : 0;
+    const w = (typeof window!=='undefined' && window.workload) ? window.workload : {};
+    const casc = (w.verification && w.verification.cascade) || null;
+    const cascRate = casc && casc.escalate_rate;
+    const cascTo   = casc && casc.escalate_to;
+    extras.innerHTML=`<div class="arch-meta">
+      <span title="Retry rate: ${retry}% — failed API calls auto-reissued. Tune in Section A → Global parameters → Retry rate.">↺ retries (${retry}%)</span>
+      <span title="Cascade verification: ${cascRate?'when the primary verifier flags a claim, it re-checks with '+_archEscape(cascTo||'a secondary verifier')+' (~'+(cascRate*100).toFixed(0)+'% escalate).':'not configured — set up in Section D → Fact-checking → Cascade.'}">⇉ cascade verify ${cascRate?'('+(cascRate*100).toFixed(0)+'%)':'(off)'}</span>
+      <span title="Conditional branching: real fleets route by intent / confidence / quota (e.g. skip an expensive agent when the cheap one was confident). Not drawn — the diagram shows the canonical shape, not per-request routing decisions.">◇ conditional routing</span>
+      <span title="Failure / fallback: on errors or timeouts, fleets typically retry on a cheaper model or return a graceful degrade. Built in to most provider SDKs; not visualized here.">⚠ fallback</span>
+    </div>`;
+  }
+}
+function toggleArchDiagram(){
+  const body=document.getElementById('arch-diagram-body');
+  const caret=document.getElementById('arch-toggle-caret');
+  if(!body)return;
+  const open = body.style.display==='none';
+  body.style.display = open ? 'block' : 'none';
+  if(caret) caret.textContent = open ? '▾ hide diagram' : '▸ show diagram';
+  if(open) renderArchDiagram();
+}
+
 function renderAgents(){
   const targets=[['agent-list','sim'],['agent-settings-list','settings']];
   targets.forEach(([id,scope])=>{const el=document.getElementById(id);if(el)el.innerHTML=sim.agents.map(a=>agentCardHtml(a,scope)).join('');});
@@ -2173,6 +2261,10 @@ function setMode(mode){
   // rather than a stale topology badge.
   const wp = document.getElementById('panel-workflow');
   if(wp) wp.style.display = executionMode==='workflow' ? 'flex' : 'none';
+  // Re-render the reference-topology diagram if open — topology change
+  // is exactly when its layout flips between Single / Fleet / Workflow.
+  const archBody=document.getElementById('arch-diagram-body');
+  if(archBody && archBody.style.display!=='none' && typeof renderArchDiagram==='function') renderArchDiagram();
   try{onSlider();}catch(e){}
 }
 
