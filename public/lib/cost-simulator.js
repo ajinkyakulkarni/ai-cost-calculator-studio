@@ -1450,7 +1450,13 @@ function renderAgentSettingsSummary(){
   const mini=document.getElementById('agent-config-mini-summary');
   if(mini)mini.innerHTML=[['Agents',n,'var(--cyan)'],['Models',modelCount,'var(--purple)'],['p50 / session','$'+(sc.netCost||0).toFixed(5),'var(--green)'],['RAG agents',rag+'/'+n,'var(--rag)'],['Thinking agents',think+'/'+n,'var(--reason)'],['Guard agents',guard+'/'+n,'var(--guard)']].map(([l,v,c])=>`<div class="mcard"><div class="mlabel">${l}</div><div class="mval" style="font-size:13px;color:${c}">${v}</div></div>`).join('');
   const mb=document.getElementById('agent-config-mini-badge');if(mb)mb.textContent=n+' agents';
-  const eb=document.getElementById('agent-editor-badge');if(eb)eb.textContent=n+' agents';
+  // Header badge reads from the live tools_registry (Section B) so the
+  // tool count matches what users see there. tools_registry is an object
+  // keyed by tool-id; fall back to 0 if the workload isn't initialized
+  // yet (sim-only mode).
+  const tr = (typeof window!=='undefined' && window.workload) ? window.workload.tools_registry : null;
+  const toolCount = (tr && typeof tr==='object') ? Object.keys(tr).length : 0;
+  const eb=document.getElementById('agent-editor-badge');if(eb)eb.textContent=`${n} agents · ${toolCount} tools · ${rag} RAG`;
   const sb=document.getElementById('agent-count-badge');if(sb)sb.textContent=n;
 }
 function renderAgents(){

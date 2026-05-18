@@ -3768,36 +3768,12 @@ Hybrid is rarely cost-effective below 30% self-host share — fixed ops staff an
     <span style="margin-left:auto;font-size:9px;color:var(--dim)" id="cfg-mode-hint">Showing core knobs only — switch to Advanced for full control over reasoning, multimodal, prompt overhead, guardrails, etc.</span>
   </div>
 
-  <!-- TOPOLOGY — first decision in Section A. Drives whether per-agent
-       settings even matter, and what the cost engine bills for. Synced
-       via setMode() with the topbar dropdown. -->
-  <div class="panel" style="margin-bottom:8px">
-    <div class="ph">Topology <span class="badge" id="topology-current-badge">Multi-Agent Fleet</span></div>
-    <div style="padding:9px 12px;display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px">
-      <label class="topology-card" data-topology="single" onclick="setMode('single')" style="cursor:pointer;border:1px solid var(--b);border-radius:8px;padding:9px 11px;display:flex;flex-direction:column;gap:4px;transition:all .15s">
-        <span style="font-size:10px;font-weight:700;color:var(--cyan);letter-spacing:1px;text-transform:uppercase">Single agent</span>
-        <span style="font-size:9px;color:var(--dim);line-height:1.5">One LLM end-to-end. Simplest cost model. Good for chatbots, lookup, single-pipeline RAG.</span>
-      </label>
-      <label class="topology-card" data-topology="fleet" onclick="setMode('fleet')" style="cursor:pointer;border:1px solid var(--cyan);background:rgba(0,212,255,0.06);border-radius:8px;padding:9px 11px;display:flex;flex-direction:column;gap:4px;transition:all .15s">
-        <span style="font-size:10px;font-weight:700;color:var(--cyan);letter-spacing:1px;text-transform:uppercase">Fleet (parallel)</span>
-        <span style="font-size:9px;color:var(--dim);line-height:1.5">Several specialists run in parallel, results synthesized. Higher token cost; lower latency than workflow.</span>
-      </label>
-      <label class="topology-card" data-topology="workflow" onclick="setMode('workflow')" style="cursor:pointer;border:1px solid var(--b);border-radius:8px;padding:9px 11px;display:flex;flex-direction:column;gap:4px;transition:all .15s">
-        <span style="font-size:10px;font-weight:700;color:var(--cyan);letter-spacing:1px;text-transform:uppercase">Workflow (sequential)</span>
-        <span style="font-size:9px;color:var(--dim);line-height:1.5">Stages handoff sequentially. Cumulative-context cost grows with depth. Good for plan-then-execute pipelines.</span>
-      </label>
-    </div>
-  </div>
-
   <div style="display:grid;grid-template-columns:1fr;gap:8px">
 
     <!-- GLOBAL -->
     <div class="panel">
       <div class="ph">Global Parameters</div>
       <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:0 8px">
-        <div class="sr"><div class="sr-top"><span class="sr-label" data-tip="Number of LLM agents working on each query. 1 = single chat. 3-5 = orchestrated reasoning. 8+ = research-heavy multi-agent. Each agent runs its own context, so cost scales close to linearly with agent count.
-
-**Why it matters:** doubling agents roughly doubles per-query cost (each runs full sysprompt + RAG + reasoning). Going 1→3 on a $30K/mo deployment ≈ +$60K/mo. Validate that each extra agent adds answer quality, not just tokens.">Agents</span><span class="sr-val" id="v-agents" style="color:var(--cyan)">3</span></div><input type="range" min="1" max="8" value="3" step="1" id="s-agents" oninput="onSlider()" aria-label="Agents in fleet"><div class="sr-hint">Parallel reasoning agents</div></div>
         <div class="sr"><div class="sr-top"><span class="sr-label" data-tip="### Monthly active users (MAU)
 
 **In plain English:** how many different people use the app in a typical month. If your customer service site has 5,000 unique visitors who chat with the assistant during March, your March MAU is 5,000.
@@ -4018,9 +3994,38 @@ Set Cap above to match your template's actual emission size (40 for status-only,
 <div class="axiom-section-divider" id="axiom-h-agents">
   <span class="ix-num">C</span>
   <span class="ix-title">Agent fleet</span>
-  <span class="ix-desc">per-agent role, model, prompt, RAG, tools, guardrails — <span id="agent-editor-badge" style="color:var(--cyan);font-weight:700;letter-spacing:1px">0 agents</span></span>
+  <span class="ix-desc">per-agent role, model, prompt, RAG, tools, guardrails — <span id="agent-editor-badge" style="color:var(--cyan);font-weight:700;letter-spacing:1px">0 agents · 0 tools · 0 RAG</span></span>
 </div>
 <div id="tab-agents" class="tab-panel">
+
+  <!-- TOPOLOGY + AGENT COUNT — moved here from Section A on 2026-05-18.
+       These two knobs decide the SHAPE of the fleet (single agent vs.
+       parallel fleet vs. sequential workflow + how many agents), so they
+       belong with the per-agent editor, not with workload-wide globals
+       like MAU / cache / retries. -->
+  <div class="panel" style="margin-bottom:8px">
+    <div class="ph">Topology <span class="badge" id="topology-current-badge">Multi-Agent Fleet</span></div>
+    <div style="padding:9px 12px;display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px">
+      <label class="topology-card" data-topology="single" onclick="setMode('single')" style="cursor:pointer;border:1px solid var(--b);border-radius:8px;padding:9px 11px;display:flex;flex-direction:column;gap:4px;transition:all .15s">
+        <span style="font-size:10px;font-weight:700;color:var(--cyan);letter-spacing:1px;text-transform:uppercase">Single agent</span>
+        <span style="font-size:9px;color:var(--dim);line-height:1.5">One LLM end-to-end. Simplest cost model. Good for chatbots, lookup, single-pipeline RAG.</span>
+      </label>
+      <label class="topology-card" data-topology="fleet" onclick="setMode('fleet')" style="cursor:pointer;border:1px solid var(--cyan);background:rgba(0,212,255,0.06);border-radius:8px;padding:9px 11px;display:flex;flex-direction:column;gap:4px;transition:all .15s">
+        <span style="font-size:10px;font-weight:700;color:var(--cyan);letter-spacing:1px;text-transform:uppercase">Fleet (parallel)</span>
+        <span style="font-size:9px;color:var(--dim);line-height:1.5">Several specialists run in parallel, results synthesized. Higher token cost; lower latency than workflow.</span>
+      </label>
+      <label class="topology-card" data-topology="workflow" onclick="setMode('workflow')" style="cursor:pointer;border:1px solid var(--b);border-radius:8px;padding:9px 11px;display:flex;flex-direction:column;gap:4px;transition:all .15s">
+        <span style="font-size:10px;font-weight:700;color:var(--cyan);letter-spacing:1px;text-transform:uppercase">Workflow (sequential)</span>
+        <span style="font-size:9px;color:var(--dim);line-height:1.5">Stages handoff sequentially. Cumulative-context cost grows with depth. Good for plan-then-execute pipelines.</span>
+      </label>
+    </div>
+    <div style="padding:0 12px 10px">
+      <div class="sr" style="max-width:420px"><div class="sr-top"><span class="sr-label" data-tip="Number of LLM agents working on each query. 1 = single chat. 3-5 = orchestrated reasoning. 8+ = research-heavy multi-agent. Each agent runs its own context, so cost scales close to linearly with agent count.
+
+**Why it matters:** doubling agents roughly doubles per-query cost (each runs full sysprompt + RAG + reasoning). Going 1→3 on a $30K/mo deployment ≈ +$60K/mo. Validate that each extra agent adds answer quality, not just tokens.">Agents in fleet</span><span class="sr-val" id="v-agents" style="color:var(--cyan)">3</span></div><input type="range" min="1" max="8" value="3" step="1" id="s-agents" oninput="onSlider()" aria-label="Agents in fleet"><div class="sr-hint">Parallel reasoning agents — count syncs with the cards below</div></div>
+    </div>
+  </div>
+
   <div class="panel">
     <div style="padding:9px 11px;display:grid;grid-template-columns:260px 1fr;gap:8px">
       <div style="display:flex;flex-direction:column;gap:8px">

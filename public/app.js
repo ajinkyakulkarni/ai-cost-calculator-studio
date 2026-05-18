@@ -447,6 +447,15 @@
       renderToolsRegistry();
       renderPreview();
     });
+
+    // Keep the Section C header badge ("N agents · Y tools · M RAG") in
+    // sync with the tools_registry mutations above. Without this, the
+    // badge only refreshes when an agent is edited, so adding a tool in
+    // Section B leaves a stale count in Section C until the next agent
+    // interaction.
+    if (typeof window.renderAgentSettingsSummary === 'function') {
+      window.renderAgentSettingsSummary();
+    }
   }
 
   function renderShapesList() {
