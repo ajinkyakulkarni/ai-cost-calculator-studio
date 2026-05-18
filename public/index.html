@@ -4347,10 +4347,13 @@ Measure primary's confidence-score histogram across a labeled validation set; pi
 <div id="tab-cost" class="tab-panel">
   <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
     <div class="panel">
-      <div class="ph">Model Comparison <span class="badge-warn" id="cost-badge">planning estimate</span></div>
+      <div class="ph">Model Comparison <span class="badge-warn" id="cost-badge" title="Each row assumes EVERY agent in the fleet uses that one model — the uniform-fleet assumption. Used for procurement / sanity-check views, NOT for mixed-fleet swaps. For per-agent model swaps that update the headline pill, expand 'Compare models for this agent' inside each agent card (section C · Agent fleet).">whole-fleet uniform</span></div>
+      <div style="padding:8px 8px 0;font-size:11px;color:var(--ink-2,#3a4a62);line-height:1.5">
+        Each row assumes <strong>every agent in the fleet uses that one model</strong> — a uniform-fleet sanity check, useful for procurement docs. For realistic <strong>mixed-fleet</strong> swaps where you change one agent at a time and see the headline update, use the <em>Compare models for this agent</em> expander inside each agent card (section C · Agent fleet). Values are per-session ($/sess); multiply by sessions/month for the run-rate.
+      </div>
       <div style="padding:8px;overflow-x:auto">
         <table class="cost-tbl">
-          <thead><tr><th>Model</th><th>API total</th><th>RAG share</th><th>Reason share</th><th>Guard+</th><th>Tool tok</th><th>Tool fees+</th><th>Cache saved</th><th>Retry+</th><th>p50</th><th>p90</th><th>p99</th></tr></thead>
+          <thead><tr><th>Model</th><th>API total</th><th>RAG share</th><th>Reason share</th><th>Guard+</th><th>Tool tok</th><th>Tool fees+</th><th title="Informational — how much the prompt cache already saved you. NOT additive: API total is already net of this value.">Cache saved <em style="font-style:normal;color:var(--dim);font-size:9px">(info)</em></th><th>Retry+</th><th>p50</th><th>p90</th><th>p99</th></tr></thead>
           <tbody id="cost-table-body"></tbody>
         </table>
       </div>
