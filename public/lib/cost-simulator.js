@@ -2007,70 +2007,21 @@ function setTheme(t){
   else apply();
 })();
 
-/* ═══════ MULTI-MODEL ROUTING ═══════ */
-let routingSplit = Object.assign(Object.fromEntries(MK.map(k=>[k,0])), {'claude-haiku-4.5':60,'claude-sonnet-4.6':25,'claude-opus-4.7':5,'gpt-5.4':5,'gemini-3-flash-preview':5});
-
-function renderRoutingSliders(){
-  const container=document.getElementById('routing-sliders');
-  if(!container)return;
-  container.innerHTML=MK.map(k=>{
-    const m=MODELS[k];const v=routingSplit[k]||0;
-    return `<div style="display:flex;align-items:center;gap:7px">
-      <span style="font-size:9px;color:${m.color};width:144px;flex-shrink:0;font-weight:700">${(m.label||k).substring(0,24)}</span>
-      <input type="range" min="0" max="100" step="5" value="${v}" oninput="setRouting('${k}',this.value)" style="flex:1">
-      <span style="font-size:10px;font-weight:700;min-width:42px;text-align:right;color:${m.color}" id="route-${k.replace(/[^a-z0-9]/gi,'')}">${v}%</span>
-      <span style="font-size:8px;color:var(--dim);min-width:60px;text-align:right">${m.in}/${m.out}</span>
-    </div>`;
-  }).join('');
-  updateRoutingDisplay();
-}
-function setRouting(k,v){
-  routingSplit[k]=parseInt(v);
-  const safeK=k.replace(/[^a-z0-9]/gi,'');
-  const el=document.getElementById('route-'+safeK);if(el)el.textContent=v+'%';
-  updateRoutingDisplay();
-}
-function applyRouting(preset){
-  const empty=Object.fromEntries(MK.map(k=>[k,0]));
-  const presets={
-    triage:{...empty,'claude-haiku-4.5':70,'claude-sonnet-4.6':25,'claude-opus-4.7':5},
-    production:{...empty,'claude-haiku-4.5':85,'claude-sonnet-4.6':15},
-    hybrid:{...empty,'gemini-3-flash-preview':50,'claude-sonnet-4.6':30,'claude-opus-4.7':20},
-    conservative:{...empty,'claude-sonnet-4.6':100},
-    cost:{...empty,'gemini-2.5-flash-lite':65,'gemini-3.1-flash-lite-preview':20,'llama-3.3-70b-together':10,'claude-sonnet-4.6':5},
-    quality:{...empty,'claude-sonnet-4.6':55,'claude-opus-4.7':30,'gpt-5.5':15},
-  };
-  routingSplit=presets[preset]||routingSplit;
-  renderRoutingSliders();
-}
-function updateRoutingDisplay(){
-  const total=Object.values(routingSplit).reduce((s,v)=>s+v,0)||1;
-  let blended=0;
-  Object.entries(routingSplit).forEach(([k,pct])=>{
-    if(pct>0)blended+=(pct/total)*computeCost(k).netCost;
-  });
-  const baseline=computeCost('claude-sonnet-4.6').netCost;
-  const savings=((baseline-blended)/baseline*100);
-  const sess=cfg('s-sessions');
-  const rc=document.getElementById('routed-cost');if(rc)rc.textContent='$'+blended.toFixed(5);
-  const rs=document.getElementById('routed-savings');
-  if(rs){rs.textContent=(savings>0?'-':'+')+Math.abs(savings).toFixed(1)+'%';rs.style.color=savings>0?'var(--green)':'var(--red)';}
-  const rm=document.getElementById('routed-monthly');if(rm)rm.textContent='$'+Math.round(blended*sess*30).toLocaleString();
-  buildRoutingChart(blended,baseline);
-}
-function buildRoutingChart(routed,single){
-  const ctx=document.getElementById('chart-routing');if(!ctx)return;
-  if(charts.routing)charts.routing.destroy();
-  const sess=cfg('s-sessions');
-  charts.routing=new Chart(ctx.getContext('2d'),{
-    type:'bar',
-    data:{labels:['Single Sonnet','Multi-Model Routed'],
-      datasets:[{label:'Cost/sess',data:[single,routed],backgroundColor:['rgba(0,212,255,.5)','rgba(0,230,118,.5)'],borderColor:['rgba(0,212,255,.9)','rgba(0,230,118,.9)'],borderWidth:1}]},
-    options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},
-      scales:{x:{grid:{color:getChartColors().grid},ticks:{color:getChartColors().tick,font:{size:9}}},
-        y:{grid:{color:getChartColors().grid},ticks:{color:getChartColors().tick,font:{size:8},callback:v=>'$'+v.toFixed(4)}}}}
-  });
-}
+/* ═══════ MULTI-MODEL ROUTING — REMOVED 2026-05-18 ═══════
+ * Section G (axiom-h-routing / tab-routing) dropped from the UI on
+ * 2026-05-18 because random traffic-routing across models isn't a real
+ * production pattern (no one wants the same query to get different
+ * answers from different models). The per-agent "Compare models"
+ * expander inside each agent card (section C · Agent fleet) and the
+ * whole-fleet uniform table in section F · Comparisons together cover
+ * the actual decisions designers make.
+ *
+ * `routingSplit` is retained as an empty object purely so the legacy
+ * exportJSON shape (which references it) doesn't break for anyone with
+ * a saved JSON dump from the previous schema. The render / set /
+ * apply / update / chart functions are gone.
+ */
+let routingSplit = {};
 
 /* ═══════ JSON EXPORT ═══════ */
 function exportJSON(){
@@ -2152,7 +2103,7 @@ function resetDefaults(){
   TASK_TYPES[3].pct=15;TASK_TYPES[4].pct=10;TASK_TYPES[5].pct=10;
   // Rebuild
   buildAgents(true);buildUsers();renderAgents();renderTaskBars();
-  onSlider();renderRoutingSliders();
+  onSlider();
 }
 
 /* MODE: single agent / fleet (parallel) / workflow (sequential DAG)
@@ -2578,7 +2529,6 @@ document.getElementById('tab-config')?.classList.add('active');
 loadFromURL();
 setTimeout(()=>{
   onSlider();
-  renderRoutingSliders();
   // Eager init for renderers that used to fire on tab activation.
   if(typeof renderAudience==='function')renderAudience();
 },100);

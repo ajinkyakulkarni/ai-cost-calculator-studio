@@ -4386,57 +4386,9 @@ Measure primary's confidence-score histogram across a labeled validation set; pi
   <div class="warn-banner" id="warn-budget">Monthly projection exceeds budget. Tune cache rate, enable batch processing, or reduce RAG chunks.</div>
 </div>
 
-<!-- ═══ TAB: ROUTING ═══ -->
-<div class="axiom-section-divider" id="axiom-h-routing">
-  <span class="ix-num">G</span>
-  <span class="ix-title">Multi-model routing</span>
-  <span class="ix-desc">traffic-split presets and weighted blended cost</span>
-</div>
-<div id="tab-routing" class="tab-panel">
-  <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
-    <div class="panel">
-      <div class="ph">Multi-Model Routing — Traffic Split</div>
-      <div style="padding:9px 10px;display:flex;flex-direction:column;gap:8px">
-        <div style="font-size:8px;color:var(--dim);line-height:1.5">Production agentic systems route queries to different models based on complexity. Drag sliders to allocate traffic %. Cost is computed as weighted average across all routed models.</div>
-        <div id="routing-sliders" style="display:flex;flex-direction:column;gap:6px"></div>
-        <div style="margin-top:6px;padding:7px 9px;background:var(--card2);border:1px solid var(--b);border-radius:6px">
-          <div class="mlabel">Routed cost / session</div>
-          <div style="display:flex;justify-content:space-between;font-size:11px;font-weight:700;margin-top:3px">
-            <span>Weighted blended cost:</span>
-            <span style="color:var(--green)" id="routed-cost">$0.00000</span>
-          </div>
-          <div style="display:flex;justify-content:space-between;font-size:9px;margin-top:2px">
-            <span style="color:var(--dim)">vs single-model (Sonnet baseline):</span>
-            <span id="routed-savings" style="color:var(--green)">—</span>
-          </div>
-          <div style="display:flex;justify-content:space-between;font-size:9px;margin-top:2px">
-            <span style="color:var(--dim)">Monthly p50 (routed):</span>
-            <span id="routed-monthly" style="color:var(--cyan)">$0</span>
-          </div>
-        </div>
-      </div>
-    </div>
-    <div class="panel">
-      <div class="ph">Routing Pattern Presets</div>
-      <div style="padding:9px 10px;display:grid;grid-template-columns:1fr 1fr;gap:6px">
-        <button class="abtn" onclick="applyRouting('triage')">Triage 70/25/5<br><span style="font-size:7px;color:var(--dim);font-weight:400">Haiku -> Sonnet -> Opus</span></button>
-        <button class="abtn" onclick="applyRouting('production')">Production 90/10<br><span style="font-size:7px;color:var(--dim);font-weight:400">Haiku for most, Sonnet escalation</span></button>
-        <button class="abtn" onclick="applyRouting('hybrid')">Hybrid 50/30/20<br><span style="font-size:7px;color:var(--dim);font-weight:400">Gemini 3 Flash -> Sonnet -> Opus</span></button>
-        <button class="abtn" onclick="applyRouting('conservative')">All-Sonnet 100<br><span style="font-size:7px;color:var(--dim);font-weight:400">Single model baseline</span></button>
-        <button class="abtn" onclick="applyRouting('cost')">Cost-optimized<br><span style="font-size:7px;color:var(--dim);font-weight:400">Gemini Lite 65, Flash-Lite 20, Llama 10, Sonnet 5</span></button>
-        <button class="abtn" onclick="applyRouting('quality')">Quality-first<br><span style="font-size:7px;color:var(--dim);font-weight:400">Sonnet 55, Opus 30, GPT-5.5 15</span></button>
-      </div>
-      <div style="padding:0 10px 10px">
-        <div class="mlabel">Cost comparison: routing vs single-model</div>
-        <div style="position:relative;height:180px;margin-top:5px"><canvas id="chart-routing"></canvas></div>
-      </div>
-    </div>
-  </div>
-</div>
-
 <!-- ═══ TAB: SENSITIVITY ═══ -->
 <div class="axiom-section-divider" id="axiom-h-sensitivity">
-  <span class="ix-num">H</span>
+  <span class="ix-num">G</span>
   <span class="ix-title">Stress test</span>
   <span class="ix-desc">±50% sensitivity, tornado chart, what-if scenarios</span>
 </div>
