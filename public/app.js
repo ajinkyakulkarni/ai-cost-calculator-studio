@@ -1900,6 +1900,16 @@ Production teams measure their primary's confidence-score distribution; escalate
     // check only saw the LLM-bill portion and a $43M/mo headline could
     // silently exceed a $10K budget without firing the OVER badge.
     window.__lastHeadlineMonthly = headlineTotal;
+    // Cache per-agent monthly cost contributions + the opts that produced
+    // them, so the per-agent "Compare models" view in the agent card can
+    // re-run CostEngine with a swapped model and read the agent's new
+    // monthly contribution. Keeps the comparison aligned with whatever
+    // hosting/tier/cache/etc. the user has set in the live UI.
+    const _qTotal = (result.queries && result.queries.total) || 0;
+    window.__perAgentMonthly = (result.api && result.api.agent_breakdown)
+      ? result.api.agent_breakdown.map(b => (b && b.per_query_cost ? b.per_query_cost * _qTotal : 0))
+      : [];
+    window.__lastEngineOpts = opts;
 
     // Annual + 3-year TCO. The cost-over-time projection chart and the
     // topbar pill's /3yr supplement both need to compound the monthly

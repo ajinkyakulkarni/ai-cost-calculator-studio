@@ -1294,6 +1294,64 @@ function setAPVerify(id, k, v){
   if (k === 'verify_enabled') renderAgents();
   refreshAfterAgentEdit();
 }
+// Per-agent "Compare models" expandable. Collapsed by default to avoid
+// UI noise. When expanded, computes monthly cost for this agent across
+// every model in the workload's rate card (or engine default), sorted
+// cheapest-first, with delta vs current model highlighted. Lets the
+// designer see "if my Reporter swapped Opus → Sonnet, save $X/mo"
+// without leaving the agent card.
+function agentModelCompareHtml(a, scope) {
+  const open = !!a._modelCompareOpen;
+  const headerBtn = `<button type="button" onclick="toggleAgentModelCompare(${a.id});event.stopPropagation();" style="background:none;border:none;cursor:pointer;color:var(--ink-2,#3a4a62);font-size:10.5px;letter-spacing:0.04em;text-transform:uppercase;font-weight:700;padding:0;display:flex;align-items:center;gap:4px;margin-top:8px">
+    <span style="display:inline-block;width:9px;font-family:var(--mono);${open ? 'transform:rotate(90deg)' : ''}">▶</span>
+    Compare models for this agent
+    <span style="font-size:9px;color:var(--dim);text-transform:none;letter-spacing:0;font-weight:400">— see monthly cost if this agent used a different model</span>
+  </button>`;
+  if (!open) return headerBtn;
+  // Collect candidate models: prefer workload.rate_cards keys (which include
+  // any overrides), fall back to engine DEFAULT_RATE_CARDS.
+  const cardSrc = (window.workload && window.workload.rate_cards && Object.keys(window.workload.rate_cards).length > 0)
+    ? window.workload.rate_cards
+    : ((window.CostEngine && window.CostEngine.DEFAULT_RATE_CARDS) || {});
+  const modelKeys = Object.keys(cardSrc);
+  if (modelKeys.length === 0) return headerBtn + '<div style="font-size:11px;color:var(--ink-2,#3a4a62);padding:6px 0">(no rate cards loaded yet)</div>';
+  const currentMo = _agentCurrentMonthly(a.id);
+  const rows = modelKeys.map(k => {
+    const mo = _agentMonthlyUnderModel(a.id, k);
+    return { model: k, monthly: mo, isCurrent: k === a.model };
+  }).filter(r => r.monthly != null).sort((x, y) => x.monthly - y.monthly);
+  if (rows.length === 0) return headerBtn + '<div style="font-size:11px;color:var(--ink-2,#3a4a62);padding:6px 0">(unable to compute model comparison)</div>';
+  const fmt$ = (n) => '$' + Math.round(n).toLocaleString();
+  const fmtDelta = (delta, base) => {
+    if (base <= 0) return '—';
+    const pct = (delta / base) * 100;
+    const sign = delta >= 0 ? '+' : '−';
+    const color = delta < 0 ? '#1b8a4c' : (delta > 0 ? '#c62828' : 'var(--ink-2,#3a4a62)');
+    return `<span style="color:${color};font-weight:600">${sign}$${Math.abs(Math.round(delta)).toLocaleString()} (${sign}${Math.abs(pct).toFixed(0)}%)</span>`;
+  };
+  const tableRows = rows.map(r => {
+    const delta = (currentMo != null) ? (r.monthly - currentMo) : 0;
+    const rowBg = r.isCurrent ? 'background:rgba(0,200,120,.08);font-weight:700' : '';
+    const tag = r.isCurrent ? ' <span style="font-size:9px;color:#1b8a4c;background:rgba(0,200,120,.15);padding:0 5px;border-radius:8px;letter-spacing:.04em">CURRENT</span>' : '';
+    const switchBtn = r.isCurrent ? '' : `<button type="button" onclick="setAM(${a.id},'${r.model}');event.stopPropagation();" title="Switch this agent to ${r.model}" style="background:transparent;border:1px solid var(--cyan,#0c8db3);color:var(--cyan,#0c8db3);font-size:9px;padding:1px 6px;border-radius:3px;cursor:pointer;font-weight:600">switch</button>`;
+    return `<tr style="${rowBg}">
+      <td style="padding:3px 6px;font-size:11px;font-family:var(--mono)">${r.model}${tag}</td>
+      <td style="padding:3px 6px;font-size:11px;text-align:right;font-family:var(--mono)">${fmt$(r.monthly)}/mo</td>
+      <td style="padding:3px 6px;font-size:11px;text-align:right">${r.isCurrent ? '—' : fmtDelta(delta, currentMo || 0)}</td>
+      <td style="padding:3px 6px;text-align:right">${switchBtn}</td>
+    </tr>`;
+  }).join('');
+  return headerBtn + `<div style="margin-top:6px;padding:6px 8px;background:rgba(0,0,0,.02);border:1px solid var(--rule);border-radius:5px">
+    <div style="font-size:10px;color:var(--dim);margin-bottom:4px;line-height:1.5">Monthly cost for THIS agent only, holding all other agents and settings constant. Verification, RAG, tool fees stay attached as-is. <strong>Cheaper ≠ better</strong> — verify quality on your own eval set before switching.</div>
+    <table style="width:100%;border-collapse:collapse"><tbody>${tableRows}</tbody></table>
+  </div>`;
+}
+function toggleAgentModelCompare(id) {
+  const a = sim.agents.find(x => x.id === id);
+  if (!a) return;
+  a._modelCompareOpen = !a._modelCompareOpen;
+  renderAgents();
+}
 function agentCardHtml(a,scope){
   const m=MODELS[a.model]||MODELS['claude-sonnet-4.6'];
   const ctxP=Math.min(100,Math.round((a.ctxUsed||0)/m.ctx*100));
@@ -1321,9 +1379,10 @@ function agentCardHtml(a,scope){
         </div>
         <div style="font-size:11px;color:${m.color};margin-top:2px">${modelLabel(a.model)} · ${provider.label}</div>
         <div style="height:3px;background:var(--track);border-radius:2px;margin:4px 0"><div style="width:${a.utilPct||0}%;height:100%;background:${a.col}88;border-radius:2px;transition:width .5s" id="ab-${scope}-${a.id}"></div></div>
-        <div style="display:flex;gap:4px;margin-top:3px;flex-wrap:wrap">
+        <div style="display:flex;gap:4px;margin-top:3px;flex-wrap:wrap;align-items:center">
           ${a.ragOn?'<span class="badge-rag">RAG</span>':''}${a.reasonOn?'<span class="badge-reason">THINK</span>':''}${a.guardOn?'<span class="badge-guard">GUARD</span>':''}${a.toolsOn?'<span class="badge">TOOLS</span>':''}
           <span class="badge" style="background:rgba(124,77,255,.1);color:var(--purple);border-color:rgba(124,77,255,.2)">×${(a.turnsShare||1).toFixed(1)} turns</span>
+          ${(() => { const mo = _agentCurrentMonthly(a.id); if (mo == null) return ''; const fleetTotal = (window.__perAgentMonthly||[]).reduce((s,v)=>s+(v||0),0); const pct = fleetTotal>0 ? Math.round(100*mo/fleetTotal) : 0; return `<span class="badge" title="This agent's monthly LLM-bill contribution (matches headline pill accounting). Pct = share of total per-agent LLM cost." style="background:rgba(0,200,120,.1);color:#1b8a4c;border-color:rgba(0,200,120,.25);font-weight:700">$${Math.round(mo).toLocaleString()}/mo · ${pct}%</span>`; })()}
         </div>
         <div style="font-size:10px;color:var(--ink-2,#3a4a62);margin-top:3px" id="as-${scope}-${a.id}">in:${(a.realIn||0).toLocaleString()} · ctx:${ctxP}%</div>
       </div>
@@ -1335,6 +1394,7 @@ function agentCardHtml(a,scope){
         <div><div id="alb-provider-${a.id}" style="font-size:11px;color:var(--ink-2,#3a4a62);margin-bottom:3px">Provider</div><select aria-labelledby="alb-provider-${a.id}" onchange="setAP(${a.id},'provider',this.value)" style="width:100%;font-size:12px;padding:3px 5px">${providerSelect}</select></div>
         <div><div id="alb-taskbias-${a.id}" style="font-size:11px;color:var(--ink-2,#3a4a62);margin-bottom:3px">Task bias</div>${taskBiasSelect(a, 'alb-taskbias-' + a.id)}</div>
       </div>
+      ${agentModelCompareHtml(a, scope)}
       <div style="font-size:10px;color:var(--ink-2,#3a4a62);margin-bottom:7px">${provider.note}${provider.fixed_mo>0?' · $'+provider.fixed_mo.toLocaleString()+'/mo fixed':''}</div>
       <div class="agent-edit-grid">
         ${agentRangeCtl(a,scope,'turnsShare','Turn share x',0.2,3,0.1,'#00d4ff','float')}
@@ -1553,6 +1613,45 @@ function _wlAgentForSimId(simId) {
   if (idx < 0) return null;
   if (!window.workload || !Array.isArray(window.workload.agents)) return null;
   return window.workload.agents[idx] || null;
+}
+function _wlAgentIdxForSimId(simId) {
+  return sim.agents.findIndex(x => x.id === simId);
+}
+
+// Per-agent monthly cost lookup (populated by app.js renderPreview after
+// each CostEngine.compute). Returns the agent's monthly $ contribution
+// to the LLM bill, matching the headline pill's accounting.
+function _agentCurrentMonthly(simId) {
+  const idx = _wlAgentIdxForSimId(simId);
+  if (idx < 0) return null;
+  const arr = window.__perAgentMonthly;
+  if (!Array.isArray(arr)) return null;
+  return arr[idx] != null ? arr[idx] : null;
+}
+
+// Per-agent model-swap calculator. Clones the live workload, swaps
+// this one agent's model to `modelKey`, re-runs the engine with the
+// same opts the headline used, and reads the swapped agent's monthly
+// contribution from the new agent_breakdown. Used by the agent card's
+// "Compare models" table.
+function _agentMonthlyUnderModel(simId, modelKey) {
+  const idx = _wlAgentIdxForSimId(simId);
+  if (idx < 0) return null;
+  if (!window.workload || !window.workload.agents || !window.workload.agents[idx]) return null;
+  if (!window.CostEngine || typeof window.CostEngine.compute !== 'function') return null;
+  // Deep-clone just the agents array (rest of workload is shared by reference
+  // for speed; the engine doesn't mutate, but a clone of the agent is needed
+  // so we don't write through to the live workload).
+  const w = Object.assign({}, window.workload);
+  w.agents = window.workload.agents.map((a, i) => i === idx ? Object.assign({}, a, { model: modelKey }) : a);
+  const opts = window.__lastEngineOpts || { hosting: 'api' };
+  try {
+    const r = window.CostEngine.compute(w, opts);
+    const queries = (r.queries && r.queries.total) || 0;
+    const entry = r.api && r.api.agent_breakdown && r.api.agent_breakdown[idx];
+    if (!entry) return null;
+    return (entry.per_query_cost || 0) * queries;
+  } catch (e) { return null; }
 }
 // Per-agent enabled-tools toggle. Mirrors the agent.enabled_tools shape
 // expected by app.js renderPreview (provider tool fees code).
