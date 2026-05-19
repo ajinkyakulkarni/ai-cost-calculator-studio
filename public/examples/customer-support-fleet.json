@@ -1,19 +1,18 @@
 {
   "schemaVersion": "1.0",
   "deployment": {
-    "name": "3-Agent Customer Support Fleet (Triage → KB-Lookup → Responder)",
-    "agency": "(bench-validated workload — production support-bot pattern)",
+    "name": "3-Agent Customer Support Fleet (Triage \u2192 KB-Lookup \u2192 Responder)",
+    "agency": "(bench-validated workload \u2014 production support-bot pattern)",
     "description": "Three-agent customer-support pattern derived from Decagon / Ada / Sierra public talks and the classic 3-tier support-agent architecture. A cheap fast Triage agent routes incoming queries; a RAG-heavy KB-Lookup agent retrieves grounded evidence; a longer-context Responder agent composes the user-facing reply with inline MiniCheck verification. Two segments (authenticated customers + anonymous visitors) reflect the canonical support-traffic shape: anon spikes drive volume, auth multi-turn drives token cost. Use this preset to size API spend for a production support deployment in the 25K-MAU range.",
     "publicFacing": true,
     "fedrampTier": "none"
   },
-
   "anchor_query": {
     "input_tokens": 3000,
     "output_tokens": 800,
     "cache_rate_baseline": 0.65,
     "session_baseline_turns": 4,
-    "example": "I was charged twice for my October subscription — can you refund the duplicate and confirm my plan?",
+    "example": "I was charged twice for my October subscription \u2014 can you refund the duplicate and confirm my plan?",
     "_calibration": {
       "source": "Pattern derived from Decagon / Ada / Sierra public talks + classic 3-tier support agent architecture; specific token sizes are estimates",
       "confidence": "estimated",
@@ -21,13 +20,12 @@
       "notes": "Token sizes (Triage 1.5K in / 200 out, KB-Lookup 3K in / 800 out, Responder 4.5K in / 1.5K out) are reasonable midpoints for production support fleets. KB-Lookup's 3-5 file_search calls/query is on the higher end and reflects a deployment with non-trivial knowledge-base depth. Responder runs MiniCheck inline (single-call NLI verifier) at 100% coverage on its output."
     }
   },
-
   "tools_registry": {
     "web_search": {
       "label": "Web Search",
-      "description": "Provider-managed web search — used by Responder for current-event / breaking-issue lookups.",
+      "description": "Provider-managed web search \u2014 used by Responder for current-event / breaking-issue lookups.",
       "cost_shape": "per_call",
-      "rate_usd": 0.010,
+      "rate_usd": 0.01,
       "schema_tokens": 120,
       "result_tokens_avg": 800,
       "return_shape": "templated",
@@ -39,7 +37,7 @@
     },
     "file_search": {
       "label": "File Search (knowledge base)",
-      "description": "Provider-managed RAG over support KB articles. KB-Lookup hits this 3-5× per query.",
+      "description": "Provider-managed RAG over support KB articles. KB-Lookup hits this 3-5\u00d7 per query.",
       "cost_shape": "per_call",
       "rate_usd": 0.0025,
       "schema_tokens": 80,
@@ -53,7 +51,7 @@
     },
     "crm_lookup": {
       "label": "CRM lookup (MCP)",
-      "description": "Custom MCP server — pulls account context (plan, recent invoices, ticket history) for the Triage and KB-Lookup agents.",
+      "description": "Custom MCP server \u2014 pulls account context (plan, recent invoices, ticket history) for the Triage and KB-Lookup agents.",
       "cost_shape": "per_call",
       "rate_usd": 0,
       "schema_tokens": 150,
@@ -67,7 +65,7 @@
     },
     "ticketing_mcp": {
       "label": "Ticketing system (MCP)",
-      "description": "Custom MCP server — creates / updates support tickets when the Responder escalates.",
+      "description": "Custom MCP server \u2014 creates / updates support tickets when the Responder escalates.",
       "cost_shape": "per_call",
       "rate_usd": 0,
       "schema_tokens": 120,
@@ -80,7 +78,6 @@
       "builtin": false
     }
   },
-
   "agents": [
     {
       "id": "triage",
@@ -98,8 +95,11 @@
       "activation_rate": 1.0,
       "verify_enabled": false,
       "enabled_tools": {
-        "crm_lookup": { "calls_per_query": 1 }
-      }
+        "crm_lookup": {
+          "calls_per_query": 1
+        }
+      },
+      "task_bias": "classify"
     },
     {
       "id": "kb_lookup",
@@ -110,16 +110,21 @@
       "model": "claude-sonnet-4.6",
       "cache_eligible": true,
       "hosting": "api",
-      "description": "Pulls grounded evidence from the support KB via file_search (3-5×/query) and account state via CRM. Output is a structured evidence packet for the Responder.",
+      "description": "Pulls grounded evidence from the support KB via file_search (3-5\u00d7/query) and account state via CRM. Output is a structured evidence packet for the Responder.",
       "sysprompt_tokens": 1500,
       "iamsg_tokens": 100,
       "calls_per_turn_multiplier": 1.0,
       "activation_rate": 0.85,
       "verify_enabled": false,
       "enabled_tools": {
-        "file_search": { "calls_per_query": 4 },
-        "crm_lookup":  { "calls_per_query": 1 }
-      }
+        "file_search": {
+          "calls_per_query": 4
+        },
+        "crm_lookup": {
+          "calls_per_query": 1
+        }
+      },
+      "task_bias": "rag"
     },
     {
       "id": "responder",
@@ -139,26 +144,53 @@
       "verify_coverage": 1.0,
       "verifier_override": "minicheck",
       "enabled_tools": {
-        "web_search":    { "calls_per_query": 0.3 },
-        "ticketing_mcp": { "calls_per_query": 0.2 }
-      }
+        "web_search": {
+          "calls_per_query": 0.3
+        },
+        "ticketing_mcp": {
+          "calls_per_query": 0.2
+        }
+      },
+      "task_bias": "summary"
     }
   ],
-
   "shapes": {
-    "full":     { "input_factor": 1.00, "output_factor": 1.00, "cache_eligible": true,  "description": "Standard support query (KB-grounded answer)" },
-    "lookup":   { "input_factor": 0.40, "output_factor": 0.45, "cache_eligible": true,  "description": "Short factual lookup (status, hours, account)" },
-    "escalate": { "input_factor": 0.60, "output_factor": 0.50, "cache_eligible": true,  "description": "Routed to human — Responder writes a brief handoff" },
-    "refusal":  { "input_factor": 0.10, "output_factor": 0.12, "cache_eligible": false, "description": "Out-of-scope / abuse refusal" }
-  },
-
-  "mix": {
-    "default": {
-      "label": "Support mix (50% full · 30% lookup · 12% escalate · 8% refusal)",
-      "weights": { "full": 0.50, "lookup": 0.30, "escalate": 0.12, "refusal": 0.08 }
+    "full": {
+      "input_factor": 1.0,
+      "output_factor": 1.0,
+      "cache_eligible": true,
+      "description": "Standard support query (KB-grounded answer)"
+    },
+    "lookup": {
+      "input_factor": 0.4,
+      "output_factor": 0.45,
+      "cache_eligible": true,
+      "description": "Short factual lookup (status, hours, account)"
+    },
+    "escalate": {
+      "input_factor": 0.6,
+      "output_factor": 0.5,
+      "cache_eligible": true,
+      "description": "Routed to human \u2014 Responder writes a brief handoff"
+    },
+    "refusal": {
+      "input_factor": 0.1,
+      "output_factor": 0.12,
+      "cache_eligible": false,
+      "description": "Out-of-scope / abuse refusal"
     }
   },
-
+  "mix": {
+    "default": {
+      "label": "Support mix (50% full \u00b7 30% lookup \u00b7 12% escalate \u00b7 8% refusal)",
+      "weights": {
+        "full": 0.5,
+        "lookup": 0.3,
+        "escalate": 0.12,
+        "refusal": 0.08
+      }
+    }
+  },
   "segments": [
     {
       "id": "auth_customers",
@@ -176,36 +208,56 @@
       "sessions_per_day": 0.5,
       "questions_per_session": 2,
       "applyBotFactor": true,
-      "description": "Anonymous spike traffic from the public-facing help widget. Short sessions, cold cache (1.5× bot factor applied). Volume is bursty but each contact is small."
+      "description": "Anonymous spike traffic from the public-facing help widget. Short sessions, cold cache (1.5\u00d7 bot factor applied). Volume is bursty but each contact is small."
     }
   ],
-
   "verification": {
     "enabled": true,
     "coverage": 1.0,
     "atoms_per_response": 4,
     "variant": "minicheck",
-    "atomizer_tokens": { "input": 1500, "output": 400 },
-    "reviser_tokens": { "input": 500, "output": 30 },
-    "nli_tokens": { "input": 1200, "output": 20 },
+    "atomizer_tokens": {
+      "input": 1500,
+      "output": 400
+    },
+    "reviser_tokens": {
+      "input": 500,
+      "output": 30
+    },
+    "nli_tokens": {
+      "input": 1200,
+      "output": 20
+    },
     "retrieval": "wikipedia",
     "nli_hosting": "api",
     "service_pod_monthly": 0
   },
-
-  "rate_limit": { "strategy": "edge", "monthly_cost": 25, "bot_ceiling": 2.0 },
-  "daily_cap": { "enabled": false, "amount_usd": 0, "burst_days": 0, "burst_factor": 1 },
-
+  "rate_limit": {
+    "strategy": "edge",
+    "monthly_cost": 25,
+    "bot_ceiling": 2.0
+  },
+  "daily_cap": {
+    "enabled": false,
+    "amount_usd": 0,
+    "burst_days": 0,
+    "burst_factor": 1
+  },
   "infrastructure": {
-    "Support platform · Zendesk Sunshine": 850,
-    "Webhook router · Fly.io": { "rate": 0.04, "per": "per_session" },
-    "KB vector store · Pinecone": 480,
-    "CRM connector · per-MAU SaaS": { "rate": 0.05, "per": "per_mau" },
-    "Observability · Datadog": 600,
-    "Audit log storage · S3": 90,
+    "Support platform \u00b7 Zendesk Sunshine": 850,
+    "Webhook router \u00b7 Fly.io": {
+      "rate": 0.04,
+      "per": "per_session"
+    },
+    "KB vector store \u00b7 Pinecone": 480,
+    "CRM connector \u00b7 per-MAU SaaS": {
+      "rate": 0.05,
+      "per": "per_mau"
+    },
+    "Observability \u00b7 Datadog": 600,
+    "Audit log storage \u00b7 S3": 90,
     "Postgres (session state)": 220
   },
-
   "defaults": {
     "model": "claude-sonnet-4.6",
     "tier": "standard",
@@ -214,8 +266,12 @@
     "hosting": "api",
     "cost_mode": "realistic"
   },
-
-  "tier_multipliers": { "standard": 1, "flex": 0.5, "batch": 0.5, "priority": 2.5 },
+  "tier_multipliers": {
+    "standard": 1,
+    "flex": 0.5,
+    "batch": 0.5,
+    "priority": 2.5
+  },
   "rate_cards": {},
   "self_host": {
     "gpu_options": {},
@@ -224,16 +280,66 @@
     "min_replicas": 2,
     "tokens_per_query_default": 2000,
     "cost_modes": {
-      "optimistic": { "ops_monthly": 350, "fte_monthly": 2500, "setup_amortized": 0, "throughput_derate": 1, "discount_1yr": 0.4, "discount_3yr": 0.6 },
-      "realistic":  { "ops_monthly": 1800, "fte_monthly": 8000, "setup_amortized": 8333, "throughput_derate": 0.75, "discount_1yr": 0.33, "discount_3yr": 0.55 }
+      "optimistic": {
+        "ops_monthly": 350,
+        "fte_monthly": 2500,
+        "setup_amortized": 0,
+        "throughput_derate": 1,
+        "discount_1yr": 0.4,
+        "discount_3yr": 0.6
+      },
+      "realistic": {
+        "ops_monthly": 1800,
+        "fte_monthly": 8000,
+        "setup_amortized": 8333,
+        "throughput_derate": 0.75,
+        "discount_1yr": 0.33,
+        "discount_3yr": 0.55
+      }
     }
   },
-
-  "federal": { "fedramp_tier": "none", "multi_region": "single", "ato_monthly": 0, "egress_gb_per_query": 0, "egress_cost_per_gb": 0, "audit_log_kb_per_query": 0, "audit_retention_years": 0, "audit_storage_per_gb_month": 0, "retrieval_infra_monthly": 0, "pii_redaction_per_million_tokens": 0 },
-  "compliance": { "ato_tier": "none", "upfront_amortization_months": 36 },
-  "reservations": { "enabled": false, "type": "none", "units": 4 },
-  "embedding": { "enabled": false, "model": "text-embedding-3-small", "corpus_size_tokens": 50000000, "reembed_frequency_months": 6, "query_embedding_tokens": 8 },
-  "personnel": { "enabled": false, "roles": [] },
-  "risk": { "enabled": false },
-  "agent_engineering": { "enabled": false, "roles": [], "duration_months": 4, "amortization_months": 36, "helper_agent_monthly": 400, "maintenance_interval_months": 6, "maintenance_hours_per_session": 40 }
+  "federal": {
+    "fedramp_tier": "none",
+    "multi_region": "single",
+    "ato_monthly": 0,
+    "egress_gb_per_query": 0,
+    "egress_cost_per_gb": 0,
+    "audit_log_kb_per_query": 0,
+    "audit_retention_years": 0,
+    "audit_storage_per_gb_month": 0,
+    "retrieval_infra_monthly": 0,
+    "pii_redaction_per_million_tokens": 0
+  },
+  "compliance": {
+    "ato_tier": "none",
+    "upfront_amortization_months": 36
+  },
+  "reservations": {
+    "enabled": false,
+    "type": "none",
+    "units": 4
+  },
+  "embedding": {
+    "enabled": false,
+    "model": "text-embedding-3-small",
+    "corpus_size_tokens": 50000000,
+    "reembed_frequency_months": 6,
+    "query_embedding_tokens": 8
+  },
+  "personnel": {
+    "enabled": false,
+    "roles": []
+  },
+  "risk": {
+    "enabled": false
+  },
+  "agent_engineering": {
+    "enabled": false,
+    "roles": [],
+    "duration_months": 4,
+    "amortization_months": 36,
+    "helper_agent_monthly": 400,
+    "maintenance_interval_months": 6,
+    "maintenance_hours_per_session": 40
+  }
 }

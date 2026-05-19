@@ -73,11 +73,14 @@ const EXPECTED = {
   // 3-agent customer-support fleet — 20K auth + 5K anon MAU, mixed
   // sessions/day reflecting auth multi-turn + anon spike patterns.
   // Triage on gpt-5-mini, KB-Lookup + Responder on claude-sonnet-4.6
-  // with KB-Lookup activation_rate 0.85. Computed 2026-05-17 against
-  // commit 9a4b45c. 465K queries × ~$0.0460/query ≈ $21,369.96.
+  // with KB-Lookup activation_rate 0.85. Now exercises per-agent
+  // task_bias (Triage=classify, KB-Lookup=rag, Responder=summary) —
+  // realistic character per agent: Triage emits short labels (~0.72×
+  // output), KB-Lookup retrieves+grounds (~0.90× output), Responder
+  // writes a paragraph reply (~0.83× output). Re-baked 2026-05-18.
   'customer-support-fleet': {
-    monthly_with_retry: 21369.96,
-    note: '20K auth + 5K anon MAU; 3-agent Triage/KB-Lookup/Responder with MiniCheck verifier on Responder.',
+    monthly_with_retry: 18474.23,
+    note: '20K auth + 5K anon MAU; 3-agent Triage(classify)/KB-Lookup(rag)/Responder(summary) with MiniCheck verifier. Per-agent task_bias exercise.',
   },
   // Voice support agent (Sierra / Bland-class) — 50K customers, ~4%
   // call rate, 12-turn avg call → 720K voice turns/mo. One LLM call
