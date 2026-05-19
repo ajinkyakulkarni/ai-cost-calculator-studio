@@ -3224,10 +3224,15 @@ body.theme-tactical main .section .row > div > label {
    of each major section so first-time readers don't have to ask. Uses
    a cyan left-rail to set it apart from sliders and from the brown-ish
    procurement-side prose. Auto-themes via CSS variables. */
-.section-helper{margin:8px 0 14px;padding:10px 13px;background:rgba(0,212,255,0.045);border-left:3px solid rgba(0,212,255,0.5);border-radius:0 6px 6px 0;font-size:11px;line-height:1.55;color:var(--text-secondary,#9ab)}
+/* --cyan is only defined inside .simulator-pane; procurement sections
+   live outside that scope, so var(--cyan) without a fallback resolved
+   to the inherited gray text color. Same trick for --text-secondary
+   (also simulator-scoped). Fallbacks chosen to match the procurement
+   pane's blue accent + readable body color. */
+.section-helper{margin:8px 0 14px;padding:10px 13px;background:rgba(0,119,204,0.05);border-left:3px solid rgba(0,119,204,0.45);border-radius:0 6px 6px 0;font-size:11px;line-height:1.55;color:var(--text-secondary,#475569)}
 .section-helper p{margin:0 0 6px}
 .section-helper p:last-child{margin:0}
-.section-helper strong{color:var(--cyan);font-weight:700;letter-spacing:.2px}
+.section-helper strong{color:var(--cyan,#0077cc);font-weight:700;letter-spacing:.2px}
 .section-helper em{font-style:italic;color:inherit;opacity:.85}
 /* In the simulator pane the panel backgrounds are darker so we lighten
    the rail and bump the text color for legibility. */
@@ -3792,10 +3797,12 @@ Hybrid is rarely cost-effective below 30% self-host share — fixed ops staff an
 
   <div style="display:grid;grid-template-columns:1fr;gap:8px">
 
-    <!-- GLOBAL -->
+    <!-- GLOBAL — panel header removed 2026-05-18: the axiom-h-config
+         section divider above already announces "Global parameters", so
+         a second cyan "GLOBAL PARAMETERS" .ph immediately below was a
+         pure duplicate (3 stacked cyan elements competing for attention). -->
     <div class="panel">
-      <div class="ph">Global Parameters</div>
-      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:0 8px">
+      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:0 8px;padding-top:8px">
         <div class="sr"><div class="sr-top"><span class="sr-label" data-tip="### Monthly active users (MAU)
 
 **In plain English:** how many different people use the app in a typical month. If your customer service site has 5,000 unique visitors who chat with the assistant during March, your March MAU is 5,000.
@@ -3977,12 +3984,16 @@ How agents coordinate, billed as extra input tokens per turn per agent.
   <p><strong>How to interpret the results.</strong> Add only the tools your fleet actually calls; each one is wired up in Section C per-agent (via <em>enabled_tools</em>). The "fees + tokens" badge in the cost ledger (Section E) breaks out tool-fee impact separately from LLM-token impact, so you can see which line is hurting. If you're seeing surprise costs, this is the second place to check after Section A.</p>
 </div>
 <div id="tab-tools" class="tab-panel">
+    <!-- Panel header "Tool routing & rates" removed 2026-05-18: the
+         axiom-h-tools section divider above already names this section
+         "Tools registry & rates"; the inner .ph was both a duplicate
+         AND a naming mismatch (different title from the divider). The
+         FEES badge was informational; dropped alongside. The cyan info
+         strip explaining "per-agent stuff moved into agent cards" also
+         removed — that context now lives in the 3-part section-helper
+         above. -->
     <div class="panel">
-      <div class="ph">Tool routing &amp; rates <span class="badge-guard">FEES</span></div>
-      <div style="flex:1;overflow-y:auto;padding:8px 10px;display:flex;flex-direction:column;gap:8px">
-        <div style="padding:6px 8px;background:rgba(0,212,255,0.05);border:1px solid rgba(0,212,255,0.18);border-radius:5px;font-size:9px;color:var(--dim);line-height:1.5">
-          Per-agent Tool / RAG / Reasoning / Guardrail tokens, schema sizes, and counts now live <strong>inside each agent card</strong>. This panel keeps workload-level switches: how tool returns flow back into context, and the provider-fee rate card.
-        </div>
+      <div style="flex:1;overflow-y:auto;padding:10px;display:flex;flex-direction:column;gap:8px">
         <div>
           <div class="mlabel">Tool return shape <span title="Highest-leverage cost knob in tool-heavy agents — see paper §3.3 (templated vs freeform = up to 8× cost difference at the same MAU)" style="color:#f59e00;cursor:help;font-size:10px">✨</span> <span style="font-size:7px;color:var(--dim);font-weight:400">(default — per-tool RETURN SHAPE in the Tools registry overrides this)</span> <span id="tool-return-shape-override-badge" style="display:none;font-size:8px;color:#f59e00;background:rgba(245,158,0,.12);border:1px solid rgba(245,158,0,.3);padding:0 5px;border-radius:8px;font-weight:600;margin-left:6px"></span></div>
           <div style="margin-top:6px;padding:6px 8px;border:1px solid var(--b);border-radius:5px;display:flex;align-items:center;gap:8px;font-size:11px;flex-wrap:wrap">
@@ -4005,15 +4016,22 @@ Set Cap above to match your template's actual emission size (40 for status-only,
         </div>
         <div>
           <div class="mlabel">Provider rate card</div>
-          <div style="margin-top:5px;padding:6px 8px;background:rgba(206,147,216,.06);border:1px solid rgba(206,147,216,.18);border-radius:5px;font-size:9px;color:var(--dim);line-height:1.6">
-            Provider tool fees/sess: <span id="tool-fee-cost" style="color:var(--purple);font-weight:700">$0</span> · Per-agent web search / file search / container counts live inside each agent card; rates are looked up by the agent's provider+family (Anthropic web $10/1k · OpenAI web $10/1k + fs $2.50/1k + container $0.03/sess · Bedrock/Azure $0 pass-through).
+          <!-- Color changed 2026-05-18: was peach/purple (rgba(206,147,216,...))
+               which clashed with every other info strip on the page. Switched to
+               cyan to match .section-helper + other panel intros. -->
+          <div style="margin-top:5px;padding:6px 8px;background:rgba(0,119,204,.05);border:1px solid rgba(0,119,204,.18);border-radius:5px;font-size:9px;color:var(--dim);line-height:1.6">
+            Provider tool fees/sess: <span id="tool-fee-cost" style="color:var(--cyan,#0077cc);font-weight:700">$0</span> · Per-agent web search / file search / container counts live inside each agent card; rates are looked up by the agent's provider+family (Anthropic web $10/1k · OpenAI web $10/1k + fs $2.50/1k + container $0.03/sess · Bedrock/Azure $0 pass-through).
             <br>Embeddings model: <span style="color:var(--rag);font-weight:700">text-embedding-3-small @ $0.02/1M input tokens</span>.
           </div>
         </div>
 
         <div>
-          <div class="mlabel" style="display:flex;align-items:center;gap:8px"><span>Tools registry <span style="font-size:9px;color:var(--dim);font-weight:400">(Phase 1 — read-only)</span></span><span class="badge" style="background:rgba(0,212,255,0.10);color:var(--cyan,#0c8db3);border-color:rgba(0,212,255,0.3);font-size:8px;letter-spacing:0.04em">MCP-STYLE</span></div>
-          <div style="margin-top:4px;font-size:10px;color:var(--dim);line-height:1.5">Workload-level catalog of available tools. Each agent will later (Phase 3) declare which tools it enables and at what frequency; today the registry is data-only and feeds future cost math. Add custom MCP tools by editing this workload's JSON.</div>
+          <!-- "Phase 1 — read-only" and "Each agent will later (Phase 3) declare"
+               removed 2026-05-18: dev-process labels that became stale once Section C
+               agent cards started declaring enabled_tools. The registry IS the data
+               agents now read. -->
+          <div class="mlabel" style="display:flex;align-items:center;gap:8px"><span>Tools registry</span><span class="badge" style="background:rgba(0,212,255,0.10);color:var(--cyan,#0077cc);border-color:rgba(0,212,255,0.3);font-size:8px;letter-spacing:0.04em">MCP-STYLE</span></div>
+          <div style="margin-top:4px;font-size:10px;color:var(--dim);line-height:1.5">Workload-level catalog of available tools. Each agent card in Section C declares which tools it enables and at what frequency (per-(agent,tool) <em>trigger_rate</em>). Add custom MCP tools below or by editing this workload's JSON.</div>
           <div id="tools-registry-list" style="margin-top:8px;display:grid;grid-template-columns:1fr;gap:8px"></div>
         </div>
       </div>
@@ -4124,8 +4142,10 @@ Set Cap above to match your template's actual emission size (40 for status-only,
   <p><strong>How to interpret the results.</strong> Start by picking a preset that matches your risk profile — MiniCheck for general grounding, FR2 for high-stakes, FactScore if you publish citation rates. Set <em>coverage</em> to the fraction of responses that need verification (1.0 = all, 0.2 = 20%). Cascade settings show up as the ⇉ icon in the Section C architecture diagram; the cost flows into the headline as a separate "verify" line.</p>
 </div>
 <div id="tab-verification" class="tab-panel">
+  <!-- Panel header removed 2026-05-18: the axiom-h-verification divider
+       above already says "Fact-checking pipeline". The VERIFY badge was
+       informational only; dropped along with the duplicate title. -->
   <div class="panel" id="sec-verification" style="margin-top:8px">
-    <div class="ph">Fact-checking pipeline <span class="badge-reason">VERIFY</span></div>
     <div class="section-body" style="padding:9px 12px;display:flex;flex-direction:column;gap:9px">
       <div style="font-size:9px;color:var(--dim);line-height:1.5">
         Adds an automated factuality check on a sample of answers — catches
