@@ -2244,55 +2244,11 @@
   .math-trace .t-pct     { color: #ffa657; }
   .math-trace .t-num     { color: #a5d6ff; }
 
-  /* Section-guide expanders — "What is this and how to read it" inline
-     help inserted by app.js#injectSectionGuides. Subtle by default,
-     opens to a structured prose block. */
-  .section-guide {
-    margin: 4px 0 12px;
-    font-family: var(--sans);
-  }
-  .section-guide-toggle {
-    background: transparent;
-    border: 1px dashed var(--rule);
-    border-radius: 4px;
-    padding: 4px 10px;
-    font-size: 11px;
-    font-family: var(--sans);
-    color: var(--muted);
-    cursor: pointer;
-    transition: all 0.12s;
-  }
-  .section-guide-toggle:hover {
-    border-style: solid;
-    border-color: var(--accent);
-    color: var(--accent);
-  }
-  .section-guide-body {
-    margin-top: 8px;
-    padding: 12px 14px;
-    background: rgba(0,119,204,0.04);
-    border-left: 3px solid var(--accent);
-    border-radius: 0 4px 4px 0;
-    font-size: 12.5px;
-    line-height: 1.55;
-    color: var(--ink-2, var(--ink));
-  }
-  .section-guide-body h4 {
-    margin: 8px 0 4px;
-    font-size: 11px;
-    text-transform: uppercase;
-    letter-spacing: 0.06em;
-    color: var(--muted);
-    font-weight: 700;
-  }
-  .section-guide-body h4:first-child { margin-top: 0; }
-  .section-guide-body p { margin: 4px 0; }
-  .section-guide-body code {
-    background: rgba(0,0,0,0.06);
-    padding: 1px 4px;
-    border-radius: 3px;
-    font-size: 11px;
-  }
+  /* .section-guide* CSS removed 2026-05-19: the JS-injected
+     "📖 Hide guide" system was duplicating content with the
+     newer .section-helper blocks (the 3-part what/why/how
+     boxes added at the top of each section). One canonical
+     pattern now — see .section-helper above. */
   .math-walk {
     font-family: var(--serif);
     font-size: 13.5px;
