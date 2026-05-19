@@ -689,7 +689,26 @@ function buildCIChart(){
   const bgColors=xVals.map(x=>x<=base?'rgba(0,230,118,.4)':x<=p90v?'rgba(255,171,64,.4)':'rgba(255,82,82,.35)');
   charts.ci=new Chart(ctx.getContext('2d'),{type:'bar',data:{labels:xVals.map(x=>'$'+x.toFixed(4)),datasets:[{data:yVals,backgroundColor:bgColors,borderWidth:0,barPercentage:1,categoryPercentage:1}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{x:{display:false},y:{display:false}}}});
   const stats=document.getElementById('ci-stats');
-  if(stats)stats.innerHTML=[['p50 (expected)','$'+p50(base).toFixed(5),'var(--green)'],['p75','$'+lnPct(base,.674).toFixed(5),'var(--teal)'],['p90 (budget risk)','$'+p90v.toFixed(5),'var(--amber)'],['p99 (heuristic tail)','$'+p99v.toFixed(5),'var(--red)'],['CV (variance)',( cv*100).toFixed(0)+'%','var(--dimmer)']].map(([l,v,c])=>`<span style="color:${c}">${l}: <b>${v}</b></span>`).join(' &nbsp;·&nbsp; ');
+  if(stats){
+    // Each percentile gets a data-tip explaining what it means and why
+    // a procurement reviewer cares. p90 is the most important — it's
+    // the number to budget against; p50 is dangerously optimistic.
+    const tips = {
+      'p50 (expected)': '### p50 — median cost per session\n\nHalf your real sessions cost less than this, half cost more. The **central estimate** — what you would quote if asked for "the expected number".\n\n**Why it matters for budget defense:** if you size your envelope to p50, you blow it half the time. p50 is the headline, not the budget. Use it to communicate the typical case; budget against p90.',
+      'p75':            '### p75 — 75th percentile\n\nThree in four sessions cost less than this; one in four cost more. Useful when you can tolerate being over budget ~25% of the time (rare in procurement, more common for internal R&D).\n\nLess load-bearing than p90 for production deployments — usually skipped in formal cost defenses but informative for understanding the shape between median and tail.',
+      'p90 (budget risk)': '### p90 — the procurement number\n\nNine in ten sessions cost less than this; one in ten will exceed it. **This is the number you bring to the budget defense:** "central estimate $X, p90 worst-case $Y".\n\n**Why it matters:** budgets sized at p50 fail half the time. Budgets sized at p90 fail 10% of the time — manageable, defensible, gives you 9 good months for every 1 over-the-line month. The standard procurement convention for stochastic cost models.',
+      'p99 (heuristic tail)': '### p99 — tail risk (heuristic)\n\nOne in 100 sessions could spike this high. Useful for **stress-testing daily caps** — if your $/day cutoff is below p99, occasional power users will get cut off mid-session.\n\n**Why "heuristic":** at p99 the lognormal-distribution assumption starts to diverge from real-world traffic (which has fatter tails from outliers like crawlers, runaway loops, or query-storming bots). Treat p99 as an approximate upper bound, not a literal forecast.',
+      'CV (variance)':  '### CV — coefficient of variation\n\nStandard deviation divided by mean, expressed as %. Measures how volatile your $/session is.\n\n**Reading the number:**\n- **<20%** — tight, predictable bill. Most internal workloads with stable traffic.\n- **40–60%** — typical for public-facing chatbots (some short questions, some long).\n- **>100%** — highly volatile (multi-modal traffic, viral spikes). Hard to budget; size envelopes against p99 not p90.\n\nHigh CV means your monthly bill swings month-to-month even at constant MAU. Procurement reviewers should ask why if it exceeds 60%.'
+    };
+    const escTip = s => String(s||'').replace(/"/g,'&quot;');
+    stats.innerHTML=[
+      ['p50 (expected)','$'+p50(base).toFixed(5),'var(--green)'],
+      ['p75','$'+lnPct(base,.674).toFixed(5),'var(--teal)'],
+      ['p90 (budget risk)','$'+p90v.toFixed(5),'var(--amber)'],
+      ['p99 (heuristic tail)','$'+p99v.toFixed(5),'var(--red)'],
+      ['CV (variance)',( cv*100).toFixed(0)+'%','var(--dimmer)']
+    ].map(([l,v,c])=>`<span data-tip="${escTip(tips[l])}" style="color:${c};cursor:help;border-bottom:1px dotted rgba(120,120,120,.45)">${l}</span>: <b style="color:${c}">${v}</b>`).join(' &nbsp;·&nbsp; ');
+  }
 }
 
 /* ═══════ COST PANEL ═══════ */
