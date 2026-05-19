@@ -1069,6 +1069,12 @@ function selectModel(k){selectedModel=k;renderModelSelector();onSlider();}
 
 /* SIMULATION AND PER-AGENT EDITOR */
 let sim={running:false,agents:[],users:[],totalIn:0,totalOut:0,totalCost:0,ragTok:0,reasonTok:0,guardTok:0,cacheSaved:0,apiCalls:0,toolUses:0,msgCount:0,errCount:0,tickInterval:null,processing:false,history:[]};
+// Expose sim on window so app.js (procurement-side, lives in an IIFE) can
+// read+mutate per-agent state for the bidirectional BYOK mirror. ES6 `let`
+// does NOT auto-bind to window like `var` does, so without this app.js's
+// `window.sim?.agents?.[idx]` resolves to undefined and the reverse mirror
+// silently no-ops.
+if (typeof window !== 'undefined') window.sim = sim;
 function cfg(id){return parseInt(document.getElementById(id)?.value)||0;}
 function cfgF(id){return parseFloat(document.getElementById(id)?.value)||0;}
 const AGENT_CONFIG_FIELDS=['model','provider','temp','maxOut','turnsShare','toolsOn','ragOn','reasonOn','guardOn','tools_per','schema','result','rag_chunks','rag_size','rag_calls','think_tok','think_pct','cot','factcheck','guard_in','guard_out','guard_pii','guard_policy','cache_rate','task_bias'];

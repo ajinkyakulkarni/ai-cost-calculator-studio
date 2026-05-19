@@ -391,6 +391,52 @@ async function byokProviderMirror(page) {
     `expected procurement-side sec-agents[2] Hosting=byok (bidirectional sync), got ${state.procurementHosting[2]}`);
 }
 
+// BYOK reverse-direction mirror — picking BYOK in the procurement-side
+// sec-agents Hosting dropdown must (a) write workload.agents[i].hosting,
+// (b) drop the headline, (c) update the SIM-side sim.agents[i].provider,
+// and (d) cause the SIM-side BYOK badge to appear. Symmetric of
+// byokProviderMirror — together they guarantee both editors stay in sync
+// regardless of which one the user touches first.
+async function byokReverseMirror(page) {
+  await waitForBoot(page);
+  await page.selectOption('#example-loader', 'customer-support-fleet');
+  await sleep(1500);
+  const baseline = await getHeadline(page);
+  // Find the third (Responder) hosting select on the procurement side
+  // and pick BYOK via the same path the user clicks would take.
+  const changed = await page.evaluate(() => {
+    const selects = Array.from(document.querySelectorAll('[data-key="hosting"]'));
+    if (selects.length < 3) return false;
+    selects[2].value = 'byok';
+    selects[2].dispatchEvent(new Event('input', { bubbles: true }));
+    return true;
+  });
+  assert(changed, 'expected ≥3 procurement-side Hosting dropdowns');
+  await sleep(700);
+  const state = await page.evaluate(() => {
+    const wl = window.workload;
+    const sim = window.sim;
+    return {
+      headline: (() => {
+        const t = document.getElementById('cost-pill')?.textContent || '';
+        const m = t.match(/\$([\d,]+)/);
+        return m ? parseInt(m[1].replace(/,/g,'')) : null;
+      })(),
+      wlHosting: (wl.agents || []).map(a => a.hosting),
+      simProvider: (sim?.agents || []).map(a => a.provider),
+      hasByokBadge: !!document.querySelector('.agent-settings-list .badge[title*="own API key"]'),
+    };
+  });
+  assert(state.wlHosting[2] === 'byok',
+    `expected workload.agents[2].hosting='byok', got ${state.wlHosting[2]}`);
+  assert(state.headline < baseline * 0.85,
+    `expected headline drop >15% after BYOK (baseline ${fmt(baseline)}, after ${fmt(state.headline)})`);
+  assert(state.simProvider[2] === 'byok',
+    `expected sim.agents[2].provider='byok' (reverse mirror), got ${state.simProvider[2]}`);
+  assert(state.hasByokBadge,
+    `expected sim-side BYOK badge to appear after procurement-side BYOK pick`);
+}
+
 // Per-agent task_bias engine wiring — setting agent.task_bias must move
 // the bill (engine reads the field and scales output tokens). Regression
 // guard for the no-op-knob bug fixed 2026-05-18.
@@ -502,6 +548,7 @@ async function validatedButtonContrast(page) {
   await scenario('share-url-roundtrip',   shareUrlRoundtrip);
   await scenario('mcp-research-fleet',    mcpResearchFleet);
   await scenario('byok-provider-mirror',  byokProviderMirror);
+  await scenario('byok-reverse-mirror',   byokReverseMirror);
   await scenario('task-bias-moves',       taskBiasMoves);
   await scenario('section-helpers',       sectionHelpersPresent);
   await scenario('validated-button',      validatedButtonContrast);
