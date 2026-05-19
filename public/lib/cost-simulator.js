@@ -2167,6 +2167,11 @@ function snapshotConfig(){
   ids.forEach(id=>{const el=document.getElementById(id);if(el)out[id]=el.value;});
   out.task_mix=Object.fromEntries(TASK_TYPES.map(t=>[t.id,t.pct]));
   out.agents=snapshotAgentConfig();
+  // Persist the user's explicit topology card choice so a shared URL
+  // reloads into the same shape (Single ↔ Fleet ↔ Workflow). Without
+  // this, executionMode alone is insufficient — 'single' is implemented
+  // as 'fleet + agents=1 locked', so the original choice is lost.
+  out.topology = (typeof userTopology !== 'undefined' && userTopology) ? userTopology : 'fleet';
   return out;
 }
 
@@ -2189,11 +2194,19 @@ function loadFromURL(){
         Object.entries(v).forEach(([tid,pct])=>{const t=TASK_TYPES.find(x=>x.id===tid);if(t)t.pct=pct;});
       }else if(id==='agents'){
         // applied after slider values rebuild the fleet
+      }else if(id==='topology'){
+        // applied after onSlider so the agent slider exists + lock-state
+        // transitions cleanly (setMode reads/writes #s-agents).
       }else{const el=document.getElementById(id);if(el)el.value=v;}
     });
     onSlider();
     if(c.agents)applyAgentConfigSnapshot(c.agents);
     renderTaskBars();
+    // Restore explicit topology choice last — setMode mutates the agent
+    // slider lock-state and re-renders the arch diagram if open.
+    if(c.topology && (c.topology==='single'||c.topology==='fleet'||c.topology==='workflow')){
+      try{setMode(c.topology);}catch(_){}
+    }
   }catch(e){console.warn('Failed to load config from URL:',e);}
 }
 

@@ -414,9 +414,11 @@
       const pCachedEff = effectiveCachedRate(rates, agentWriteShare);
       // Per-agent task-character multiplier. agent.task_bias='code' on a
       // Drafter agent multiplies its output tokens by ~2.4× (code is
-      // 2.8× output vs. balanced-mix baseline ~1.16×); task_bias=null
-      // → 1.0× (unchanged). See taskMixOutputMultiplierForAgent.
-      const agentOutMult = taskMixOutputMultiplierForAgent(agent);
+      // 2.8× output vs. balanced-mix baseline ~1.16×); when task_bias
+      // is unset, falls back to workload.task_mix so workload-mix
+      // sliders move agent-mode bills the way the unit-cost path does.
+      // See taskMixOutputMultiplierForAgent for the full precedence.
+      const agentOutMult = taskMixOutputMultiplierForAgent(agent, w);
       const effOutT = outT * agentOutMult;
       const perCall = (
         uncached * rates.input_per_million / 1e6 +
@@ -530,22 +532,26 @@
     return (wom / total) / TASK_MIX_BASELINE_WOM;
   }
 
-  // Per-agent output multiplier — mirrors the simulator's 60/8/8/8/8/8
-  // synthetic mix when agent.task_bias is set, so a fleet with a
-  // dedicated Classifier agent (bias='classify') and a Drafter agent
-  // (bias='longform') bills each one against its own output character.
-  // Returns 1.0 when no bias is set, preserving the unscaled per-agent
-  // output_tokens already configured on the agent (agent-mode's existing
-  // "tokens are specified directly" semantic). Only fires on explicit
-  // opt-in via the Task bias dropdown.
-  function taskMixOutputMultiplierForAgent(agent) {
+  // Per-agent output multiplier. Three cases, evaluated in order:
+  //   1. agent.task_bias set → 60/8/8/8/8/8 mix biased toward that type.
+  //      Same synthetic mix the simulator uses, so the simulator's
+  //      per-agent ledger and the public engine agree.
+  //   2. agent.task_bias unset BUT workload has task_mix → use the
+  //      workload-level mix as the per-agent default. Symmetric with
+  //      the unit-cost path (which scales anchor_query.output_tokens by
+  //      the same workload mix), so workload-mix sliders now move
+  //      agent-mode bills as users would expect.
+  //   3. Neither set → 1.0 (unchanged). Preserves the "per-agent
+  //      output_tokens are specified directly" default for presets that
+  //      pre-date the task_mix feature.
+  function taskMixOutputMultiplierForAgent(agent, w) {
     const bias = agent && agent.task_bias;
-    if (!bias || !Object.prototype.hasOwnProperty.call(TASK_MIX_OUT_MULT, bias)) {
-      return 1.0;
+    if (bias && Object.prototype.hasOwnProperty.call(TASK_MIX_OUT_MULT, bias)) {
+      const mix = {};
+      for (const k in TASK_MIX_OUT_MULT) mix[k] = (k === bias) ? 60 : 8;
+      return taskMixOutputMultiplier({ task_mix: mix });
     }
-    const mix = {};
-    for (const k in TASK_MIX_OUT_MULT) mix[k] = (k === bias) ? 60 : 8;
-    return taskMixOutputMultiplier({ task_mix: mix });
+    return taskMixOutputMultiplier(w);
   }
 
   function perQueryCost(workload, modelId, tierId, mixId, cacheRate, writeShare) {
