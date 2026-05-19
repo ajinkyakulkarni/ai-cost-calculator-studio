@@ -861,27 +861,15 @@ function budgetSuggest(sc, monthly, budget, projMoOverride){
   wrap.style.display='block';
 }
 
-/* Basic / Advanced toggle. Persists in localStorage. */
-function setConfigMode(mode){
-  document.body.classList.toggle('config-basic', mode==='basic');
-  const ba=document.getElementById('cfg-mode-basic');
-  const ad=document.getElementById('cfg-mode-advanced');
-  if(ba)ba.classList.toggle('active', mode==='basic');
-  if(ad)ad.classList.toggle('active', mode==='advanced');
-  const hint=document.getElementById('cfg-mode-hint');
-  if(hint){
-    hint.textContent = mode==='basic'
-      ? 'Showing core knobs only — switch to Advanced for full control over reasoning, multimodal, prompt overhead, guardrails, etc.'
-      : 'All knobs visible — every cost driver, including rare/edge-case adjustments.';
-  }
-  try{localStorage.setItem('ccs-config-mode', mode);}catch(_){}
-}
-/* Init: default to basic, restore from localStorage if set. */
-(function initConfigMode(){
-  let saved='basic';
-  try{const v=localStorage.getItem('ccs-config-mode'); if(v==='advanced'||v==='basic')saved=v;}catch(_){}
-  setConfigMode(saved);
-})();
+/* Basic/Advanced toggle removed 2026-05-18. The toggle was hiding 7 real
+   cost drivers (cache write share, batch async, context compression,
+   retry rate, peak/avg ratio, language multiplier, comm pattern). Each
+   one can move the bill by 20-50%; hiding them risked under-quoting.
+   The .sr-advanced/.panel-advanced/.block-advanced classes on individual
+   elements are now no-ops (kept for HTML stability; safe to remove later
+   if anyone touches those elements). The ccs-config-mode localStorage
+   key may still be set on returning users' browsers — harmless leftover,
+   nothing reads it. */
 function buildProjChart(){
   const ctx=document.getElementById('chart-proj');if(!ctx)return;
   if(charts.proj)charts.proj.destroy();

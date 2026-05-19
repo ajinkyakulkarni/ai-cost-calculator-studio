@@ -3219,11 +3219,6 @@ body.theme-tactical main .section .row > div > label {
 .simulator-pane .tab-panel{display:flex;flex-direction:column;gap:8px;margin-top:18px}
 .simulator-pane .tab-panel.grid-2{display:grid;grid-template-columns:1fr 1fr;gap:8px}
 .simulator-pane .tab-panel.grid-3{display:grid;grid-template-columns:270px 1fr 200px;gap:8px}
-/* Show-advanced toggle — when body has .config-basic, .sr blocks marked
-   .sr-advanced are hidden. Toggle button lives at the top of Section A. */
-body.config-basic .simulator-pane .sr-advanced { display: none !important; }
-body.config-basic .simulator-pane .panel-advanced { display: none !important; }
-body.config-basic .simulator-pane .block-advanced { display: none !important; }
 /* Section helper blocks — the user-facing 3-part template
    (What this is / Why it matters / How to interpret) attached at the top
    of each major section so first-time readers don't have to ask. Uses
@@ -3250,20 +3245,6 @@ body.config-basic .simulator-pane .block-advanced { display: none !important; }
 .simulator-pane .arch-chips span{cursor:help}
 .simulator-pane .arch-meta{display:flex;justify-content:center;gap:18px;padding:10px 0 4px;font-size:10px;color:var(--dim);flex-wrap:wrap;border-top:1px dashed var(--b);margin-top:10px}
 .simulator-pane .arch-meta span{cursor:help}
-.simulator-pane .config-mode-toggle{
-  display:flex;align-items:center;gap:10px;padding:7px 12px;
-  background:rgba(0,212,255,0.04);border:1px solid rgba(0,212,255,0.18);
-  border-radius:8px;margin-bottom:8px;font-size:10px;color:var(--text-primary,#c8d8f0)
-}
-.simulator-pane .config-mode-toggle button{
-  padding:4px 12px;font-size:9px;letter-spacing:1px;text-transform:uppercase;
-  font-weight:700;font-family:inherit;border-radius:5px;cursor:pointer;
-  background:transparent;color:var(--dim);border:1px solid var(--b);
-}
-.simulator-pane .config-mode-toggle button.active{
-  background:rgba(0,212,255,0.12);color:var(--cyan);border-color:rgba(0,212,255,0.4)
-}
-
 /* Visible section separator that replaces the hidden L3 nav. */
 .simulator-pane .axiom-section-divider{
   margin-top:32px;padding:14px 18px;border-radius:10px;
@@ -3800,17 +3781,6 @@ Hybrid is rarely cost-effective below 30% self-host share — fixed ops staff an
     <p><strong>What this is.</strong> The workload-wide knobs that apply to your whole deployment — how many users hit it, how often, how big each query is, how much prompt-caching works, what retry overhead you carry. These are <em>shared across all agents</em>; per-agent specifics live in Section C.</p>
     <p><strong>Why it matters.</strong> MAU, sessions/day and turns/session multiply into total monthly questions — get any one wrong by 2× and your bill estimate is off by 2×. Cache hit rate is the single largest cost lever (every +10 percentage points trims input cost by ~8%). Retry rate, bot factor, and the advanced knobs (compression, batch async, language multiplier) each move the bill by 5–30%.</p>
     <p><strong>How to interpret the results.</strong> The values you set here flow into every per-agent calculation in Section C and the headline at the top. Pull MAU from real analytics not guesses; set bot factor to 1.5× for public-facing deployments; aim for cache hit ≥70% on stable system prompts. If the resulting headline looks wrong, it's almost always a knob in this section that's off.</p>
-  </div>
-
-  <!-- Basic / Advanced toggle. Procurement users typically only touch
-       the basic knobs (model, cache hit, sessions, turns, RAG chunks);
-       advanced knobs (extended thinking, prompt-engineering overhead,
-       guardrail token allocations, etc.) are gated behind this toggle. -->
-  <div class="config-mode-toggle">
-    <span style="font-weight:700;letter-spacing:1px;text-transform:uppercase;font-size:9px;color:var(--cyan)">View</span>
-    <button id="cfg-mode-basic" class="active" onclick="setConfigMode('basic')">Basic</button>
-    <button id="cfg-mode-advanced" onclick="setConfigMode('advanced')">Advanced</button>
-    <span style="margin-left:auto;font-size:9px;color:var(--dim)" id="cfg-mode-hint">Showing core knobs only — switch to Advanced for full control over reasoning, multimodal, prompt overhead, guardrails, etc.</span>
   </div>
 
   <div style="display:grid;grid-template-columns:1fr;gap:8px">
