@@ -3245,6 +3245,12 @@ body.theme-tactical main .section .row > div > label {
    up via document-level delegation, same as slider data-tips. */
 .simulator-pane .ph[data-tip]{cursor:help}
 .simulator-pane .ph[data-tip]::after{content:' ⓘ';font-size:8px;color:var(--dim);font-weight:400;letter-spacing:0;text-transform:none;vertical-align:1px}
+/* Same pattern on procurement-side h3 sub-headings (Cost composition,
+   API vs self-host, Per-agent cost contribution, etc.) when they
+   carry data-tip — added 2026-05-19 for symmetry with the simulator
+   pane's .ph treatment. */
+.report-h[data-tip]{cursor:help}
+.report-h[data-tip]::after{content:' ⓘ';font-size:10px;color:var(--muted);font-weight:400;letter-spacing:0;text-transform:none;vertical-align:1px;margin-left:2px}
 /* BYOK / SELF-HOST per-agent badges. Used inline in agentCardHtml when
    agent.provider is byok or self-hosted. Default light-theme values
    match the procurement pane's amber + purple accents; theme-tactical
@@ -5629,47 +5635,107 @@ Both fields are independent; they don't have to match.">ⓘ</span></label>
       </div>
     </div>
 
-    <h3 class="report-h">Cost composition</h3>
+    <h3 class="report-h" data-tip="### Cost composition
+
+**What this is.** Stacked-bar visualization of how this month's bill breaks down — API LLM tokens, federal compliance additives, fixed infra, personnel, verification, etc. The legend below shows each component's dollar value and % share.
+
+**Why it matters.** A $50K/mo bill that's 95% LLM tokens is solved by caching and model choice. The same total at 60% personnel is solved by automation and headcount review. Same number, different actions — composition determines the action.
+
+**How to interpret.** Widest segment = your dominant cost; that's where the optimization energy should go first. Tiny slivers (&lt;1%) are real dollars but immaterial as a slice — don't waste cycles optimizing them.">Cost composition</h3>
     <div id="prev-composition-chart" class="composition-chart"></div>
 
-    <h3 class="report-h">API vs self-host comparison</h3>
+    <h3 class="report-h" data-tip="### API vs self-host comparison
+
+**What this is.** When hosting is set to hybrid or you've configured both API and Self-host capacity, this table compares the dollars-per-query under each. Shows break-even points.
+
+**Why it matters.** The right answer changes with scale. API has zero capex and scales infinitely but bills per-call; self-host has fixed monthly capex but flat per-call cost. Break-even is usually somewhere between $20K-$50K/mo of equivalent on-demand spend, depending on model size.
+
+**How to interpret.** If API is cheaper at current scale, the deployment doesn't justify self-host capex yet. If self-host wins, model the hybrid split — keep API for spikes / tail queries, self-host for steady baseline.">API vs self-host comparison</h3>
     <table class="compare-table" id="prev-compare"></table>
     <div class="note" id="prev-summary">—</div>
 
     <div id="prev-agents-section" style="display: none;">
-      <h3 class="report-h">Per-agent cost contribution</h3>
+      <h3 class="report-h" data-tip="### Per-agent cost contribution
+
+**What this is.** Per-agent breakdown of who's contributing what to the LLM bill. For multi-agent fleets only — single-agent deployments don't show this. Columns: hosting (API/BYOK/self-host), model, calls/query, in/out tokens, $/call, monthly contribution.
+
+**Why it matters.** Multi-agent fleets often have one heavyweight (Drafter, Responder) and several lightweight specialists. The asymmetry hides in the headline until you split it out — and the heavyweight is usually the highest-leverage swap candidate.
+
+**How to interpret.** If one agent is &gt;50% of total LLM cost, that's where to focus optimization (cheaper model, task_bias, or activation_rate). BYOK / self-host rows render dimmed with &quot;$0 (excl.)&quot; — those agents bill elsewhere; the footnote below the table explains.">Per-agent cost contribution</h3>
       <div id="prev-agents-chart" class="agents-chart"></div>
       <table class="compare-table" id="prev-agents-table"></table>
     </div>
 
-    <h3 class="report-h">Per-segment breakdown</h3>
+    <h3 class="report-h" data-tip="### Per-segment breakdown
+
+**What this is.** Cost split by audience segment — authenticated users vs anonymous, internal staff vs external public, etc. Each segment has its own MAU, sessions/day, questions/session, and bot factor.
+
+**Why it matters.** A single &quot;Total monthly cost&quot; hides whether the bill is driven by a few power users or a large tail of anonymous traffic. Segments tell you who to throttle, who to upsell, who to optimize first.
+
+**How to interpret.** If one segment is &gt;70% of total cost AND it's the anonymous-public one, rate-limiting + bot-factor controls in Section A become a priority. If the auth segment dominates, the cost-per-paying-user math should appear in the procurement memo.">Per-segment breakdown</h3>
     <table class="compare-table" id="prev-segments"></table>
 
     <div id="prev-migration-section" style="display: none;">
-      <h3 class="report-h">📅 Migration timeline (3-year phased)</h3>
+      <h3 class="report-h" data-tip="### Migration timeline — 3-year phased rollout
+
+**What this is.** Per-phase cost breakdown when Migration is enabled (Year 1 API pilot, Year 2 committed-spend, Year 3 self-host, etc.). The bar chart shows monthly cost per phase; the line shows cumulative TCO.
+
+**Why it matters.** Federal contracts typically run 3 years with phased buildouts. A year-1 cost is not the same as years 2-3 (different hosting, different discounts, different reservations). Sizing only year 1 misses the multi-year envelope.
+
+**How to interpret.** Bar height = monthly cost in that phase. Phase transitions are rarely overnight — pad phase boundaries by 1-2 months in real procurement. The 3-year cumulative TCO is the multi-year number to bring to the budget defense.">📅 Migration timeline (3-year phased)</h3>
       <div id="prev-migration-chart" class="migration-chart"></div>
       <table class="compare-table" id="prev-migration-table"></table>
     </div>
 
     <div id="prev-verif-section" style="display: none;">
-      <h3 class="report-h">Verification pipeline cost</h3>
+      <h3 class="report-h" data-tip="### Verification pipeline cost
+
+**What this is.** Cost breakdown for the fact-checking pipeline when verification is enabled — atomizer cost, NLI / verifier cost, reviser cost, plus any cascade-escalation cost.
+
+**Why it matters.** Verification can be 5-30% of total bill on high-coverage deployments (legal, healthcare, regulated). Choosing a heavyweight verifier (FR2) for everything when MiniCheck inline + FR2 cascade would suffice is one of the most common over-spends.
+
+**How to interpret.** If verification &gt; 25% of total bill, look at coverage (do you need 100%?) and cascade (can you escalate only ~20% to the heavyweight?). The CASCADE row shows the secondary verifier's contribution; if it's high, your primary verifier is flagging too many claims.">Verification pipeline cost</h3>
       <table class="compare-table" id="prev-verif-table"></table>
       <div id="prev-verif-curve" style="margin-top: 14px; padding: 10px 12px; background: var(--paper); border: 1px solid var(--rule); border-radius: 3px;"></div>
     </div>
 
     <div id="prev-selfhost-section" style="display: none;">
-      <h3 class="report-h">Self-host capacity math</h3>
+      <h3 class="report-h" data-tip="### Self-host capacity math
+
+**What this is.** GPU sizing math when hosting is self-host — required replicas given peak QPS, GPU throughput tokens/sec, utilization derate, monthly $/replica including ops and FTE.
+
+**Why it matters.** Self-host is a different cost shape from API: high fixed capex (GPU rent + ops + people) regardless of traffic, near-zero marginal-per-call. Mis-sizing replicas by 20% changes the bill by 20% because unused GPU still bills.
+
+**How to interpret.** Replicas should match peak QPS × headroom (typically 1.5× safety margin) ÷ per-GPU throughput. If utilization is &lt;30%, you're over-provisioned. If &gt;70%, you have no slack for traffic spikes.">Self-host capacity math</h3>
       <table class="compare-table" id="prev-selfhost-table"></table>
     </div>
 
-    <h3 class="report-h">Infrastructure breakdown</h3>
+    <h3 class="report-h" data-tip="### Infrastructure breakdown
+
+**What this is.** Fixed cloud-infrastructure line items that show up regardless of hosting choice — RDS, S3, CloudWatch, ALB, NAT Gateway, Route 53, secrets manager, observability stack. Each can be flat $/mo, $ per query, or $ per GB.
+
+**Why it matters.** Usually 5-15% of total TCO for managed-API deployments, higher for self-host. Easy to forget at proposal time, embarrassing to discover in the first invoice. A federal-tier deployment can run $2-5K/mo on observability + audit logging + redundant networking alone.
+
+**How to interpret.** Compare to your real AWS/Azure/GCP bill if you have one. Greenfield estimates: the bundled defaults are a starting point for a single-region production deployment, not a final number.">Infrastructure breakdown</h3>
     <table class="compare-table" id="prev-infra"></table>
 
-    <h3 class="report-h" id="sec-derivation" style="scroll-margin-top:80px">Derivation of your numbers</h3>
+    <h3 class="report-h" id="sec-derivation" style="scroll-margin-top:80px" data-tip="### Derivation of your numbers
+
+**What this is.** Full line-by-line math trace of every formula and intermediate value used to produce the headline. Every dollar in the final number traces back to inputs.
+
+**Why it matters.** &quot;The calculator said $X&quot; is not defensible to a procurement reviewer or auditor. &quot;Here are the 9 line items and the math behind each, here's where the cache rate came from, here's the multiplier for FedRAMP-Moderate&quot; — that is defensible. This is the artifact that makes it defensible.
+
+**How to interpret.** Copy the entire trace with the button at the top, paste into Claude / ChatGPT / Gemini, ask it to verify the math. The trace is self-contained — includes the simulator token bridge, retry inflation, and agent-engineering as separate sections so the headline reconciles end-to-end.">Derivation of your numbers</h3>
     <p style="font-size:11px;color:var(--muted);margin:0 0 8px;line-height:1.5">Full math trace for <em>this</em> workload — copy-paste into ChatGPT/Claude/Gemini and ask "verify this math". For source citations and formula details, see <strong>Methodology</strong> in the sidebar.</p>
     <div class="math-walk" id="prev-math">—</div>
 
-    <h3 class="report-h" id="sec-methodology" style="scroll-margin-top:80px">Methodology, sources &amp; disclosures <span class="badge-warn" style="font-size:12px;font-weight:600;padding:2px 8px;border-radius:4px;background:rgba(199,107,0,0.12);color:#c76b00;text-transform:uppercase;letter-spacing:0.04em;margin-left:8px">planning only — refresh prices before procurement</span></h3>
+    <h3 class="report-h" id="sec-methodology" style="scroll-margin-top:80px" data-tip="### Methodology, sources &amp;amp; disclosures
+
+**What this is.** Where the price book comes from (vendor pricing pages, last-verified dates), what assumptions are baked in (optimistic vs realistic cost mode), the empirical-calibration loop (bench → coefficients → live calc), and what this calculator does NOT model.
+
+**Why it matters.** Procurement decisions live or die on input credibility. This section is the audit trail — every price the calc uses traces back to a published source, every coefficient traces back to a real API benchmark. The &quot;planning only&quot; badge is the legally important caveat.
+
+**How to interpret.** Read this before signing the procurement document. Refresh prices before procurement use — vendor rates drift; the in-repo scraper re-validates them against live pricing pages. Last-verified dates appear next to each rate in the Prices tab.">Methodology, sources &amp; disclosures <span class="badge-warn" style="font-size:12px;font-weight:600;padding:2px 8px;border-radius:4px;background:rgba(199,107,0,0.12);color:#c76b00;text-transform:uppercase;letter-spacing:0.04em;margin-left:8px">planning only — refresh prices before procurement</span></h3>
     <p style="font-size:11px;color:var(--muted);margin:0 0 12px;line-height:1.5">Pricing sources, token-counting heuristics, confidence-interval math, and what this calculator does not model. For the math applied to <em>your</em> numbers, see <strong>Derivation of your numbers</strong> above.</p>
     <div class="methodology-body" style="line-height:1.7;font-size:12px;color:var(--ink);background:var(--paper);padding:16px 18px;border:1px solid var(--rule);border-radius:6px">
       <div style="font-size:13px;font-weight:700;color:var(--accent);margin-bottom:6px;letter-spacing:1px">PRICING SOURCES</div>
