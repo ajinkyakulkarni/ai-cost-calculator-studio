@@ -2109,22 +2109,6 @@ function setTheme(t){
   else apply();
 })();
 
-/* ═══════ MULTI-MODEL ROUTING — REMOVED 2026-05-18 ═══════
- * Section G (axiom-h-routing / tab-routing) dropped from the UI on
- * 2026-05-18 because random traffic-routing across models isn't a real
- * production pattern (no one wants the same query to get different
- * answers from different models). The per-agent "Compare models"
- * expander inside each agent card (section C · Agent fleet) and the
- * whole-fleet uniform table in section F · Comparisons together cover
- * the actual decisions designers make.
- *
- * `routingSplit` is retained as an empty object purely so the legacy
- * exportJSON shape (which references it) doesn't break for anyone with
- * a saved JSON dump from the previous schema. The render / set /
- * apply / update / chart functions are gone.
- */
-let routingSplit = {};
-
 /* ═══════ JSON EXPORT ═══════ */
 function exportJSON(){
   const sess=cfg('s-sessions');
@@ -2132,7 +2116,6 @@ function exportJSON(){
     metadata:{tool:'Token simulator',timestamp:new Date().toISOString(),
       pricing_date:MODEL_PRICE_VERIFIED,disclaimer:'Planning estimate only — not contractual'},
     config:snapshotConfig(),
-    routing:routingSplit,
     pricing_sources:PRICING_SOURCES,
     models:Object.fromEntries(MK.map(k=>{
       const c=computeCost(k);const m=MODELS[k];
