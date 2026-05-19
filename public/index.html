@@ -3283,6 +3283,15 @@ body.theme-tactical main .section .row > div > label {
 .simulator-pane .arch-chips span{cursor:help}
 .simulator-pane .arch-meta{display:flex;justify-content:center;gap:18px;padding:10px 0 4px;font-size:10px;color:var(--dim);flex-wrap:wrap;border-top:1px dashed var(--b);margin-top:10px}
 .simulator-pane .arch-meta span{cursor:help}
+/* BYOK / SELF-HOST per-agent badges. Used inline in agentCardHtml when
+   agent.provider is byok or self-hosted. Default light-theme values
+   match the procurement pane's amber + purple accents; theme-tactical
+   override pushes the text brighter so dark-amber-on-dark-amber and
+   dark-purple-on-dark-purple stay readable on the dark card background. */
+.simulator-pane .badge-byok{background:rgba(245,158,0,.10);color:#8a5d00;border-color:rgba(245,158,0,.35);font-weight:700}
+.simulator-pane .badge-selfhost{background:rgba(124,77,255,.10);color:#5c35cc;border-color:rgba(124,77,255,.35);font-weight:700}
+.simulator-pane.theme-tactical .badge-byok{background:rgba(245,158,0,.18);color:#ffc547;border-color:rgba(245,158,0,.55)}
+.simulator-pane.theme-tactical .badge-selfhost{background:rgba(124,77,255,.20);color:#c4a7ff;border-color:rgba(124,77,255,.55)}
 /* Visible section separator that replaces the hidden L3 nav. */
 .simulator-pane .axiom-section-divider{
   margin-top:32px;padding:14px 18px;border-radius:10px;

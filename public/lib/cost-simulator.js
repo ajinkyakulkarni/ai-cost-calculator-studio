@@ -1402,10 +1402,12 @@ function agentCardHtml(a,scope){
             // indicator so users see the intent ("your key pays")
             // rather than an ambiguous $0 (which could read as "free").
             if (a.provider === 'byok') {
-              return `<span class="badge" title="This agent uses the user's own API key — its tokens are billed to that key, not to this deployment's API line. Engine excludes from the headline API total." style="background:rgba(245,158,0,.10);color:#8a5d00;border-color:rgba(245,158,0,.35);font-weight:700">BYOK · billed to your key</span>`;
+              // Styling moved to .badge-byok in index.html so theme-tactical
+              // can override dark-amber-on-dark to a brighter, readable amber.
+              return `<span class="badge badge-byok" title="This agent uses the user's own API key — its tokens are billed to that key, not to this deployment's API line. Engine excludes from the headline API total.">BYOK · billed to your key</span>`;
             }
             if (a.provider === 'self-hosted') {
-              return `<span class="badge" title="This agent runs on user-managed GPUs — its tokens are counted under the Self-host capacity section, not the API line." style="background:rgba(124,77,255,.10);color:#5c35cc;border-color:rgba(124,77,255,.35);font-weight:700">SELF-HOST · counted under GPU section</span>`;
+              return `<span class="badge badge-selfhost" title="This agent runs on user-managed GPUs — its tokens are counted under the Self-host capacity section, not the API line.">SELF-HOST · counted under GPU section</span>`;
             }
             const mo = _agentCurrentMonthly(a.id);
             if (mo == null) return '';
