@@ -73,14 +73,23 @@ const EXPECTED = {
   // 3-agent customer-support fleet — 20K auth + 5K anon MAU, mixed
   // sessions/day reflecting auth multi-turn + anon spike patterns.
   // Triage on gpt-5-mini, KB-Lookup + Responder on claude-sonnet-4.6
-  // with KB-Lookup activation_rate 0.85. Now exercises per-agent
-  // task_bias (Triage=classify, KB-Lookup=rag, Responder=summary) —
-  // realistic character per agent: Triage emits short labels (~0.72×
-  // output), KB-Lookup retrieves+grounds (~0.90× output), Responder
-  // writes a paragraph reply (~0.83× output). Re-baked 2026-05-18.
+  // with KB-Lookup activation_rate 0.85. Exercises per-agent task_bias
+  // (Triage=classify, KB-Lookup=rag, Responder=summary) — realistic
+  // character per agent: Triage emits short labels (~0.72× output),
+  // KB-Lookup retrieves+grounds (~0.90× output), Responder writes a
+  // paragraph reply (~0.83× output).
+  //
+  // Re-baked 2026-05-19 against commit 80c084d. The 2026-05-18 EXPECTED
+  // ($18,474.23) was set using forced override opts (model=gpt-5.2,
+  // mix=mixed, cacheRate=0.7, verifCoverage=0) instead of the preset's
+  // actual defaults (claude-sonnet-4.6 / mix=default / cacheRate=0.65
+  // / verifCoverage=1.0). buildOpts() in this script uses the preset
+  // defaults — that's what the UI passes too — so the test was drifting
+  // 3.5% within tolerance but on a wrong baseline. Re-pinned to the
+  // engine's actual output under the preset's own defaults.
   'customer-support-fleet': {
-    monthly_with_retry: 18474.23,
-    note: '20K auth + 5K anon MAU; 3-agent Triage(classify)/KB-Lookup(rag)/Responder(summary) with MiniCheck verifier. Per-agent task_bias exercise.',
+    monthly_with_retry: 19116.21,
+    note: '20K auth + 5K anon MAU; 3-agent Triage(classify)/KB-Lookup(rag)/Responder(summary) on sonnet-4.6 with MiniCheck verifier @ 100% coverage. Per-agent task_bias exercise.',
   },
   // Voice support agent (Sierra / Bland-class) — 50K customers, ~4%
   // call rate, 12-turn avg call → 720K voice turns/mo. One LLM call
