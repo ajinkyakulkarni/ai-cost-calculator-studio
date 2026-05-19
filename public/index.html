@@ -3283,6 +3283,12 @@ body.theme-tactical main .section .row > div > label {
 .simulator-pane .arch-chips span{cursor:help}
 .simulator-pane .arch-meta{display:flex;justify-content:center;gap:18px;padding:10px 0 4px;font-size:10px;color:var(--dim);flex-wrap:wrap;border-top:1px dashed var(--b);margin-top:10px}
 .simulator-pane .arch-meta span{cursor:help}
+/* Panel headers (.ph) with data-tip get the cursor + dotted-underline
+   affordance the site uses for hoverable labels everywhere else. The
+   rich tooltip widget (defined at the bottom of index.html) picks them
+   up via document-level delegation, same as slider data-tips. */
+.simulator-pane .ph[data-tip]{cursor:help}
+.simulator-pane .ph[data-tip]::after{content:' ⓘ';font-size:8px;color:var(--dim);font-weight:400;letter-spacing:0;text-transform:none;vertical-align:1px}
 /* BYOK / SELF-HOST per-agent badges. Used inline in agentCardHtml when
    agent.provider is byok or self-hosted. Default light-theme values
    match the procurement pane's amber + purple accents; theme-tactical
@@ -3979,7 +3985,13 @@ How agents coordinate, billed as extra input tokens per turn per agent.
        leaving an empty right pane). -->
   <div style="display:grid;grid-template-columns:1fr;gap:8px">
     <div class="panel">
-      <div class="ph" title="Workload-wide default mix used by the unit-cost engine path (anchor_query.output_tokens). For agent-mode workloads, set the Task bias dropdown on individual agents in Section C to override per-agent.">Workload mix — query types <span class="badge" id="out-mult-badge">×1.0 out</span></div>
+      <div class="ph" data-tip="### Workload mix — query types
+
+**What this is.** Default mix across all queries — classify (0.3× output), summary (0.65×), RAG (0.85×), code (2.8×), longform (3.6×), agentic (4.3×). The weighted-average becomes the ×Nout multiplier applied to every agent that doesn't override.
+
+**Why it matters.** Same MAU + same model can swing the bill ±20-75% depending on this mix. Procurement reviewers will ask which mix you used.
+
+**How to interpret.** Pull weights from real analytics if you have data; &quot;mixed&quot; is the default for greenfield. Per-agent override via the Task bias dropdown in Section C agent cards.">Workload mix — query types <span class="badge" id="out-mult-badge">×1.0 out</span></div>
       <div style="padding:5px 10px 0;font-size:8px;color:var(--dim);line-height:1.5">
         <strong>Default mix across all queries</strong> — multipliers: classify ≈ 0.3×, summary ≈ 0.65×, RAG ≈ 0.85×, code 2.8×, longform 3.6×, agentic 4.3×. Same MAU + same model can swing the bill ±20–75% depending on this mix (verified on bundled presets).<br>
         <span style="color:var(--cyan)">↳ Per-agent override:</span> agents with a <strong>Task bias</strong> set (Section C card → Task bias dropdown) bill against a 60/8/8/8/8/8 mix of their biased type, multiplied into their own output_tokens. Useful for mixed fleets — e.g. a Triage agent (bias=classify, cheap output) + a Responder agent (bias=longform, expensive output) in the same workload.
@@ -3991,7 +4003,13 @@ How agents coordinate, billed as extra input tokens per turn per agent.
          on the actual workload. JS still writes to these nodes, so we
          hide rather than delete to avoid breaking renderModelSelector. -->
     <div class="panel" style="display:none">
-      <div class="ph">Model rate reference <span class="badge" id="model-sel-badge">claude-sonnet-4.6</span></div>
+      <div class="ph" data-tip="### Model rate reference
+
+**What this is.** Read-only display of the rate card for the currently-selected model — input/output prices, cache discount, batch discount, context window, latency.
+
+**Why it matters.** Quick sanity check that the engine is using current published rates, not stale ones. The verified-on date appears next to the badge.
+
+**How to interpret.** Edit rates in the Prices tab if you have an enterprise discount that differs from the public list. The engine reads from rate_cards, so overrides flow through.">Model rate reference <span class="badge" id="model-sel-badge">claude-sonnet-4.6</span></div>
       <div>
         <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:5px" id="model-selector"></div>
         <div id="model-info-bar"></div>
@@ -4090,7 +4108,13 @@ Set Cap above to match your template's actual emission size (40 for status-only,
        belong with the per-agent editor, not with workload-wide globals
        like MAU / cache / retries. -->
   <div class="panel" style="margin-bottom:8px">
-    <div class="ph">Topology <span class="badge" id="topology-current-badge">Multi-Agent Fleet</span></div>
+    <div class="ph" data-tip="### Topology — how agents coordinate
+
+**What this is.** Pick Single agent / Fleet (parallel) / Workflow (sequential) — the shape of how your agents talk to each other on every query.
+
+**Why it matters.** Drives whether per-agent settings even matter, and what the cost engine bills for. Fleet bills N parallel agents (sum); Workflow bills cumulative context across stages (each stage sees prior outputs); Single is a one-agent fleet.
+
+**How to interpret.** Default Fleet for orchestrator + specialist patterns. Workflow for plan-then-execute pipelines where stage N reads stage N-1's output. Single for chat with no specialists.">Topology <span class="badge" id="topology-current-badge">Multi-Agent Fleet</span></div>
     <div style="padding:9px 12px;display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px">
       <label class="topology-card" data-topology="single" onclick="setMode('single')" style="cursor:pointer;border:1px solid var(--b);border-radius:8px;padding:9px 11px;display:flex;flex-direction:column;gap:4px;transition:all .15s">
         <span style="font-size:10px;font-weight:700;color:var(--cyan);letter-spacing:1px;text-transform:uppercase">Single agent</span>
@@ -4359,7 +4383,13 @@ Measure primary's confidence-score histogram across a labeled validation set; pi
      registry. -->
   <!-- WORKFLOW MODE PANEL — visible only in workflow mode -->
   <div class="panel" id="panel-workflow" style="display:none">
-    <div class="ph">Workflow DAG Configuration <span class="badge" id="workflow-badge">sequential pipeline</span></div>
+    <div class="ph" data-tip="### Workflow DAG Configuration
+
+**What this is.** Workflow-mode topology editor — defines stages, doc page count per stage, handoff overhead, pause time, rerun rate.
+
+**Why it matters.** Only relevant when Topology = Workflow. Sequential pipelines compound cost: stage N typically reads everything from stages 1..N-1, so total cost grows superlinearly with stage count.
+
+**How to interpret.** Set stage count + doc pages per stage realistically. Handoff overhead = tokens injected at each stage boundary (~50-200). Rerun rate accounts for revision loops.">Workflow DAG Configuration <span class="badge" id="workflow-badge">sequential pipeline</span></div>
     <div style="padding:8px 11px;border-bottom:1px solid var(--b);background:var(--card2)">
       <div class="mlabel" style="color:var(--purple)">DAG Topology</div>
       <div style="font-size:8px;color:var(--dim);margin-bottom:6px;line-height:1.5">Cost is the same regardless of execution order, but parallel execution affects rate limits, concurrent quota usage, and peak burst pricing.</div>
@@ -4422,7 +4452,13 @@ Measure primary's confidence-score histogram across a labeled validation set; pi
 <div id="tab-tokens" class="tab-panel">
   <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
     <div class="panel">
-      <div class="ph">Per-Turn Token Ledger <span class="badge" id="ledger-turn">turn 0</span></div>
+      <div class="ph" data-tip="### Per-Turn Token Ledger
+
+**What this is.** Line-by-line breakdown of one canonical turn's tokens — sysprompt, conversation history, RAG chunks, tool results, output, reasoning tokens.
+
+**Why it matters.** Tells you exactly where tokens are going. If RAG chunks consume 60% of input, the cost lever is retrieval depth (Section A → RAG chunks), not the model. If reasoning tokens are 40% of output, the lever is thinking mode (per-agent in Section C).
+
+**How to interpret.** Biggest bar = highest-leverage knob. Compare &quot;cached input&quot; vs &quot;uncached input&quot;: if uncached is &gt;50%, prompt-cache isn't earning its keep (system prompt instability or dynamic preambles).">Per-Turn Token Ledger <span class="badge" id="ledger-turn">turn 0</span></div>
       <div style="padding:8px 10px;flex:1;overflow-y:auto">
         <div id="token-ledger" style="display:flex;flex-direction:column;gap:1px"></div>
         <div style="margin-top:8px">
@@ -4433,7 +4469,13 @@ Measure primary's confidence-score histogram across a labeled validation set; pi
       </div>
     </div>
     <div class="panel">
-      <div class="ph">Cumulative Token Breakdown</div>
+      <div class="ph" data-tip="### Cumulative Token Breakdown
+
+**What this is.** Same token components as the per-turn ledger, but summed across a whole session and rendered as a stacked bar.
+
+**Why it matters.** Confirms the per-turn findings at session scale, and reveals which component dominates over multi-turn dialogue. Conversation history grows unbounded in some patterns — this is where you spot it.
+
+**How to interpret.** A history segment that keeps growing across turns = no compression; a flat history segment = good compression or templated tool returns. Compare presets to see architectural choices side-by-side.">Cumulative Token Breakdown</div>
       <div style="padding:8px 10px;flex:1;display:flex;flex-direction:column;gap:7px">
         <div style="position:relative;height:180px"><canvas id="chart-tokens" role="img" aria-label="Token breakdown stacked bar chart">Token breakdown chart.</canvas></div>
         <div id="token-breakdown-table" style="font-size:8px;display:flex;flex-direction:column;gap:2px"></div>
@@ -4449,7 +4491,13 @@ Measure primary's confidence-score histogram across a labeled validation set; pi
     <div class="mcard"><div class="mlabel">Tools</div><div class="mval" id="tt-tools" style="color:var(--purple)">0</div><div class="msub">schema+results</div></div>
   </div>
   <div class="panel">
-    <div class="ph">Lognormal CI Distribution — Cost Per Session</div>
+    <div class="ph" data-tip="### Lognormal CI Distribution — Cost Per Session
+
+**What this is.** Probability distribution of cost-per-session under your current config — central estimate (p50) plus percentiles (p75, p90, p99) and the coefficient of variation (CV).
+
+**Why it matters.** A central estimate alone hides variance. Real traffic has wide distributions; budgets sized to p50 fail half the time. You size against the tail, not the median.
+
+**How to interpret.** p90 is the procurement number — bring it to the budget defense (&quot;central $X, p90 $Y&quot;). CV tells you how volatile the bill is: &lt;60% manageable, &gt;100% requires reserve. Hover each percentile pill for details.">Lognormal CI Distribution — Cost Per Session</div>
     <div style="padding:8px 10px">
       <div style="position:relative;height:120px"><canvas id="chart-ci" role="img" aria-label="Lognormal cost distribution">CI distribution chart.</canvas></div>
       <div style="display:flex;gap:10px;flex-wrap:wrap;margin-top:6px;font-size:8px" id="ci-stats"></div>
@@ -4470,7 +4518,13 @@ Measure primary's confidence-score histogram across a labeled validation set; pi
 <div id="tab-cost" class="tab-panel">
   <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
     <div class="panel">
-      <div class="ph">Model Comparison <span class="badge-warn" id="cost-badge" title="Each row assumes EVERY agent in the fleet uses that one model — the uniform-fleet assumption. Used for procurement / sanity-check views, NOT for mixed-fleet swaps. For per-agent model swaps that update the headline pill, expand 'Compare models for this agent' inside each agent card (section C · Agent fleet).">whole-fleet uniform</span></div>
+      <div class="ph" data-tip="### Model Comparison — whole-fleet uniform
+
+**What this is.** Same workload run against every model in the rate card. Sorted cheapest to most expensive. **Whole-fleet uniform**: every agent uses the same model (the table can't model mixed fleets).
+
+**Why it matters.** Procurement RFPs typically require multi-vendor pricing for fairness. Generates the table directly so you don't re-run the calculator for each candidate.
+
+**How to interpret.** The Δ column is what stakeholders care about. For mixed-fleet model swaps that DO update the headline pill, use Section C's per-agent &quot;Compare models&quot; expander — this whole-fleet table is a procurement reference, not a selection tool.">Model Comparison <span class="badge-warn" id="cost-badge" title="Each row assumes EVERY agent in the fleet uses that one model — the uniform-fleet assumption. Used for procurement / sanity-check views, NOT for mixed-fleet swaps. For per-agent model swaps that update the headline pill, expand 'Compare models for this agent' inside each agent card (section C · Agent fleet).">whole-fleet uniform</span></div>
       <div style="padding:8px 8px 0;font-size:11px;color:var(--ink-2,#3a4a62);line-height:1.5">
         Each row assumes <strong>every agent in the fleet uses that one model</strong> — a uniform-fleet sanity check, useful for procurement docs. For realistic <strong>mixed-fleet</strong> swaps where you change one agent at a time and see the headline update, use the <em>Compare models for this agent</em> expander inside each agent card (section C · Agent fleet). Values are per-session ($/sess); multiply by sessions/month for the run-rate.
       </div>
@@ -4482,7 +4536,13 @@ Measure primary's confidence-score histogram across a labeled validation set; pi
       </div>
     </div>
     <div class="panel">
-      <div class="ph">Monthly Projection — 12 months</div>
+      <div class="ph" data-tip="### Monthly Projection — 12 months
+
+**What this is.** Headline cost projected forward at the current growth rate (set via Growth/month slider in Section A).
+
+**Why it matters.** A budget envelope sized for month 1 breaks by month 6 if growth is real. 20%/mo on a $20K/mo deployment hits $80K/mo by month 6, $300K by month 12.
+
+**How to interpret.** Set growth conservatively — 5-15% for internal known-audience tools, 20-50% for public launches, &gt;50% only for genuine viral profile. 12-month cumulative is your year-1 budget ask.">Monthly Projection — 12 months</div>
       <div style="padding:8px;flex:1">
         <div style="position:relative;height:200px"><canvas id="chart-proj" role="img" aria-label="12 month projection">Projection chart.</canvas></div>
         <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:5px;font-size:7px" id="proj-legend"></div>
@@ -4491,16 +4551,34 @@ Measure primary's confidence-score histogram across a labeled validation set; pi
   </div>
   <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
     <div class="panel">
-      <div class="ph">Per-Component Cost Bars</div>
+      <div class="ph" data-tip="### Per-Component Cost Bars
+
+**What this is.** Visual stacked-bar breakdown of how each cost component (input tokens, output tokens, RAG, tool fees, verification, federal additives) contributes to the headline.
+
+**Why it matters.** Surfaces the dominant cost driver at a glance. The component you'd never have guessed is often the one to attack first.
+
+**How to interpret.** Tallest segment = priority lever. If &quot;tool fees&quot; dominates, audit Section B's tool registry rates. If &quot;RAG&quot; dominates, audit retrieval depth and chunk size.">Per-Component Cost Bars</div>
       <div style="padding:8px" id="component-bars"></div>
     </div>
     <div class="panel">
-      <div class="ph">Full Itemised Breakdown</div>
+      <div class="ph" data-tip="### Full Itemised Breakdown
+
+**What this is.** Complete cost ledger — every line item the engine computes, in dollar amounts.
+
+**Why it matters.** For audit / debugging. When the headline is unexpectedly high, this is where you find the surprise (a misconfigured embedding line, a federal multiplier that snuck in, an unrealistic FTE entry).
+
+**How to interpret.** Skim for outliers. Tool-registry per-call rates above ~$0.05 deserve scrutiny. Verification line &gt;$1K/mo deserves a coverage review. Personnel deserves a sanity check against GSA Schedule rates.">Full Itemised Breakdown</div>
       <div style="padding:8px;font-size:8px" id="cost-breakdown"></div>
     </div>
   </div>
   <div class="panel" style="margin-top:8px">
-    <div class="ph">Per-Agent Cost Contribution <span class="badge" id="agent-cost-badge">heterogeneous</span></div>
+    <div class="ph" data-tip="### Per-Agent Cost Contribution
+
+**What this is.** How much each agent in the fleet contributes to the LLM bill, with heterogeneous-fleet awareness (different models per agent).
+
+**Why it matters.** Multi-agent fleets often have one heavyweight (the Drafter / Responder) and several lightweight specialists. The asymmetry hides in the headline until you split it out.
+
+**How to interpret.** If one agent is &gt;50% of total, that's your priority swap candidate — try model swap (Section C → Compare models) or per-agent task_bias before scaling out elsewhere.">Per-Agent Cost Contribution <span class="badge" id="agent-cost-badge">heterogeneous</span></div>
     <div style="padding:9px 11px">
       <div id="per-agent-cost-table" style="display:flex;flex-direction:column;gap:3px"></div>
       <div style="margin-top:9px;padding:7px 9px;background:var(--card2);border-radius:6px;font-size:9px" id="agent-cost-summary"></div>
@@ -4522,16 +4600,34 @@ Measure primary's confidence-score histogram across a labeled validation set; pi
 <div id="tab-sensitivity" class="tab-panel">
   <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
     <div class="panel">
-      <div class="ph">Sensitivity — ±50% Parameter Impact</div>
+      <div class="ph" data-tip="### Sensitivity — ±50% Parameter Impact
+
+**What this is.** Each input perturbed by ±50% in isolation. Resulting % change in monthly cost. Sorted by impact magnitude.
+
+**Why it matters.** Reveals which inputs your estimate is fragile to. Procurement reviewers ask &quot;which inputs matter most&quot; — this is the answer.
+
+**How to interpret.** Top rows = the inputs you should validate hardest before signing. If a 20% MAU miss blows your budget, you need either a bigger envelope or stronger optimization levers (cache, model swap, batch) before signing.">Sensitivity — ±50% Parameter Impact</div>
       <div style="padding:8px;flex:1;overflow-y:auto" id="sensitivity-table"></div>
     </div>
     <div class="panel">
-      <div class="ph">Tornado Chart</div>
+      <div class="ph" data-tip="### Tornado Chart
+
+**What this is.** Visual ranking of the same inputs from the Sensitivity table, ranked by dollar impact on the headline.
+
+**Why it matters.** Same data as the table, but visual — the top 3 levers pop immediately. Procurement-memo-ready.
+
+**How to interpret.** Take the top 3 bars and use them in the memo's &quot;Sensitivity&quot; paragraph. The bars with both red and green halves show inputs that move the bill in both directions (cache hit rate, batch async).">Tornado Chart</div>
       <div style="padding:8px;flex:1"><div style="position:relative;height:280px"><canvas id="chart-tornado">Tornado chart.</canvas></div></div>
     </div>
   </div>
   <div class="panel">
-    <div class="ph">What-If Scenarios</div>
+    <div class="ph" data-tip="### What-If Scenarios
+
+**What this is.** Pre-built scenario cards that flip one knob (or a small bundle) to a named scenario value: &quot;Double RAG chunks&quot;, &quot;Cache 80% hit rate&quot;, &quot;50% batch async&quot;, etc.
+
+**Why it matters.** Common-question shortcuts — &quot;what would cache 80% buy us?&quot; answered without manual nudging.
+
+**How to interpret.** Each card shows the % delta vs your current setup. Cards reading 0.0% mean that knob doesn't apply to your preset (RAG off, guardrails already at zero, etc.). Use these as a quick lever-pull view before deeper sensitivity analysis.">What-If Scenarios</div>
     <p class="helper" style="padding:6px 8px 0;margin:0">Each card flips one knob (or a small bundle) and shows how much your <strong>$/session</strong> changes vs. the current setup. <strong>0.0% means the knob doesn't apply</strong> — e.g. "Double RAG chunks" reads 0% when RAG is off in your preset, "Add full guardrails" reads 0% when guardrails are already at the proposed values. Hover any card for what it tests and why it matters.</p>
     <div style="padding:8px;display:grid;grid-template-columns:repeat(4,1fr);gap:7px" id="whatif-cards"></div>
   </div>
