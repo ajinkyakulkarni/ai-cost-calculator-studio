@@ -3237,6 +3237,18 @@ body.theme-tactical main .section .row > div > label {
 /* In the simulator pane the panel backgrounds are darker so we lighten
    the rail and bump the text color for legibility. */
 .simulator-pane .section-helper{background:rgba(0,212,255,0.06);border-left-color:rgba(0,212,255,0.55);color:var(--text-primary,#c8d8f0);font-size:10.5px}
+/* Tighten the vertical rhythm around the section-helper in the
+   simulator pane. Without these overrides, the chain was:
+     divider (cyan)  ↧ 18px gap (.tab-panel margin-top)
+     section-helper  ↧ 14px gap (its own bottom margin)
+     panel content
+   = ~32–40px of whitespace flanking each helper, which made it look
+   orphaned between the cyan divider above and the panel below.
+   These overrides collapse those gaps so divider + helper read as
+   one cohesive section header, with the panel below as content. */
+.simulator-pane .axiom-section-divider + .section-helper{margin-top:6px;margin-bottom:6px}
+.simulator-pane .axiom-section-divider + .section-helper + .tab-panel{margin-top:6px}
+.simulator-pane .tab-panel > .section-helper:first-child{margin-top:0;margin-bottom:6px}
 /* Collapse the 3-paragraph section guide on narrow viewports so the
    first slider in each section stays above the fold. JS at the bottom
    of the page (initSectionHelperCollapse) wraps each .section-helper
