@@ -1001,12 +1001,17 @@ function buildWhatIf(base){
     }
     restoreAll(sliderSaves,agentSaves);
     const d=((nc-base)/base*100);const c=d>0?'var(--red)':'var(--green)';
+    // Use data-tip so the site's rich JS tooltip widget (markdown, hover-
+    // persistent, themed) picks this up instead of the flaky native HTML
+    // `title=` (silently swallowed by some browser/OS combos, slow on
+    // others, no markdown rendering). The same document-level delegated
+    // handler that wires every other tooltip on the page handles this.
     const tip=(sc.desc||'').replace(/"/g,'&quot;');
     const zero=Math.abs(d)<0.05;
     const labelStr=zero
       ? `${sc.name} <span style="color:var(--dimmer);font-weight:400;font-size:7px">· n/a here</span>`
       : sc.name;
-    return `<div class="mcard" title="${tip}" style="cursor:help"><div class="mlabel">${labelStr}</div><div style="font-size:14px;font-weight:700;color:${zero?'var(--dim)':c}">${d>0?'+':''}${d.toFixed(1)}%</div><div style="font-size:7px;color:var(--dim);margin-top:2px">${nc.toFixed(5)}/sess</div></div>`;
+    return `<div class="mcard" data-tip="${tip}" style="cursor:help"><div class="mlabel">${labelStr}</div><div style="font-size:14px;font-weight:700;color:${zero?'var(--dim)':c}">${d>0?'+':''}${d.toFixed(1)}%</div><div style="font-size:7px;color:var(--dim);margin-top:2px">${nc.toFixed(5)}/sess</div></div>`;
   }).join('');
 }
 

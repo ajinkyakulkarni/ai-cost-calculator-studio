@@ -465,7 +465,11 @@
     text-align: center;
     border-radius: 50%;
     background: var(--rule);
-    color: var(--paper);
+    /* Was var(--paper) — near-white text on the light-gray .rule background
+       rendered nearly invisible (the 1/2/3 digits were barely legible).
+       Switched to ink-2 (a mid-tone) so inactive step numbers are readable
+       without competing with the active step (still white-on-accent). */
+    color: var(--ink-2);
     font-size: 9px;
     font-weight: 700;
     flex-shrink: 0;
@@ -2505,7 +2509,12 @@
   .calibration-badge .cal-mode-btn.active {
     background: currentColor; opacity: 1;
   }
-  .calibration-badge .cal-mode-btn.active span { color: var(--card); }
+  /* --card is only defined inside .simulator-pane. Outside, var(--card)
+     fell through to inherit (the badge's green color), so the 'Minimal'
+     active button rendered green-text-on-green-bg. Pinning to #fff
+     contrasts against both the green (minimal) and amber (moderate/
+     heavy) active states. */
+  .calibration-badge .cal-mode-btn.active span { color: #fff; }
   .calibration-badge a {
     color: inherit; text-decoration: underline; text-decoration-style: dotted;
   }
@@ -3796,7 +3805,6 @@ Hybrid is rarely cost-effective below 30% self-host share — fixed ops staff an
 
 <!-- ═══ TAB: CONFIG ═══ -->
 <div class="axiom-section-divider" id="axiom-h-config">
-  <span class="ix-num">A</span>
   <span class="ix-title">Global parameters</span>
   <span class="ix-desc">MAU, sessions, turns, cache, retries — workload-wide knobs that drive the headline cost</span>
 </div>
@@ -3986,7 +3994,6 @@ How agents coordinate, billed as extra input tokens per turn per agent.
 
 
 <div class="axiom-section-divider" id="axiom-h-tools">
-  <span class="ix-num">B</span>
   <span class="ix-title">Tools registry &amp; rates</span>
   <span class="ix-desc">workload-wide tool catalog · return-shape default · provider rate hints</span>
 </div>
@@ -4052,7 +4059,6 @@ Set Cap above to match your template's actual emission size (40 for status-only,
 
 <!-- TAB: AGENTS -->
 <div class="axiom-section-divider" id="axiom-h-agents">
-  <span class="ix-num">C</span>
   <span class="ix-title">Agent fleet</span>
   <span class="ix-desc">per-agent role, model, prompt, RAG, tools, guardrails — <span id="agent-editor-badge" style="color:var(--cyan);font-weight:700;letter-spacing:1px">0 tools · 0 agents · 0 RAG</span></span>
 </div>
@@ -4144,7 +4150,6 @@ Set Cap above to match your template's actual emission size (40 for status-only,
      Agent fleet and Cost breakdown. All data-bind IDs are unchanged so
      cost-engine wiring needs no edits. -->
 <div class="axiom-section-divider" id="axiom-h-verification">
-  <span class="ix-num">D</span>
   <span class="ix-title">Fact-checking pipeline</span>
   <span class="ix-desc">verifier preset · NLI hosting · atomizer/reviser token budgets — pick a preset or stay at the simulator default</span>
 </div>
@@ -4391,7 +4396,6 @@ Measure primary's confidence-score histogram across a labeled validation set; pi
 
 <!-- ═══ TAB: TOKENS ═══ -->
 <div class="axiom-section-divider" id="axiom-h-tokens">
-  <span class="ix-num">E</span>
   <span class="ix-title">Cost breakdown</span>
   <span class="ix-desc">per-turn token ledger and cumulative composition</span>
 </div>
@@ -4440,7 +4444,6 @@ Measure primary's confidence-score histogram across a labeled validation set; pi
 
 <!-- ═══ TAB: COST ═══ -->
 <div class="axiom-section-divider" id="axiom-h-cost">
-  <span class="ix-num">F</span>
   <span class="ix-title">Comparisons</span>
   <span class="ix-desc">model-by-model cost table and 12-month projection</span>
 </div>
@@ -4493,7 +4496,6 @@ Measure primary's confidence-score histogram across a labeled validation set; pi
 
 <!-- ═══ TAB: SENSITIVITY ═══ -->
 <div class="axiom-section-divider" id="axiom-h-sensitivity">
-  <span class="ix-num">G</span>
   <span class="ix-title">Stress test</span>
   <span class="ix-desc">±50% sensitivity, tornado chart, what-if scenarios</span>
 </div>
