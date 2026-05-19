@@ -3938,8 +3938,11 @@ How agents coordinate, billed as extra input tokens per turn per agent.
        leaving an empty right pane). -->
   <div style="display:grid;grid-template-columns:1fr;gap:8px">
     <div class="panel">
-      <div class="ph" title="Workload-wide task mix (applies to the whole deployment, not per-agent)">Workload mix — query types <span class="badge" id="out-mult-badge">×1.0 out</span></div>
-      <div style="padding:5px 10px 0;font-size:8px;color:var(--dim);line-height:1.5">Global mix across all queries (not per-agent). Drives output-token multipliers — classify ≈ 0.3×, summary ≈ 0.65×, RAG ≈ 0.85×, code 2.8×, longform 3.6×, agentic 4.3×.</div>
+      <div class="ph" title="Default mix across all queries. Each type has a different output-token multiplier (classify=0.3× → agentic=4.3×). Per-agent override available via the Task bias dropdown in Section C.">Workload mix — query types <span class="badge" id="out-mult-badge">×1.0 out</span></div>
+      <div style="padding:5px 10px 0;font-size:8px;color:var(--dim);line-height:1.5">
+        <strong>Default mix across all queries</strong> — sets the output-token multiplier the engine applies to every agent that doesn't override it (multipliers: classify ≈ 0.3×, summary ≈ 0.65×, RAG ≈ 0.85×, code 2.8×, longform 3.6×, agentic 4.3×). Same MAU + same model can yield ~14× different output bills depending on this mix.<br>
+        <span style="color:var(--cyan)">↳ Per-agent override:</span> any agent in Section C with a <strong>Task bias</strong> set ignores this mix and bills against 60% of its biased type + 8% of the other five — useful for fleets with a dedicated classifier alongside a long-form drafter.
+      </div>
       <div style="padding:8px 10px" id="task-bars"></div>
     </div>
     <!-- Model rate reference retired: superseded by the calc-side
