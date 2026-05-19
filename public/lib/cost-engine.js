@@ -412,10 +412,16 @@
         ? agent.cache_write_share
         : (options && options.cacheWriteShare != null ? options.cacheWriteShare : 0);
       const pCachedEff = effectiveCachedRate(rates, agentWriteShare);
+      // Per-agent task-character multiplier. agent.task_bias='code' on a
+      // Drafter agent multiplies its output tokens by ~2.4× (code is
+      // 2.8× output vs. balanced-mix baseline ~1.16×); task_bias=null
+      // → 1.0× (unchanged). See taskMixOutputMultiplierForAgent.
+      const agentOutMult = taskMixOutputMultiplierForAgent(agent);
+      const effOutT = outT * agentOutMult;
       const perCall = (
         uncached * rates.input_per_million / 1e6 +
         cached   * pCachedEff / 1e6 +
-        outT     * rates.output_per_million / 1e6
+        effOutT  * rates.output_per_million / 1e6
       ) * mult;
       // ReAct / reflection multiplier — agents that internally loop
       // (think → act → observe → think) fire N LLM calls per logical
@@ -522,6 +528,24 @@
     }
     if (total <= 0) return 1.0;
     return (wom / total) / TASK_MIX_BASELINE_WOM;
+  }
+
+  // Per-agent output multiplier — mirrors the simulator's 60/8/8/8/8/8
+  // synthetic mix when agent.task_bias is set, so a fleet with a
+  // dedicated Classifier agent (bias='classify') and a Drafter agent
+  // (bias='longform') bills each one against its own output character.
+  // Returns 1.0 when no bias is set, preserving the unscaled per-agent
+  // output_tokens already configured on the agent (agent-mode's existing
+  // "tokens are specified directly" semantic). Only fires on explicit
+  // opt-in via the Task bias dropdown.
+  function taskMixOutputMultiplierForAgent(agent) {
+    const bias = agent && agent.task_bias;
+    if (!bias || !Object.prototype.hasOwnProperty.call(TASK_MIX_OUT_MULT, bias)) {
+      return 1.0;
+    }
+    const mix = {};
+    for (const k in TASK_MIX_OUT_MULT) mix[k] = (k === bias) ? 60 : 8;
+    return taskMixOutputMultiplier({ task_mix: mix });
   }
 
   function perQueryCost(workload, modelId, tierId, mixId, cacheRate, writeShare) {
