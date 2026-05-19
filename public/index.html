@@ -3224,6 +3224,19 @@ body.theme-tactical main .section .row > div > label {
 body.config-basic .simulator-pane .sr-advanced { display: none !important; }
 body.config-basic .simulator-pane .panel-advanced { display: none !important; }
 body.config-basic .simulator-pane .block-advanced { display: none !important; }
+/* Section helper blocks — the user-facing 3-part template
+   (What this is / Why it matters / How to interpret) attached at the top
+   of each major section so first-time readers don't have to ask. Uses
+   a cyan left-rail to set it apart from sliders and from the brown-ish
+   procurement-side prose. Auto-themes via CSS variables. */
+.section-helper{margin:8px 0 14px;padding:10px 13px;background:rgba(0,212,255,0.045);border-left:3px solid rgba(0,212,255,0.5);border-radius:0 6px 6px 0;font-size:11px;line-height:1.55;color:var(--text-secondary,#9ab)}
+.section-helper p{margin:0 0 6px}
+.section-helper p:last-child{margin:0}
+.section-helper strong{color:var(--cyan);font-weight:700;letter-spacing:.2px}
+.section-helper em{font-style:italic;color:inherit;opacity:.85}
+/* In the simulator pane the panel backgrounds are darker so we lighten
+   the rail and bump the text color for legibility. */
+.simulator-pane .section-helper{background:rgba(0,212,255,0.06);border-left-color:rgba(0,212,255,0.55);color:var(--text-primary,#c8d8f0);font-size:10.5px}
 /* Reference-topology diagram — live render of the fleet's coordination
    shape. Lives in Section C, above the per-agent editor. CSS uses simple
    flex boxes + unicode arrows so it themes correctly without an SVG
@@ -3622,7 +3635,11 @@ body.config-basic .simulator-pane .block-advanced { display: none !important; }
     <div class="section" data-cat="setup" id="sec-deployment">
       <h2><span class="chev">▶</span><span class="lead">Project profile</span> <em>name, team, audience</em></h2>
       <div class="section-body">
-      <p class="helper">Identify the deployment. These labels appear at the top of the report. <strong>Public-facing?</strong> drives the bot-factor multiplier and informs sensible daily-cap recommendations downstream.</p>
+      <div class="section-helper">
+        <p><strong>What this is.</strong> Identity for the deployment — project name, owning team or agency, one-paragraph description, and the hosting strategy (managed API, BYOK, self-hosted GPU, on-prem). Drives the report title block and gates which downstream sections appear.</p>
+        <p><strong>Why it matters.</strong> The hosting choice is the single largest structural decision in the report: it switches the entire cost model between per-token-API (linear with traffic), reserved-capacity (committed spend), and capex-amortized (fixed monthly regardless of traffic). Getting it wrong by mis-clicking can move the bill by 5–10× and surface the wrong reservation / self-host fields downstream.</p>
+        <p><strong>How to interpret the results.</strong> Pick the hosting that matches your actual procurement vehicle — not the one you wish you had. Project name and description appear verbatim at the top of the report, so write them as you'd want a reviewer to read them. Sections downstream auto-show / auto-hide based on this choice; if you don't see Reservations, you're on a hosting model that doesn't use them.</p>
+      </div>
       <div class="row"><label>Project name <span class="tip" data-tip="Short label that appears at the top of the report and in shared links. Use the actual product name so procurement reviewers know which deployment they're looking at.">ⓘ</span></label><input type="text" data-bind="deployment.name" placeholder="My LLM application"></div>
       <div class="row"><label>Team or organization <span class="tip" data-tip="The team or agency that owns this deployment (e.g. 'NASA SMD', 'NIH NCATS', 'Acme Inc.'). Appears in the report subtitle. If you enter a federal agency name, the calculator nudges defaults toward FedRAMP-aware settings.">ⓘ</span></label><input type="text" data-bind="deployment.agency" placeholder="Your team or agency"></div>
       <div class="row"><label>One-paragraph description <em>(shown in report)</em> <span class="tip" data-tip="A 2-3 sentence description of the application. Appears verbatim in the procurement report. Cover: what does it do, who uses it, roughly how busy it is — that's all reviewers need to validate the cost estimate.">ⓘ</span></label><textarea data-bind="deployment.description" placeholder="What does this application do? Who uses it? Roughly how busy is it?"></textarea></div>
@@ -3779,6 +3796,11 @@ Hybrid is rarely cost-effective below 30% self-host share — fixed ops staff an
   <span class="ix-desc">MAU, sessions, turns, cache, retries — workload-wide knobs that drive the headline cost</span>
 </div>
 <div id="tab-config" class="tab-panel active">
+  <div class="section-helper">
+    <p><strong>What this is.</strong> The workload-wide knobs that apply to your whole deployment — how many users hit it, how often, how big each query is, how much prompt-caching works, what retry overhead you carry. These are <em>shared across all agents</em>; per-agent specifics live in Section C.</p>
+    <p><strong>Why it matters.</strong> MAU, sessions/day and turns/session multiply into total monthly questions — get any one wrong by 2× and your bill estimate is off by 2×. Cache hit rate is the single largest cost lever (every +10 percentage points trims input cost by ~8%). Retry rate, bot factor, and the advanced knobs (compression, batch async, language multiplier) each move the bill by 5–30%.</p>
+    <p><strong>How to interpret the results.</strong> The values you set here flow into every per-agent calculation in Section C and the headline at the top. Pull MAU from real analytics not guesses; set bot factor to 1.5× for public-facing deployments; aim for cache hit ≥70% on stable system prompts. If the resulting headline looks wrong, it's almost always a knob in this section that's off.</p>
+  </div>
 
   <!-- Basic / Advanced toggle. Procurement users typically only touch
        the basic knobs (model, cache hit, sessions, turns, RAG chunks);
@@ -3972,6 +3994,11 @@ How agents coordinate, billed as extra input tokens per turn per agent.
   <span class="ix-title">Tools registry &amp; rates</span>
   <span class="ix-desc">workload-wide tool catalog · return-shape default · provider rate hints</span>
 </div>
+<div class="section-helper">
+  <p><strong>What this is.</strong> The catalog of tools your agents can call — web search, vector search, code execution, database lookups, image generators, STT/TTS, custom MCP servers. Each entry defines the tool's per-call fee, the typical schema size injected into the prompt, the result-token shape it returns, and which provider bills it (managed-API, BYOK, or self-hosted).</p>
+  <p><strong>Why it matters.</strong> Tool fees are billed <em>independently of LLM tokens</em>. A vector-search agent at 5K queries/mo using Exa at $0.005/call adds $25/mo flat; an image-gen tool at $0.04/image on 50K calls/mo is $2K — bigger than the LLM bill on some workloads. Tools also pump tokens back into the agent's input (the result), which the engine bills at full input-token rate.</p>
+  <p><strong>How to interpret the results.</strong> Add only the tools your fleet actually calls; each one is wired up in Section C per-agent (via <em>enabled_tools</em>). The "fees + tokens" badge in the cost ledger (Section E) breaks out tool-fee impact separately from LLM-token impact, so you can see which line is hurting. If you're seeing surprise costs, this is the second place to check after Section A.</p>
+</div>
 <div id="tab-tools" class="tab-panel">
     <div class="panel">
       <div class="ph">Tool routing &amp; rates <span class="badge-guard">FEES</span></div>
@@ -4023,6 +4050,11 @@ Set Cap above to match your template's actual emission size (40 for status-only,
   <span class="ix-desc">per-agent role, model, prompt, RAG, tools, guardrails — <span id="agent-editor-badge" style="color:var(--cyan);font-weight:700;letter-spacing:1px">0 tools · 0 agents · 0 RAG</span></span>
 </div>
 <div id="tab-agents" class="tab-panel">
+  <div class="section-helper">
+    <p><strong>What this is.</strong> The per-agent editor. Each card configures one agent in the fleet — its model, system prompt size, RAG settings, which tools it enables, guardrail tokens, task bias, and activation rate. Topology (Single / Fleet / Workflow) sits above; it decides whether agents fan-out in parallel, chain sequentially, or run alone. The reference-topology diagram (collapsible) shows what your choices look like.</p>
+    <p><strong>Why it matters.</strong> Most real cost-engineering happens here. Doubling agents roughly doubles per-query cost (each runs full sysprompt + RAG + reasoning), so 1→3 on a $30K/mo deployment ≈ +$60K/mo. The model choice per agent compounds — putting Opus-4.7 on a Triage agent that only needs gpt-5.4-mini wastes ~5× per call. <em>activation_rate</em> shaves cost on conditional agents (e.g. an Image-Enhancer that only fires on 30% of requests = 0.3× monthly contribution).</p>
+    <p><strong>How to interpret the results.</strong> Each agent card shows its monthly contribution ($/mo · % of fleet) in the header, with a "Compare models" expander that runs the engine against every model so you see the swap delta before committing. Use the topology cards to enforce structure; use Task bias to match each agent to its workload character (Triage→classify, Drafter→longform, etc.).</p>
+  </div>
 
   <!-- TOPOLOGY + AGENT COUNT — moved here from Section A on 2026-05-18.
        These two knobs decide the SHAPE of the fleet (single agent vs.
@@ -4108,6 +4140,11 @@ Set Cap above to match your template's actual emission size (40 for status-only,
   <span class="ix-num">D</span>
   <span class="ix-title">Fact-checking pipeline</span>
   <span class="ix-desc">verifier preset · NLI hosting · atomizer/reviser token budgets — pick a preset or stay at the simulator default</span>
+</div>
+<div class="section-helper">
+  <p><strong>What this is.</strong> The post-response verification pipeline that checks generated claims against a knowledge source before returning. Configures the verifier preset (MiniCheck, FactScore, AlignScore, FR2, etc.), NLI model hosting (self-hosted vs. managed), per-claim atomizer/reviser token budgets, and a cascade rule for escalating low-confidence claims to a second more-expensive verifier.</p>
+  <p><strong>Why it matters.</strong> Skipping fact-checking is the right call for low-stakes chatbots and a compliance violation for legal/medical/financial. When you do need it, the verifier choice can swing fact-check cost by 20×: a self-hosted MiniCheck NLI run on every claim is ~$0.0001/claim; an API-hosted FR2 with reasoning is ~$0.002/claim. Cascade verification keeps the average cheap (90% of claims handled by the fast verifier) while still catching the hard cases.</p>
+  <p><strong>How to interpret the results.</strong> Start by picking a preset that matches your risk profile — MiniCheck for general grounding, FR2 for high-stakes, FactScore if you publish citation rates. Set <em>coverage</em> to the fraction of responses that need verification (1.0 = all, 0.2 = 20%). Cascade settings show up as the ⇉ icon in the Section C architecture diagram; the cost flows into the headline as a separate "verify" line.</p>
 </div>
 <div id="tab-verification" class="tab-panel">
   <div class="panel" id="sec-verification" style="margin-top:8px">
@@ -4349,6 +4386,11 @@ Measure primary's confidence-score histogram across a labeled validation set; pi
   <span class="ix-title">Cost breakdown</span>
   <span class="ix-desc">per-turn token ledger and cumulative composition</span>
 </div>
+<div class="section-helper">
+  <p><strong>What this is.</strong> The per-turn token ledger — a line-by-line accounting of where the tokens in one canonical query go. Input tokens (system prompt + history + RAG chunks + tool results), output tokens (the assistant's reply + any reasoning tokens), and the per-component dollar contribution at current rates. Visualized as a stacked bar so you see which component dominates.</p>
+  <p><strong>Why it matters.</strong> Headline cost is an opinion until you can see what's driving it. If RAG chunks consume 60% of input, the lever is retrieval depth (Section A → RAG chunks). If reasoning tokens are 40% of output, the lever is thinking mode (per-agent in Section C). If tool results are surprisingly large, the lever is the cap on tool return-shape (Section B). Without this view, you'd tune the wrong knob.</p>
+  <p><strong>How to interpret the results.</strong> Look for the biggest bar — that's your priority lever. Compare the "uncached input" vs "cached input" split — if uncached is &gt;50% of input, your prompt-cache isn't earning its keep (system prompt instability, dynamic preambles, etc.). The dollar per-turn × monthly queries should reconcile with the headline; if not, retry/cascade/bot-factor is taking the difference.</p>
+</div>
 <div id="tab-tokens" class="tab-panel">
   <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
     <div class="panel">
@@ -4392,6 +4434,11 @@ Measure primary's confidence-score histogram across a labeled validation set; pi
   <span class="ix-num">F</span>
   <span class="ix-title">Comparisons</span>
   <span class="ix-desc">model-by-model cost table and 12-month projection</span>
+</div>
+<div class="section-helper">
+  <p><strong>What this is.</strong> A side-by-side cost table running your current workload against every model in the rate card — Claude Opus/Sonnet/Haiku, GPT-5.x family, Gemini 3, Llama 3.3, etc. Each row shows per-query cost, monthly bill, and percentage delta vs. your selected model. The 12-month projection chart shows the same models curved over time at your configured growth rate.</p>
+  <p><strong>Why it matters.</strong> Model choice is usually the second-biggest decision after agent count. The same workload run on Opus-4.7 vs Haiku-4.5 can differ by 8×; gpt-5.4 vs gpt-5.4-mini by 5×. But naïve "always pick the cheapest" ignores quality differences — this table lets you see the cost gap so you can decide if the quality lift is worth it.</p>
+  <p><strong>How to interpret the results.</strong> The "whole-fleet uniform" badge is a reminder: this table assumes every agent runs the same model. Real fleets mix (Triage on Mini, Drafter on Opus) — use Section C's per-agent "Compare models" expander for the realistic per-agent swap math. Treat this table as a "ceiling vs floor" reference, then mix and match in Section C.</p>
 </div>
 <div id="tab-cost" class="tab-panel">
   <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
@@ -4441,6 +4488,11 @@ Measure primary's confidence-score histogram across a labeled validation set; pi
   <span class="ix-title">Stress test</span>
   <span class="ix-desc">±50% sensitivity, tornado chart, what-if scenarios</span>
 </div>
+<div class="section-helper">
+  <p><strong>What this is.</strong> A robustness check on your headline number. The sensitivity table flips each input ±50% in isolation and reports the resulting % change in monthly cost; the tornado chart shows the same ranked by impact. The What-If cards flip one knob (or a small bundle) to a named scenario value and report the delta — "what if cache hit rate hit 80%", "what if RAG chunks doubled", etc.</p>
+  <p><strong>Why it matters.</strong> A budget that's right at the central estimate but blows up at +20% on the most sensitive input is not a budget — it's an optimistic guess. Sensitivity tells procurement reviewers <em>which inputs your estimate is fragile to</em>, so they know where to push back on assumptions. The What-If cards give a quick "lever pull" view for the most common cost-reduction or cost-increase moves.</p>
+  <p><strong>How to interpret the results.</strong> Top bars in the tornado = the inputs that matter most — these are the ones you should validate hardest before signing. What-If cards reading 0.0% means that knob doesn't apply to your current preset (RAG off, guardrails already at zero, etc.). Use this section to write the "Sensitivity" paragraph in your procurement memo.</p>
+</div>
 <div id="tab-sensitivity" class="tab-panel">
   <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
     <div class="panel">
@@ -4478,7 +4530,11 @@ Measure primary's confidence-score histogram across a labeled validation set; pi
     <div class="section" data-cat="setup" id="sec-federal">
       <h2><span class="chev">▶</span><span class="lead">Federal compliance & hosting</span> <em>FedRAMP, ATO, egress, audit retention</em></h2>
       <div class="section-body">
-      <p class="helper">Federal AI deployments cost more than commercial. Two kinds of overhead apply: <strong>multipliers</strong> (FedRAMP/GovCloud premium and multi-region redundancy multiply your LLM compute cost), and <strong>additive line items</strong> (ATO, egress, log retention, vector DB hosting). Set to "none / single / 0" if you're modeling a commercial deployment.</p>
+      <div class="section-helper">
+        <p><strong>What this is.</strong> The federal compliance overhead layer — FedRAMP/GovCloud premium multiplier, multi-region redundancy, plus additive line items for ATO certification, egress fees, audit log retention, and vector-DB hosting. Set to <em>none / single / 0</em> if you're modeling a commercial deployment.</p>
+        <p><strong>Why it matters.</strong> Federal AI typically costs 30–80% more than the commercial equivalent at the same traffic — GovCloud carries a 15–25% compute premium, FedRAMP-Moderate adds an annual ATO line ($150K–$400K amortized monthly), and audit retention can add $200–$800/mo. Ignoring these makes the proposal look unrealistic to procurement reviewers; including them lets you set defensible budget envelopes.</p>
+        <p><strong>How to interpret the results.</strong> Pick the FedRAMP tier that matches your authorizing memo (Low / Moderate / High). Multi-region only if you have a hot DR requirement. The ATO amortization assumes a 36-month cycle by default — adjust if your re-cert window differs. Costs from this section flow into the headline as additive monthly lines, broken out separately in the Cost breakdown so reviewers can audit them.</p>
+      </div>
 
       <h3 style="margin: 12px 0 6px; font-size: 13px;">Hosting multipliers</h3>
       <div class="row grid-2">
@@ -4624,7 +4680,11 @@ Picking a tier here auto-computes the monthly amortized cost (upfront ÷ amortiz
     <div class="section" data-cat="traffic" id="sec-anchor">
       <h2><span class="chev">▶</span><span class="lead">Your typical question</span> <em>token sizes for one canonical query</em></h2>
       <div class="section-body">
-      <p class="helper">A "token" is roughly ¾ of a word (so 1,000 tokens ≈ 750 English words). The cost depends on how big each question and answer is. <strong>Don't know your numbers?</strong> Use the wizard below — it asks plain-English questions and figures out the token math for you.</p>
+      <div class="section-helper">
+        <p><strong>What this is.</strong> Token sizes for one canonical query in your deployment — system prompt, user input, retrieved context (RAG chunks + tool results), and the assistant's reply. A "token" is roughly ¾ of an English word (1K tokens ≈ 750 words). Don't know your numbers? Use the plain-English wizard below — it maps "I write 2-paragraph answers with 5 search results attached" to actual token counts.</p>
+        <p><strong>Why it matters.</strong> Per-query token size is one of the two multipliers in your monthly bill (the other is query volume in <em>Your users</em>). A 4K-token query at 1M queries/mo costs ~4× a 1K-token query at the same volume on the same model. Mis-sizing this is the most common reason for a budget overrun in the first three months of production.</p>
+        <p><strong>How to interpret the results.</strong> Measure these from a sample of real traffic when you can — token counts from tiktoken or the provider's own tokenizer are authoritative; guesses are not. The "Your typical question" totals roll up into the per-turn ledger in Cost breakdown (Section E). If your post-launch bill diverges from this estimate, this section is the first place to recalibrate.</p>
+      </div>
 
       <div class="wizard-cta" id="wizard-toggle">
         <strong>Estimate tokens in 30 seconds →</strong>
@@ -4748,7 +4808,11 @@ Picking a tier here auto-computes the monthly amortized cost (upfront ÷ amortiz
     <div class="section" data-cat="traffic" id="sec-shapes">
       <h2><span class="chev">▶</span><span class="lead">Question types</span> <em>full-pipeline, lookup-only, refusal, …</em></h2>
       <div class="section-body">
-      <p class="helper">Different questions have different token cost. A simple lookup uses fewer tokens than a full multi-tool pipeline. Each shape's factor scales the typical query above (1.0 = same size; 0.5 = half). <span class="tip" data-tip="Examples: full = baseline pipeline; rag = retrieval-only (~30% of full); refusal = out-of-scope reject (~5%); heavy = long-context multi-turn (~120%).">ⓘ</span></p>
+      <div class="section-helper">
+        <p><strong>What this is.</strong> Question-type shapes — multipliers on top of the canonical query above. <em>Full</em> = baseline pipeline (1.0×); <em>RAG</em> = retrieval-only (~0.3×); <em>refusal</em> = out-of-scope reject (~0.05×); <em>heavy</em> = long-context multi-turn (~1.2×). The next section (Traffic mix presets) decides how queries split across these shapes.</p>
+        <p><strong>Why it matters.</strong> Real fleets don't run one shape — a chatbot serves a mix of substantive questions, RAG lookups, polite refusals, and the occasional heavy follow-up. Modeling everything as the most expensive shape over-quotes by 2–4×; modeling everything as cheap lookups under-quotes by the same factor. The shape weights are how you reconcile.</p>
+        <p><strong>How to interpret the results.</strong> Set factors to scale the canonical query — 0.5 means that shape uses half the tokens, 2.0 means double. If your fleet doesn't have refusals at all, leave the weight at 0 in the next section. The mix weights × shape factors × per-query cost = your effective per-query bill in the headline.</p>
+      </div>
       <div class="item-list" id="shapes-list"></div>
       <div class="item add-row" id="shapes-add">+ Add another question type</div>
       </div>
@@ -4760,7 +4824,11 @@ Picking a tier here auto-computes the monthly amortized cost (upfront ÷ amortiz
       <div id="agents-mode-banner" class="mode-warning" style="display:none;">
         <strong>⚠ Multi-agent mode is active.</strong> Sections 3 (Question types) and 4 (Traffic mix) are <strong>ignored</strong> — the engine sums per-agent token cost instead of blending shapes. Remove all agents below to switch back to shape×mix mode.
       </div>
-      <p class="helper">Many real deployments make several LLM calls per user question — e.g., a <strong>Planner</strong> decides which tools to call, a <strong>Retriever</strong> ranks documents, a <strong>Tool agent</strong> formulates a database query, a <strong>Summarizer</strong> writes the answer. Each agent has its own token budget. <strong>If you fill this in, the engine uses agent-sum instead of "Your typical question" above.</strong> Leave empty if your deployment is single-call.</p>
+      <div class="section-helper">
+        <p><strong>What this is.</strong> The procurement-side multi-agent pipeline editor — each agent specifies its own model, calls-per-query, input/output tokens, sysprompt size, RAG flag, and task bias. The simulator-side per-agent editor (Section C above) is the richer counterpart with topology cards, tool-enablement, and the live architecture diagram; this section is the JSON shape that flows into the procurement report.</p>
+        <p><strong>Why it matters.</strong> Real production fleets are almost never single-call — Planner → Retriever → Drafter → Reviewer chains, parallel specialist fans, ReAct loops. Modeling these as "one big call" understates cost by 2–6× because each agent has its own sysprompt amortization, cache behavior, and output budget. When this section is populated, the engine sums per-agent cost and ignores "Your typical question" above.</p>
+        <p><strong>How to interpret the results.</strong> Use the Common pipeline templates below to start (single-call, planner+executor, RAG, multi-agent verifier, etc.) then tune per-agent. The "Multi-agent mode is active" banner appears once you add an agent — confirming the engine has switched to agent-sum billing. If your deployment is actually single-call, leave this section empty.</p>
+      </div>
       <div class="item-list" id="agents-list"></div>
       <div class="item add-row" id="agents-add">+ Add an agent</div>
       <details style="margin-top: 12px;">
@@ -4778,7 +4846,11 @@ Picking a tier here auto-computes the monthly amortized cost (upfront ÷ amortiz
     <div class="section" data-cat="traffic" id="sec-mix">
       <h2><span class="chev">▶</span><span class="lead">Traffic mix presets</span> <em>how questions split across types</em></h2>
       <div class="section-body">
-      <p class="helper">Each preset is a different traffic distribution — e.g., "worst case" treats every question as full-pipeline; "mixed" reflects realistic production traffic. Weights must sum to 1.</p>
+      <div class="section-helper">
+        <p><strong>What this is.</strong> A preset selector for how your traffic splits across the question shapes defined above. "Worst case" treats every query as full-pipeline (the expensive shape); "mixed" is a realistic production blend; "lookup-heavy" weights toward RAG; "refusal-heavy" toward the cheap reject path. Weights inside each preset sum to 1.0.</p>
+        <p><strong>Why it matters.</strong> The mix preset is the bridge between the per-shape token sizes (above) and the headline bill. Same fleet on "worst case" can quote 2–4× higher than on "mixed" — picking the wrong preset is one of the easiest ways to wildly over- or under-quote. Procurement reviewers will (and should) ask which preset you used.</p>
+        <p><strong>How to interpret the results.</strong> If you have real traffic data, write a custom preset that matches the empirical distribution; if you don't yet, "mixed" is the right starting point with "worst case" as a defensive ceiling. The selected preset weights flow into the per-query cost calculation in Cost breakdown.</p>
+      </div>
       <div class="item-list" id="mixes-list"></div>
       <div class="item add-row" id="mixes-add">+ Add another mix preset</div>
       </div>
@@ -4787,7 +4859,11 @@ Picking a tier here auto-computes the monthly amortized cost (upfront ÷ amortiz
     <div class="section" data-cat="traffic" id="sec-segments">
       <h2><span class="chev">▶</span><span class="lead">Your users</span> <em>monthly active users, sessions, questions</em></h2>
       <div class="section-body">
-      <p class="helper">Break your audience into segments — e.g., "internal staff" vs "public visitors". Each has a different usage pattern. Anonymous public segments get a "bot factor" multiplier to account for crawlers and abuse.</p>
+      <div class="section-helper">
+        <p><strong>What this is.</strong> Audience segmentation — split MAU into groups that use the app differently. Each segment has its own MAU, sessions/day per user, questions/session, and authentication status. Anonymous public segments get a bot-factor multiplier (typically 1.5–2.5×) to account for crawlers, scrapers, and abuse traffic.</p>
+        <p><strong>Why it matters.</strong> Authenticated internal staff might run 3 deep sessions/day with 15 questions each; anonymous public visitors might run 0.05 sessions/day with 2 questions each. Modeling these together as one average user obscures cost behavior — and bot-factor on the public segment routinely accounts for 30–60% of the bill on consumer-facing deployments. Without this breakout, you can't defend the MAU number to procurement.</p>
+        <p><strong>How to interpret the results.</strong> Pull each segment's numbers from analytics (login records for authenticated, web analytics for anonymous). Set bot-factor to 1.0× for internal-only, 1.5× for typical public, 2.5–3× for SEO-targeted public pages. The aggregate "total monthly questions" used in the headline = Σ (MAU × sessions × questions × 30 × bot-factor) across all segments.</p>
+      </div>
       <div class="item-list" id="segments-list"></div>
       <div class="item add-row" id="segments-add">+ Add another audience segment</div>
       </div>
@@ -4801,7 +4877,11 @@ Picking a tier here auto-computes the monthly amortized cost (upfront ÷ amortiz
     <div class="section" data-cat="limits" id="sec-reservations">
       <h2><span class="chev">▶</span><span class="lead">API reservations / committed-spend</span> <em>discount or PTU vs on-demand</em></h2>
       <div class="section-body">
-      <p class="helper">Reserved API capacity (Azure PTU, AWS Bedrock provisioned, OpenAI Enterprise commit) buys a discount in exchange for commitment. Often 30–50% effective savings at >$10K/mo on-demand spend. Choose the plan + size in <strong>units</strong> (PTU-style) — the engine swaps in the right cost model. Requires <strong>API hosting</strong>.</p>
+      <div class="section-helper">
+        <p><strong>What this is.</strong> Committed-spend reservations on managed-API hosting — Azure PTU (Provisioned Throughput Units), AWS Bedrock Provisioned, OpenAI Enterprise commit, Anthropic on-demand commit. You pay a fixed monthly fee in exchange for a discount vs. pure on-demand billing. The engine computes effective $/query under the reservation and compares against on-demand.</p>
+        <p><strong>Why it matters.</strong> Reservations typically yield 30–50% savings once on-demand spend exceeds ~$10K/mo, breaking even somewhere between $5K–$8K/mo depending on the provider. Below that threshold the commitment locks you into paying for unused capacity; above, it's free money. Procurement decisions on year-2 reservations swing the 3-year TCO by 20–30%.</p>
+        <p><strong>How to interpret the results.</strong> Only appears when hosting = managed API. Pick the provider that matches your contract vehicle; set units to your committed quantity. The engine shows the break-even point — if your projected monthly spend is below that, on-demand wins; above, the reservation. Mix in the Migration timeline section to model "on-demand year 1, reserved year 2-3" patterns.</p>
+      </div>
       <div class="row checkbox"><input type="checkbox" data-bind="reservations.enabled"><label>Apply a reservation</label></div>
       <div class="row grid-2">
         <div>
@@ -4859,7 +4939,11 @@ Smaller/faster models (mini, nano) need fewer units because each PTU buys more t
     <div class="section" data-cat="quality" id="sec-embeddings">
       <h2><span class="chev">▶</span><span class="lead">Embeddings (RAG)</span> <em>ingest cost + per-query embedding</em></h2>
       <div class="section-body">
-      <p class="helper">RAG systems pay for embeddings twice: once at <strong>ingest</strong> (chunking the corpus into vectors, amortized over the re-embed cycle) and once at <strong>query time</strong> (embedding the user question to do vector search). For a 100M-token corpus + 1M queries/mo this often runs $50–$500/mo. Skip if not using RAG.</p>
+      <div class="section-helper">
+        <p><strong>What this is.</strong> The dedicated embedding-token billing for RAG systems. Two cost lines: <em>ingest</em> (embedding the entire corpus into vectors, amortized over the re-embed cycle) and <em>query-time</em> (embedding each user question to run vector search). Independent of the LLM token bill — uses the chosen embedding model's separate rate card (text-embedding-3-small, voyage-3-large, etc.).</p>
+        <p><strong>Why it matters.</strong> Often a forgotten line. For a 100M-token corpus + 1M queries/mo on text-embedding-3-small, this runs $50–$500/mo depending on re-embed frequency. Easy to miss until the first invoice. For very large corpora (500M+ tokens) on premium embedding models, the bill can rival the LLM line.</p>
+        <p><strong>How to interpret the results.</strong> Skip entirely if you're not using RAG. Otherwise, set the corpus token count, the re-embed cadence (quarterly = 4×/yr, monthly = 12×/yr), and the embedding model. The cost shows up as a flat monthly line — predictable, but rises with corpus growth.</p>
+      </div>
       <div class="row checkbox"><input type="checkbox" data-bind="embedding.enabled"><label>Include embedding generation cost</label></div>
       <div class="row grid-2">
         <div>
@@ -4924,7 +5008,11 @@ Start with -small. Upgrade only if your evaluation shows retrieval quality is th
     <div class="section" data-cat="reference" id="sec-migration">
       <h2><span class="chev">▶</span><span class="lead">Migration timeline</span> <em>phased deployment over 36 months</em></h2>
       <div class="section-body">
-      <p class="helper">Real procurement decisions span phases — <strong>"API year 1, hybrid year 2, self-host year 3"</strong>. Each phase has its own hosting + reservation. Engine computes monthly cost per phase and total 3-year TCO. The chart in the report visualizes cost-over-time so you can see where transitions break even.</p>
+      <div class="section-helper">
+        <p><strong>What this is.</strong> Phased deployment plan over the procurement window — typically 36 months for federal, 24 for commercial. Each phase has its own hosting strategy, reservation, traffic level, and infrastructure cost. The engine computes a per-phase monthly bill plus the total multi-year TCO, with a cost-over-time chart showing where phases transition.</p>
+        <p><strong>Why it matters.</strong> Real procurement isn't "pick one hosting, run it for 3 years" — it's "API year 1 to prove value, reserved year 2 to lock in discount, self-host year 3 if scale justifies the capex". Modeling the full curve lets you defend the multi-year ask in a single chart and identify break-even points where strategy shifts pay back.</p>
+        <p><strong>How to interpret the results.</strong> Default 1 phase (matches the current single-strategy headline). Add phases when modeling a transition; each phase's overrides only affect that phase's monthly bill. The cumulative 3-year cost (bottom of chart) is the number that ends up in the procurement memo's bottom line.</p>
+      </div>
       <div class="row checkbox"><input type="checkbox" data-bind="migration.enabled"><label>Enable phased migration timeline</label></div>
       <div class="item-list" id="migration-list"></div>
       <div class="item add-row" id="migration-add">+ Add a phase</div>
@@ -4935,7 +5023,11 @@ Start with -small. Upgrade only if your evaluation shows retrieval quality is th
     <div class="section" data-cat="reference" id="sec-personnel">
       <h2><span class="chev">▶</span><span class="lead">Personnel / staffing</span> <em>FTE allocations × loaded annual salary</em></h2>
       <div class="section-body">
-      <p class="helper">Federal RFPs require fully-loaded labor in the cost basis. Each role: <strong>FTE allocation × annual base × total-comp multiplier (1.30 = +30% benefits/overhead) ÷ 12</strong>. Set FTE to 0 to skip a role. Salaries are editable in the <strong>Prices tab → Personnel</strong>. <em>This is ongoing post-launch staffing; upfront design effort is in <strong>Agent engineering</strong> below.</em></p>
+      <div class="section-helper">
+        <p><strong>What this is.</strong> Ongoing post-launch staffing — the people who keep the deployment running after go-live. Each role: <em>FTE allocation × annual base × total-comp multiplier (1.30 = +30% benefits/overhead) ÷ 12</em>. Set FTE to 0 to skip a role. Salaries are editable in the Prices tab → Personnel. Upfront design effort (pre-launch) lives in Agent engineering below.</p>
+        <p><strong>Why it matters.</strong> Federal RFPs require fully-loaded labor in the cost basis — leaving it out makes the proposal look amateur or non-compliant. Personnel is often 40–70% of a federal AI deployment's TCO; ignoring it under-quotes by 2–3×. Procurement reviewers will compare your loaded rates against the GSA schedule, so use realistic numbers.</p>
+        <p><strong>How to interpret the results.</strong> Start with the roles that always exist (Product Owner, MLOps Engineer, on-call SRE), add specialists as the deployment grows (Prompt Engineer for high-volume tuning, Compliance Officer for federal). FTE = 0.25 means quarter-time. The monthly total flows into the headline as a separate "Personnel" line, broken out in the report.</p>
+      </div>
       <div class="row checkbox"><input type="checkbox" data-bind="personnel.enabled"><label>Include personnel costs in monthly total</label></div>
       <div class="item-list" id="personnel-list"></div>
       <div class="item add-row" id="personnel-add">+ Add a role</div>
@@ -4949,7 +5041,11 @@ Start with -small. Upgrade only if your evaluation shows retrieval quality is th
     <div class="section" data-cat="reference" id="sec-agent-engineering">
       <h2><span class="chev">▶</span><span class="lead">Agent engineering</span> <em>upfront design effort + maintenance — amortized monthly</em></h2>
       <div class="section-body">
-      <p class="helper">Effort to design, build, and validate the agent before launch — SME interviews, requirements/spec, evaluation criteria, prototype, calibration runs. Roles × FTE × duration. Methodology-agnostic; defaults approximate a CARE-style engagement. Amortized over deployment lifetime so it shows up as a monthly line item alongside Operations and Personnel. Ongoing post-launch staffing lives in <strong>Personnel</strong> above.</p>
+      <div class="section-helper">
+        <p><strong>What this is.</strong> The upfront engineering effort to design, build, and ship the agent system, plus ongoing maintenance. Roles + FTE during the design phase (SME interviews, spec writing, eval criteria, prototype, calibration runs), amortized over the operational lifespan, plus a maintenance cadence for periodic re-specification.</p>
+        <p><strong>Why it matters.</strong> A pure-token cost estimate underestimates real procurement spend by 30–50% because it ignores the team building the thing. Procurement reviewers expect this line; leaving it out makes the proposal look amateur. Federal RFPs in particular require pre-deployment design effort as a separately-itemized cost basis line.</p>
+        <p><strong>How to interpret the results.</strong> Enable the section, add roles (Agent Design Lead, MLOps Engineer, Prompt Engineer, etc.), set FTE allocation during the design phase. The calculator amortizes the upfront cost over the project's useful life (default 36 months) and adds recurring maintenance hours. Output: a monthly $ line that flows into the headline alongside Personnel and Operations.</p>
+      </div>
 
       <div class="row checkbox"><input type="checkbox" data-bind="agent_engineering.enabled"><label>Include agent-engineering cost in monthly total</label></div>
 
@@ -4982,7 +5078,11 @@ Start with -small. Upgrade only if your evaluation shows retrieval quality is th
     <div class="section" data-cat="limits" id="sec-safeguards">
       <h2><span class="chev">▶</span><span class="lead">Traffic safeguards</span> <em>bot rate limiting</em></h2>
       <div class="section-body">
-      <p class="helper">Bot rate-limiting protects against runaway cost from anonymous traffic. (The old $/day spending cap was retired — it distorted the cost math by clipping queries at an artificial threshold. To answer "what scale fits my budget?", use the <strong>Budget solver</strong> section above.)</p>
+      <div class="section-helper">
+        <p><strong>What this is.</strong> Bot rate-limiting on anonymous traffic — sets requests-per-IP-per-minute thresholds that protect against runaway cost from crawlers, scrapers, and abuse. Independent of authentication (logged-in users typically aren't rate-limited; anonymous public visitors are).</p>
+        <p><strong>Why it matters.</strong> Without rate-limiting, a single misconfigured search bot can generate 10K+ queries/hour and rack up thousands in a day. Public AI deployments have hit five-figure surprise bills from this exact pattern. Rate-limiting is cheap insurance; the right threshold is "above any legitimate user pattern, below crawler aggression".</p>
+        <p><strong>How to interpret the results.</strong> Set the per-IP-per-minute cap to ~5–10× a power-user's burst rate (so legit users never hit it). The bot-factor multiplier in the Your-users section is the corollary — it's how you size the bill <em>before</em> rate-limiting clips the abuse tail. Rate-limiting changes the worst-case-cost ceiling; bot-factor sizes the expected.</p>
+      </div>
 
       <!-- Daily spending cap retired — kept hidden so JSON imports with a
            daily_cap field don't error and the data-bind chain stays intact. -->
@@ -5009,7 +5109,11 @@ Start with -small. Upgrade only if your evaluation shows retrieval quality is th
     <div class="section" data-cat="selfhost" id="sec-selfhost">
       <h2><span class="chev">▶</span><span class="lead">Self-host capacity</span> <em>only matters if you self-host</em></h2>
       <div class="section-body">
-      <p class="helper">A <strong>catalog</strong> of GPU specs the engine can use. The currently-selected GPU is marked with a <span style="color: var(--accent);">●</span>. Hosting strategy is set in <strong>Deployment posture</strong> at the top.</p>
+      <div class="section-helper">
+        <p><strong>What this is.</strong> The GPU capacity-planning section for self-hosted deployments. Catalog of GPU specs (H100, A100, MI300X, etc.), per-card throughput, replica count, utilization assumption, and cloud-vs-bare-metal pricing. The currently-selected GPU is marked with a ● dot. Only appears when hosting = self-host.</p>
+        <p><strong>Why it matters.</strong> Self-host TCO is a different shape from API — high fixed monthly (GPU rent), low marginal-per-query. Break-even vs. API typically sits at $20K–$50K/mo of equivalent on-demand spend, depending on model size. Mis-sizing GPU count by 20% changes the bill by 20%, since unused capacity still bills. Utilization assumption is the biggest unknown — running at 30% averages most production fleets.</p>
+        <p><strong>How to interpret the results.</strong> Pick the GPU that matches your model — H100 for 70B+ class, A100 for 13B–34B, consumer L40S for under 13B. Set replicas to peak QPS ÷ per-GPU throughput, with 30–50% safety margin. The headline "$/query effective" tells you when self-host beats API; cross-reference with the Migration timeline to model "API now, self-host at scale" transitions.</p>
+      </div>
       <div class="row grid-2">
         <div><label for="prev-gpu-visible">GPU instance <span class="tip" data-tip="### GPU instance type
 
@@ -5114,7 +5218,11 @@ Owned GPUs have to be sized for peak load, not average. Higher peak factor = mor
     <div class="section" data-cat="output" id="sec-budget-solver">
       <h2><span class="chev">▶</span><span class="lead">Budget solver</span> <em>given a budget, find the affordable scale</em></h2>
       <div class="section-body">
-      <p class="helper">Inverse of the calculator: enter a target monthly budget and the engine solves for the maximum MAU the deployment can support at the current cost-per-query. Plus what tradeoffs (cache, model swap, batch tier) would unlock more headroom.</p>
+      <div class="section-helper">
+        <p><strong>What this is.</strong> Inverse mode of the calculator — instead of "given my inputs, what's the bill?", asks "given my budget ceiling, what's the maximum scale I can support?". Enter a target monthly budget; the engine solves for the maximum MAU the deployment fits under, plus enumerates which tradeoffs (cache hit, model swap, batch tier) would unlock more headroom without exceeding budget.</p>
+        <p><strong>Why it matters.</strong> Procurement conversations usually start with a budget envelope ("you've got $50K/mo to work with"), not a traffic estimate. Forward-quoting from inputs leaves you guessing whether you'll fit; the solver tells you directly. Also tells you whether cost-optimization moves (cheaper model, batch async) buy you 10% or 60% more capacity — which informs whether they're worth the engineering effort.</p>
+        <p><strong>How to interpret the results.</strong> Enter the monthly $ ceiling. The solver returns the max MAU at current per-query cost, plus a ranked list of moves that would extend headroom (e.g., "+18% MAU if cache hits 80%", "+45% MAU if you swap Drafter from Opus → Sonnet"). Use this to negotiate the budget envelope with stakeholders before locking in.</p>
+      </div>
       <div class="row grid-2" style="margin-top:8px">
         <div>
           <label>Target monthly budget ($) <span class="tip" data-tip="### Budget solver
@@ -5176,7 +5284,11 @@ Both fields are independent; they don't have to match.">ⓘ</span></label>
     <div class="section" data-cat="output" id="sec-model-compare">
       <h2><span class="chev">▶</span><span class="lead">Model cost comparison</span> <em>switch models to see headline savings</em></h2>
       <div class="section-body">
-      <p class="helper">Re-runs the full calculation against every available model — same workload, same hosting, same infra, same federal multipliers. Sorted cheapest to most expensive. Δ shows annual difference vs your current pick.</p>
+      <div class="section-helper">
+        <p><strong>What this is.</strong> Procurement-grade model comparison table. Re-runs the full deployment (same workload, hosting, infrastructure, federal multipliers, personnel) against every model in the rate card. Each row shows the model, monthly bill, and Δ annual difference vs. your current pick. Sorted cheapest to most expensive.</p>
+        <p><strong>Why it matters.</strong> The model row in an RFP cost basis usually requires multiple-vendor pricing for fairness. This section generates the table directly so you don't have to re-run the calculator manually for each candidate. The annual Δ column is the number stakeholders care about when comparing "what if we used vendor X instead".</p>
+        <p><strong>How to interpret the results.</strong> Cheapest is rarely the right answer for production — quality differences between, e.g., Haiku and Opus on the same workload can be substantial. Use this as a procurement reference, not a selection tool; pair with quality evals before committing. For per-agent model swaps (mixed fleets), Section C's "Compare models" expander is more precise than this whole-fleet uniform view.</p>
+      </div>
       <div style="overflow-x:auto;margin-top:8px">
         <table class="model-compare-tbl" id="model-compare-tbl" style="width:100%;font-size:12px;border-collapse:collapse">
           <thead>
@@ -5203,7 +5315,11 @@ Both fields are independent; they don't have to match.">ⓘ</span></label>
     <div class="section" data-cat="output" id="sec-sensitivity">
       <h2><span class="chev">▶</span><span class="lead">Sensitivity</span> <em>how robust is the headline to input drift?</em></h2>
       <div class="section-body">
-      <p class="helper">Each row perturbs one input around its baseline and shows the resulting monthly cost. Sorted by impact (biggest driver on top). The black tick on each bar marks the baseline; red extends to the low case, green to the high case. <strong>Useful for budget defense:</strong> if a 20% MAU miss blows past your budget ceiling, you need either a larger envelope or stronger optimization levers before signing.</p>
+      <div class="section-helper">
+        <p><strong>What this is.</strong> Procurement-side sensitivity analysis. Each row perturbs one input around its baseline and shows the resulting monthly cost. Sorted by impact (biggest driver on top). The black tick on each bar marks the baseline; red extends to the low case, green to the high case.</p>
+        <p><strong>Why it matters.</strong> Procurement reviewers and finance committees require an explicit sensitivity section in any major-spend proposal. "Here's the central estimate" without "and here's what happens if MAU misses by 20%" is incomplete — it doesn't let stakeholders gauge whether the budget envelope has enough margin for realistic uncertainty.</p>
+        <p><strong>How to interpret the results.</strong> The top bars are the inputs you should validate most carefully before signing — they're the ones that move the bill most. If any single-input ±20% perturbation blows past your budget ceiling, the proposal needs either a larger envelope or stronger optimization levers (cache, model swap, batch) before it's defensible. Copy the top 3 rows into your procurement memo's "Sensitivity" paragraph.</p>
+      </div>
       <div style="overflow-x:auto;margin-top:8px">
         <table id="sensitivity-tbl" style="width:100%;font-size:12px;border-collapse:collapse">
           <thead>
@@ -5227,7 +5343,11 @@ Both fields are independent; they don't have to match.">ⓘ</span></label>
     <div class="section" data-cat="output" id="sec-cost-over-time">
       <h2><span class="chev">▶</span><span class="lead">Cost over time</span> <em>monthly + cumulative projection given growth%</em></h2>
       <div class="section-body">
-      <p class="helper">Projects the monthly headline forward using the <strong>Growth/month</strong> slider in the simulator. Shows monthly cost climbing month-over-month plus the running 36-month cumulative. Useful for sizing 1-year and 3-year budget envelopes.</p>
+      <div class="section-helper">
+        <p><strong>What this is.</strong> Time-series cost projection. Takes the current monthly headline and projects it forward using the Growth/month slider in Section A (default 20%/mo). Shows two curves: monthly cost climbing month-over-month, and running 36-month cumulative TCO.</p>
+        <p><strong>Why it matters.</strong> Procurement envelopes are sized in years, not months. A $20K/mo deployment with 20% MoM growth hits $80K/mo by month 6, $300K/mo by month 12. Sizing the year-1 budget envelope from the current monthly bill is the most common way procurements run out of money mid-cycle. The cumulative curve is what you bring to the finance review.</p>
+        <p><strong>How to interpret the results.</strong> Set growth/month conservatively — 5–15% for known-audience internal tools, 20–50% for public launches, &gt;50% only for genuine viral profile. The 12-month cumulative is your year-1 budget ask; the 36-month is your multi-year envelope. If the curve looks too aggressive, revisit the growth assumption or build cost-optimization milestones into the Migration timeline.</p>
+      </div>
       <div id="cost-over-time-chart" style="width:100%;background:var(--paper, #fafafa);border:1px solid var(--rule);border-radius:6px;padding:14px;min-height:240px;margin-top:8px"></div>
       <div id="cost-over-time-summary" style="margin-top:8px;font-size:12px;color:var(--ink-2)"></div>
       <p class="helper" style="margin-top:6px;font-size:11.5px;color:var(--muted)">Compounds the current simulator growth rate monthly. Caps at 36 months since further projections are unreliable. Headcount, seat-license, and contract reservations don't grow proportionally — adjust manually for those.</p>
@@ -5240,7 +5360,11 @@ Both fields are independent; they don't have to match.">ⓘ</span></label>
     <div class="section" data-cat="output" id="sec-preset-compare">
       <h2><span class="chev">▶</span><span class="lead">Side-by-side compare</span> <em>two scenarios diffed line-by-line</em></h2>
       <div class="section-body">
-      <p class="helper">Pick two scenarios. The calculator runs each through the same engine and shows the inputs and outputs side by side, with the % difference highlighted. <strong>Current</strong> = your live scenario in this calculator.</p>
+      <div class="section-helper">
+        <p><strong>What this is.</strong> A diff tool. Picks two scenarios — your live config plus a saved or bundled comparison — and runs both through the same engine. Side-by-side table of inputs and outputs, with the % difference highlighted on every row that differs.</p>
+        <p><strong>Why it matters.</strong> "Why does scenario A cost $30K and scenario B cost $50K?" is a question every procurement reviewer asks. Hunting through two configs manually is tedious and error-prone. A diff table answers it in one screen — which inputs differ, which outputs differ, and which difference explains the bulk of the gap.</p>
+        <p><strong>How to interpret the results.</strong> Use this to defend a configuration change ("we cut the bill 40% by reducing RAG chunks and swapping the Drafter model"), or to compare your proposal against an alternative architecture. Rows with the largest % delta are the most important to explain in the procurement memo.</p>
+      </div>
       <div class="row grid-2" style="margin-top:8px;gap:12px">
         <div>
           <label style="font-size:11px;text-transform:uppercase;letter-spacing:0.05em;color:var(--muted);font-weight:600">Scenario A</label>
@@ -5281,7 +5405,11 @@ Both fields are independent; they don't have to match.">ⓘ</span></label>
     <div class="section" data-cat="output" id="sec-as-is-compare">
       <h2><span class="chev">▶</span><span class="lead">AS-IS vs proposed</span> <em>compare against your current contract</em></h2>
       <div class="section-body">
-      <p class="helper">Enter what you're paying today (or what an incumbent vendor quoted you). The calculator surfaces the delta vs the proposed deployment: savings or overrun, plus the payback window if there's a one-time migration cost.</p>
+      <div class="section-helper">
+        <p><strong>What this is.</strong> Incumbent-vs-proposed comparison. Enter what you're paying today (or what an incumbent vendor has quoted) and the calculator surfaces the delta against the proposed deployment — monthly savings or overrun, plus the payback window if you've entered a one-time migration cost.</p>
+        <p><strong>Why it matters.</strong> Procurement justifications almost always require an AS-IS baseline — "we're saving $X/mo vs. the current contract" is a much stronger pitch than "the new system costs $Y/mo". Payback windows convert a one-time migration spend (engineering effort, data migration, recerts) into a months-to-recoup number that finance committees actually use.</p>
+        <p><strong>How to interpret the results.</strong> Enter the incumbent's monthly bill from the actual contract or invoice (not a guess). One-time migration costs should include engineering hours × loaded rate, plus any data-migration / re-certification fees. Payback &lt;6 months is usually an easy approval; &gt;18 months requires defending why the move is strategic beyond pure cost.</p>
+      </div>
       <div class="row grid-2" style="gap:14px;margin-top:8px">
         <div>
           <label style="font-size:11px;text-transform:uppercase;letter-spacing:0.05em;color:var(--muted);font-weight:600">Current annual contract ($)</label>
@@ -5303,7 +5431,11 @@ Both fields are independent; they don't have to match.">ⓘ</span></label>
     <div class="section" data-cat="setup" id="sec-infra">
       <h2><span class="chev">▶</span><span class="lead">Infrastructure</span> <em>database, storage, networking, monitoring — fixed monthly costs</em></h2>
       <div class="section-body">
-      <p class="helper">Fixed monthly costs that show up regardless of LLM hosting choice — RDS, S3, CloudWatch, ALB, NAT Gateway, Route 53, etc. Usually the smaller part of total bill but they add up. Each line accepts <strong>flat $/mo</strong>, <strong>$ per query</strong>, or <strong>$ per GB</strong> scaling.</p>
+      <div class="section-helper">
+        <p><strong>What this is.</strong> Fixed cloud-infrastructure costs that show up regardless of LLM hosting choice — RDS, S3, CloudWatch, ALB, NAT Gateway, Route 53, secrets manager, observability stack. Each line accepts flat $/mo, $ per query, or $ per GB scaling so you can model both fixed and traffic-scaled lines.</p>
+        <p><strong>Why it matters.</strong> Usually the smaller part of total bill (5–15% of TCO for managed-API deployments; higher for self-host) but they add up — a federal-tier deployment can easily run $2K–$5K/mo just on observability + audit logging + redundant networking. Easy to forget when modeling, embarrassing to discover in the first invoice.</p>
+        <p><strong>How to interpret the results.</strong> Pull line items from your existing AWS/Azure/GCP bill if you have one — that's the most accurate source. For greenfield estimates, the bundled defaults are a reasonable starting point for a single-region production deployment. Flows into the headline as a separate "Infrastructure" line, broken out in the report so reviewers see it isn't bundled into the model cost.</p>
+      </div>
       <div class="item-list" id="infra-list"></div>
       <div class="item add-row" id="infra-add">+ Add an infrastructure line</div>
       </div>
