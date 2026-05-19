@@ -1388,7 +1388,25 @@ function agentCardHtml(a,scope){
         <div style="display:flex;gap:4px;margin-top:3px;flex-wrap:wrap;align-items:center">
           ${a.ragOn?'<span class="badge-rag">RAG</span>':''}${a.reasonOn?'<span class="badge-reason">THINK</span>':''}${a.guardOn?'<span class="badge-guard">GUARD</span>':''}${a.toolsOn?'<span class="badge">TOOLS</span>':''}
           <span class="badge" style="background:rgba(124,77,255,.1);color:var(--purple);border-color:rgba(124,77,255,.2)">×${(a.turnsShare||1).toFixed(1)} turns</span>
-          ${(() => { const mo = _agentCurrentMonthly(a.id); if (mo == null) return ''; const fleetTotal = (window.__perAgentMonthly||[]).reduce((s,v)=>s+(v||0),0); const pct = fleetTotal>0 ? Math.round(100*mo/fleetTotal) : 0; return `<span class="badge" title="This agent's monthly LLM-bill contribution (matches headline pill accounting). Pct = share of total per-agent LLM cost." style="background:rgba(0,200,120,.1);color:#1b8a4c;border-color:rgba(0,200,120,.25);font-weight:700">$${Math.round(mo).toLocaleString()}/mo · ${pct}%</span>`; })()}
+          ${(() => {
+            // BYOK / Self-host: this agent's API cost is billed to the
+            // user's own key or counted under the self-host pricing
+            // section, NOT to this deployment's API line. Swap the
+            // monthly-cost badge for a clearer "billed elsewhere"
+            // indicator so users see the intent ("your key pays")
+            // rather than an ambiguous $0 (which could read as "free").
+            if (a.provider === 'byok') {
+              return `<span class="badge" title="This agent uses the user's own API key — its tokens are billed to that key, not to this deployment's API line. Engine excludes from the headline API total." style="background:rgba(245,158,0,.10);color:#8a5d00;border-color:rgba(245,158,0,.35);font-weight:700">BYOK · billed to your key</span>`;
+            }
+            if (a.provider === 'self-hosted') {
+              return `<span class="badge" title="This agent runs on user-managed GPUs — its tokens are counted under the Self-host capacity section, not the API line." style="background:rgba(124,77,255,.10);color:#5c35cc;border-color:rgba(124,77,255,.35);font-weight:700">SELF-HOST · counted under GPU section</span>`;
+            }
+            const mo = _agentCurrentMonthly(a.id);
+            if (mo == null) return '';
+            const fleetTotal = (window.__perAgentMonthly||[]).reduce((s,v)=>s+(v||0),0);
+            const pct = fleetTotal>0 ? Math.round(100*mo/fleetTotal) : 0;
+            return `<span class="badge" title="This agent's monthly LLM-bill contribution (matches headline pill accounting). Pct = share of total per-agent LLM cost." style="background:rgba(0,200,120,.1);color:#1b8a4c;border-color:rgba(0,200,120,.25);font-weight:700">$${Math.round(mo).toLocaleString()}/mo · ${pct}%</span>`;
+          })()}
         </div>
         <div style="font-size:10px;color:var(--ink-2,#3a4a62);margin-top:3px" id="as-${scope}-${a.id}">in:${(a.realIn||0).toLocaleString()} · ctx:${ctxP}%</div>
       </div>
@@ -1676,6 +1694,18 @@ function _mirrorAgentEditToWorkload(simAgentId, k, v) {
   // this mapping needs to swap to an explicit id lookup.
   const idx = simAgentId;
   if (!wl.agents[idx]) return;
+  // Provider field is sim-side ('managed' | 'byok' | 'self-hosted' | ...);
+  // the engine reads agent.hosting ('api' | 'byok' | 'self-host'). When the
+  // user picks BYOK or Self-hosted in the per-agent dropdown, the engine
+  // zeroes that agent's API contribution (cost-engine.js:381). Without
+  // this translation, the sim dropdown was a no-op for billing —
+  // changing it updated only the per-agent header label, not the bill.
+  if (k === 'provider') {
+    const hostingByProvider = { byok: 'byok', 'self-hosted': 'self-host' };
+    wl.agents[idx].hosting = hostingByProvider[v] || 'api';
+    if (typeof window.renderPreview === 'function') window.renderPreview();
+    return;
+  }
   const mapping = {
     sysprompt: 'sysprompt_tokens',
     iamsg: 'iamsg_tokens',
