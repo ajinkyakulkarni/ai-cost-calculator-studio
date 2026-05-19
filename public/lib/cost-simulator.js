@@ -1704,9 +1704,16 @@ function _mirrorAgentEditToWorkload(simAgentId, k, v) {
     const hostingByProvider = { byok: 'byok', 'self-hosted': 'self-host' };
     wl.agents[idx].hosting = hostingByProvider[v] || 'api';
     if (typeof window.renderPreview === 'function') window.renderPreview();
-    // Also re-render the procurement-side Hosting dropdown so the sec-agents
-    // editor stays in sync with the change made in Section C.
+    // Re-render the procurement-side Hosting dropdown (sec-agents) so it
+    // stays in sync with the change made in Section C.
     if (typeof window.renderAgentsList === 'function') window.renderAgentsList();
+    // Also re-render the SIM-side agent cards so the BYOK / SELF-HOST
+    // badge swap in the header strip (cost-simulator.js agentCardHtml)
+    // shows immediately. Without this, the data state changes correctly
+    // but users only see the badge update after the next agent edit.
+    if (typeof renderAgents === 'function') {
+      try { renderAgents(); } catch (_) {}
+    }
     return;
   }
   const mapping = {

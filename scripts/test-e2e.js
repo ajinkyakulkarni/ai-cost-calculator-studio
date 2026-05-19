@@ -352,6 +352,141 @@ async function mcpResearchFleet(page) {
   assert(h > 1000 && h < 100000, `expected demo preset headline in sane range, got ${fmt(h)}`);
 }
 
+// ── Scenarios added 2026-05-19: cover today's affordances ───────────────
+
+// BYOK provider mirror — switching an agent to BYOK in the simulator-side
+// per-agent dropdown must (a) write workload.agents[i].hosting='byok',
+// (b) drop the headline by that agent's previous contribution, (c) show
+// the 'BYOK · billed to your key' badge on the Section C agent card,
+// and (d) update the procurement-side sec-agents Hosting dropdown.
+async function byokProviderMirror(page) {
+  await waitForBoot(page);
+  await page.selectOption('#example-loader', 'customer-support-fleet');
+  await sleep(1500);
+  const baseline = await getHeadline(page);
+  // Flip Responder (sim.agents[2]) to BYOK via the sim's setAP() — the
+  // same path the per-agent Provider dropdown's onchange invokes.
+  await page.evaluate(() => { setAP(2, 'provider', 'byok'); });
+  await sleep(700);
+  const state = await page.evaluate(() => {
+    const wl = window.workload;
+    return {
+      headline: (() => {
+        const t = document.getElementById('cost-pill')?.textContent || '';
+        const m = t.match(/\$([\d,]+)/);
+        return m ? parseInt(m[1].replace(/,/g,'')) : null;
+      })(),
+      hostingValues: (wl.agents || []).map(a => a.hosting),
+      hasByokBadge: !!document.querySelector('.agent-settings-list .badge[title*="own API key"]'),
+      procurementHosting: Array.from(document.querySelectorAll('[data-key="hosting"]')).map(s => s.value),
+    };
+  });
+  assert(state.hostingValues[2] === 'byok',
+    `expected workload.agents[2].hosting='byok', got ${state.hostingValues[2]}`);
+  assert(state.headline < baseline * 0.85,
+    `expected headline to drop >15% after BYOK (baseline ${fmt(baseline)}, after ${fmt(state.headline)})`);
+  assert(state.hasByokBadge,
+    `expected 'BYOK · billed to your key' badge on Section C agent card`);
+  assert(state.procurementHosting[2] === 'byok',
+    `expected procurement-side sec-agents[2] Hosting=byok (bidirectional sync), got ${state.procurementHosting[2]}`);
+}
+
+// Per-agent task_bias engine wiring — setting agent.task_bias must move
+// the bill (engine reads the field and scales output tokens). Regression
+// guard for the no-op-knob bug fixed 2026-05-18.
+async function taskBiasMoves(page) {
+  await waitForBoot(page);
+  await page.selectOption('#example-loader', 'public-geospatial-qa');
+  await sleep(1500);
+  // Strip any existing task_bias (this preset shouldn't have any) so we
+  // measure a clean baseline, then set every agent to longform.
+  const result = await page.evaluate(async () => {
+    const wl = window.workload;
+    if (!wl || !Array.isArray(wl.agents) || wl.agents.length === 0) {
+      return { skipped: true };
+    }
+    const original = wl.agents.map(a => a.task_bias);
+    // baseline
+    wl.agents.forEach(a => { delete a.task_bias; });
+    if (typeof window.renderPreview === 'function') window.renderPreview();
+    await new Promise(r => setTimeout(r, 300));
+    const baseTxt = document.getElementById('cost-pill')?.textContent || '';
+    const baseM = baseTxt.match(/\$([\d,]+)/);
+    const baseline = baseM ? parseInt(baseM[1].replace(/,/g,'')) : null;
+    // all agents = longform (3.6× output)
+    wl.agents.forEach(a => { a.task_bias = 'longform'; });
+    if (typeof window.renderPreview === 'function') window.renderPreview();
+    await new Promise(r => setTimeout(r, 300));
+    const afterTxt = document.getElementById('cost-pill')?.textContent || '';
+    const afterM = afterTxt.match(/\$([\d,]+)/);
+    const after = afterM ? parseInt(afterM[1].replace(/,/g,'')) : null;
+    // restore
+    wl.agents.forEach((a, i) => {
+      if (original[i] == null) delete a.task_bias; else a.task_bias = original[i];
+    });
+    if (typeof window.renderPreview === 'function') window.renderPreview();
+    return { baseline, after };
+  });
+  if (result.skipped) {
+    // public-geospatial-qa has no agents (unit-cost mode) — skip
+    return;
+  }
+  assert(result.baseline != null && result.after != null,
+    `failed to read headline before/after task_bias change`);
+  assert(result.after > result.baseline,
+    `expected longform task_bias to RAISE headline (baseline ${fmt(result.baseline)}, after ${fmt(result.after)}) — engine may not be reading task_bias`);
+}
+
+// Section helpers — every section divider must have an adjacent
+// .section-helper block, and the <strong> inside must render cyan
+// (not the gray-on-procurement-pane bug). Also asserts the A-G
+// numbered badges are gone.
+async function sectionHelpersPresent(page) {
+  await waitForBoot(page);
+  const state = await page.evaluate(() => {
+    const helpers = Array.from(document.querySelectorAll('.section-helper'));
+    const strongs = helpers.map(h => h.querySelector('strong')).filter(Boolean);
+    const colors = strongs.map(s => getComputedStyle(s).color);
+    const ixNums = Array.from(document.querySelectorAll('.ix-num')).map(e => e.textContent);
+    return { helperCount: helpers.length, strongColors: [...new Set(colors)], ixNums };
+  });
+  assert(state.helperCount >= 20,
+    `expected ≥20 .section-helper blocks across procurement + simulator panes, got ${state.helperCount}`);
+  // Every strong should be cyan-ish (rgb(0, 119, 204) procurement OR rgb(0, 212, 255) sim).
+  // Reject if ANY strong is rendering inherited gray text (the bug).
+  for (const c of state.strongColors) {
+    assert(/rgb\(0,\s*(119|212),\s*(204|255)\)/.test(c),
+      `section-helper strong rendering wrong color: ${c} (expected cyan)`);
+  }
+  assert(state.ixNums.length === 0,
+    `expected zero .ix-num badges (A-G removed), got [${state.ixNums.join(',')}]`);
+}
+
+// Validated calibration badge — when the user clicks Minimal/Moderate/
+// Heavy on a preset that has payload_modes, the active button's text
+// must be white #fff (not green-on-green from the old var(--card) bug).
+async function validatedButtonContrast(page) {
+  await waitForBoot(page);
+  await page.selectOption('#example-loader', 'public-geospatial-qa');
+  await sleep(1500);
+  const state = await page.evaluate(() => {
+    const calBadge = document.querySelector('.calibration-badge');
+    if (!calBadge) return { noBadge: true };
+    const activeBtn = calBadge.querySelector('.cal-mode-btn.active');
+    const activeSpan = activeBtn?.querySelector('span');
+    return {
+      btnText: activeBtn?.textContent?.trim(),
+      spanColor: activeSpan ? getComputedStyle(activeSpan).color : null,
+    };
+  });
+  if (state.noBadge) {
+    // Preset has no calibration block — nothing to test
+    return;
+  }
+  assert(state.spanColor === 'rgb(255, 255, 255)',
+    `expected Validated active button span color #fff, got ${state.spanColor} (green-on-green bug regression)`);
+}
+
 // ── Runner ───────────────────────────────────────────────────────────────
 (async () => {
   console.log(`\nE2E suite — target: ${URL}`);
@@ -366,6 +501,10 @@ async function mcpResearchFleet(page) {
   await scenario('agent-enabled-tools',   agentEnabledTools);
   await scenario('share-url-roundtrip',   shareUrlRoundtrip);
   await scenario('mcp-research-fleet',    mcpResearchFleet);
+  await scenario('byok-provider-mirror',  byokProviderMirror);
+  await scenario('task-bias-moves',       taskBiasMoves);
+  await scenario('section-helpers',       sectionHelpersPresent);
+  await scenario('validated-button',      validatedButtonContrast);
   const dt = ((Date.now() - t0) / 1000).toFixed(1);
   console.log(`\n${passed} passed · ${failed} failed · ${dt}s\n`);
   if (failed > 0) {
