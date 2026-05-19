@@ -3820,14 +3820,16 @@ Hybrid is rarely cost-effective below 30% self-host share — fixed ops staff an
     <p><strong>How to interpret the results.</strong> The values you set here flow into every per-agent calculation in Section C and the headline at the top. Pull MAU from real analytics not guesses; set bot factor to 1.5× for public-facing deployments; aim for cache hit ≥70% on stable system prompts. If the resulting headline looks wrong, it's almost always a knob in this section that's off.</p>
   </div>
 
+  <!-- Section A sliders — header removed 2026-05-18 (the axiom-h-config
+       divider above already names the section), and the .panel wrapper
+       removed 2026-05-19 (an empty white card with no title felt
+       orphaned next to the cyan section-helper). Sliders now sit
+       directly inside tab-panel; the section-helper above provides the
+       only top-of-section affordance, divider names it, and the
+       auto-fit grid handles the layout. -->
   <div style="display:grid;grid-template-columns:1fr;gap:8px">
 
-    <!-- GLOBAL — panel header removed 2026-05-18: the axiom-h-config
-         section divider above already announces "Global parameters", so
-         a second cyan "GLOBAL PARAMETERS" .ph immediately below was a
-         pure duplicate (3 stacked cyan elements competing for attention). -->
-    <div class="panel">
-      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:0 8px;padding-top:8px">
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:0 8px;padding:4px 0">
         <div class="sr"><div class="sr-top"><span class="sr-label" data-tip="### Monthly active users (MAU)
 
 **In plain English:** how many different people use the app in a typical month. If your customer service site has 5,000 unique visitors who chat with the assistant during March, your March MAU is 5,000.
@@ -3960,7 +3962,6 @@ How agents coordinate, billed as extra input tokens per turn per agent.
 - **Peer mesh (peer):** every agent reads every other agent's prior output. Linear per-agent, quadratic across the fleet. **+(N−1) × 300 tok/turn**.
 
 **Why it matters:** for N=5 agents, peer mesh adds 4 × 300 = 1,200 tok of overhead per turn per agent on top of the base prompt. At ~0.5K base prompt + 1.2K mesh = ~3.5× input vs. orchestrator. Single-agent runs (N=1) pay nothing.">Comm pattern</span><span class="sr-val" id="v-comm-pattern" style="color:var(--teal)">orch</span></div><input type="range" min="0" max="3" value="0" step="1" id="s-comm-pattern" oninput="onSlider()"><div class="sr-hint">orch=0 · sup=+150·(N−1) · peer=+300·(N−1) · pipeline=Σ prior outputs (Eq. 7)</div></div>
-      </div>
     </div>
   </div>
 
