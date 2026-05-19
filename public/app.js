@@ -868,6 +868,18 @@ Production teams measure their primary's confidence-score distribution; escalate
         // Hosting and verify_enabled changes need a full re-render to update
         // visibility of dependent rows (hint text / verify coverage + override).
         if (key === 'hosting' || key === 'verify_enabled') renderAgentsList();
+        // Mirror procurement-side Hosting change back to simulator-side
+        // Section C agent.provider so the per-agent Provider dropdown +
+        // header BYOK badge stay in sync with whichever editor the user
+        // touched first. Reverse of cost-simulator.js's provider→hosting
+        // mirror; together they make the two editors bidirectional.
+        if (key === 'hosting' && window.sim?.agents?.[idx]) {
+          const providerByHosting = { byok: 'byok', 'self-host': 'self-hosted' };
+          const target = providerByHosting[v]
+            || (['byok','self-hosted'].includes(window.sim.agents[idx].provider) ? 'managed' : window.sim.agents[idx].provider);
+          window.sim.agents[idx].provider = target;
+          if (typeof window.renderAgents === 'function') window.renderAgents();
+        }
         renderPreview();
         renderRawJson();
       };
@@ -2291,22 +2303,47 @@ Production teams measure their primary's confidence-score distribution; escalate
             <div class="agent-num">${fmt$(a.monthly)}</div>
           </div>`;
         }).join('');
-        let agentRows = monthlyByAgent.map(a => `<tr>
-          <td>${a.label}</td>
-          <td><span style="font-family:var(--mono); color:var(--muted); font-size:11px;">${a.model}</span></td>
-          <td class="num">${a.calls}</td>
-          <td class="num">${a.input.toLocaleString()} / ${a.output.toLocaleString()}</td>
-          <td class="num">$${a.per_call_cost.toFixed(4)}</td>
-          <td class="num">${fmt$(a.monthly)}</td>
-          <td class="num">${totalMonthly > 0 ? Math.round(a.monthly/totalMonthly*100) : 0}%</td>
-        </tr>`).join('');
+        // BYOK / self-host agents have a.hosting set + an a.note from the
+        // engine. Surface that in the procurement table so a reviewer
+        // doesn't read a $0 monthly as "missed line item" — they see the
+        // intentional 'billed elsewhere' annotation. Also adds a Hosting
+        // column so the procurement memo explicitly itemizes which agents
+        // bill to the user's key vs the API line vs self-host capacity.
+        let hasNonApi = false;
+        let agentRows = monthlyByAgent.map(a => {
+          const hosting = a.hosting || 'api';
+          const nonApi = hosting === 'byok' || hosting === 'self-host';
+          if (nonApi) hasNonApi = true;
+          const hostingCell = nonApi
+            ? `<span style="color:var(--accent,#8b2331);font-weight:600;font-size:11px;" title="${(a.note || '').replace(/"/g,'&quot;')}">${hosting === 'byok' ? 'BYOK' : 'self-host'}</span>`
+            : `<span style="color:var(--muted);font-size:11px;">API</span>`;
+          const monthlyCell = nonApi
+            ? `<span style="color:var(--accent,#8b2331);font-style:italic;" title="${(a.note || '').replace(/"/g,'&quot;')}">$0 (excl.)</span>`
+            : fmt$(a.monthly);
+          const pctCell = nonApi ? '—' : `${totalMonthly > 0 ? Math.round(a.monthly/totalMonthly*100) : 0}%`;
+          return `<tr${nonApi ? ' style="opacity:.78"' : ''}>
+            <td>${a.label}</td>
+            <td><span style="font-family:var(--mono); color:var(--muted); font-size:11px;">${a.model}</span></td>
+            <td>${hostingCell}</td>
+            <td class="num">${a.calls}</td>
+            <td class="num">${a.input.toLocaleString()} / ${a.output.toLocaleString()}</td>
+            <td class="num">$${a.per_call_cost.toFixed(4)}</td>
+            <td class="num">${monthlyCell}</td>
+            <td class="num">${pctCell}</td>
+          </tr>`;
+        }).join('');
         agentRows += `<tr class="row-highlight" style="font-weight:600;">
-          <td>Total per query</td><td>—</td><td>—</td><td>—</td>
+          <td>Total per query</td><td>—</td><td>—</td><td>—</td><td>—</td>
           <td class="num">$${(totalMonthly/totalQueries).toFixed(4)}</td>
           <td class="num">${fmt$(totalMonthly)}</td><td class="num">100%</td>
         </tr>`;
+        if (hasNonApi) {
+          agentRows += `<tr><td colspan="8" style="font-size:10.5px;color:var(--muted);font-style:italic;padding-top:6px;border-top:1px dashed var(--rule);">
+            BYOK / self-host agents are intentionally excluded from the API line above. BYOK tokens bill to the user's own API key; self-host tokens are counted under the Self-host capacity section instead.
+          </td></tr>`;
+        }
         agentTable.innerHTML = `<thead><tr>
-          <th>Agent</th><th>Model</th>
+          <th>Agent</th><th>Model</th><th>Hosting</th>
           <th style="text-align:right;">Calls/q</th>
           <th style="text-align:right;">In / Out tok</th>
           <th style="text-align:right;">$ / call</th>
@@ -6130,6 +6167,10 @@ Production teams measure their primary's confidence-score distribution; escalate
   // Expose renderPreview for simulator-side editors (Audience etc.) to
   // trigger calc TCO refresh after edits.
   window.renderPreview = renderPreview;
+  // Expose renderAgentsList so the simulator-side BYOK provider mirror
+  // can refresh the procurement-side Hosting dropdown — keeps the two
+  // editors in sync when a user flips BYOK in Section C.
+  window.renderAgentsList = renderAgentsList;
 
   // Topbar cost badge — click to jump to Report tab.
   const costBadge = document.getElementById('cost-pill');

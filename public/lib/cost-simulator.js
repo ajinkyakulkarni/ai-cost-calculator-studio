@@ -1704,6 +1704,9 @@ function _mirrorAgentEditToWorkload(simAgentId, k, v) {
     const hostingByProvider = { byok: 'byok', 'self-hosted': 'self-host' };
     wl.agents[idx].hosting = hostingByProvider[v] || 'api';
     if (typeof window.renderPreview === 'function') window.renderPreview();
+    // Also re-render the procurement-side Hosting dropdown so the sec-agents
+    // editor stays in sync with the change made in Section C.
+    if (typeof window.renderAgentsList === 'function') window.renderAgentsList();
     return;
   }
   const mapping = {

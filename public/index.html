@@ -226,13 +226,18 @@
     color: var(--muted); cursor: pointer; border-radius: 4px 4px 0 0;
   }
   .json-modal-tab:hover { color: var(--ink); background: var(--paper); }
+  /* --card is only defined inside .simulator-pane. The json-modal renders
+     as a global overlay outside that scope, so var(--card) without a
+     fallback resolved to inherit — tab+body backgrounds became invisible
+     against the panel. Pinning to #ffffff matches the procurement pane's
+     white-card aesthetic. */
   .json-modal-tab.active {
-    color: var(--ink); background: var(--card);
-    border-color: var(--rule); border-bottom: 1px solid var(--card);
+    color: var(--ink); background: var(--card, #ffffff);
+    border-color: var(--rule); border-bottom: 1px solid var(--card, #ffffff);
     margin-bottom: -1px; font-weight: 600;
   }
   .json-modal-body {
-    flex: 1; overflow: auto; padding: 16px; background: var(--card);
+    flex: 1; overflow: auto; padding: 16px; background: var(--card, #ffffff);
   }
   .json-modal-hint {
     margin: 0 0 10px; font-size: 11.5px; color: var(--muted); line-height: 1.5;
@@ -263,7 +268,7 @@
     border: 1px solid var(--rule); border-radius: 4px;
     background: var(--paper); color: var(--ink); cursor: pointer;
   }
-  .json-modal-actions button:hover { background: var(--card); }
+  .json-modal-actions button:hover { background: var(--card, #ffffff); }
   .json-modal-actions button.primary {
     background: #1d72d2; color: #fff; border-color: #1d72d2; font-weight: 600;
   }
@@ -3262,7 +3267,7 @@ body.theme-tactical main .section .row > div > label {
    first slider in each section stays above the fold. JS at the bottom
    of the page (initSectionHelperCollapse) wraps each .section-helper
    into a toggle on screens ≤700px; CSS below styles the toggle button. */
-.section-helper-toggle{display:block;width:100%;text-align:left;background:transparent;border:0;font:inherit;color:var(--cyan);font-weight:700;font-size:11px;cursor:pointer;padding:0;letter-spacing:.3px}
+.section-helper-toggle{display:block;width:100%;text-align:left;background:transparent;border:0;font:inherit;color:var(--cyan,#0077cc);font-weight:700;font-size:11px;cursor:pointer;padding:0;letter-spacing:.3px}
 .section-helper-toggle:hover{text-decoration:underline}
 .simulator-pane .section-helper-toggle{color:var(--cyan)}
 /* Reference-topology diagram — live render of the fleet's coordination
