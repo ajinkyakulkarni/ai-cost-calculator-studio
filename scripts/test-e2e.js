@@ -437,6 +437,50 @@ async function byokReverseMirror(page) {
     `expected sim-side BYOK badge to appear after procurement-side BYOK pick`);
 }
 
+// Self-host reverse-mirror — symmetric to BYOK reverse-mirror. Picking
+// self-host in the procurement-side sec-agents Hosting dropdown must
+// (a) write workload.agents[i].hosting='self-host', (b) drop the API
+// headline (engine excludes from API line; self-host counted elsewhere),
+// (c) sync sim.agents[i].provider='self-hosted', (d) render the
+// SELF-HOST badge on the Section C agent card.
+async function selfHostReverseMirror(page) {
+  await waitForBoot(page);
+  await page.selectOption('#example-loader', 'customer-support-fleet');
+  await sleep(1500);
+  const baseline = await getHeadline(page);
+  const changed = await page.evaluate(() => {
+    const selects = Array.from(document.querySelectorAll('[data-key="hosting"]'));
+    if (selects.length < 3) return false;
+    selects[2].value = 'self-host';
+    selects[2].dispatchEvent(new Event('input', { bubbles: true }));
+    return true;
+  });
+  assert(changed, 'expected ≥3 procurement-side Hosting dropdowns');
+  await sleep(700);
+  const state = await page.evaluate(() => {
+    const wl = window.workload;
+    const sim = window.sim;
+    return {
+      headline: (() => {
+        const t = document.getElementById('cost-pill')?.textContent || '';
+        const m = t.match(/\$([\d,]+)/);
+        return m ? parseInt(m[1].replace(/,/g,'')) : null;
+      })(),
+      wlHosting: (wl.agents || []).map(a => a.hosting),
+      simProvider: (sim?.agents || []).map(a => a.provider),
+      hasSelfHostBadge: !!document.querySelector('.agent-settings-list .badge[title*="self-host"], .agent-settings-list .badge-selfhost'),
+    };
+  });
+  assert(state.wlHosting[2] === 'self-host',
+    `expected workload.agents[2].hosting='self-host', got ${state.wlHosting[2]}`);
+  assert(state.headline < baseline * 0.85,
+    `expected headline drop >15% after self-host (baseline ${fmt(baseline)}, after ${fmt(state.headline)})`);
+  assert(state.simProvider[2] === 'self-hosted',
+    `expected sim.agents[2].provider='self-hosted' (reverse mirror), got ${state.simProvider[2]}`);
+  assert(state.hasSelfHostBadge,
+    `expected sim-side SELF-HOST badge to appear after procurement-side self-host pick`);
+}
+
 // Per-agent task_bias engine wiring — setting agent.task_bias must move
 // the bill (engine reads the field and scales output tokens). Regression
 // guard for the no-op-knob bug fixed 2026-05-18.
@@ -549,6 +593,7 @@ async function validatedButtonContrast(page) {
   await scenario('mcp-research-fleet',    mcpResearchFleet);
   await scenario('byok-provider-mirror',  byokProviderMirror);
   await scenario('byok-reverse-mirror',   byokReverseMirror);
+  await scenario('selfhost-reverse',      selfHostReverseMirror);
   await scenario('task-bias-moves',       taskBiasMoves);
   await scenario('section-helpers',       sectionHelpersPresent);
   await scenario('validated-button',      validatedButtonContrast);

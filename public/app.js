@@ -4895,8 +4895,11 @@ Production teams measure their primary's confidence-score distribution; escalate
         sections.forEach(s => s.classList.add('open'));
       });
       toolbar.querySelector('[data-act="collapse"]').addEventListener('click', () => {
+        // sec-scenario was retired (merged into sec-deployment); the
+        // exclusion that used to live here is now a no-op. All sections
+        // collapse uniformly.
         sections.forEach(s => {
-          if (s.id !== 'sec-scenario') s.classList.remove('open');
+          s.classList.remove('open');
         });
       });
     });
@@ -5771,7 +5774,9 @@ Production teams measure their primary's confidence-score distribution; escalate
   // -----------------------------------------------------------------
 
   // Always-on sections — required to model anything; no remove button.
-  const ALWAYS_ON_SECTIONS = ['sec-scenario', 'sec-deployment', 'sec-anchor', 'sec-segments'];
+  // (sec-scenario was retired, merged into sec-deployment — see the
+  // comment near sec-deployment in index.html.)
+  const ALWAYS_ON_SECTIONS = ['sec-deployment', 'sec-anchor', 'sec-segments'];
 
   // Optional components — toggleable via × on the section header or +
   // from the gallery dropdown.
