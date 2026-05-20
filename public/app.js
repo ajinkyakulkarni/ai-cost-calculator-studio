@@ -5695,8 +5695,8 @@ Production teams measure their primary's confidence-score distribution; escalate
     // Top-axis ticks + grid lines down through every row
     const ticksSvg = tickValues.map(v => {
       const x = xFor(v);
-      return `<line x1="${x}" y1="${padT - 4}" x2="${x}" y2="${H - padB + 4}" stroke="#e3e3e3" stroke-width="1"/>
-              <text x="${x}" y="${padT - 8}" text-anchor="middle" fill="#666" font-size="10" font-family="var(--mono, monospace)">${tickLabel(v)}</text>`;
+      return `<line x1="${x}" y1="${padT - 4}" x2="${x}" y2="${H - padB + 4}" stroke="var(--rule)" stroke-width="1"/>
+              <text x="${x}" y="${padT - 8}" text-anchor="middle" fill="var(--muted)" font-size="10" font-family="var(--mono, monospace)">${tickLabel(v)}</text>`;
     }).join('');
 
     // One row per benchmark: name on the left, lollipop bar in the middle, $ on the right
@@ -5705,10 +5705,10 @@ Production teams measure their primary's confidence-score distribution; escalate
       const y = padT + i * rowH + rowH / 2;
       const x = xFor(p.value);
       const isUser = !!p.isUser;
-      const labelFill = isUser ? '#0077cc' : '#222';
+      const labelFill = isUser ? 'var(--accent)' : 'var(--ink)';
       const labelWeight = isUser ? '700' : '500';
       const labelText = (isUser ? '▶ ' : '') + truncate(p.name, 36);
-      const valueFill = isUser ? '#0077cc' : '#444';
+      const valueFill = isUser ? 'var(--accent)' : 'var(--ink-2)';
       const valueWeight = isUser ? '700' : '500';
       const dotR = isUser ? 7 : 5;
       const barColor = isUser ? '#0077cc' : p.color;
@@ -5726,13 +5726,13 @@ Production teams measure their primary's confidence-score distribution; escalate
     host.innerHTML = `
       <svg viewBox="0 0 ${W} ${H}" width="100%" height="${H}" style="display:block;font-family:var(--sans, sans-serif)" preserveAspectRatio="xMidYMin meet">
         ${ticksSvg}
-        <line x1="${plotL}" y1="${padT - 4}" x2="${plotL}" y2="${H - padB + 4}" stroke="#999" stroke-width="1"/>
+        <line x1="${plotL}" y1="${padT - 4}" x2="${plotL}" y2="${H - padB + 4}" stroke="var(--muted)" stroke-width="1"/>
         ${rowsSvg}
-        <text x="${plotL}" y="${H - 12}" fill="#666" font-size="10.5">log scale ·  ${m.label}  · sorted cheapest → priciest</text>
-        <text x="${W - padR}" y="${H - 12}" text-anchor="end" fill="#666" font-size="10.5">${points.length} rows (${points.filter(p => !p.isUser).length} cited benchmarks)</text>
+        <text x="${plotL}" y="${H - 12}" fill="var(--muted)" font-size="10.5">log scale ·  ${m.label}  · sorted cheapest → priciest</text>
+        <text x="${W - padR}" y="${H - 12}" text-anchor="end" fill="var(--muted)" font-size="10.5">${points.length} rows (${points.filter(p => !p.isUser).length} cited benchmarks)</text>
       </svg>
       <p style="margin:6px 0 0;font-size:11px;color:var(--muted);line-height:1.45">Each row is one benchmark, sorted cheapest at the top. Your scenario is highlighted in blue. Hover any dot to see notes. Greens = commercial seat/conversation, purple = federal cost studies, gray = industry/academic references.</p>
-      <p style="margin:8px 0 0;padding:8px 10px;font-size:11px;color:#5a3870;line-height:1.5;background:rgba(124,77,255,0.06);border-left:3px solid #7c4dff;border-radius:3px">
+      <p style="margin:8px 0 0;padding:8px 10px;font-size:11px;color:var(--ink-2);line-height:1.5;background:rgba(124,77,255,0.06);border-left:3px solid #7c4dff;border-radius:3px">
         <strong>⚠ Not a like-for-like comparison.</strong> Commercial seat-license prices (Slack AI, ChatGPT Enterprise, Copilot) are <em>shared-infrastructure consumer SaaS</em> amortized across millions of users. A custom deployment with a small user base, FedRAMP compliance, agent fleets, or domain-specific retrieval will run 5–50× higher per seat — that's the cost of doing work the consumer products don't do. Hover the blue "Your scenario" dot for the specific drivers in your config.
       </p>
     `;

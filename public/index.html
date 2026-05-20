@@ -88,6 +88,16 @@
     background: #14202e;
     color: #e8f0ff;
   }
+  /* Tactical: the "Your calc" benchmark banner ships a warm cream
+     background (#fff8e8) + tan border — a light-mode highlight that
+     turns into a glare strip on the dark page. Swap to the same tinted
+     dark panel the row-highlight uses, with a faint accent border so it
+     still reads as a highlighted summary. Inner text is already
+     theme-aware (var(--ink) / var(--ink-2) / var(--accent)). */
+  body.theme-tactical .benchmark-comparison {
+    background: #14202e;
+    border-color: rgba(0,212,255,0.20);
+  }
   body.theme-tactical .wizard-cta {
     background: linear-gradient(180deg, #14202e 0%, #0c1320 100%);
     color: var(--accent);
