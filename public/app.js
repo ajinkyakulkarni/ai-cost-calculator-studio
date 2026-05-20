@@ -1776,7 +1776,12 @@ Production teams measure their primary's confidence-score distribution; escalate
         const v = el ? parseFloat(el.value) : NaN;
         return Number.isFinite(v) && v > 1 ? v : undefined;
       })(),
-      verifCoverage: numVal('prev-verif', 0),
+      // Verification coverage is the data-bound workload value (the
+      // "Sampling coverage" field in the Fact-checking editor), NOT the
+      // orphaned #prev-verif slider — that slider is a hidden leftover
+      // stuck at 0, which silently zeroed verification cost in every
+      // headline regardless of the enable toggle, coverage, or variant.
+      verifCoverage: (workload.verification && Number(workload.verification.coverage)) || 0,
       // Threaded into the engine so Migration Timeline phase costs match
       // the canonical headline (engine applies it inside computeMigration).
       retryInflate: 1 + (retryRate * 1.5),
@@ -5044,7 +5049,7 @@ Production teams measure their primary's confidence-score distribution; escalate
       hosting: document.getElementById('prev-hosting')?.value || workload.defaults.hosting,
       botFactor: parseFloat(document.getElementById('prev-bot')?.value) || 1.5,
       cacheRate: parseFloat(document.getElementById('s-cache')?.value) / 100 || workload.anchor_query?.cache_rate_baseline,
-      verifCoverage: parseFloat(document.getElementById('prev-verif')?.value) || 0,
+      verifCoverage: Number(workload.verification?.coverage) || 0,
     };
     const r = CostEngine.compute(workload, opts);
     // Mirror renderPreview's retry inflate so the "Headline" rows below
