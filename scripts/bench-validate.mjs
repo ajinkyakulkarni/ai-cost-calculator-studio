@@ -66,8 +66,11 @@ const EXPECTED = {
   // claude-opus-4.7 with 8K input / 2.5K output / 3K sysprompt.
   // Computed 2026-05-17 against commit 9a4b45c. 1,800 user-visible
   // queries/mo × $0.6628/query ≈ $1,193.04.
+  // Re-pinned 2026-05-20: cost-engine now itemizes per-agent enabled_tools
+  // (schema + return_shape-modulated result tokens) in perQueryCostAgents.
+  // +0.86% from the pre-itemization $1,193.04.
   'swe-bench-coding-agent': {
-    monthly_with_retry: 1193.04,
+    monthly_with_retry: 1203.34,
     note: '100 devs × 0.3 sess/day × 30 × 2 q/sess = 1800 queries; 8× ReAct loop on Opus-4.7.',
   },
   // 3-agent customer-support fleet — 20K auth + 5K anon MAU, mixed
@@ -87,8 +90,11 @@ const EXPECTED = {
   // defaults — that's what the UI passes too — so the test was drifting
   // 3.5% within tolerance but on a wrong baseline. Re-pinned to the
   // engine's actual output under the preset's own defaults.
+  // Re-pinned 2026-05-20 (tool itemization): +2.05% from $19,116.21 — the
+  // 3 agents' enabled_tools (crm_lookup, file_search, web_search,
+  // ticketing_mcp) now contribute schema + result tokens to the bill.
   'customer-support-fleet': {
-    monthly_with_retry: 19116.21,
+    monthly_with_retry: 19508.90,
     note: '20K auth + 5K anon MAU; 3-agent Triage(classify)/KB-Lookup(rag)/Responder(summary) on sonnet-4.6 with MiniCheck verifier @ 100% coverage. Per-agent task_bias exercise.',
   },
   // Voice support agent (Sierra / Bland-class) — 50K customers, ~4%
@@ -96,16 +102,22 @@ const EXPECTED = {
   // per turn on claude-sonnet-4.6 with 70% cache. STT/TTS billed
   // separately via tool fees (added by app.js, not in LLM-only
   // baseline). Computed 2026-05-17 against commit ac76812.
+  // Re-pinned 2026-05-20 (tool itemization): +1.24% from $7,516.80.
   'voice-support-agent': {
-    monthly_with_retry: 7516.80,
+    monthly_with_retry: 7610.15,
     note: '50K customers × 0.04 sess/day × 30 × 12 q/sess = 720K voice turns; sonnet-4.6 with 70% cache. STT/TTS fees added via app.js tool-fee path.',
   },
   // Legal-tech RAG (Harvey / Spellbook-class) — 50-attorney firm,
   // 2-agent Retriever (sonnet, ReAct 1.5×) → Drafter (opus-4.7 with
   // FR2 cascade at 20% escalate). cache_eligible=false (each case
   // query unique). Computed 2026-05-17 against commit ac76812.
+  // Re-pinned 2026-05-20 (tool itemization): +19.84% from $1,628.44 — the
+  // largest shift, because the Retriever agent's enabled_tools are
+  // result-heavy (file_search at 1,200 result tokens/call) and the
+  // workload runs cache_eligible=false, so every tool-return token is
+  // billed uncached.
   'legal-tech-rag': {
-    monthly_with_retry: 1628.44,
+    monthly_with_retry: 1951.55,
     note: '50 attorneys × 1.5 sess/day × 30 × 3 q/sess = 6,750 queries; 2-agent Retriever/Drafter, opus-4.7 on Drafter, FR2 cascade @ 20% escalate.',
   },
 };

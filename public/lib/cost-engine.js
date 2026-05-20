@@ -364,6 +364,42 @@
   // workload models (concurrent agents that all run vs. one query
   // sampled from a distribution of shapes).
   // -------------------------------------------------------------------
+  // Itemized tool tokens for one agent's declared enabled_tools. Tool
+  // schemas sit in the prompt on every call; tool results flow back into
+  // context. return_shape — 'templated' clamps the result to cap_tokens,
+  // 'freeform' passes the full result_tokens_avg — is resolved per
+  // (agent,tool) override → per-tool registry default →
+  // workload.tool_response_mode. Mirrors cost-simulator.js's per-tool
+  // walk (the "(A) Per-tool walk" branch) so the headline and the
+  // simulator agree. Returns a per-QUERY input-token total.
+  function agentToolInputTokens(agent, workload) {
+    const reg = (workload && workload.tools_registry) || {};
+    const enabled = (agent && agent.enabled_tools) || {};
+    const globalMode = (workload && workload.tool_response_mode) || 'freeform';
+    let tokens = 0;
+    for (const [tid, spec] of Object.entries(enabled)) {
+      if (!spec || !(spec.calls_per_query > 0)) continue;
+      const t = reg[tid];
+      if (!t) continue;
+      const callsNominal = spec.calls_per_query;
+      const memo = t.memoize && Number.isFinite(t.memoize_hit_rate) ? t.memoize_hit_rate : 0;
+      const trig = Number.isFinite(spec.trigger_rate) && spec.trigger_rate >= 0 && spec.trigger_rate <= 1
+        ? spec.trigger_rate : 1.0;
+      const callsEff = callsNominal * Math.max(0, 1 - memo) * trig;
+      const schema = Number.isFinite(t.schema_tokens) ? t.schema_tokens : 0;
+      const rawResult = Number.isFinite(t.result_tokens_avg) ? t.result_tokens_avg : 0;
+      const shape = spec.return_shape_override || t.return_shape || globalMode;
+      const cap = Number.isFinite(spec.cap_tokens_override) ? spec.cap_tokens_override
+                : Number.isFinite(t.cap_tokens) ? t.cap_tokens : 40;
+      const effResult = shape === 'templated' ? Math.min(rawResult, cap) : rawResult;
+      // schema is seen on every nominal call; result tokens scale with
+      // the memoization/trigger-adjusted effective call count.
+      tokens += callsNominal * schema + callsEff * effResult;
+    }
+    return tokens;
+  }
+
+  // -------------------------------------------------------------------
   function perQueryCostAgents(workload, mainModelId, tierId, cacheRate, options) {
     const w = workload;
     const mult = w.tier_multipliers[tierId] || 1.0;
@@ -445,11 +481,24 @@
       const activeRate = Number.isFinite(activationRate) && activationRate >= 0 && activationRate <= 1
         ? activationRate : 1.0;
       const monthlyContrib = calls * perCall * llmCallMult * activeRate;
-      total += monthlyContrib;
+      // Itemized tool tokens (per query) — schema on every call + result
+      // tokens modulated by return_shape. Billed once per query at the
+      // agent's model rate + cache rate (not multiplied by calls or the
+      // ReAct loop multiplier — enabled_tools.calls_per_query already
+      // expresses the per-query tool-call total).
+      const toolInT = agentToolInputTokens(agent, w);
+      let toolCost = 0;
+      if (toolInT > 0) {
+        const toolCached = toolInT * eff;
+        toolCost = ((toolInT - toolCached) * rates.input_per_million / 1e6
+                    + toolCached * pCachedEff / 1e6) * mult * activeRate;
+      }
+      total += monthlyContrib + toolCost;
       breakdown.push({
         id: agent.id, label: agent.label || agent.id,
         hosting, model: modelId, calls, input: inT, output: outT,
-        per_call_cost: perCall, per_query_cost: monthlyContrib,
+        tool_input_tokens: toolInT, tool_cost: toolCost,
+        per_call_cost: perCall, per_query_cost: monthlyContrib + toolCost,
       });
     }
     return { per_query: total, breakdown };
