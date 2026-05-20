@@ -108,12 +108,12 @@ into the calculator's **Import JSON** button.
 
 ## What to do next
 
-- Read `docs/methodology.md` for the cost-model math
+- Read `docs/paper/validation-methodology.md` for the cost-model math
 - Read `docs/publishing.md` for deployment options (S3, Cloudflare
   Pages, GitHub Pages, custom domain)
 - Read `docs/workload-schema.md` for the full spec of every field
-- Visit the GitHub repository to file issues, propose new presets, or
-  contribute new shapes for your agency
+- Read `CONTRIBUTING.md` to add your own example workload or a measured
+  coefficient so other people can use it too
 
 ## Citing
 

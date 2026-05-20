@@ -371,6 +371,24 @@ methodology is documented separately at
 | MCP server discovery (auto-populate registry from URL) | ⏸ planned (Phase 4) |
 | CI hookup (E2E on PR) | ⏸ planned |
 
+## Contributing
+
+Two ways to contribute, both of which make the calculator more useful for
+everyone else:
+
+- **A measured coefficient** — run `agent-cost-bench` (or measure your own
+  way) and contribute the trace, so the simulator's defaults get more
+  accurate.
+- **An example workload** — author a workload JSON and it becomes a preset
+  others can load.
+
+[`CONTRIBUTING.md`](./CONTRIBUTING.md) has the full workflow and the
+verification gate. Supporting docs:
+[`docs/workload-schema.md`](./docs/workload-schema.md) (example JSON
+fields), [`bench/AUTHORING.md`](./bench/AUTHORING.md) (scenario YAML
+format), and [`REPRODUCING.md`](./REPRODUCING.md) (regenerate the paper's
+tables).
+
 ## Citing
 
 If you use this toolkit in published work or a procurement document:

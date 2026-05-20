@@ -111,6 +111,13 @@ The three production-shape scenarios — `public-geospatial-react` (templated),
 (Anthropic w) — were added in May 2026 to anchor the paper's
 tool-response architecture finding and the symmetric Eq. 2 validation.
 
+## Authoring your own scenario
+
+The scenario YAML format — `topology`, `agents`, `turns`, `tools`, cost
+caps — is documented in [`AUTHORING.md`](AUTHORING.md). To contribute a
+scenario or a measured coefficient back, see
+[`../CONTRIBUTING.md`](../CONTRIBUTING.md).
+
 ## Trace format
 
 Per the OpenTelemetry GenAI semantic conventions
