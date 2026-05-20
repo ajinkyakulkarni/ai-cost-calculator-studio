@@ -3255,6 +3255,12 @@ body.theme-tactical main .section .row > div > label {
    up via document-level delegation, same as slider data-tips. */
 .simulator-pane .ph[data-tip]{cursor:help}
 .simulator-pane .ph[data-tip]::after{content:' ⓘ';font-size:8px;color:var(--dim);font-weight:400;letter-spacing:0;text-transform:none;vertical-align:1px}
+/* A badge inside a data-tip .ph header is a 3rd flex item, sandwiched
+   between the label text and the ::after ⓘ — justify-content:space-between
+   would strand it dead-centre. margin-right:auto pins it snug to the
+   label text (e.g. "Workload mix — query types ×1.60 out") and pushes
+   the ⓘ to the right edge. */
+.simulator-pane .ph[data-tip] .badge{margin-right:auto}
 /* Same pattern on procurement-side h3 sub-headings (Cost composition,
    API vs self-host, Per-agent cost contribution, etc.) when they
    carry data-tip — added 2026-05-19 for symmetry with the simulator
