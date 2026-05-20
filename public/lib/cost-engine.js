@@ -1172,6 +1172,61 @@
     };
   }
 
+  // -------------------------------------------------------------------
+  // External tool fees — per-call / per-session provider charges for the
+  // tools each agent declares in enabled_tools (web search, file search,
+  // sandboxed containers, custom MCP servers). cost_shape 'free' tools
+  // and registry $0 entries contribute nothing. Agent-mode only:
+  // workload-mode (no agents) declares no tools, so the paper preset and
+  // every anchor-driven workload return $0. Relocated from app.js's
+  // renderPreview so the engine — and therefore calc.js, the Excel
+  // export, and the bench — all bill tools identically to the live UI.
+  // -------------------------------------------------------------------
+  function computeToolFees(workload, queries, options) {
+    const w = workload;
+    const reg = w.tools_registry || {};
+    const agents = Array.isArray(w.agents) ? w.agents : [];
+    if (agents.length === 0) return { monthly: 0, breakdown: [] };
+    const qTotal = (queries && queries.total) || 0;
+    const DAYS = 30;
+    // Monthly sessions = Σ segment (mau × sessions/day × 30 × bot factor).
+    // Bots open sessions too, so anonymous segments carry botEffective.
+    let sessionsMonthly = 0;
+    for (const seg of (w.segments || [])) {
+      const segApplyBot = seg.applyBotFactor != null ? seg.applyBotFactor : seg.apply_bot_factor;
+      const beta = segApplyBot ? ((queries && queries.botEffective) || 1) : 1;
+      sessionsMonthly += (seg.mau || 0) * (seg.sessions_per_day || 0) * DAYS * beta;
+    }
+    let monthly = 0;
+    const breakdown = [];
+    for (const agent of agents) {
+      const aRate = Number(agent.activation_rate);
+      const agActive = Number.isFinite(aRate) && aRate >= 0 && aRate <= 1 ? aRate : 1.0;
+      const enabled = agent.enabled_tools || {};
+      for (const [tid, spec] of Object.entries(enabled)) {
+        const t = reg[tid];
+        if (!t || t.cost_shape === 'free' || !t.rate_usd) continue;
+        const cpq = (spec && spec.calls_per_query) || 0;
+        if (cpq <= 0) continue;
+        const memo = t.memoize && Number.isFinite(t.memoize_hit_rate) ? t.memoize_hit_rate : 0;
+        const callMult = Math.max(0, 1 - memo);
+        const trig = Number.isFinite(spec.trigger_rate) && spec.trigger_rate >= 0 && spec.trigger_rate <= 1
+          ? spec.trigger_rate : 1.0;
+        let fee = 0;
+        if (t.cost_shape === 'per_call') {
+          fee = cpq * t.rate_usd * qTotal * callMult * trig * agActive;
+        } else if (t.cost_shape === 'per_session') {
+          fee = cpq * t.rate_usd * sessionsMonthly * callMult * trig * agActive;
+        }
+        if (fee > 0) {
+          monthly += fee;
+          breakdown.push({ agent: agent.id, tool: tid, cost_shape: t.cost_shape, monthly: fee });
+        }
+      }
+    }
+    return { monthly, breakdown };
+  }
+
   function computeVerification(workload, monthlyQueries, options) {
     const w = workload;
     const v = w.verification;
@@ -2269,6 +2324,7 @@
       ? computeBreakEven(workload, opts)
       : null;
     const verification = computeVerification(workload, queries.total, opts);
+    const toolFees = computeToolFees(workload, queries, opts);
     const federal = computeFederal(workload, queries.total, api, opts);
     // Reservation discount/PTU on API LLM cost
     const reservation = computeReservation(workload, api.monthly_capped, opts);
@@ -2312,6 +2368,7 @@
       self_host_capped: selfHostCapped,
       break_even: breakEven,
       verification, federal,
+      tool_fees: toolFees,
       hybrid,
       reservation,
       embedding,
@@ -2360,6 +2417,7 @@
     ptuSizing,
     TPS_PER_PTU,
     computeVerification,
+    computeToolFees,
     computeFederal,
     computeReservation,
     computeEmbedding,

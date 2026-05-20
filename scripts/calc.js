@@ -264,6 +264,7 @@ function compute(workload, opts) {
   // Headline line items (app.js:1115–1124)
   const fixedCosts      = result.fixed_costs?.total || 0;
   const verifMonthly    = result.verification?.monthly || 0;
+  const toolFeesMonthly = result.tool_fees?.monthly || 0;
   const federalAdditive = result.federal?.additive_total || 0;
   const embeddingMonthly = (result.embedding?.enabled ? result.embedding.monthly : 0) || 0;
   const personnelMonthly = (result.personnel?.enabled ? result.personnel.monthly : 0) || 0;
@@ -279,8 +280,8 @@ function compute(workload, opts) {
   else if (reservation.enabled)                               llmHeadline = reservation.effective_monthly;
   else                                                        llmHeadline = apiBill;
 
-  const headlineTotal = llmHeadline + fixedCosts + verifMonthly + federalAdditive
-                       + embeddingMonthly + personnelMonthly + agentEngMonthly;
+  const headlineTotal = llmHeadline + fixedCosts + verifMonthly + toolFeesMonthly
+                       + federalAdditive + embeddingMonthly + personnelMonthly + agentEngMonthly;
 
   return {
     workload,

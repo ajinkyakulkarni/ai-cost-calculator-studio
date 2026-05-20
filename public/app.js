@@ -1407,6 +1407,10 @@ Production teams measure their primary's confidence-score distribution; escalate
       : (r.api?.monthly_capped || 0) * retryInflate;
     const fixed = r.fixed_costs?.total || 0;
     const verif = r.verification?.monthly || 0;
+    // External tool fees (per-call / per-session provider charges for the
+    // agents' enabled_tools) are now an engine line — r.tool_fees — so
+    // calc.js, the Excel export and the bench all bill them identically.
+    const toolFees = r.tool_fees?.monthly || 0;
     const fed = r.federal?.additive_total || 0;
     const emb = (r.embedding?.enabled ? r.embedding.monthly : 0) || 0;
     const pers = (r.personnel?.enabled ? r.personnel.monthly : 0) || 0;
@@ -1418,8 +1422,8 @@ Production teams measure their primary's confidence-score distribution; escalate
     else if (opts.hosting === 'onprem') llm = parseFloat(w.on_prem_monthly) || 0;
     else if (r.reservation?.enabled) llm = r.reservation.effective_monthly;
     else llm = apiBill;
-    const headline = llm + fixed + verif + fed + emb + pers + ae;
-    return { headline, llm, apiBill, fixed, verif, fed, emb, pers, ae };
+    const headline = llm + fixed + verif + toolFees + fed + emb + pers + ae;
+    return { headline, llm, apiBill, fixed, verif, toolFees, fed, emb, pers, ae };
   }
 
   // Render the calibration badge above the headline. Reads
@@ -1824,66 +1828,13 @@ Production teams measure their primary's confidence-score distribution; escalate
     const personnelMonthly = composed.pers;
     const agentEngMonthly = composed.ae;
     const llmHeadline = composed.llm;
-    // Provider tool fees (web search / file search / container sessions)
-    // aren't part of cost-engine.js — those are per-call billing line
-    // items the simulator carries in a separate TOOL_FEES table. Compute
-    // them per-agent here using the agent's chosen provider+family lookup
-    // so mixed-provider fleets bill correctly (Anthropic web=$10/1k vs
-    // OpenAI web=$10/1k + fs=$2.50/1k + container=$0.03/sess vs Bedrock/
-    // Azure with $0 pass-through). Fold the monthly total into the
-    // headline so the topbar pill is truly all-in.
-    let providerToolFeesMonthly = 0;
-    try {
-      // Phase 3: per-agent enabled_tools × tools_registry math. Each agent
-      // declares which registry tools it can call and at what frequency
-      // (calls/query); the registry holds the rate + cost shape. Sums
-      // across agents into a single monthly tool-fees line on the
-      // headline. Works in both workload-mode (no agents → empty
-      // contributor list, $0) and agent-mode (per-agent enabled_tools
-      // drives the math). Agents without enabled_tools contribute $0,
-      // which is the correct default — the old hardcoded web/file/
-      // container slider math was deleted alongside the global panel
-      // in d03b276.
-      const registry = workload.tools_registry || {};
-      const turnsPerSession = Math.max(1, numVal('s-turns', 8));
-      const sessionsMonthly = queries / turnsPerSession;
-      const agentsList = (workload.agents && workload.agents.length > 0) ? workload.agents : [];
-      const totalCalls = agentsList.reduce((a, x) => a + (x.calls_per_query || 1), 0) || 1;
-      for (const ag of agentsList) {
-        const enabled = ag.enabled_tools || {};
-        // Agent activation rate carries through to its tool fees too —
-        // if the agent only runs 30% of queries, its tool calls only
-        // happen on those 30%. Default 1.0 preserves existing math.
-        const agActive = Number.isFinite(ag.activation_rate) && ag.activation_rate >= 0 && ag.activation_rate <= 1
-          ? ag.activation_rate : 1.0;
-        const callsShare = (ag.calls_per_query || 1) / totalCalls;
-        for (const [toolId, useSpec] of Object.entries(enabled)) {
-          const tool = registry[toolId];
-          if (!tool || tool.cost_shape === 'free' || !tool.rate_usd) continue;
-          const callsPerQuery = (useSpec && useSpec.calls_per_query) || 0;
-          if (callsPerQuery <= 0) continue;
-          // Per-tool result memoization — when a tool is called twice
-          // with the same args inside the same session, the second
-          // call hits a local cache and skips the provider call. Hit
-          // rate is per-tool (web_search rarely repeats; file_search
-          // / db_query commonly do). 0% hit rate = no memoization
-          // (paper-faithful default). Hit rate × rate cost reduction.
-          const memo = tool.memoize && Number.isFinite(tool.memoize_hit_rate) ? tool.memoize_hit_rate : 0;
-          const callMult = Math.max(0, 1 - memo);
-          // Per-(agent,tool) trigger rate — fraction of agent
-          // invocations this tool actually fires on (e.g., Designer
-          // uses image_gen on 60% of sites; some users bring their
-          // own images). Default 1.0 preserves existing math.
-          const tr = Number.isFinite(useSpec.trigger_rate) && useSpec.trigger_rate >= 0 && useSpec.trigger_rate <= 1
-            ? useSpec.trigger_rate : 1.0;
-          if (tool.cost_shape === 'per_call') {
-            providerToolFeesMonthly += callsPerQuery * tool.rate_usd * queries * callsShare * callMult * tr * agActive;
-          } else if (tool.cost_shape === 'per_session') {
-            providerToolFeesMonthly += callsPerQuery * tool.rate_usd * sessionsMonthly * callsShare * callMult * tr * agActive;
-          }
-        }
-      }
-    } catch (_) { /* registry not ready yet on first paint */ }
+    // Provider tool fees (per-call / per-session charges for the agents'
+    // enabled_tools) are now computed by cost-engine.js — computeToolFees —
+    // and already folded into composed.headline via composeHeadline's
+    // r.tool_fees term. The previous inline block here divided each
+    // agent's fees by its share of total agent calls, which under-counted
+    // multi-agent fleets; the engine version drops that and bills each
+    // declared tool call in full.
     // Per-agent guardrail-model fees. Same shape as provider tool fees:
     // each agent picks a guard model preset (Llama Guard, Granite
     // Guardian, OpenAI Moderation, Bedrock Guardrails, etc.), each
@@ -1919,7 +1870,9 @@ Production teams measure their primary's confidence-score distribution; escalate
       }
     } catch (_) { /* engine not ready */ }
 
-    const headlineTotal = composed.headline + providerToolFeesMonthly + guardModelFeesMonthly;
+    // composed.headline already includes engine-computed tool fees
+    // (r.tool_fees); guard-model fees remain an app.js-side addition.
+    const headlineTotal = composed.headline + guardModelFeesMonthly;
     // Publish the all-in headline so downstream panels (the budget warning
     // banner inside the cost simulator, in particular) compare against the
     // same number the user sees in the cost-pill. Without this, the budget
