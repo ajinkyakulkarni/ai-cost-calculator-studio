@@ -59,6 +59,10 @@ const EXPECTED = {
   // change this unless you're republishing the paper number.
   'public-geospatial-qa': {
     monthly_with_retry: 1097.30,
+    // Workload-mode (no agents → no enabled_tools) → $0 external tool
+    // fees. The geospatial deployment's geocoder/k8s cost is modeled as
+    // fixed `infrastructure` line items, not metered tool fees.
+    tool_fees: 0.00,
     note: 'Paper reference: validation report shows $1097.30/mo LLM-only API bill at default mix/cache.',
   },
   // SWE-bench-class single-agent coder — 100 dev pilots, 1 task per
@@ -71,6 +75,7 @@ const EXPECTED = {
   // +0.86% from the pre-itemization $1,193.04.
   'swe-bench-coding-agent': {
     monthly_with_retry: 1203.34,
+    tool_fees: 135.90,
     note: '100 devs × 0.3 sess/day × 30 × 2 q/sess = 1800 queries; 8× ReAct loop on Opus-4.7.',
   },
   // 3-agent customer-support fleet — 20K auth + 5K anon MAU, mixed
@@ -95,6 +100,7 @@ const EXPECTED = {
   // ticketing_mcp) now contribute schema + result tokens to the bill.
   'customer-support-fleet': {
     monthly_with_retry: 19508.90,
+    tool_fees: 3766.50,
     note: '20K auth + 5K anon MAU; 3-agent Triage(classify)/KB-Lookup(rag)/Responder(summary) on sonnet-4.6 with MiniCheck verifier @ 100% coverage. Per-agent task_bias exercise.',
   },
   // Voice support agent (Sierra / Bland-class) — 50K customers, ~4%
@@ -105,7 +111,8 @@ const EXPECTED = {
   // Re-pinned 2026-05-20 (tool itemization): +1.24% from $7,516.80.
   'voice-support-agent': {
     monthly_with_retry: 7610.15,
-    note: '50K customers × 0.04 sess/day × 30 × 12 q/sess = 720K voice turns; sonnet-4.6 with 70% cache. STT/TTS fees added via app.js tool-fee path.',
+    tool_fees: 7056.00,
+    note: '50K customers × 0.04 sess/day × 30 × 12 q/sess = 720K voice turns; sonnet-4.6 with 70% cache. STT/TTS fees billed via the engine tool-fee path (computeToolFees).',
   },
   // Legal-tech RAG (Harvey / Spellbook-class) — 50-attorney firm,
   // 2-agent Retriever (sonnet, ReAct 1.5×) → Drafter (opus-4.7 with
@@ -118,6 +125,7 @@ const EXPECTED = {
   // billed uncached.
   'legal-tech-rag': {
     monthly_with_retry: 1951.55,
+    tool_fees: 6574.50,
     note: '50 attorneys × 1.5 sess/day × 30 × 3 q/sess = 6,750 queries; 2-agent Retriever/Drafter, opus-4.7 on Drafter, FR2 cascade @ 20% escalate.',
   },
 };
@@ -162,51 +170,62 @@ function pct(x) {
 
 console.log('bench-validate.mjs — bench-validated preset regression suite');
 console.log('  Tolerance: ±' + (TOLERANCE_PCT * 100).toFixed(0) + '%');
-console.log('  Reads `api.monthly_with_retry` from CostEngine.compute() for each preset.');
+console.log('  Reads `api.monthly_with_retry` and `tool_fees.monthly` from CostEngine.compute().');
 console.log('');
 
 let allPass = true;
 const rows = [];
 
+// Drift check that tolerates an expected value of exactly 0 — the
+// workload-mode presets carry $0 tool fees, where percentage drift is
+// undefined; fall back to a near-zero absolute check there.
+function checkDrift(actual, expected) {
+  if (expected === 0) return { drift: 0, pass: Math.abs(actual) < 0.01 };
+  const drift = (actual - expected) / expected;
+  return { drift, pass: Math.abs(drift) <= TOLERANCE_PCT };
+}
+
 for (const slug of Object.keys(EXPECTED)) {
   const expected = EXPECTED[slug];
-  let actual = null;
-  let pass = false;
-  let drift = null;
-  let err = null;
+  let api = null, apiChk = null, tf = null, tfChk = null, err = null;
 
   try {
     const w = loadPreset(slug);
     const opts = buildOpts(w);
     const r = CostEngine.compute(w, opts);
-    actual = r.api && r.api.monthly_with_retry;
-    if (typeof actual !== 'number' || !Number.isFinite(actual)) {
-      throw new Error('api.monthly_with_retry not finite (got ' + actual + ')');
+    api = r.api && r.api.monthly_with_retry;
+    if (typeof api !== 'number' || !Number.isFinite(api)) {
+      throw new Error('api.monthly_with_retry not finite (got ' + api + ')');
     }
-    drift = (actual - expected.monthly_with_retry) / expected.monthly_with_retry;
-    pass = Math.abs(drift) <= TOLERANCE_PCT;
+    apiChk = checkDrift(api, expected.monthly_with_retry);
+    tf = (r.tool_fees && r.tool_fees.monthly) || 0;
+    tfChk = checkDrift(tf, expected.tool_fees);
   } catch (e) {
     err = e;
-    pass = false;
   }
 
+  const pass = !err && apiChk.pass && tfChk.pass;
   if (!pass) allPass = false;
-  rows.push({ slug, expected: expected.monthly_with_retry, actual, drift, pass, err, note: expected.note });
+  rows.push({ slug, err, pass, note: expected.note,
+    api, apiExpected: expected.monthly_with_retry, apiChk,
+    tf, tfExpected: expected.tool_fees, tfChk });
 }
 
 // Report
 for (const row of rows) {
   const tag = row.pass ? 'PASS' : 'FAIL';
   console.log(`[${tag}] ${row.slug}`);
-  console.log('       expected = ' + fmtUsd(row.expected) + '/mo');
   if (row.err) {
-    console.log('       ERROR    = ' + row.err.message);
+    console.log('       ERROR     = ' + row.err.message);
   } else {
-    console.log('       actual   = ' + fmtUsd(row.actual) + '/mo');
-    console.log('       drift    = ' + (row.drift >= 0 ? '+' : '') + pct(row.drift)
-                + ' (tolerance ±' + pct(TOLERANCE_PCT) + ')');
+    console.log('       LLM api   = ' + fmtUsd(row.api) + '  (expected ' + fmtUsd(row.apiExpected)
+                + ', drift ' + (row.apiChk.drift >= 0 ? '+' : '') + pct(row.apiChk.drift) + ')'
+                + (row.apiChk.pass ? '' : '  <- FAIL'));
+    console.log('       tool fees = ' + fmtUsd(row.tf) + '  (expected ' + fmtUsd(row.tfExpected)
+                + ', drift ' + (row.tfChk.drift >= 0 ? '+' : '') + pct(row.tfChk.drift) + ')'
+                + (row.tfChk.pass ? '' : '  <- FAIL'));
   }
-  console.log('       note     = ' + row.note);
+  console.log('       note      = ' + row.note);
   console.log('');
 }
 
