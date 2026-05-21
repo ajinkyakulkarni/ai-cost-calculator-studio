@@ -40,6 +40,18 @@ measured number, not the modeled one.
 | Freeform / heavy (N=5)     | **22,798 tok** | **74.39%** | **$0.01392** | **$14,648**              | **7.83× (measured)** |
 | Paper-modeled heavy (84K/session per Table 6) | 14,082 tok | 84.00% | $0.00800 | $8,419 | 4.50× (modeled) |
 
+> **Basis of the "Monthly $ at 915K queries" column.** These figures are the
+> raw per-turn anchor projected straight onto 915K queries/month with
+> FedRAMP Moderate (×1.15) applied — i.e. *every* query costed at that one
+> shape, with no traffic-shape mix and no daily spend cap. They are a
+> worst-case envelope for comparing the architectures head-to-head; they are
+> **not** the paper's deployment-scale figures. The paper's §5 worked
+> example applies the mixed traffic mix (40% full / 30% rag / 15% partial /
+> 10% refusal / 5% heavy), which blends in cheaper shapes and lowers the
+> monthly cost to **$1,097/mo templated** and **$8,222/mo freeform**. Use
+> the `$/turn` column here for the measured per-turn anchor; use the paper's
+> §5 and Table 7 for monthly cost at deployment scale.
+
 ## Configuration
 
 | Setting | Value |
@@ -91,6 +103,11 @@ arrays — e.g., per-pixel time-series, full raster previews encoded as
 base64, or full text descriptions per item.
 
 ## Implication for the paper
+
+> **Status (paper v2, 2026-05).** The recommendations in this section were
+> written on 2026-05-13 and have since been acted on: the published paper's
+> stress test now runs at the 22,798-token freeform anchor, at 75K MAU, and
+> is numbered Table 7. The original text is kept below for provenance.
 
 The §5 footnote should be updated from "84K-token modeled anchor"
 to "7.8× measured spread, both endpoints validated." The

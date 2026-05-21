@@ -15,13 +15,13 @@ the published numbers. To reproduce the paper **exactly**, check out the
 release it was written against:
 
 ```bash
-git checkout v0.2.4
+git checkout v0.3.0
 ```
 
 | Pin | Value |
 |---|---|
-| Release tag | `v0.2.4` |
-| Git commit | `c567fe2637af331476717dda707e96d0dcab4d9b` |
+| Release tag | `v0.3.0` |
+| Git commit | `3b402d513b7b35d61b9e87570592b53dc423fff2` |
 | Harness version | `agent-cost-bench` 0.2.0 |
 | `public/coefficients.json` sha256 | `f4703c6278fab2cc69f6c6aeca25a3f06225044a0c296ded408f041b51c26a96` |
 | Rate-card date | 2026-05-11 (GPT-5.2, Sonnet-4-5 prices captured) |
@@ -92,23 +92,41 @@ agent-cost-bench run scenarios/cached-pipeline-anthropic.yml --yes
 No API calls — this is the calculator's own arithmetic. The worked-example
 config is `public/examples/public-geospatial-qa.json`.
 
-On the live site: load the **Public geospatial Q&A** example, then set the
-anonymous segment to 50,000 MAU with the mixed traffic mix.
+Table 7 has two API architectures. **Both** run on the same preset at
+75,000 anonymous MAU with the mixed traffic mix; they differ *only* in the
+anchor-query token shape:
 
-From the command line:
+| Row       | anchor input            | cache rate         | anchor output |
+|---        |---:                     |---:                |---:           |
+| Templated | 3,342 (preset default)  | 0.88 (preset def.) | **41**        |
+| Freeform  | 22,798                  | 0.744              | **41**        |
+
+**Templated rows** — load the **Public geospatial Q&A** example on the live
+site, set the anonymous segment to 75,000 MAU, mixed traffic mix. From the
+CLI:
 
 ```bash
 node scripts/calc.js --preset public-geospatial-qa --json | jq .headline
 ```
 
-`calc.js` runs the same arithmetic as `calc.ajinkya.ai`. For a configuration
-that differs from the bundled preset (e.g. the 50K-MAU row), build the
-workload in the live calculator, click **Copy link**, and feed the hash
-back in:
+**Freeform rows** — same preset and 75,000 MAU, but change the anchor query
+to the freeform measurement: input **22,798** tokens, cache rate **0.744**.
+**Leave the anchor output at 41 tokens.** Freeform balloons the *tool-return
+input* the LLM ingests, not the user-facing answer, so the output count is
+unchanged from templated. (The "≈850 output tokens" figure in §5 of the
+paper belongs to the separate ~84K-input structural-ceiling trace — a
+different, heavier shape. Do **not** use 850 for the freeform anchor; doing
+so overstates the freeform cost by ~1.6×.) Build that workload in the live
+calculator, click **Copy link**, and feed the hash back in:
 
 ```bash
 node scripts/calc.js --url-hash "$(cat /tmp/share-hash)" --verbose
 ```
+
+`calc.js` runs the same arithmetic as `calc.ajinkya.ai`. The blended
+per-query rates this produces are **$0.00120/query templated** and
+**$0.00897/query freeform**; at the 6,765,000-query monthly volume they
+give the $8,095 and $60,667 uncapped rows of Table 7.
 
 ## Tables 1, 5, 6
 
