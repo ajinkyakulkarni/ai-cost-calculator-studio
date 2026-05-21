@@ -89,44 +89,42 @@ agent-cost-bench run scenarios/cached-pipeline-anthropic.yml --yes
 
 ## Table 7 — public-scale stress test
 
-No API calls — this is the calculator's own arithmetic. The worked-example
-config is `public/examples/public-geospatial-qa.json`.
+No API calls — this is the calculator's own arithmetic. Table 7 has two API
+architectures, each with its **own bundled preset**. They are the same
+deployment; they differ only in the tool-return shape, and every anchor
+coordinate (input tokens, cache rate, output tokens) is baked into the
+preset — there is nothing to override by hand:
 
-Table 7 has two API architectures. **Both** run on the same preset at
-75,000 anonymous MAU with the mixed traffic mix; they differ *only* in the
-anchor-query token shape:
+| Row       | Preset                                | anchor input | cache  |
+|---        |---                                    |---:          |---:    |
+| Templated | `public-geospatial-qa.json`           | 3,342        | 0.88   |
+| Freeform  | `public-geospatial-qa-freeform.json`  | 22,798       | 0.744  |
 
-| Row       | anchor input            | cache rate         | anchor output |
-|---        |---:                     |---:                |---:           |
-| Templated | 3,342 (preset default)  | 0.88 (preset def.) | **41**        |
-| Freeform  | 22,798                  | 0.744              | **41**        |
-
-**Templated rows** — load the **Public geospatial Q&A** example on the live
-site, set the anonymous segment to 75,000 MAU, mixed traffic mix. From the
-CLI:
-
-```bash
-node scripts/calc.js --preset public-geospatial-qa --json | jq .headline
-```
-
-**Freeform rows** — same preset and 75,000 MAU, but change the anchor query
-to the freeform measurement: input **22,798** tokens, cache rate **0.744**.
-**Leave the anchor output at 41 tokens.** Freeform balloons the *tool-return
-input* the LLM ingests, not the user-facing answer, so the output count is
-unchanged from templated. (The "≈850 output tokens" figure in §5 of the
-paper belongs to the separate ~84K-input structural-ceiling trace — a
-different, heavier shape. Do **not** use 850 for the freeform anchor; doing
-so overstates the freeform cost by ~1.6×.) Build that workload in the live
-calculator, click **Copy link**, and feed the hash back in:
+Both presets ship at the 10K-MAU worked-example scale. For the Table 7
+**stress-test** rows, set the **public** segment to **75,000 MAU** (keep the
+mixed traffic mix) — that is the *only* change. On the live site, load the
+example and edit the segment. From the CLI, copy the preset, set
+`segments[id=public].mau = 75000`, and run:
 
 ```bash
-node scripts/calc.js --url-hash "$(cat /tmp/share-hash)" --verbose
+node scripts/calc.js --workload <preset-at-75k>.json --json
 ```
 
-`calc.js` runs the same arithmetic as `calc.ajinkya.ai`. The blended
-per-query rates this produces are **$0.00120/query templated** and
-**$0.00897/query freeform**; at the 6,765,000-query monthly volume they
-give the $8,095 and $60,667 uncapped rows of Table 7.
+This produces blended per-query rates of **$0.00120/query templated** and
+**$0.00897/query freeform**; at the 6,765,000-query monthly volume they give
+the **$8,095** and **$60,667** uncapped rows of Table 7. At the presets'
+default 10K MAU the same two files give the §5 worked-example operating
+points, **$1,097/mo** templated and **$8,222/mo** freeform.
+
+> **Do not hand-build the freeform anchor.** Use the bundled
+> `public-geospatial-qa-freeform.json` preset. The freeform anchor is three
+> coupled coordinates — input 22,798, **cache 0.744**, output 41 — and all
+> three are in the preset. Overriding only the input tokens and leaving the
+> cache at the templated 0.88 understates the freeform cost by ~1.6×; the
+> `calc.js --cache` flag must also be set if you build the anchor by hand.
+
+Both presets are regression-pinned in `scripts/bench-validate.mjs`
+(`npm run bench:validate`).
 
 ## Tables 1, 5, 6
 

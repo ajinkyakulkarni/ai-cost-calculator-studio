@@ -65,6 +65,22 @@ const EXPECTED = {
     tool_fees: 0.00,
     note: 'Paper reference: validation report shows $1097.30/mo LLM-only API bill at default mix/cache.',
   },
+  // Paired freeform anchor of the same deployment — public-geospatial-qa
+  // with the freeform tool-return shape baked into the preset (anchor
+  // input 22,798, cache 0.744, output held at the templated 41). Bundled
+  // 2026-05-21 so the paper's freeform Table 7 row reproduces with no
+  // manual anchor overrides — three reproducibility reviews in a row
+  // mis-set one of the three freeform coordinates by hand. At the default
+  // 10K-MAU worked-example scale this is the $8,222/mo freeform operating
+  // point; set the public segment to 75,000 MAU for the $60,667/mo
+  // Table 7 stress-test row. Computed against commit ffeada9 / v0.3.1.
+  'public-geospatial-qa-freeform': {
+    monthly_with_retry: 8221.83,
+    // Workload-mode preset (no agents → no enabled_tools) → $0 tool fees,
+    // same as the templated public-geospatial-qa entry above.
+    tool_fees: 0.00,
+    note: 'Freeform tool-return anchor (input 22,798 / cache 0.744); $8,222/mo LLM-only API bill at the 10K-MAU worked-example scale.',
+  },
   // SWE-bench-class single-agent coder — 100 dev pilots, 1 task per
   // 3 days, 2 user-visible turns per task, 8× ReAct loop multiplier on
   // claude-opus-4.7 with 8K input / 2.5K output / 3K sysprompt.
