@@ -395,7 +395,12 @@ function main() {
       preset: args.preset || null,
       deployment: { name: workload.deployment?.name, agency: workload.deployment?.agency },
       mode: { hosting: out.engineOpts.hosting, model: out.engineOpts.model, tier: out.engineOpts.tier, mix: out.engineOpts.mix, cost_mode: out.engineOpts.costMode },
-      inputs: { mau: (workload.segments || []).reduce((a, s) => a + (s.mau || 0), 0), cache_rate: out.engineOpts.cacheRate, retry_rate: out.retryRate, bot_factor: out.engineOpts.botFactor, fedramp_tier: workload.federal?.fedramp_tier, hosting_multiplier: out.result.api?.hosting_multiplier, anchor_input: workload.anchor_query?.input_tokens, anchor_output: workload.anchor_query?.output_tokens },
+      // Echo the engine-faithful workload (out.workload) — the deep-clone
+      // inside compute() that carries --input-tok/--output-tok overrides and
+      // the engine's fedrampTier normalization. Reading main()'s original
+      // workload here would report pre-override file values (see calc.js
+      // compute(): the clone is what the math actually ran on).
+      inputs: { mau: (out.workload.segments || []).reduce((a, s) => a + (s.mau || 0), 0), cache_rate: out.engineOpts.cacheRate, retry_rate: out.retryRate, bot_factor: out.engineOpts.botFactor, fedramp_tier: out.workload.federal?.fedramp_tier, hosting_multiplier: out.result.api?.hosting_multiplier, anchor_input: out.workload.anchor_query?.input_tokens, anchor_output: out.workload.anchor_query?.output_tokens },
       derived: { queries_per_month: out.queries, per_query_blended: out.result.api?.per_query_blended, api_gross: out.result.api?.monthly_gross, api_capped_raw: out.apiCappedRaw, retry_inflate: out.retryInflate, api_with_retry: out.apiBill },
       lines: out.lines,
       headline: { monthly: out.headline_monthly, annual: out.headline_annual, three_year_tco: out.headline_3yr, per_mau_month: out.per_mau_month, per_query: out.per_query },
