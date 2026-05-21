@@ -731,15 +731,30 @@
     const hostMult = hostingMultiplier(w);
     const grossWithHost = totalCost * hostMult;
 
-    // Daily-cap math removed — was a misleading abstraction for procurement.
-    // Real cloud LLM contracts don't refuse queries at a $-cap; they just
-    // bill what was used. Cap-based clipping was masking slider sensitivity
-    // (when cap was binding, no input changes moved the headline). The
-    // procurement question "what's the max scale on $X budget?" is answered
-    // by the inverse Budget Solver panel instead. We keep the field names
-    // so downstream consumers don't have to change.
-    const cappedWithHost = grossWithHost;
-    const monthlyRefused = 0;
+    // Daily-cap clamping + refusal accounting (paper §2.5, Eq. for the
+    // equal-budget refusal-aware comparison). Steady-day and burst-day
+    // spend are each clamped to the cap; the dollar shortfall vs. gross
+    // demand converts to refused queries. Restored 2026-05-21 — this is
+    // the paper's central model; a 2026-05-10 overhaul had stripped it
+    // out, which left the API side unable to reproduce the paper's
+    // capped rows / refusal %. When the cap binds, input sensitivity
+    // surfaces in monthly_refused_queries rather than the (cap-pinned)
+    // headline — that is the intended, honest behavior.
+    const cap = w.daily_cap;
+    let cappedWithHost = grossWithHost;
+    let monthlyRefused = 0;
+    if (cap && cap.enabled && cap.amount_usd > 0) {
+      const dailyAvg = grossWithHost / 30;
+      const burstDays = cap.burst_days || 0;
+      const steadyDays = 30 - burstDays;
+      const dailyBurst = dailyAvg * (cap.burst_factor || 1);
+      const dailySteadyCapped = Math.min(dailyAvg, cap.amount_usd);
+      const dailyBurstCapped = Math.min(dailyBurst, cap.amount_usd);
+      cappedWithHost = steadyDays * dailySteadyCapped + burstDays * dailyBurstCapped;
+      const refusedFraction = grossWithHost > 0
+        ? Math.max(0, (grossWithHost - cappedWithHost) / grossWithHost) : 0;
+      monthlyRefused = queries.total * refusedFraction;
+    }
     const monthlyCapped = cappedWithHost / (hostMult || 1);  // pre-multiplier view
 
     // Language-token multiplier (paper §3.3 tooltip): EN=1.0, code=1.3,
