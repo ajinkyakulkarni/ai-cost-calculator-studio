@@ -15,13 +15,13 @@ the published numbers. To reproduce the paper **exactly**, check out the
 release it was written against:
 
 ```bash
-git checkout v0.3.0
+git checkout v0.3.3
 ```
 
 | Pin | Value |
 |---|---|
-| Release tag | `v0.3.0` |
-| Git commit | `3b402d513b7b35d61b9e87570592b53dc423fff2` |
+| Release tag | `v0.3.3` |
+| Git commit | `ee54b438d0b0ac3116498d90572407e0271665dc` |
 | Harness version | `agent-cost-bench` 0.2.0 |
 | `public/coefficients.json` sha256 | `f4703c6278fab2cc69f6c6aeca25a3f06225044a0c296ded408f041b51c26a96` |
 | Rate-card date | 2026-05-11 (GPT-5.2, Sonnet-4-5 prices captured) |
