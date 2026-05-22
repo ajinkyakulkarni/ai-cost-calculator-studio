@@ -2,10 +2,11 @@
 .env
 .env.local
 
-# Generated trace + variance artifacts. Re-runnable; not source.
-# Validation reports (*-validation.md) are hand-curated calibration
-# narratives, not auto-generated — those stay tracked.
-reports/*-trace.json
+# Trace JSONs (reports/*-trace.json) are the measured evidence the paper
+# cites for every calibrated coefficient, so they ARE committed -- a
+# reviewer must be able to check the numbers without re-spending on
+# provider APIs. Validation reports (*-validation.md) are likewise kept.
+# Variance dumps stay out: re-runnable scratch, not cited.
 reports/*-variance.md
 reports/*-variance.json
 

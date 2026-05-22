@@ -1,0 +1,213 @@
+{
+  "scenario": "smoke-test",
+  "started_at": "2026-05-13T19:17:51.773317+00:00",
+  "config_hash": "sha256:600cc67379902a125ac4345810c449e0150579b981a2e0ec0d1382f4e45ef1d5",
+  "agent_cost_bench_version": "0.2.0",
+  "calls": [
+    {
+      "trace_id": "32255a87545f1c5dab6037c7fb84b40d",
+      "span_id": "6d68c3a1459b2914",
+      "name": "chat gpt-4o-mini",
+      "kind": "CLIENT",
+      "started_at": "2026-05-13T19:17:51.778838+00:00",
+      "ended_at": "2026-05-13T19:17:52.833499+00:00",
+      "duration_ms": 1054.661,
+      "status": "UNSET",
+      "attributes": {
+        "gen_ai.system": "openai",
+        "gen_ai.request.model": "gpt-4o-mini",
+        "gen_ai.operation.name": "chat",
+        "gen_ai.request.temperature": 0.2,
+        "gen_ai.request.max_tokens": 150,
+        "duration_ms": 1054.328874917701,
+        "gen_ai.usage.input_tokens": 42,
+        "gen_ai.usage.output_tokens": 7,
+        "response_cost": 1.05e-05,
+        "gen_ai.response.id": "chatcmpl-Df9NYdKED9xvKdGgb1B84tPQ3Qumj"
+      }
+    },
+    {
+      "trace_id": "8a9e9ec2cd3a2dabdcc18e8cf8740ba0",
+      "span_id": "5ec337cb4cbbb83e",
+      "name": "chat gpt-4o-mini",
+      "kind": "CLIENT",
+      "started_at": "2026-05-13T19:17:52.834740+00:00",
+      "ended_at": "2026-05-13T19:17:53.339064+00:00",
+      "duration_ms": 504.324,
+      "status": "UNSET",
+      "attributes": {
+        "gen_ai.system": "openai",
+        "gen_ai.request.model": "gpt-4o-mini",
+        "gen_ai.operation.name": "chat",
+        "gen_ai.request.temperature": 0.2,
+        "gen_ai.request.max_tokens": 150,
+        "duration_ms": 504.22979099676013,
+        "gen_ai.usage.input_tokens": 63,
+        "gen_ai.usage.output_tokens": 9,
+        "response_cost": 1.4849999999999998e-05,
+        "gen_ai.response.id": "chatcmpl-Df9NZ67RElWX7w2tx3IekhRs6eoyd"
+      }
+    },
+    {
+      "trace_id": "c97ba3253882fe06624ef7570f02e238",
+      "span_id": "15d2a26bc91479d7",
+      "name": "chat gpt-4o-mini",
+      "kind": "CLIENT",
+      "started_at": "2026-05-13T19:17:53.339682+00:00",
+      "ended_at": "2026-05-13T19:17:53.984637+00:00",
+      "duration_ms": 644.955,
+      "status": "UNSET",
+      "attributes": {
+        "gen_ai.system": "openai",
+        "gen_ai.request.model": "gpt-4o-mini",
+        "gen_ai.operation.name": "chat",
+        "gen_ai.request.temperature": 0.2,
+        "gen_ai.request.max_tokens": 150,
+        "duration_ms": 644.7974999900907,
+        "gen_ai.usage.input_tokens": 91,
+        "gen_ai.usage.output_tokens": 17,
+        "response_cost": 2.3849999999999997e-05,
+        "gen_ai.response.id": "chatcmpl-Df9NZtVKzVdeiFFvC2CtEZ9dircBA"
+      }
+    },
+    {
+      "trace_id": "d91235485347a4246e6c2cfe3f3f96d5",
+      "span_id": "ede13faec72b95a0",
+      "name": "chat gpt-4o-mini",
+      "kind": "CLIENT",
+      "started_at": "2026-05-13T19:17:53.985669+00:00",
+      "ended_at": "2026-05-13T19:17:54.708577+00:00",
+      "duration_ms": 722.908,
+      "status": "UNSET",
+      "attributes": {
+        "gen_ai.system": "openai",
+        "gen_ai.request.model": "gpt-4o-mini",
+        "gen_ai.operation.name": "chat",
+        "gen_ai.request.temperature": 0.2,
+        "gen_ai.request.max_tokens": 150,
+        "duration_ms": 722.7422080468386,
+        "gen_ai.usage.input_tokens": 44,
+        "gen_ai.usage.output_tokens": 7,
+        "response_cost": 1.0799999999999998e-05,
+        "gen_ai.response.id": "chatcmpl-Df9Na9mUKap36rlcyaR2VxzSzhcYC"
+      }
+    },
+    {
+      "trace_id": "9e75b615de29dc5343aa9d9737e9e804",
+      "span_id": "76bd6ec86eaa6dc7",
+      "name": "chat gpt-4o-mini",
+      "kind": "CLIENT",
+      "started_at": "2026-05-13T19:17:54.709315+00:00",
+      "ended_at": "2026-05-13T19:17:55.608095+00:00",
+      "duration_ms": 898.78,
+      "status": "UNSET",
+      "attributes": {
+        "gen_ai.system": "openai",
+        "gen_ai.request.model": "gpt-4o-mini",
+        "gen_ai.operation.name": "chat",
+        "gen_ai.request.temperature": 0.2,
+        "gen_ai.request.max_tokens": 150,
+        "duration_ms": 898.5973750241101,
+        "gen_ai.usage.input_tokens": 65,
+        "gen_ai.usage.output_tokens": 9,
+        "response_cost": 1.5149999999999999e-05,
+        "gen_ai.response.id": "chatcmpl-Df9Nb3Bid86nwaSP4erLhDEDLOhQr"
+      }
+    },
+    {
+      "trace_id": "e5a33859ce8c3ad6deb8c8f7a40306a0",
+      "span_id": "67b8997bcf9688d7",
+      "name": "chat gpt-4o-mini",
+      "kind": "CLIENT",
+      "started_at": "2026-05-13T19:17:55.609072+00:00",
+      "ended_at": "2026-05-13T19:17:56.114271+00:00",
+      "duration_ms": 505.199,
+      "status": "UNSET",
+      "attributes": {
+        "gen_ai.system": "openai",
+        "gen_ai.request.model": "gpt-4o-mini",
+        "gen_ai.operation.name": "chat",
+        "gen_ai.request.temperature": 0.2,
+        "gen_ai.request.max_tokens": 150,
+        "duration_ms": 505.10466704145074,
+        "gen_ai.usage.input_tokens": 93,
+        "gen_ai.usage.output_tokens": 17,
+        "response_cost": 2.4149999999999997e-05,
+        "gen_ai.response.id": "chatcmpl-Df9NbEuQxRYUKvwegKUyYN9bEV5i5"
+      }
+    },
+    {
+      "trace_id": "d31dc498a31e365eca788c71d42fb966",
+      "span_id": "96428cecb8c0da3b",
+      "name": "chat gpt-4o-mini",
+      "kind": "CLIENT",
+      "started_at": "2026-05-13T19:17:56.115148+00:00",
+      "ended_at": "2026-05-13T19:17:56.761209+00:00",
+      "duration_ms": 646.061,
+      "status": "UNSET",
+      "attributes": {
+        "gen_ai.system": "openai",
+        "gen_ai.request.model": "gpt-4o-mini",
+        "gen_ai.operation.name": "chat",
+        "gen_ai.request.temperature": 0.2,
+        "gen_ai.request.max_tokens": 150,
+        "duration_ms": 645.932582905516,
+        "gen_ai.usage.input_tokens": 42,
+        "gen_ai.usage.output_tokens": 7,
+        "response_cost": 1.05e-05,
+        "gen_ai.response.id": "chatcmpl-Df9NchxxJWYtc6rBsz14bSf104S4y"
+      }
+    },
+    {
+      "trace_id": "483b26a9e8e11d2f09c1f5bc9b999465",
+      "span_id": "d9c9c9934a44760d",
+      "name": "chat gpt-4o-mini",
+      "kind": "CLIENT",
+      "started_at": "2026-05-13T19:17:56.762201+00:00",
+      "ended_at": "2026-05-13T19:17:57.499768+00:00",
+      "duration_ms": 737.567,
+      "status": "UNSET",
+      "attributes": {
+        "gen_ai.system": "openai",
+        "gen_ai.request.model": "gpt-4o-mini",
+        "gen_ai.operation.name": "chat",
+        "gen_ai.request.temperature": 0.2,
+        "gen_ai.request.max_tokens": 150,
+        "duration_ms": 737.4324169941247,
+        "gen_ai.usage.input_tokens": 63,
+        "gen_ai.usage.output_tokens": 9,
+        "response_cost": 1.4849999999999998e-05,
+        "gen_ai.response.id": "chatcmpl-Df9NdxhJZV30AQ4cBLsCyyKVjRj8A"
+      }
+    },
+    {
+      "trace_id": "0c7fa5711a9c1fdca48283bb374ed2dc",
+      "span_id": "5091bbb114cde92c",
+      "name": "chat gpt-4o-mini",
+      "kind": "CLIENT",
+      "started_at": "2026-05-13T19:17:57.500810+00:00",
+      "ended_at": "2026-05-13T19:17:58.685587+00:00",
+      "duration_ms": 1184.777,
+      "status": "UNSET",
+      "attributes": {
+        "gen_ai.system": "openai",
+        "gen_ai.request.model": "gpt-4o-mini",
+        "gen_ai.operation.name": "chat",
+        "gen_ai.request.temperature": 0.2,
+        "gen_ai.request.max_tokens": 150,
+        "duration_ms": 1184.559167129919,
+        "gen_ai.usage.input_tokens": 91,
+        "gen_ai.usage.output_tokens": 17,
+        "response_cost": 2.3849999999999997e-05,
+        "gen_ai.response.id": "chatcmpl-Df9NdJkyYUoTIsDWkJmgExqHwGwe0"
+      }
+    }
+  ],
+  "session_totals": {
+    "calls": 9,
+    "input_tokens": 594,
+    "output_tokens": 99,
+    "cached_tokens": 0,
+    "user_turns": 9
+  }
+}
