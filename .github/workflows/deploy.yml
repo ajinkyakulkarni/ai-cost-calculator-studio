@@ -18,7 +18,15 @@ jobs:
     timeout-minutes: 5
     steps:
       - uses: actions/checkout@v4
-      - uses: cloudflare/wrangler-action@v3
+      - uses: actions/setup-node@v4
         with:
-          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
-          wranglerVersion: "4.87.0"
+          node-version: "20"
+      # Deploy directly via npx instead of cloudflare/wrangler-action@v3 —
+      # the action runs `wrangler whoami` as a preflight, which calls
+      # /memberships and requires `User -> User Details -> Read` on the
+      # token. `wrangler deploy` itself does not need that permission, so a
+      # standard "Edit Cloudflare Workers" template token (no user-detail
+      # scope) works locally but fails the action's preflight. Skipping it.
+      - run: npx --yes wrangler@4.87.0 deploy
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
