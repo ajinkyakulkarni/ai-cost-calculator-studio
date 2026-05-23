@@ -585,6 +585,23 @@
         else if (el.type === 'number') v = parseFloat(el.value) || 0;
         else v = el.value;
         workload.segments[idx][key] = v;
+        // In single-segment mode renderPreview rebuilds workload.segments[0]
+        // from s-users/s-sessions/s-turns on every render (see app.js:1657+),
+        // so a direct edit to this form would be silently clobbered. Mirror
+        // numeric traffic edits back to the matching slider so the next
+        // renderPreview reads the user's value instead of the stale slider.
+        if (workload.segments.length === 1 && el.type === 'number') {
+          const sliderMap = {
+            mau: 's-users',
+            sessions_per_day: 's-sessions',
+            questions_per_session: 's-turns',
+          };
+          const sliderId = sliderMap[key];
+          if (sliderId) {
+            const slider = document.getElementById(sliderId);
+            if (slider) slider.value = String(v);
+          }
+        }
         renderPreview();
         renderRawJson();
       });
@@ -1656,14 +1673,21 @@ Production teams measure their primary's confidence-score distribution; escalate
       const segs = workload.segments || [];
       if (segs.length <= 1) {
         // Single-segment / fresh-start path: sliders ARE the segment.
+        // Preserve preset-supplied id/label/applyBotFactor/description if a
+        // segment already exists (presets like voice-support-agent have
+        // applyBotFactor:false and a curated description that should not be
+        // unconditionally clobbered). Only the numeric traffic fields are
+        // sourced from the sliders — those are mirrored from the form-edit
+        // path in renderSegmentsList so they stay in sync either way.
+        const existing = segs[0] || {};
         workload.segments = [{
-          id: 'all',
-          label: 'All users',
+          id: existing.id || 'all',
+          label: existing.label || 'All users',
           mau: mau,
           sessions_per_day: sessionsPerUserPerDay,
           questions_per_session: turnsPerSession,
-          applyBotFactor: true,
-          description: 'Aggregate traffic — MAU × sessions/user/day × turns/session × bot factor.',
+          applyBotFactor: existing.applyBotFactor != null ? existing.applyBotFactor : true,
+          description: existing.description || 'Aggregate traffic — MAU × sessions/user/day × turns/session × bot factor.',
         }];
       } else {
         // Multi-segment path: leave segments alone (the per-segment editor
@@ -3957,7 +3981,7 @@ Production teams measure their primary's confidence-score distribution; escalate
       const ss = document.getElementById('s-sessions');
       const st = document.getElementById('s-turns');
       if (su && totalMAU > 0) su.value = Math.max(1, Math.round(totalMAU));
-      if (ss && avgSessionsPerUser > 0) ss.value = Math.max(0.05, Math.round(avgSessionsPerUser * 20) / 20);
+      if (ss && avgSessionsPerUser > 0) ss.value = Math.max(0.01, Math.round(avgSessionsPerUser * 100) / 100);
       if (st && avgTurns > 0) st.value = Math.max(1, Math.round(avgTurns));
       // the simulator's onSlider() reads these values and re-renders panels.
       if (typeof window.onSlider === 'function') {

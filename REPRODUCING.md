@@ -30,6 +30,15 @@ On `main` you will get numbers priced at the *current* rate card instead —
 useful, but not the paper's figures. That is expected and is exactly why
 the paper calls dollar figures "timestamps, not constants."
 
+`main` also applies the Eq. 3 clamp differently from the paper: the
+[0.50, 0.94] bound is restricted to the session-length adjustment term
+`0.01·(q−6)` so the "Cache hit rate" slider stays honest across its
+full 0–95% range (a deployment with no prompt caching at all genuinely
+has cache <50%, and Eq. 3 as printed silently bumps it to 0.50). Within
+the paper's own use of Eq. 3 — fixed measured `r_baseline ≈ 0.84`, `q`
+varying over realistic session lengths — neither bound binds and the
+result is identical. `v0.3.3` remains the paper-faithful version.
+
 ## What needs API keys
 
 | Reproduction | Cost | Needs |
