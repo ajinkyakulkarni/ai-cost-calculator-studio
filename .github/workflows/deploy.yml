@@ -20,7 +20,7 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
-          node-version: "20"
+          node-version: "22"
       # Deploy directly via npx instead of cloudflare/wrangler-action@v3 —
       # the action runs `wrangler whoami` as a preflight, which calls
       # /memberships and requires `User -> User Details -> Read` on the
