@@ -785,7 +785,6 @@ function updateCostPanel(){renderPerAgentCost();
     ['Sequential chain','$'+((sc.workflowExtra?.breakdown?.sequentialChainCost)||0).toFixed(5),'var(--cyan)'],
     ['Document ingestion','$'+((sc.workflowExtra?.breakdown?.documentIngestionCost)||0).toFixed(5),'#f48fb1'],
     ['Partial rerun cost','$'+((sc.workflowExtra?.breakdown?.partialRerunCost)||0).toFixed(5),'var(--amber)'],
-    ['Fact-check sidecar','$'+((sc.workflowExtra?.breakdown?.factCheckSidecarCost)||0).toFixed(5),'var(--reason)'],
     ['Template amortization','$'+((sc.workflowExtra?.breakdown?.templateAmortDelta)||0).toFixed(5),'var(--green)'],
     ['HITL pause storage','$'+((sc.workflowExtra?.breakdown?.hitlPauseCost)||0).toFixed(7),'var(--gold)'],
     ['── DAG TOPOLOGY ──','','var(--purple)'],
@@ -2061,12 +2060,7 @@ function onSlider(){
   if(document.getElementById('s-doc-pages')) document.getElementById('v-doc-pages').textContent = cfg('s-doc-pages');
   if(document.getElementById('s-doc-tok-page')) document.getElementById('v-doc-tok-page').textContent = cfg('s-doc-tok-page');
   if(document.getElementById('s-doc-stages-pct')) document.getElementById('v-doc-stages-pct').textContent = cfg('s-doc-stages-pct')+'%';
-  if(document.getElementById('s-fc-pct')) document.getElementById('v-fc-pct').textContent = cfg('s-fc-pct')+'%';
-  if(document.getElementById('s-fc-in')) document.getElementById('v-fc-in').textContent = cfg('s-fc-in');
-  if(document.getElementById('s-fc-price')){
-    const fcPrices=[0,0.20,0.80,1.50,3.00,5.00];
-    document.getElementById('v-fc-price').textContent = '$'+fcPrices[cfg('s-fc-price')]?.toFixed(2);
-  }
+  // Legacy s-fc-* label sync removed 2026-05-25 (sliders deleted).
   if(document.getElementById('s-pause-hrs')) document.getElementById('v-pause-hrs').textContent = cfg('s-pause-hrs')+'h';
   if(document.getElementById('s-pauses')) document.getElementById('v-pauses').textContent = cfg('s-pauses');
   if(document.getElementById('s-storage-rate')){
@@ -2347,11 +2341,6 @@ function workflowExtensions(baseResult, agentsToProcess){
   const docPages = cfg('s-doc-pages');
   const docTokPage = cfg('s-doc-tok-page');
   const docStagesPct = cfg('s-doc-stages-pct')/100;
-  const fcPct = cfg('s-fc-pct')/100;
-  const fcIn = cfg('s-fc-in');
-  const fcPriceIdx = Math.min(5, Math.max(0, cfg('s-fc-price')));
-  const fcPrices = [0, 0.20, 0.80, 1.50, 3.00, 5.00];
-  const fcPrice = fcPrices[fcPriceIdx] || 0;
   const pauseHrs = cfg('s-pause-hrs');
   const pauses = cfg('s-pauses');
   const storageRateIdx = cfg('s-storage-rate');
@@ -2402,12 +2391,9 @@ function workflowExtensions(baseResult, agentsToProcess){
   // 3. Partial rerun: each rerun re-executes a stage. Approx = rerunRate × baseCost
   const rerunCost = baseResult.baseCost * rerunRate;
 
-  // 4. Fact-check sidecar: per stage with FC enabled, additional FC inference call
-  let fcCost = 0;
-  if(fcPct > 0 && fcIn > 0 && fcPrice > 0){
-    const fcStages = stages * fcPct;
-    fcCost = (fcStages * fcIn / 1e6) * fcPrice;
-  }
+  // (Legacy "4. Fact-check sidecar" removed 2026-05-25 — the s-fc-*
+  // sliders were deleted; the wired Fact-checking / workload.verification
+  // pipeline is the single source of truth for verification cost.)
 
   // 5. Template amortization: planning cost spread across runs
   // Rough estimate: orchestrator's first turn × 2 = workflow planning cost, divided by templateRuns
@@ -2420,7 +2406,7 @@ function workflowExtensions(baseResult, agentsToProcess){
   const stateGB = (baseResult.totalIn * 4) / 1e9;
   const pauseStorageCost = stateGB * pauseHrs * pauses * storageRate;
 
-  const extraCost = chainCost + docCost + rerunCost + fcCost + templateAmortDelta + pauseStorageCost;
+  const extraCost = chainCost + docCost + rerunCost + templateAmortDelta + pauseStorageCost;
 
   return {
     extraCost,
@@ -2428,7 +2414,6 @@ function workflowExtensions(baseResult, agentsToProcess){
       sequentialChainCost: chainCost,
       documentIngestionCost: docCost,
       partialRerunCost: rerunCost,
-      factCheckSidecarCost: fcCost,
       templateAmortDelta: templateAmortDelta,
       hitlPauseCost: pauseStorageCost,
     }
@@ -2450,9 +2435,6 @@ function applyAKDFlow(){
   setVal('s-doc-pages', 20);        // ~20 pages each
   setVal('s-doc-tok-page', 1000);   // dense academic content
   setVal('s-doc-stages-pct', 60);   // 60% of stages read corpus
-  setVal('s-fc-pct', 100);          // every stage fact-checked in AKD
-  setVal('s-fc-in', 3000);          // stage outputs are detailed
-  setVal('s-fc-price', 1);          // Haiku-class fact checker
   setVal('s-pause-hrs', 4);         // typical review pause
   setVal('s-pauses', 4);            // ~4 approval gates per workflow
   setVal('s-storage-rate', 2);      // standard cloud rate

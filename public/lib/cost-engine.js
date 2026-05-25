@@ -861,7 +861,18 @@
     const gpuId = opts.gpu || Object.keys(w.self_host.gpu_options)[0];
     const commitmentId = opts.commitment || 'ri-1y';
     const replicas = opts.replicas !== undefined ? opts.replicas : w.self_host.min_replicas;
-    const tokensPerQ = opts.tokensPerQ || w.self_host.tokens_per_query_default;
+    const tokensPerQBase = opts.tokensPerQ || w.self_host.tokens_per_query_default;
+    // langMult and contextCompressionPct affect total tokens per query just
+    // as they do on the API side: bigger tokens (Japanese, multilingual) need
+    // proportionally more GPU work; history-summarization compression shrinks
+    // input tokens and reduces GPU work. Both feed peak-TPS sizing → replica
+    // count → GPU bill. Same scalars as the API path at app.js / cost-engine
+    // line 823. Defaults: 1.0 lang × 1.0 (no compression) = 1.0 — no-op for
+    // workloads that don't set these opts.
+    const langMultSH = (opts.langMult != null && opts.langMult > 0) ? opts.langMult : 1.0;
+    const compressionSavingsSH = Math.max(0, Math.min(0.7, opts.contextCompressionPct != null ? opts.contextCompressionPct : 0));
+    const tokenScalarSH = langMultSH * (1 - compressionSavingsSH);
+    const tokensPerQ = tokensPerQBase * tokenScalarSH;
     const costMode = opts.costMode || 'optimistic';
 
     const gpu = w.self_host.gpu_options[gpuId];
@@ -915,6 +926,9 @@
       cost_mode: costMode,
       compute_platform: platform,
       qps_avg: qpsAvg,
+      tokens_per_query: tokensPerQ,
+      tokens_per_query_base: tokensPerQBase,
+      token_scalar: tokenScalarSH,
       peak_tps: peakTps,
       effective_tput: effTput,
       needed_by_load: neededByLoad,
@@ -1692,7 +1706,10 @@
       out += `GPU: ${sh.gpu_spec.name} ($${sh.gpu_spec.hourly}/hr, ${sh.gpu_spec.tput_tps} tok/s peak)\n`;
       out += `Cost mode: ${sh.cost_mode}, throughput de-rate ${(w.self_host.cost_modes[sh.cost_mode].throughput_derate).toFixed(2)}× → effective ${num(sh.effective_tput)} tok/s\n`;
       out += `Average QPS: ${num(r.queries.total)} / (30 × 86400) = ${sh.qps_avg.toFixed(2)} q/s\n`;
-      out += `Peak tokens/sec: ${sh.qps_avg.toFixed(2)} × ${opts.tokensPerQ || w.self_host.tokens_per_query_default} tok/q × diurnal ${w.self_host.diurnal_peak_factor}× × headroom ${w.self_host.headroom}× = ${num(sh.peak_tps)} tok/s\n`;
+      const _scalarNote = sh.token_scalar && Math.abs(sh.token_scalar - 1) > 1e-6
+        ? ` (base ${Math.round(sh.tokens_per_query_base)} × langMult/compression scalar ${sh.token_scalar.toFixed(3)})`
+        : '';
+      out += `Peak tokens/sec: ${sh.qps_avg.toFixed(2)} × ${Math.round(sh.tokens_per_query)} tok/q${_scalarNote} × diurnal ${w.self_host.diurnal_peak_factor}× × headroom ${w.self_host.headroom}× = ${num(sh.peak_tps)} tok/s\n`;
       out += `Instances by load: ⌈${num(sh.peak_tps)} / ${num(sh.effective_tput)}⌉ = ${sh.needed_by_load}\n`;
       out += `Instances running: max(${sh.needed_by_load}, HA floor=${w.self_host.min_replicas}) = ${sh.instances}\n`;
       // Use sh.effective_hours so duty_cycle < 1 is visible in the trace —
