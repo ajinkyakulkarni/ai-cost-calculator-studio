@@ -3946,19 +3946,18 @@ This is pure waste. You pay for the failed call AND the retry. Going from a 10% 
 **Tip**
 The fix is usually backoff/rate-limit code on the app side, or an enterprise contract with the AI vendor for higher rate limits. Both are cheap relative to the savings.">Retry rate</span><span class="sr-val" id="v-retry" style="color:var(--red)">3%</span></div><input type="range" min="0" max="25" value="3" step="1" id="s-retry" oninput="onSlider()" aria-label="Retry rate percentage"></div>
         <div class="sr"><div class="sr-top"><span class="sr-label" data-tip="Monthly compounding traffic growth used to project capacity headroom over the next 12 months. Mature steady product 0-10%; product-market-fit launch 30-100%.">Growth / month</span><span class="sr-val" id="v-growth" style="color:var(--lime)">20%</span></div><input type="range" min="0" max="100" value="20" step="5" id="s-growth" oninput="onSlider()" aria-label="Monthly traffic growth percentage"><div class="sr-hint">Curves the cost-over-time projection — this month's headline isn't affected.</div></div>
-        <div class="sr sr-advanced"><div class="sr-top"><span class="sr-label" data-tip="Peak-hour traffic divided by average traffic. Self-host has to size the fleet to peak; commercial APIs absorb peaks via shared capacity. 1× = perfectly flat. 3-5× = typical diurnal. 10×+ = launch / viral spike.">Peak / avg ratio</span><span class="sr-val" id="v-peak" style="color:var(--amber)">1×</span></div><input type="range" min="1" max="10" value="1" step="1" id="s-peak" oninput="onSlider()" aria-label="Peak to average traffic ratio"><div class="sr-hint">Burstiness — &gt;2× adds 5%/level</div></div>
+        <div class="sr sr-advanced"><div class="sr-top"><span class="sr-label" data-tip="### Peak / avg ratio
+
+Peak-hour traffic divided by average traffic. 1× = perfectly flat. 3-5× = typical diurnal. 10×+ = launch / viral spike.
+
+**Only affects self-host capacity sizing.** Commercial API hosting absorbs bursts via the provider's shared capacity — the slider has no effect on the headline when Hosting is set to *API (managed)*. It does move the headline when Hosting is *Self-host on EC2* (or *Hybrid* / *On-prem*), because the on-prem fleet has to be sized to peak.
+
+**Why this knob matters:** drives replica count via the engine's sizing formula — peak_TPS = avg_QPS × tokens/q × diurnal × headroom — and replicas = ceil(peak_TPS / per-GPU throughput). A 5× peak with realistic 30% headroom and 12-tok/s per-GPU throughput at scale needs ~5× the replicas a flat-traffic deployment would, which directly multiplies the GPU-hour bill. Under-sizing here means dropped requests at 5pm; over-sizing here means paying for idle GPUs all night.
+
+**Slider quirk:** value 1× means *use the workload's measured default* (typically 4×), not *no peak* — the slider only overrides when dialed above 1× so an untouched default doesn't accidentally undersize the fleet.">Peak / avg ratio</span><span class="sr-val" id="v-peak" style="color:var(--amber)">1×</span></div><input type="range" min="1" max="10" value="1" step="1" id="s-peak" oninput="onSlider()" aria-label="Peak to average traffic ratio"><div class="sr-hint">Self-host sizing only · 1×=use workload default (~4×) · &gt;1× overrides</div></div>
         <div class="sr sr-advanced"><div class="sr-top"><span class="sr-label" data-tip="Token-count multiplier for non-English content. English = 1.0; code = 1.3; Spanish/French ~1.1-1.2; CJK languages (Chinese, Japanese, Korean) = 1.8-2.2 because tokenizers fragment characters. Inflates input and output cost proportionally.
 
 **Why this knob matters:** invisible cost driver for international deployments. A Japanese-language assistant costs ~2× what an English one does at the same word count. Often missed during budget planning — flags multilingual deployments needing tokenizer-aware budgets.">Language multiplier</span><span class="sr-val" id="v-lang-mult" style="color:var(--purple)">1.0×</span></div><input type="range" min="1.0" max="2.5" value="1.0" step="0.1" id="s-lang-mult" oninput="onSlider()" aria-label="Language token multiplier"><div class="sr-hint">EN=1.0, code=1.3, CJK=1.8-2.2</div></div>
-        <div class="sr sr-advanced"><div class="sr-top"><span class="sr-label" data-tip="### Communication pattern
-
-How agents coordinate, billed as extra input tokens per turn per agent.
-
-- **Orchestrator (orch):** one boss, parallel workers. Workers see only their assigned task. **+0 tok/turn**.
-- **Supervisor (sup):** hierarchical handoff (boss → sub-bosses → workers). Each agent reads ~150 tok of parent context. **+(N−1) × 150 tok/turn**.
-- **Peer mesh (peer):** every agent reads every other agent's prior output. Linear per-agent, quadratic across the fleet. **+(N−1) × 300 tok/turn**.
-
-**Why this knob matters:** for N=5 agents, peer mesh adds 4 × 300 = 1,200 tok of overhead per turn per agent on top of the base prompt. At ~0.5K base prompt + 1.2K mesh = ~3.5× input vs. orchestrator. Single-agent runs (N=1) pay nothing.">Comm pattern</span><span class="sr-val" id="v-comm-pattern" style="color:var(--teal)">orch</span></div><input type="range" min="0" max="3" value="0" step="1" id="s-comm-pattern" oninput="onSlider()"><div class="sr-hint">orch=0 · sup=+150·(N−1) · peer=+300·(N−1) · pipeline=Σ prior outputs (Eq. 7)</div></div>
     </div>
   </div>
 
@@ -4115,6 +4114,16 @@ Set Cap above to match your template's actual emission size (40 for status-only,
       <div class="sr" style="max-width:420px"><div class="sr-top"><span class="sr-label" data-tip="Number of LLM agents working on each query. 1 = single chat. 3-5 = orchestrated reasoning. 8+ = research-heavy multi-agent. Each agent runs its own context, so cost scales close to linearly with agent count.
 
 **Why this knob matters:** doubling agents roughly doubles per-query cost (each runs full sysprompt + RAG + reasoning). Going 1→3 on a $30K/mo deployment ≈ +$60K/mo. Validate that each extra agent adds answer quality, not just tokens.">Agents in fleet</span><span class="sr-val" id="v-agents" style="color:var(--cyan)">3</span></div><input type="range" min="1" max="8" value="3" step="1" id="s-agents" oninput="onSlider()" aria-label="Agents in fleet"><div class="sr-hint">Parallel reasoning agents — count syncs with the cards below</div></div>
+      <div class="sr" style="max-width:420px"><div class="sr-top"><span class="sr-label" data-tip="### Communication pattern
+
+How agents coordinate, billed as extra input tokens per turn per agent.
+
+- **Orchestrator (orch):** one boss, parallel workers. Workers see only their assigned task. **+0 tok/turn**.
+- **Supervisor (sup):** hierarchical handoff (boss → sub-bosses → workers). Each agent reads ~150 tok of parent context. **+(N−1) × 150 tok/turn**.
+- **Peer mesh (peer):** every agent reads every other agent's prior output. Linear per-agent, quadratic across the fleet. **+(N−1) × 300 tok/turn**.
+- **Pipeline (pipe):** each stage reads the cumulative output of all prior stages. Used in workflow-mode pipelines (Eq. 7).
+
+**Why this knob matters:** for N=5 agents, peer mesh adds 4 × 300 = 1,200 tok of overhead per turn per agent on top of the base prompt. At ~0.5K base prompt + 1.2K mesh = ~3.5× input vs. orchestrator. Single-agent runs (N=1) pay nothing — this knob is only active when the Agents-in-fleet slider above is ≥ 2.">Comm pattern</span><span class="sr-val" id="v-comm-pattern" style="color:var(--teal)">orch</span></div><input type="range" min="0" max="3" value="0" step="1" id="s-comm-pattern" oninput="onSlider()" aria-label="Communication pattern"><div class="sr-hint">orch=0 · sup=+150·(N−1) · peer=+300·(N−1) · pipe=Σ prior outputs · only matters when N≥2</div></div>
     </div>
   </div>
 
