@@ -225,7 +225,7 @@ async function main() {
   page.on('pageerror', err => console.error('[PAGE ERR]', err.message));
 
   await page.goto(URL, { waitUntil: 'networkidle' });
-  await page.waitForFunction(() => typeof window.renderPreview === 'function');
+  await page.waitForFunction(() => typeof window.renderPreview === 'function', { timeout: 60000 });
   await page.waitForTimeout(3000);
 
   const results = {};
@@ -237,7 +237,7 @@ async function main() {
     results.add_delete.push(r);
     // Reload to clean state between lists (some lists, e.g. agents, change mode)
     await page.goto(URL, { waitUntil: 'networkidle' });
-    await page.waitForFunction(() => typeof window.renderPreview === 'function');
+    await page.waitForFunction(() => typeof window.renderPreview === 'function', { timeout: 60000 });
     await page.waitForTimeout(1500);
   }
 
@@ -248,7 +248,7 @@ async function main() {
   for (const preset of presets) {
     // Fresh page each time so state doesn't leak between presets
     await page.goto(URL, { waitUntil: 'networkidle' });
-    await page.waitForFunction(() => typeof window.renderPreview === 'function');
+    await page.waitForFunction(() => typeof window.renderPreview === 'function', { timeout: 60000 });
     await page.waitForTimeout(1500);
     const loadRes = await loadExamplePreset(page, preset);
     await page.waitForTimeout(2000); // async preset loads run a fetch

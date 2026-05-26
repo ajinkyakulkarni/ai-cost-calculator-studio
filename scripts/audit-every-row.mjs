@@ -148,7 +148,7 @@ async function main() {
   for (const list of LISTS) {
     // Fresh page per list to avoid cumulative state drift
     await page.goto(URL, { waitUntil: 'networkidle' });
-    await page.waitForFunction(() => typeof window.renderPreview === 'function');
+    await page.waitForFunction(() => typeof window.renderPreview === 'function', { timeout: 60000 });
     await page.waitForTimeout(1500);
     await page.evaluate((p) => {
       const sel = document.getElementById('example-loader');

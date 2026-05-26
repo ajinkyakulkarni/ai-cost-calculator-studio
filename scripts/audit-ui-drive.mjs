@@ -173,7 +173,7 @@ async function main() {
   const page = await browser.newPage({ viewport: { width: 1600, height: 1000 } });
   page.on('pageerror', err => console.error('[PAGE ERR]', err.message));
   await page.goto(URL, { waitUntil: 'networkidle' });
-  await page.waitForFunction(() => typeof window.renderPreview === 'function');
+  await page.waitForFunction(() => typeof window.renderPreview === 'function', { timeout: 60000 });
   await page.waitForTimeout(2500);
 
   const results = await runAudit(page);

@@ -31,7 +31,7 @@ async function main() {
   });
 
   await page.goto(URL, { waitUntil: 'networkidle' });
-  await page.waitForFunction(() => typeof window.renderPreview === 'function');
+  await page.waitForFunction(() => typeof window.renderPreview === 'function', { timeout: 60000 });
   await page.waitForTimeout(2000);
 
   const out = { url: URL, tabs: [], modal: {}, bench_tabs: [], keyboard: {}, page_errors_total: 0 };

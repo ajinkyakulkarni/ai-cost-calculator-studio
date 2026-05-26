@@ -105,7 +105,7 @@ async function runOne(page, id) {
   const out = { id };
   for (const focus of [true, false]) {
     await page.goto(URL, { waitUntil: 'networkidle' });
-    await page.waitForFunction(() => typeof window.renderPreview === 'function');
+    await page.waitForFunction(() => typeof window.renderPreview === 'function', { timeout: 60000 });
     await page.waitForTimeout(1500);
     await page.evaluate((p) => {
       const sel = document.getElementById('example-loader');

@@ -16,7 +16,7 @@ async function main() {
   const browser = await chromium.launch();
   const page = await browser.newPage({ viewport: { width: 1600, height: 1000 } });
   await page.goto(URL, { waitUntil: 'networkidle' });
-  await page.waitForFunction(() => typeof window.renderPreview === 'function');
+  await page.waitForFunction(() => typeof window.renderPreview === 'function', { timeout: 60000 });
   await page.waitForTimeout(1500);
   await page.evaluate((p) => {
     const sel = document.getElementById('example-loader');
