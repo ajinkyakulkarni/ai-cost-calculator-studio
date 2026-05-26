@@ -244,6 +244,39 @@
     setVis(selfhost,     hosting === 'self' || hosting === 'hybrid');
   }
 
+  // Grey-out sliders whose underlying engine path is silent in the current
+  // hosting mode. Without this, users drag (e.g.) s-peak in API mode and
+  // wonder why the headline doesn't budge. Mirrors the agent-topology lock
+  // pattern: disabled + opacity + cursor + an sr-hint suffix so screen
+  // readers + sighted users both get the "why".
+  function applyHostingConditionalSliders(hosting) {
+    const apiLike  = hosting === 'api' || hosting === 'hybrid';
+    const selfLike = hosting === 'self' || hosting === 'hybrid' || hosting === 'onprem';
+    const config = [
+      { id: 's-peak',              active: selfLike, reason: 'disabled in API mode — only sizes self-host capacity' },
+      { id: 'self-host-duty',      active: selfLike, reason: 'disabled in API mode — only sizes self-host capacity' },
+      { id: 's-cache-write-share', active: apiLike,  reason: 'disabled in self-host — no provider-side cache-write surcharge' },
+      { id: 's-batch',             active: apiLike,  reason: 'disabled in self-host — batch-tier discount is API-only' },
+    ];
+    config.forEach(({ id, active, reason }) => {
+      const el = document.getElementById(id);
+      if (!el) return;
+      el.disabled = !active;
+      el.style.opacity = active ? '' : '0.45';
+      el.style.cursor  = active ? '' : 'not-allowed';
+      // sr-hint sibling lives inside the parent .sr block (s-peak, s-batch,
+      // s-cache-write-share). self-host-duty has no .sr-hint — skip silently.
+      const hint = el.parentElement && el.parentElement.querySelector
+        ? el.parentElement.querySelector('.sr-hint')
+        : null;
+      if (hint) {
+        if (hint.dataset.baseHint == null) hint.dataset.baseHint = hint.textContent;
+        const base = hint.dataset.baseHint;
+        hint.textContent = active ? base : `${base} · grey: ${reason}`;
+      }
+    });
+  }
+
   // -----------------------------------------------------------------
   // Render the editor form from current workload
   // -----------------------------------------------------------------
@@ -3531,6 +3564,7 @@ Production teams measure their primary's confidence-score distribution; escalate
           // Reservations only matters when paying API providers; Self-host
           // capacity only matters when running owned GPUs (or hybrid).
           updateHostingDependentVisibility(el.value);
+          applyHostingConditionalSliders(el.value);
         }
         if (id === 'prev-model') renderRateCardList();
         if (id === 'prev-gpu') renderGpuList();
@@ -3568,6 +3602,7 @@ Production teams measure their primary's confidence-score distribution; escalate
 
     // Initial visibility pass for hosting-dependent sections.
     updateHostingDependentVisibility((document.getElementById('prev-hosting') || {}).value || 'api');
+    applyHostingConditionalSliders((document.getElementById('prev-hosting') || {}).value || 'api');
     // Visible Self-host capacity controls mirror the hidden prev-* originals.
     // Bi-directional: visible→hidden on change, hidden→visible on any external
     // change (URL hash load, intent apply, scenario import).
