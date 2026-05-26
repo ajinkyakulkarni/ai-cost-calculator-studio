@@ -34,8 +34,8 @@ const SKIP_IDS = [
   // Workflow handoff / pauses / storage / rerun
   's-stage-handoff', 's-rerun', 's-template-runs',
   's-pauses', 's-pause-hrs', 's-storage-rate',
-  // Legacy fact-check sliders
-  's-fc-in', 's-fc-pct', 's-fc-price',
+  // (Legacy s-fc-in / s-fc-pct / s-fc-price dropped 2026-05-26 — markup was
+  // deleted from index.html in 4ec8fe1.)
 ];
 
 // Pick a value distinct from the current one. For numeric sliders, bump by a

@@ -59,10 +59,9 @@ const SLIDERS = [
   { id: 's-storage-rate',       modes: ['workload'], nudge: 'up', topology: 'workflow', note: 'workflow-topology only' },
   { id: 's-stage-handoff',      modes: ['workload'], nudge: 'up', topology: 'workflow', note: 'workflow-topology only' },
   { id: 's-template-runs',      modes: ['workload'], nudge: 'up', topology: 'workflow', note: 'workflow-topology only' },
-  // === Legacy fact-check sliders (replaced by Verification section) ===
-  { id: 's-fc-in',              modes: ['workload'], nudge: 'up', headlineExpected: false, note: 'LEGACY — replaced by per-agent verifier in Fact-checking section' },
-  { id: 's-fc-pct',             modes: ['workload'], nudge: 'up', headlineExpected: false, note: 'LEGACY — replaced by verification.coverage' },
-  { id: 's-fc-price',           modes: ['workload'], nudge: 'up', headlineExpected: false, note: 'LEGACY — replaced by VERIFIER_PRESETS' },
+  // (Legacy s-fc-in / s-fc-pct / s-fc-price removed from markup 2026-05-25
+  // in commit 4ec8fe1 alongside the Fact-Check Sidecar subsection deletion;
+  // dropped from this harness 2026-05-26.)
 ];
 
 function nudgeValue(input, direction) {
