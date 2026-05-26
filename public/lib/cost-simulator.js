@@ -1988,6 +1988,12 @@ function onSlider(){
   if(_vcc) _vcc.textContent=cfg('s-context-compression')+'%';
   document.getElementById('v-retry').textContent=cfg('s-retry')+'%';
   document.getElementById('v-growth').textContent=cfg('s-growth')+'%';
+  // v-peak (×-suffix integer) and v-lang-mult (×-suffix decimal) — both
+  // were stuck at their initial hardcoded value because the on-slider
+  // label-sync block above never wrote to them. cfgF preserves the 0.1
+  // step on s-lang-mult; s-peak is integer-stepped so cfg is fine.
+  const _vpk=document.getElementById('v-peak'); if(_vpk) _vpk.textContent=cfg('s-peak')+'×';
+  const _vlm=document.getElementById('v-lang-mult'); if(_vlm) _vlm.textContent=cfgF('s-lang-mult').toFixed(1)+'×';
   sv('rag-chunks',v=>v);sv('rag-chunk-size',v=>v);sv('rag-query',v=>v);sv('rag-calls',v=>v);
   sv('think-tokens',v=>v);sv('think-pct',v=>v+'%');sv('factcheck',v=>v);sv('cot',v=>v);
   sv('guard-in',v=>v);sv('guard-out',v=>v);sv('guard-pii',v=>v);sv('guard-policy',v=>v);sv('guard-block',v=>v+'%');
