@@ -6,9 +6,8 @@ the paper-baseline scenarios keep their deterministic-pseudorandom
 payloads.
 
 All STAC calls go through `STAC_ROOT` (NASA VEDA's STAC endpoint).
-The compute_stats tool uses rio-tiler to read COG assets
-directly from NASA's data store and compute band aggregates over
-the polygon AOI.
+compute_stats calls the VEDA raster /statistics endpoint — no local
+COG reads, no rio-tiler dependency.
 """
 
 from __future__ import annotations
@@ -16,12 +15,12 @@ from __future__ import annotations
 import json
 import pathlib
 import re
+import statistics
 from typing import Any
 
 import dateparser
 import httpx
 import numpy as np
-from rio_tiler.io import Reader
 
 from .schemas import (
     CollectionMeta,
@@ -34,6 +33,7 @@ from .schemas import (
 )
 
 STAC_ROOT = "https://openveda.cloud/api/stac"
+RASTER_ROOT = "https://openveda.cloud/api/raster"
 
 _BBOX_JSON = pathlib.Path(__file__).parent.parent.parent.parent / "data" / "us_county_bboxes.json"
 _COUNTY_LOOKUP: dict[str, list[float]] = json.loads(_BBOX_JSON.read_text())["counties"]
@@ -200,6 +200,7 @@ def search_items(
                 datetime=feat["properties"]["datetime"],
                 bbox=tuple(feat.get("bbox", list(bbox))),
                 primary_asset_url=primary,
+                collection_id=collection_id,
             )
         )
     result = SearchItemsReturn(items=items, total_matched=len(items))
@@ -211,51 +212,100 @@ def search_items(
     return result
 
 
+def _bbox_from_geometry(geometry: Any) -> list[float]:
+    """Extract a 4-element [x1, y1, x2, y2] bbox from a geometry argument.
+
+    Accepts:
+    - A 4-element list/tuple of floats (already a bbox).
+    - A GeoJSON dict with a ``bbox`` key (4-element list).
+    - A GeoJSON Polygon dict — computes the envelope from the ring coordinates.
+    """
+    if isinstance(geometry, (list, tuple)) and len(geometry) == 4:
+        return [float(v) for v in geometry]
+    if isinstance(geometry, dict):
+        if "bbox" in geometry:
+            return [float(v) for v in geometry["bbox"]]
+        # GeoJSON Polygon — extract envelope from the outer ring
+        coords = geometry.get("coordinates", [[]])[0]
+        xs = [c[0] for c in coords]
+        ys = [c[1] for c in coords]
+        return [min(xs), min(ys), max(xs), max(ys)]
+    raise TypeError(f"Unsupported geometry type for bbox extraction: {type(geometry)!r}")
+
+
 def compute_stats(
     items: list[StacItemFields],
     band: str,
-    geometry: dict[str, Any],
+    geometry: Any,
 ) -> ComputeStatsReturn:
-    """For each item, read the COG asset and compute band stats over the polygon.
+    """For each item call the VEDA raster /statistics endpoint and aggregate.
 
-    Uses rio-tiler's ``Reader.feature(geometry)`` which clips the raster
-    to the polygon and returns a masked numpy array.  Aggregates per-item
-    means and computes overall mean/median/min/max across all valid pixels
-    from all items.
+    Calls:
+      GET {RASTER_ROOT}/collections/{collection_id}/items/{item_id}/statistics
+          ?assets=<band>&bbox=x1,y1,x2,y2
+
+    Aggregates across items:
+      - overall mean  = mean of per-item means
+      - overall median = median of per-item medians
+      - overall min   = global min across all items
+      - overall max   = global max across all items
+
+    ``geometry`` accepts a 4-element bbox list, a GeoJSON dict with a ``bbox``
+    key, or a GeoJSON Polygon dict (the envelope is computed from the ring).
+    ``items`` must be non-empty and each item must carry a non-empty
+    ``collection_id`` (populated automatically by search_items).
     """
-    all_values: list[float] = []
-    per_item: list[dict[str, Any]] = []
-
-    for it in items:
-        with Reader(it.primary_asset_url) as src:
-            img = src.feature(geometry)
-        arr = np.asarray(img.data, dtype=float).ravel()
-        mask = np.asarray(img.mask, dtype=bool).ravel() if hasattr(img, "mask") else np.ones(arr.shape, dtype=bool)
-        valid = arr[mask]
-        if valid.size == 0:
-            per_item.append({"item_id": it.id, "mean": float("nan")})
-            continue
-        per_item.append({"item_id": it.id, "mean": float(np.mean(valid))})
-        all_values.extend(valid.tolist())
-
-    if not all_values:
-        return ComputeStatsReturn(
-            band=band,
-            n_items=len(items),
-            mean=0.0,
-            median=0.0,
-            min=0.0,
-            max=0.0,
-            per_item=per_item,
+    if not items:
+        raise ValueError(
+            "compute_stats requires at least one item; received an empty list. "
+            "Call search_items first."
         )
 
-    arr_all = np.asarray(all_values, dtype=float)
+    bbox = _bbox_from_geometry(geometry)
+    bbox_str = ",".join(str(v) for v in bbox)
+    per_item: list[dict[str, Any]] = []
+    all_means: list[float] = []
+    all_medians: list[float] = []
+    all_mins: list[float] = []
+    all_maxs: list[float] = []
+
+    with httpx.Client(timeout=30.0) as client:
+        for it in items:
+            if not it.collection_id:
+                raise ValueError(
+                    f"Item {it.id!r} has an empty collection_id. "
+                    "Items must be retrieved via search_items so that "
+                    "collection_id is populated before calling compute_stats."
+                )
+            url = f"{RASTER_ROOT}/collections/{it.collection_id}/items/{it.id}/statistics"
+            params = {"assets": band, "bbox": bbox_str}
+            resp = client.get(url, params=params)
+            resp.raise_for_status()
+            data = resp.json()
+            key = f"{band}_b1"
+            stats_block = data[key]
+            item_mean = float(stats_block["mean"])
+            item_median = float(stats_block["median"])
+            item_min = float(stats_block["min"])
+            item_max = float(stats_block["max"])
+            per_item.append({
+                "item_id": it.id,
+                "mean": item_mean,
+                "median": item_median,
+                "min": item_min,
+                "max": item_max,
+            })
+            all_means.append(item_mean)
+            all_medians.append(item_median)
+            all_mins.append(item_min)
+            all_maxs.append(item_max)
+
     return ComputeStatsReturn(
         band=band,
         n_items=len(items),
-        mean=float(np.mean(arr_all)),
-        median=float(np.median(arr_all)),
-        min=float(np.min(arr_all)),
-        max=float(np.max(arr_all)),
+        mean=float(np.mean(all_means)),
+        median=float(np.median(all_medians)),
+        min=float(min(all_mins)),
+        max=float(max(all_maxs)),
         per_item=per_item,
     )

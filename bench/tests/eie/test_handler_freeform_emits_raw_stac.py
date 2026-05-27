@@ -117,8 +117,8 @@ def test_key_fields_does_not_emit_geometry_even_with_raw_response():
     assert "total_matched" in parsed
     assert "features" not in parsed
     assert "geometry" not in str(parsed)
-    # Each item should have exactly the 4 schema fields
-    assert set(parsed["items"][0].keys()) == {"id", "datetime", "bbox", "primary_asset_url"}
+    # Each item should have exactly the schema fields (collection_id added in VEDA raster rewrite)
+    assert set(parsed["items"][0].keys()) == {"id", "datetime", "bbox", "primary_asset_url", "collection_id"}
 
 
 # ---------------------------------------------------------------------------
