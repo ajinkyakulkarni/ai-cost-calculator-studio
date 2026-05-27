@@ -6,7 +6,7 @@ the paper-baseline scenarios keep their deterministic-pseudorandom
 payloads.
 
 All STAC calls go through `STAC_ROOT` (NASA VEDA's STAC endpoint).
-The compute_stats tool uses rio-tiler to read MiCASA COG assets
+The compute_stats tool uses rio-tiler to read COG assets
 directly from NASA's data store and compute band aggregates over
 the polygon AOI.
 """
@@ -158,7 +158,7 @@ def search_items(
     collection_id: str,
     bbox: tuple[float, float, float, float],
     datetime_range: str,
-    band: str = "FIRE",
+    band: str = "cog_default",
     limit: int = 20,
 ) -> SearchItemsReturn:
     """List STAC items in a collection within bbox + datetime range.

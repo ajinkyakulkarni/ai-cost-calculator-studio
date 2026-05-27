@@ -21,10 +21,10 @@ def test_actor_yields_each_gate_answer_in_order():
     assert a == "Mendocino County"
     # Gate 4: dataset
     a = actor.respond("dataset", agent_prompt="Which dataset?")
-    assert "MiCASA" in a
+    assert "LIS" in a
     # Gate 5: variable
     a = actor.respond("variable", agent_prompt="Which variable?")
-    assert a == "FIRE"
+    assert a == "cog_default"
 
 
 def test_actor_raises_on_unknown_gate():
