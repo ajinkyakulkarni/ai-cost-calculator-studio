@@ -19,6 +19,7 @@ import re
 from typing import Any
 
 import dateparser
+import httpx
 
 from .schemas import (
     CollectionMeta,
@@ -103,8 +104,30 @@ def geocode(query: str, level: str = "county") -> GeocodeReturn:
     )
 
 
-def search_collections(keyword: str) -> SearchCollectionsReturn:
-    raise NotImplementedError("search_collections — Task 9")
+def search_collections(keyword: str, top_k: int = 5) -> SearchCollectionsReturn:
+    """List NASA VEDA STAC collections, filter client-side by keyword.
+
+    Calls GET /collections (no server-side keyword filter is exposed
+    by VEDA's STAC API), then matches the keyword against title +
+    description case-insensitively and returns up to top_k results.
+    """
+    with httpx.Client(timeout=20.0) as client:
+        resp = client.get(f"{STAC_ROOT}/collections")
+        resp.raise_for_status()
+        data = resp.json()
+    q_lower = keyword.lower()
+    matches: list[CollectionMeta] = []
+    for c in data.get("collections", []):
+        title = c.get("title", "")
+        desc = c.get("description", "")
+        haystack = f"{title} {desc}".lower()
+        if q_lower in haystack:
+            matches.append(
+                CollectionMeta(id=c["id"], title=title, description=desc[:300])
+            )
+        if len(matches) >= top_k:
+            break
+    return SearchCollectionsReturn(collections=matches, total_matched=len(matches))
 
 
 def search_items(
