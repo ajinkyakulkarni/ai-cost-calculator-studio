@@ -177,6 +177,50 @@ def _print_session_summary(trace_path: Path) -> None:
     console.print(table)
 
 
+from dataclasses import replace as _dataclass_replace
+
+from .eie.runner import run_scenario as run_eie_scenario  # noqa: F401  (module-level for patching)
+from .eie.scenario_loader import load_scenario as _load_eie_scenario
+
+_EIE_SCENARIO_DIR = Path(__file__).resolve().parent.parent.parent / "scenarios" / "eie-templating"
+
+
+@app.command(name="run-eie-templating")
+def run_eie_templating(
+    scenario: str = typer.Option(
+        "all",
+        help="Scenario id (e.g. pattern-paper-status-only), or 'all' to run all 6.",
+    ),
+    model: str = typer.Option(
+        "",
+        help="Override the model in every scenario (e.g. gpt-5.2, claude-sonnet-4-6).",
+    ),
+) -> None:
+    """Run the eie-templating bench: 6 scenarios = 2 patterns × 3 handler modes.
+
+    Each run writes a trace JSON under bench/reports/eie-templating/.
+    Use `agent-cost-bench report-eie-templating` afterwards to emit
+    the comparison Markdown summary.
+    """
+    if scenario == "all":
+        ids = [p.stem for p in sorted(_EIE_SCENARIO_DIR.glob("*.yml"))]
+    else:
+        ids = [scenario]
+
+    for sid in ids:
+        cfg = _load_eie_scenario(_EIE_SCENARIO_DIR / f"{sid}.yml")
+        if model:
+            cfg = _dataclass_replace(cfg, model=model)
+        console.print(f"[cyan]Running:[/] {sid}  ({cfg.pattern} × {cfg.handler_mode} on {cfg.model})")
+        out_path = run_eie_scenario(cfg)
+        console.print(f"[green]Wrote:[/] {out_path}")
+
+    console.print(
+        f"\n[bold]{len(ids)} scenario(s) complete.[/] "
+        "Now run `agent-cost-bench report-eie-templating` to emit the summary."
+    )
+
+
 def main() -> None:
     """Console-script entry point referenced by pyproject.toml."""
     app()
