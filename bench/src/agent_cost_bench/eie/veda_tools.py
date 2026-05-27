@@ -20,6 +20,8 @@ from typing import Any
 
 import dateparser
 import httpx
+import numpy as np
+from rio_tiler.io import Reader
 
 from .schemas import (
     CollectionMeta,
@@ -171,7 +173,49 @@ def search_items(
 
 def compute_stats(
     items: list[StacItemFields],
-    bbox: tuple[float, float, float, float],
     band: str,
+    geometry: dict[str, Any],
 ) -> ComputeStatsReturn:
-    raise NotImplementedError("compute_stats — Task 11")
+    """For each item, read the COG asset and compute band stats over the polygon.
+
+    Uses rio-tiler's ``Reader.feature(geometry)`` which clips the raster
+    to the polygon and returns a masked numpy array.  Aggregates per-item
+    means and computes overall mean/median/min/max across all valid pixels
+    from all items.
+    """
+    all_values: list[float] = []
+    per_item: list[dict[str, Any]] = []
+
+    for it in items:
+        with Reader(it.primary_asset_url) as src:
+            img = src.feature(geometry)
+        arr = np.asarray(img.data, dtype=float).ravel()
+        mask = np.asarray(img.mask, dtype=bool).ravel() if hasattr(img, "mask") else np.ones(arr.shape, dtype=bool)
+        valid = arr[mask]
+        if valid.size == 0:
+            per_item.append({"item_id": it.id, "mean": float("nan")})
+            continue
+        per_item.append({"item_id": it.id, "mean": float(np.mean(valid))})
+        all_values.extend(valid.tolist())
+
+    if not all_values:
+        return ComputeStatsReturn(
+            band=band,
+            n_items=len(items),
+            mean=0.0,
+            median=0.0,
+            min=0.0,
+            max=0.0,
+            per_item=per_item,
+        )
+
+    arr_all = np.asarray(all_values, dtype=float)
+    return ComputeStatsReturn(
+        band=band,
+        n_items=len(items),
+        mean=float(np.mean(arr_all)),
+        median=float(np.median(arr_all)),
+        min=float(np.min(arr_all)),
+        max=float(np.max(arr_all)),
+        per_item=per_item,
+    )
