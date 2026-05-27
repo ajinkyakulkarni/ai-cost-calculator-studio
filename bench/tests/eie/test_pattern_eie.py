@@ -7,6 +7,7 @@ Tests verify:
 """
 
 import json
+from typing import Any
 from unittest.mock import patch
 
 from agent_cost_bench.eie.pattern_eie import build_pattern_e_graph, initial_state
@@ -96,3 +97,79 @@ def test_pattern_e_invoke_with_stub():
                   else getattr(last, "tool_calls", None))
     assert not tool_calls
     assert "FIRE" in content
+
+
+def test_pattern_e_survives_novel_gate():
+    """I3 robustness: GPT-5.2 emits an unscripted gate name.
+
+    The run must complete without raising, and the transcript must contain
+    a tool message with the fallback response so analysts can see it happened.
+    """
+
+    def _tc(name: str, args: dict, call_id: str) -> dict:
+        return {
+            "role": "assistant",
+            "content": "",
+            "tool_calls": [
+                {
+                    "id": call_id,
+                    "type": "function",
+                    "function": {"name": name, "arguments": json.dumps(args)},
+                }
+            ],
+            "_usage": {"prompt_tokens": 10, "completion_tokens": 5, "total_tokens": 15},
+        }
+
+    def _final(text: str) -> dict:
+        return {
+            "role": "assistant",
+            "content": text,
+            "_usage": {"prompt_tokens": 20, "completion_tokens": 10, "total_tokens": 30},
+        }
+
+    # GPT-5.2 emits a gate name "resolution" that is NOT in frozen_default.
+    stub_responses = [
+        _tc("ask_user", {"gate": "NOVEL_GATE_XYZ", "prompt": "Pick a resolution?"}, "tc-novel"),
+        _final("Done."),
+    ]
+
+    llm_iter = iter(stub_responses)
+
+    def fake_llm(**kwargs):
+        return next(llm_iter)
+
+    def fake_dispatch(name, args, handler, tool_call_id):
+        return f"ok:{name}"
+
+    with patch("agent_cost_bench.eie.pattern_eie.call_llm", side_effect=lambda **kw: fake_llm(**kw)), \
+         patch("agent_cost_bench.eie.pattern_eie.dispatch_tool_call", side_effect=fake_dispatch):
+        handler = KeyFieldsHandler()
+        actor = UserActor.frozen_default()
+        graph = build_pattern_e_graph(handler=handler, user_actor=actor, model="gpt-stub")
+        state = initial_state(handler=handler, user_actor=actor, model="gpt-stub")
+        # Must not raise KeyError
+        result = graph.invoke(state)
+
+    # Run completed
+    assert result["turn_count"] == 2
+
+    # Transcript must contain a tool message whose content is the fallback string.
+    # LangGraph returns LangChain message objects, so check by class name OR role key.
+    def _is_tool_msg(m: Any) -> bool:
+        if isinstance(m, dict):
+            return m.get("role") == "tool"
+        # LangChain ToolMessage has no .role attr but its class is ToolMessage
+        return type(m).__name__ == "ToolMessage"
+
+    def _msg_content(m: Any) -> str:
+        if isinstance(m, dict):
+            return m.get("content", "")
+        return getattr(m, "content", "")
+
+    tool_messages = [m for m in result["messages"] if _is_tool_msg(m)]
+    assert tool_messages, "no tool messages found in transcript"
+    fallback_content = _msg_content(tool_messages[0])
+    # The fallback must be a short generic string, not the KeyError
+    assert isinstance(fallback_content, str) and len(fallback_content) > 0
+    # It must NOT be an exception repr
+    assert "KeyError" not in fallback_content
