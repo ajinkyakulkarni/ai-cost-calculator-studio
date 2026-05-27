@@ -142,7 +142,10 @@ def _tool_step(state: State) -> dict[str, Any]:
         name, args, call_id = _parse_tc(tc)
         if name == "ask_user":
             continue
-        result_str = dispatch_tool_call(name, args, state["handler_ref"], call_id)
+        try:
+            result_str = dispatch_tool_call(name, args, state["handler_ref"], call_id)
+        except Exception as exc:  # noqa: BLE001
+            result_str = f"ERROR: {type(exc).__name__}: {exc}"
         new_messages.append({"role": "tool", "tool_call_id": call_id, "content": result_str})
     return {"messages": new_messages}
 

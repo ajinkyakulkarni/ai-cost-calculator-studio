@@ -97,7 +97,12 @@ def _tool_step(state: State) -> dict[str, Any]:
             raw_args = json.dumps(raw_args_val) if not isinstance(raw_args_val, str) else raw_args_val
             tool_call_id = (tc.get("id") if isinstance(tc, dict) else tc.id) or str(uuid.uuid4())
         args = json.loads(raw_args) if isinstance(raw_args, str) else raw_args
-        result_str = dispatch_tool_call(name, args, state["handler_ref"], tool_call_id)
+        try:
+            result_str = dispatch_tool_call(name, args, state["handler_ref"], tool_call_id)
+        except Exception as exc:  # noqa: BLE001
+            # Surface tool errors back to the LLM as the tool message content so
+            # it can correct its args and retry, instead of crashing the run.
+            result_str = f"ERROR: {type(exc).__name__}: {exc}"
         new_messages.append(
             {"role": "tool", "tool_call_id": tool_call_id, "content": result_str}
         )
