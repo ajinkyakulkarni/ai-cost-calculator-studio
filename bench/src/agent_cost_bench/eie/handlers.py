@@ -80,3 +80,34 @@ class StatusOnlyHandler:
                 f"min={raw.min:.2f}, max={raw.max:.2f}"
             )
         return f"{tool_name} returned (untyped payload)"
+
+
+class KeyFieldsHandler:
+    """Mode B: the production middle ground the paper omits.
+
+    Emits the typed Pydantic schema directly — which IS the
+    key-fields-only extraction. Caps list-returning tools at 10
+    entries (search_items returning 50 STAC items would dump too
+    much; production agents always cap or paginate).
+
+    The handler is stateless; everything the LLM needs is in the
+    returned JSON. No agent-side state required.
+    """
+
+    LIST_CAP = 10  # search_items and search_collections cap entries at this
+
+    def wrap(self, tool_name: str, tool_call_id: str, raw: BaseModel) -> str:
+        if isinstance(raw, SearchItemsReturn):
+            # Cap items list while preserving total_matched signal
+            capped = SearchItemsReturn(
+                items=raw.items[: self.LIST_CAP],
+                total_matched=raw.total_matched,
+            )
+            return capped.model_dump_json()
+        if isinstance(raw, SearchCollectionsReturn):
+            capped = SearchCollectionsReturn(
+                collections=raw.collections[: self.LIST_CAP],
+                total_matched=raw.total_matched,
+            )
+            return capped.model_dump_json()
+        return raw.model_dump_json()
