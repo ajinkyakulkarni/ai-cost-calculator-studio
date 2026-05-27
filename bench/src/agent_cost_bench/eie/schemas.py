@@ -15,7 +15,7 @@ from __future__ import annotations
 
 from typing import Any, Optional
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, ConfigDict
 
 
 class ParseDatetimeReturn(BaseModel):
@@ -39,8 +39,11 @@ class CollectionMeta(BaseModel):
 
 
 class SearchCollectionsReturn(BaseModel):
+    model_config = ConfigDict(populate_by_name=True)
+
     collections: list[CollectionMeta]
     total_matched: int
+    raw_response: Optional[dict] = Field(default=None, exclude=True)
 
 
 class StacItemFields(BaseModel):
@@ -51,8 +54,11 @@ class StacItemFields(BaseModel):
 
 
 class SearchItemsReturn(BaseModel):
+    model_config = ConfigDict(populate_by_name=True)
+
     items: list[StacItemFields]
     total_matched: int
+    raw_response: Optional[dict] = Field(default=None, exclude=True)
 
 
 class ComputeStatsReturn(BaseModel):

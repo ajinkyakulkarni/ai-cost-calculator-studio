@@ -129,7 +129,12 @@ def search_collections(keyword: str, top_k: int = 5) -> SearchCollectionsReturn:
             )
         if len(matches) >= top_k:
             break
-    return SearchCollectionsReturn(collections=matches, total_matched=len(matches))
+    result = SearchCollectionsReturn(collections=matches, total_matched=len(matches))
+    # Attach the raw API response so FreeformHandler (mode C) can emit the
+    # full STAC payload verbatim. Excluded from .model_dump_json() via
+    # Field(exclude=True), so KeyFieldsHandler/StatusOnlyHandler are unaffected.
+    result.raw_response = data
+    return result
 
 
 def search_items(
@@ -168,7 +173,13 @@ def search_items(
                 primary_asset_url=primary,
             )
         )
-    return SearchItemsReturn(items=items, total_matched=len(items))
+    result = SearchItemsReturn(items=items, total_matched=len(items))
+    # Attach the raw FeatureCollection so FreeformHandler (mode C) can emit
+    # full geometry, all assets, and all properties verbatim. Excluded from
+    # .model_dump_json() via Field(exclude=True), so KeyFieldsHandler and
+    # StatusOnlyHandler remain unaffected.
+    result.raw_response = data
+    return result
 
 
 def compute_stats(
