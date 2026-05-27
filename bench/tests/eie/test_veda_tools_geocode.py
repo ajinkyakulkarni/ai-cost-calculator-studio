@@ -38,3 +38,13 @@ def test_geocode_accepts_two_letter_state_code():
 def test_geocode_accepts_bare_county_name():
     r = geocode("Sonoma", "county")
     assert r.admin_name == "Sonoma County"
+
+
+def test_geocode_strips_country_suffix():
+    r = geocode("Mendocino County, California, USA", "county")
+    assert r.admin_name == "Mendocino County"
+
+
+def test_geocode_strips_periods_in_country_abbrev():
+    r = geocode("Mendocino, U.S.A.", "county")
+    assert r.admin_name == "Mendocino County"
