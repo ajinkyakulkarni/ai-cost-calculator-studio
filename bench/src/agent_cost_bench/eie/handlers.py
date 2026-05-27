@@ -111,3 +111,21 @@ class KeyFieldsHandler:
             )
             return capped.model_dump_json()
         return raw.model_dump_json()
+
+
+class FreeformHandler:
+    """Mode C: identity passthrough of the raw tool response.
+
+    Accepts either a Pydantic model (serialized with .model_dump_json)
+    or a raw dict/list (serialized with json.dumps directly — the
+    structured payload from upstream STAC calls is kept verbatim).
+
+    This is what naive ReAct loops do without any output structuring.
+    Full geometry coordinates, every non-primary asset, every property,
+    full provider blob — all reach the LLM context.
+    """
+
+    def wrap(self, tool_name: str, tool_call_id: str, raw: Any) -> str:
+        if isinstance(raw, BaseModel):
+            return raw.model_dump_json()
+        return json.dumps(raw, default=str)
