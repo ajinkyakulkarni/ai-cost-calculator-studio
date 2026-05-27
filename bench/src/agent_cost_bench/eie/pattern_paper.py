@@ -38,6 +38,11 @@ PAPER_SYSTEM_PROMPT = (
     "follow-up offers."
 )
 
+FORCE_COMPUTE_STATS_INSTRUCTION = (
+    "You MUST call the compute_stats tool and base your final answer on its returned "
+    "aggregates. Do not produce the final answer without first invoking compute_stats."
+)
+
 PAPER_USER_QUERY = (
     "Visualize FIRE band flux from MiCASA Land Carbon Flux v1 over Mendocino County, "
     "California, June 2020 to November 2020. Report mean/median/min/max plus per-month values."
@@ -116,10 +121,17 @@ def build_pattern_p_graph(handler: Any, model: str = "gpt-5.2"):
     return g.compile()
 
 
-def initial_state(handler: Any, model: str = "gpt-5.2") -> State:
+def initial_state(
+    handler: Any,
+    model: str = "gpt-5.2",
+    enforce_compute_stats: bool = False,
+) -> State:
+    system_prompt = PAPER_SYSTEM_PROMPT
+    if enforce_compute_stats:
+        system_prompt = system_prompt + "\n\n" + FORCE_COMPUTE_STATS_INSTRUCTION
     return {
         "messages": [
-            {"role": "system", "content": PAPER_SYSTEM_PROMPT},
+            {"role": "system", "content": system_prompt},
             {"role": "user", "content": PAPER_USER_QUERY},
         ],
         "handler_ref": handler,

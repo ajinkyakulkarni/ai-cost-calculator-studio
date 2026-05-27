@@ -195,6 +195,15 @@ def run_eie_templating(
         "",
         help="Override the model in every scenario (e.g. gpt-5.2, claude-sonnet-4-6).",
     ),
+    force_compute_stats: bool = typer.Option(
+        False,
+        "--force-compute-stats",
+        help=(
+            "Append a hard instruction to each scenario's system prompt requiring "
+            "the agent to call compute_stats before producing its final answer. "
+            "Use this to isolate templating cost from information-bottleneck cost."
+        ),
+    ),
 ) -> None:
     """Run the eie-templating bench: 6 scenarios = 2 patterns × 3 handler modes.
 
@@ -211,6 +220,8 @@ def run_eie_templating(
         cfg = _load_eie_scenario(_EIE_SCENARIO_DIR / f"{sid}.yml")
         if model:
             cfg = _dataclass_replace(cfg, model=model)
+        if force_compute_stats:
+            cfg = _dataclass_replace(cfg, enforce_compute_stats=True)
         console.print(f"[cyan]Running:[/] {sid}  ({cfg.pattern} × {cfg.handler_mode} on {cfg.model})")
         out_path = run_eie_scenario(cfg)
         console.print(f"[green]Wrote:[/] {out_path}")

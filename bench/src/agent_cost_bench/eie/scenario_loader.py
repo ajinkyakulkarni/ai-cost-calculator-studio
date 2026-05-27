@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
 
 import yaml
@@ -15,6 +15,7 @@ class ScenarioCfg:
     handler_mode: str    # 'status_only' | 'key_fields' | 'freeform'
     model: str           # litellm model identifier
     description: str
+    enforce_compute_stats: bool = False
 
 
 def load_scenario(path: Path) -> ScenarioCfg:
@@ -26,4 +27,5 @@ def load_scenario(path: Path) -> ScenarioCfg:
         handler_mode=data["handler_mode"],
         model=data.get("model", "gpt-5.2"),
         description=data.get("description", ""),
+        enforce_compute_stats=data.get("enforce_compute_stats", False),
     )

@@ -75,7 +75,7 @@ def test_latest_traces_returns_six(reports_dir):
 
     assert len(traces) == 6
     for sid, _, _ in _SCENARIOS:
-        assert sid in traces
+        assert (sid, False) in traces
 
 
 def test_latest_traces_picks_newer_file(tmp_path):
@@ -97,7 +97,7 @@ def test_latest_traces_picks_newer_file(tmp_path):
     with patch.object(rmod, "REPORTS_DIR", tmp_path):
         traces = rmod._latest_traces()
 
-    assert traces[sid]["totals"]["input_tokens"] == 9_999
+    assert traces[(sid, False)]["totals"]["input_tokens"] == 9_999
 
 
 def test_latest_traces_skips_malformed(tmp_path):
@@ -232,3 +232,93 @@ def test_emit_report_path_in_reports_dir(reports_dir):
         out = rmod.emit_report()
 
     assert out.parent == reports_dir
+
+
+# ---------------------------------------------------------------------------
+# 5. enforce_compute_stats: natural and forced variants produce two rows
+# ---------------------------------------------------------------------------
+
+def _make_trace_forced(scenario_id: str, pattern: str, handler_mode: str,
+                       enforce_compute_stats: bool, **kwargs) -> dict:
+    """Like _make_trace but with enforce_compute_stats field."""
+    t = _make_trace(scenario_id, pattern, handler_mode, **kwargs)
+    t["enforce_compute_stats"] = enforce_compute_stats
+    return t
+
+
+def test_latest_traces_two_variants_produce_two_entries(tmp_path):
+    """Natural and forced variants of same scenario_id are NOT collapsed."""
+    from agent_cost_bench.eie import report as rmod
+
+    sid = "pattern-paper-status-only"
+    natural = _make_trace_forced(sid, "paper", "status_only", False, input_tokens=1_000)
+    forced = _make_trace_forced(sid, "paper", "status_only", True, input_tokens=2_000)
+
+    (tmp_path / f"{sid}-natural-2026-05-26T00-00-00.trace.json").write_text(
+        json.dumps(natural)
+    )
+    (tmp_path / f"{sid}-forced-2026-05-26T00-00-00.trace.json").write_text(
+        json.dumps(forced)
+    )
+
+    with patch.object(rmod, "REPORTS_DIR", tmp_path):
+        traces = rmod._latest_traces()
+
+    # Must produce two distinct entries, not one
+    assert len(traces) == 2
+    keys = list(traces.keys())
+    assert (sid, False) in keys
+    assert (sid, True) in keys
+
+
+def test_emit_report_two_variants_produce_two_rows(tmp_path):
+    """Report table has one row per (scenario, mode) pair."""
+    from agent_cost_bench.eie import report as rmod
+
+    sid = "pattern-paper-status-only"
+    natural = _make_trace_forced(sid, "paper", "status_only", False)
+    forced = _make_trace_forced(sid, "paper", "status_only", True)
+
+    (tmp_path / f"{sid}-natural.trace.json").write_text(json.dumps(natural))
+    (tmp_path / f"{sid}-forced.trace.json").write_text(json.dumps(forced))
+
+    with patch.object(rmod, "REPORTS_DIR", tmp_path):
+        out = rmod.emit_report()
+
+    content = out.read_text()
+    # Both N and Y must appear in the forced column
+    assert "| N |" in content or "|N|" in content or " N " in content
+    assert "| Y |" in content or "|Y|" in content or " Y " in content
+    # scenario_id appears twice (once per row)
+    assert content.count(sid) >= 2
+
+
+def test_emit_report_forced_column_present(tmp_path):
+    """Report header contains 'forced' column."""
+    from agent_cost_bench.eie import report as rmod
+
+    sid = "pattern-paper-status-only"
+    natural = _make_trace_forced(sid, "paper", "status_only", False)
+    (tmp_path / f"{sid}-natural.trace.json").write_text(json.dumps(natural))
+
+    with patch.object(rmod, "REPORTS_DIR", tmp_path):
+        out = rmod.emit_report()
+
+    content = out.read_text()
+    assert "forced" in content.lower()
+
+
+def test_latest_traces_backward_compat_no_field(tmp_path):
+    """Old traces without enforce_compute_stats key are treated as natural (False)."""
+    from agent_cost_bench.eie import report as rmod
+
+    sid = "pattern-paper-freeform"
+    # Old-style trace without the new field
+    old_trace = _make_trace(sid, "paper", "freeform")  # no enforce_compute_stats key
+    (tmp_path / f"{sid}-old.trace.json").write_text(json.dumps(old_trace))
+
+    with patch.object(rmod, "REPORTS_DIR", tmp_path):
+        traces = rmod._latest_traces()
+
+    assert len(traces) == 1
+    assert (sid, False) in traces

@@ -76,6 +76,11 @@ EIE_USER_QUERY = (
     "using model-estimated land carbon flux data."
 )
 
+FORCE_COMPUTE_STATS_INSTRUCTION = (
+    "You MUST call the compute_stats tool and base your final answer on its returned "
+    "aggregates. Do not produce the final answer without first invoking compute_stats."
+)
+
 
 class State(TypedDict):
     messages: Annotated[list[dict[str, Any]], add_messages]
@@ -191,10 +196,18 @@ def build_pattern_e_graph(handler: Any, user_actor: UserActor, model: str = "gpt
     return g.compile()
 
 
-def initial_state(handler: Any, user_actor: UserActor, model: str = "gpt-5.2") -> State:
+def initial_state(
+    handler: Any,
+    user_actor: UserActor,
+    model: str = "gpt-5.2",
+    enforce_compute_stats: bool = False,
+) -> State:
+    system_prompt = EIE_SYSTEM_PROMPT
+    if enforce_compute_stats:
+        system_prompt = system_prompt + "\n\n" + FORCE_COMPUTE_STATS_INSTRUCTION
     return {
         "messages": [
-            {"role": "system", "content": EIE_SYSTEM_PROMPT},
+            {"role": "system", "content": system_prompt},
             {"role": "user", "content": EIE_USER_QUERY},
         ],
         "handler_ref": handler,
