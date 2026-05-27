@@ -10,6 +10,7 @@ from __future__ import annotations
 from typing import Any, Protocol
 
 from . import veda_tools
+from .schemas import StacItemFields
 
 
 # Centralized JSON schemas the LLM sees for each tool. These names
@@ -80,11 +81,24 @@ TOOL_SCHEMAS: list[dict[str, Any]] = [
         "type": "function",
         "function": {
             "name": "compute_stats",
-            "description": "Compute band stats over a polygon AOI from a list of STAC items.",
+            "description": (
+                "Compute band stats over a polygon AOI from a list of STAC items. "
+                "You MUST pass the item objects returned by a prior search_items call "
+                "as item_refs. If you do not have the items yet, call search_items first."
+            ),
             "parameters": {
                 "type": "object",
                 "properties": {
-                    "item_refs": {"type": "array", "items": {"type": "string"}},
+                    "item_refs": {
+                        "type": "array",
+                        "description": (
+                            "Non-empty list of STAC item objects previously returned by "
+                            "search_items. Each element must have 'id', 'datetime', 'bbox', "
+                            "and 'primary_asset_url' fields. Passing an empty list is an error."
+                        ),
+                        "items": {"type": "object"},
+                        "minItems": 1,
+                    },
                     "band": {"type": "string"},
                     "geometry": {"type": "object"},
                 },
@@ -115,20 +129,26 @@ def dispatch_tool_call(name: str, args: dict[str, Any], handler: Handler, tool_c
             args.get("band", "FIRE"),
         )
     elif name == "compute_stats":
-        # `item_refs` is a list of tool_call_ids pointing into handler state.
-        # The handler is responsible for resolving refs back to typed items.
-        # For KeyFields and Freeform handlers, the LLM passes the items
-        # directly; for StatusOnly the LLM passes only the call-id of the
-        # earlier search_items call and the handler reconstitutes.
-        # Simplest cross-handler contract: always re-search if compute_stats
-        # is called without resolved items. For the bench's fixed workload
-        # this is one extra STAC call, acceptable.
-        items = veda_tools.search_items(
-            args.get("collection_id", "micasa-carbonflux-monthgrid-v1"),
-            tuple(args.get("bbox", (-123.89, 38.76, -122.82, 40.0))),
-            args.get("datetime_range", "2020-06-01/2020-11-01"),
-            args.get("band", "FIRE"),
-        ).items
+        # item_refs must be the list of StacItemFields objects (or dicts with
+        # the same fields) returned by a prior search_items call. The LLM is
+        # required to have called search_items first and pass those results
+        # here verbatim. An empty list means the LLM does NOT have the items
+        # yet (typical for mode A / StatusOnly, where it only saw a count
+        # summary). In that case we raise so the agent gets an honest error
+        # and must issue an additional search_items call — that extra turn's
+        # cost IS part of mode A's true cost and must be counted in the trace.
+        raw_refs = args.get("item_refs")
+        if not raw_refs:
+            raise ValueError(
+                "item_refs must be a non-empty list of STAC item objects from a "
+                "prior search_items call. Call search_items first to obtain them."
+            )
+        # Accept either StacItemFields instances or plain dicts (the LLM
+        # serialises tool results as JSON, so dicts are the normal case).
+        items = [
+            ref if isinstance(ref, StacItemFields) else StacItemFields(**ref)
+            for ref in raw_refs
+        ]
         raw = veda_tools.compute_stats(items, args["band"], args["geometry"])
     else:
         raise ValueError(f"unknown tool: {name!r}")
