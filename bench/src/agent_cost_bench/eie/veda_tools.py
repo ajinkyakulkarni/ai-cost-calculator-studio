@@ -13,6 +13,8 @@ the polygon AOI.
 
 from __future__ import annotations
 
+import json
+import pathlib
 import re
 from typing import Any
 
@@ -29,6 +31,9 @@ from .schemas import (
 )
 
 STAC_ROOT = "https://openveda.cloud/api/stac"
+
+_BBOX_JSON = pathlib.Path(__file__).parent.parent.parent.parent / "data" / "us_county_bboxes.json"
+_COUNTY_LOOKUP: dict[str, list[float]] = json.loads(_BBOX_JSON.read_text())["counties"]
 
 
 def parse_datetime(value: str) -> ParseDatetimeReturn:
@@ -57,8 +62,45 @@ def parse_datetime(value: str) -> ParseDatetimeReturn:
     return ParseDatetimeReturn(start=iso, end=iso)
 
 
-def geocode(location: str) -> GeocodeReturn:
-    raise NotImplementedError("geocode — Task 8")
+def geocode(query: str, level: str = "county") -> GeocodeReturn:
+    """Look up the admin polygon bbox for `query`.
+
+    No external geocode API. Uses the shipped county-bbox table at
+    bench/data/us_county_bboxes.json. The bench's frozen AOI is
+    Mendocino County, CA — but a few neighbour counties are also
+    shipped so an agent that wanders during the drill-down gate can
+    still resolve them.
+
+    For levels other than 'county' the lookup is intentionally not
+    supported — Pattern E's state-level gate is just text confirmation
+    and doesn't need a bbox. If the agent calls geocode at state level
+    we return a synthetic bounding box covering California.
+    """
+    if level == "state":
+        # California state envelope (rough), only used when Pattern E's
+        # state-confirm gate calls into geocode. Not for compute.
+        return GeocodeReturn(
+            admin_name=query.strip().title(),
+            admin_level="state",
+            bbox=(-124.482, 32.529, -114.131, 42.009),
+        )
+
+    key = f"{query.strip().lower()}, ca" if "," not in query else query.strip().lower()
+    if key not in _COUNTY_LOOKUP:
+        # Try without the ", ca" suffix in case the input had a different state
+        if query.strip().lower() in _COUNTY_LOOKUP:
+            key = query.strip().lower()
+        else:
+            raise KeyError(f"unknown county: {query!r}")
+    bbox = _COUNTY_LOOKUP[key]
+    county_part = key.split(",")[0].strip().title()
+    # The lookup keys already include "county" in the name (e.g. "mendocino county, ca"),
+    # so title-casing the left side gives the correctly formatted name.
+    return GeocodeReturn(
+        admin_name=county_part,
+        admin_level="county",
+        bbox=tuple(bbox),
+    )
 
 
 def search_collections(keyword: str) -> SearchCollectionsReturn:

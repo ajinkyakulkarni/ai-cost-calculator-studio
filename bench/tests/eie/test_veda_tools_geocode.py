@@ -1,0 +1,24 @@
+"""geocode — county-bbox lookup, no API."""
+
+import pytest
+from agent_cost_bench.eie.veda_tools import geocode
+from agent_cost_bench.eie.schemas import GeocodeReturn
+
+
+def test_geocode_known_county():
+    r = geocode("Mendocino County", "county")
+    assert isinstance(r, GeocodeReturn)
+    assert r.admin_name == "Mendocino County"
+    assert r.admin_level == "county"
+    assert -125 < r.bbox[0] < -120  # western longitude reasonable for CA
+    assert 38 < r.bbox[1] < 41
+
+
+def test_geocode_case_insensitive():
+    r = geocode("mendocino county", "county")
+    assert r.admin_name.lower().startswith("mendocino")
+
+
+def test_geocode_unknown_county_raises():
+    with pytest.raises(KeyError):
+        geocode("Atlantis County", "county")
