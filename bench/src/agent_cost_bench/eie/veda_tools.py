@@ -88,13 +88,27 @@ def geocode(query: str, level: str = "county") -> GeocodeReturn:
             bbox=(-124.482, 32.529, -114.131, 42.009),
         )
 
-    key = f"{query.strip().lower()}, ca" if "," not in query else query.strip().lower()
+    # Normalize: accept full state names ("California") or 2-letter codes ("CA"),
+    # with or without the trailing state. Lookup keys are "<county> county, <2-letter>".
+    _STATE_NAME_TO_ABBREV = {
+        "california": "ca",
+        "calif.": "ca",
+        "calif": "ca",
+    }
+    raw = query.strip().lower()
+    if "," in raw:
+        left, _, right = raw.partition(",")
+        county = left.strip()
+        state = right.strip().rstrip(".")
+        state = _STATE_NAME_TO_ABBREV.get(state, state)
+        if not county.endswith(" county"):
+            county = f"{county} county"
+        key = f"{county}, {state}"
+    else:
+        county = raw if raw.endswith(" county") else f"{raw} county"
+        key = f"{county}, ca"
     if key not in _COUNTY_LOOKUP:
-        # Try without the ", ca" suffix in case the input had a different state
-        if query.strip().lower() in _COUNTY_LOOKUP:
-            key = query.strip().lower()
-        else:
-            raise KeyError(f"unknown county: {query!r}")
+        raise KeyError(f"unknown county: {query!r} (normalised to {key!r})")
     bbox = _COUNTY_LOOKUP[key]
     county_part = key.split(",")[0].strip().title()
     # The lookup keys already include "county" in the name (e.g. "mendocino county, ca"),

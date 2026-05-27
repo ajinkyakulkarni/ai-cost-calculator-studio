@@ -22,3 +22,19 @@ def test_geocode_case_insensitive():
 def test_geocode_unknown_county_raises():
     with pytest.raises(KeyError):
         geocode("Atlantis County", "county")
+
+
+def test_geocode_accepts_full_state_name():
+    r = geocode("Mendocino County, California", "county")
+    assert r.admin_name == "Mendocino County"
+    assert -125 < r.bbox[0] < -120
+
+
+def test_geocode_accepts_two_letter_state_code():
+    r = geocode("Mendocino County, CA", "county")
+    assert r.admin_name == "Mendocino County"
+
+
+def test_geocode_accepts_bare_county_name():
+    r = geocode("Sonoma", "county")
+    assert r.admin_name == "Sonoma County"
