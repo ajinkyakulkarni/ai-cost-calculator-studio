@@ -1,0 +1,140 @@
+{
+  "scenario_id": "pattern-eie-status-only",
+  "pattern": "eie",
+  "handler_mode": "status_only",
+  "model": "gpt-5.2",
+  "enforce_compute_stats": false,
+  "turn_count": 15,
+  "elapsed_s": 29.17264699935913,
+  "totals": {
+    "input_tokens": 19580,
+    "output_tokens": 798,
+    "cached_tokens": 12672,
+    "cache_hit_rate": 0.647191011235955
+  },
+  "per_turn_avg": {
+    "input_tokens": 1305.3333333333333,
+    "output_tokens": 53.2
+  },
+  "turns": [
+    {
+      "input_tokens": 702,
+      "output_tokens": 30,
+      "cached_tokens": 0,
+      "tool_calls": [
+        "parse_datetime"
+      ]
+    },
+    {
+      "input_tokens": 795,
+      "output_tokens": 77,
+      "cached_tokens": 0,
+      "tool_calls": [
+        "ask_user"
+      ]
+    },
+    {
+      "input_tokens": 887,
+      "output_tokens": 33,
+      "cached_tokens": 0,
+      "tool_calls": [
+        "ask_user"
+      ]
+    },
+    {
+      "input_tokens": 932,
+      "output_tokens": 23,
+      "cached_tokens": 0,
+      "tool_calls": [
+        "geocode"
+      ]
+    },
+    {
+      "input_tokens": 1012,
+      "output_tokens": 54,
+      "cached_tokens": 0,
+      "tool_calls": [
+        "ask_user"
+      ]
+    },
+    {
+      "input_tokens": 1082,
+      "output_tokens": 64,
+      "cached_tokens": 0,
+      "tool_calls": [
+        "geocode",
+        "search_collections"
+      ]
+    },
+    {
+      "input_tokens": 1255,
+      "output_tokens": 19,
+      "cached_tokens": 1024,
+      "tool_calls": [
+        "search_collections"
+      ]
+    },
+    {
+      "input_tokens": 1323,
+      "output_tokens": 19,
+      "cached_tokens": 1152,
+      "tool_calls": [
+        "search_collections"
+      ]
+    },
+    {
+      "input_tokens": 1391,
+      "output_tokens": 19,
+      "cached_tokens": 1280,
+      "tool_calls": [
+        "search_collections"
+      ]
+    },
+    {
+      "input_tokens": 1462,
+      "output_tokens": 19,
+      "cached_tokens": 1280,
+      "tool_calls": [
+        "search_collections"
+      ]
+    },
+    {
+      "input_tokens": 1529,
+      "output_tokens": 86,
+      "cached_tokens": 1408,
+      "tool_calls": [
+        "ask_user"
+      ]
+    },
+    {
+      "input_tokens": 1631,
+      "output_tokens": 57,
+      "cached_tokens": 1536,
+      "tool_calls": [
+        "ask_user"
+      ]
+    },
+    {
+      "input_tokens": 1702,
+      "output_tokens": 66,
+      "cached_tokens": 1536,
+      "tool_calls": [
+        "search_items"
+      ]
+    },
+    {
+      "input_tokens": 1840,
+      "output_tokens": 120,
+      "cached_tokens": 1664,
+      "tool_calls": [
+        "compute_stats"
+      ]
+    },
+    {
+      "input_tokens": 2037,
+      "output_tokens": 112,
+      "cached_tokens": 1792,
+      "tool_calls": []
+    }
+  ]
+}
