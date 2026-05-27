@@ -286,3 +286,169 @@ def test_per_turn_avg_populated(tmp_path):
     # per-turn avg should equal total / turn_count
     n = trace["turn_count"]
     assert abs(avg["input_tokens"] - trace["totals"]["input_tokens"] / n) < 0.01
+
+
+# ---------------------------------------------------------------------------
+# enforce_compute_stats: system prompt injection + trace JSON field
+# ---------------------------------------------------------------------------
+
+_FORCED_INSTRUCTION = (
+    "You MUST call the compute_stats tool and base your final answer on its returned "
+    "aggregates. Do not produce the final answer without first invoking compute_stats."
+)
+
+
+def _extract_system_content(msgs) -> str | None:
+    """Extract the system message content from a list that may contain
+    raw dicts or LangChain message objects (SystemMessage, etc.)."""
+    for m in msgs:
+        if isinstance(m, dict):
+            if m.get("role") == "system":
+                return m["content"]
+        else:
+            # LangChain BaseMessage subclass — check .type attribute
+            msg_type = getattr(m, "type", None)
+            if msg_type == "system":
+                return getattr(m, "content", None)
+    return None
+
+
+def test_enforce_compute_stats_paper_injects_instruction_into_system_prompt(tmp_path):
+    """When cfg.enforce_compute_stats=True, system prompt passed to call_llm contains
+    the forced instruction for a paper-pattern scenario."""
+    cfg = ScenarioCfg(
+        id="pattern-paper-status-only",
+        pattern="paper",
+        handler_mode="status_only",
+        model="gpt-stub",
+        description="test",
+        enforce_compute_stats=True,
+    )
+    responses = iter(_paper_stub_responses())
+    captured_prompts: list[str] = []
+
+    def capturing_llm(**kw):
+        content = _extract_system_content(kw.get("messages", []))
+        if content is not None:
+            captured_prompts.append(content)
+        return next(responses)
+
+    with patch("agent_cost_bench.eie.pattern_paper.call_llm",
+               side_effect=capturing_llm), \
+         patch("agent_cost_bench.eie.pattern_paper.dispatch_tool_call",
+               side_effect=_fake_dispatch), \
+         patch("agent_cost_bench.eie.runner.REPORTS_DIR", tmp_path):
+        run_scenario(cfg)
+
+    assert captured_prompts, "call_llm was never called with a system message"
+    assert _FORCED_INSTRUCTION in captured_prompts[0], (
+        "Forced instruction missing from system prompt"
+    )
+
+
+def test_enforce_compute_stats_eie_injects_instruction_into_system_prompt(tmp_path):
+    """When cfg.enforce_compute_stats=True, system prompt passed to call_llm contains
+    the forced instruction for an eie-pattern scenario."""
+    cfg = ScenarioCfg(
+        id="pattern-eie-status-only",
+        pattern="eie",
+        handler_mode="status_only",
+        model="gpt-stub",
+        description="test",
+        enforce_compute_stats=True,
+    )
+    responses = iter(_eie_stub_responses())
+    captured_prompts: list[str] = []
+
+    def capturing_llm(**kw):
+        content = _extract_system_content(kw.get("messages", []))
+        if content is not None:
+            captured_prompts.append(content)
+        return next(responses)
+
+    with patch("agent_cost_bench.eie.pattern_eie.call_llm",
+               side_effect=capturing_llm), \
+         patch("agent_cost_bench.eie.pattern_eie.dispatch_tool_call",
+               side_effect=_fake_dispatch), \
+         patch("agent_cost_bench.eie.runner.REPORTS_DIR", tmp_path):
+        run_scenario(cfg)
+
+    assert captured_prompts, "call_llm was never called with a system message"
+    assert _FORCED_INSTRUCTION in captured_prompts[0], (
+        "Forced instruction missing from system prompt"
+    )
+
+
+def test_enforce_compute_stats_false_does_not_inject_instruction(tmp_path):
+    """When cfg.enforce_compute_stats=False (default), forced instruction is absent."""
+    cfg = ScenarioCfg(
+        id="pattern-paper-status-only",
+        pattern="paper",
+        handler_mode="status_only",
+        model="gpt-stub",
+        description="test",
+        enforce_compute_stats=False,
+    )
+    responses = iter(_paper_stub_responses())
+    captured_prompts: list[str] = []
+
+    def capturing_llm(**kw):
+        content = _extract_system_content(kw.get("messages", []))
+        if content is not None:
+            captured_prompts.append(content)
+        return next(responses)
+
+    with patch("agent_cost_bench.eie.pattern_paper.call_llm",
+               side_effect=capturing_llm), \
+         patch("agent_cost_bench.eie.pattern_paper.dispatch_tool_call",
+               side_effect=_fake_dispatch), \
+         patch("agent_cost_bench.eie.runner.REPORTS_DIR", tmp_path):
+        run_scenario(cfg)
+
+    assert captured_prompts, "call_llm was never called with a system message"
+    assert _FORCED_INSTRUCTION not in captured_prompts[0]
+
+
+def test_enforce_compute_stats_trace_json_contains_field_true(tmp_path):
+    """Trace JSON includes enforce_compute_stats: true when set on cfg."""
+    cfg = ScenarioCfg(
+        id="pattern-paper-status-only",
+        pattern="paper",
+        handler_mode="status_only",
+        model="gpt-stub",
+        description="test",
+        enforce_compute_stats=True,
+    )
+    responses = iter(_paper_stub_responses())
+
+    with patch("agent_cost_bench.eie.pattern_paper.call_llm",
+               side_effect=lambda **kw: next(responses)), \
+         patch("agent_cost_bench.eie.pattern_paper.dispatch_tool_call",
+               side_effect=_fake_dispatch), \
+         patch("agent_cost_bench.eie.runner.REPORTS_DIR", tmp_path):
+        out_path = run_scenario(cfg)
+
+    trace = json.loads(out_path.read_text())
+    assert trace["enforce_compute_stats"] is True
+
+
+def test_enforce_compute_stats_trace_json_contains_field_false(tmp_path):
+    """Trace JSON includes enforce_compute_stats: false when not set."""
+    cfg = ScenarioCfg(
+        id="pattern-paper-status-only",
+        pattern="paper",
+        handler_mode="status_only",
+        model="gpt-stub",
+        description="test",
+    )
+    responses = iter(_paper_stub_responses())
+
+    with patch("agent_cost_bench.eie.pattern_paper.call_llm",
+               side_effect=lambda **kw: next(responses)), \
+         patch("agent_cost_bench.eie.pattern_paper.dispatch_tool_call",
+               side_effect=_fake_dispatch), \
+         patch("agent_cost_bench.eie.runner.REPORTS_DIR", tmp_path):
+        out_path = run_scenario(cfg)
+
+    trace = json.loads(out_path.read_text())
+    assert trace["enforce_compute_stats"] is False

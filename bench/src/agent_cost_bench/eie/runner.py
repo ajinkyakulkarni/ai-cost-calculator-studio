@@ -45,11 +45,20 @@ def run_scenario(cfg: ScenarioCfg, max_turns: int = 30) -> Path:
     handler = _make_handler(cfg.handler_mode)
     if cfg.pattern == "paper":
         graph = build_pattern_p_graph(handler=handler, model=cfg.model)
-        state = paper_initial(handler=handler, model=cfg.model)
+        state = paper_initial(
+            handler=handler,
+            model=cfg.model,
+            enforce_compute_stats=cfg.enforce_compute_stats,
+        )
     elif cfg.pattern == "eie":
         actor = UserActor.frozen_default()
         graph = build_pattern_e_graph(handler=handler, user_actor=actor, model=cfg.model)
-        state = eie_initial(handler=handler, user_actor=actor, model=cfg.model)
+        state = eie_initial(
+            handler=handler,
+            user_actor=actor,
+            model=cfg.model,
+            enforce_compute_stats=cfg.enforce_compute_stats,
+        )
     else:
         raise ValueError(f"unknown pattern: {cfg.pattern!r}")
     state["model"] = cfg.model
@@ -115,6 +124,7 @@ def _build_trace(cfg: ScenarioCfg, final_state: dict[str, Any], elapsed_s: float
         "pattern": cfg.pattern,
         "handler_mode": cfg.handler_mode,
         "model": cfg.model,
+        "enforce_compute_stats": cfg.enforce_compute_stats,
         "turn_count": n_turns,
         "elapsed_s": elapsed_s,
         "totals": {
