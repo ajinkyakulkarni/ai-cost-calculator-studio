@@ -18,8 +18,11 @@ State machine has three node types:
 from __future__ import annotations
 
 import json
+import logging
 import uuid
 from typing import Annotated, Any, TypedDict
+
+log = logging.getLogger(__name__)
 
 from langgraph.graph import END, START, StateGraph
 from langgraph.graph.message import add_messages
@@ -150,7 +153,23 @@ def _gate_step(state: State) -> dict[str, Any]:
             continue
         gate = args["gate"]
         prompt = args.get("prompt", "")
-        response = actor.respond(gate, prompt)
+        # I3 robustness: if the live model emits an unscripted gate key, do
+        # NOT raise — that would kill the LangGraph node and lose the trace.
+        # Instead, log the surprise and inject a short generic answer so the
+        # state machine can continue.  UserActor keeps its strict KeyError
+        # behaviour (useful for test fixtures); only this call-site degrades
+        # gracefully.
+        _UNKNOWN_GATE_FALLBACK = "Please proceed with the defaults."
+        try:
+            response = actor.respond(gate, prompt)
+        except KeyError:
+            log.warning(
+                "gate_step: unexpected gate %r not in UserActor answers; "
+                "substituting fallback. agent_prompt=%r",
+                gate,
+                prompt,
+            )
+            response = _UNKNOWN_GATE_FALLBACK
         new_messages.append({"role": "tool", "tool_call_id": call_id, "content": response})
     return {"messages": new_messages}
 
