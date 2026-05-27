@@ -134,8 +134,39 @@ def search_items(
     collection_id: str,
     bbox: tuple[float, float, float, float],
     datetime_range: str,
+    band: str = "FIRE",
+    limit: int = 20,
 ) -> SearchItemsReturn:
-    raise NotImplementedError("search_items — Task 10")
+    """List STAC items in a collection within bbox + datetime range.
+
+    `datetime_range` is the STAC datetime filter syntax: "YYYY-MM-DD/YYYY-MM-DD".
+    `band` selects which asset URL becomes the primary_asset_url in the
+    typed return — the LLM gets one URL per item rather than the full
+    asset dict (status-only/key-fields modes); freeform mode passes the
+    raw STAC item through.
+    """
+    bbox_str = ",".join(f"{x:.4f}" for x in bbox)
+    url = f"{STAC_ROOT}/collections/{collection_id}/items"
+    params = {"bbox": bbox_str, "datetime": datetime_range, "limit": limit}
+    with httpx.Client(timeout=30.0) as client:
+        resp = client.get(url, params=params)
+        resp.raise_for_status()
+        data = resp.json()
+    items: list[StacItemFields] = []
+    for feat in data.get("features", []):
+        assets = feat.get("assets", {})
+        primary = assets.get(band, {}).get("href") or next(
+            (a.get("href", "") for a in assets.values()), ""
+        )
+        items.append(
+            StacItemFields(
+                id=feat["id"],
+                datetime=feat["properties"]["datetime"],
+                bbox=tuple(feat.get("bbox", list(bbox))),
+                primary_asset_url=primary,
+            )
+        )
+    return SearchItemsReturn(items=items, total_matched=len(items))
 
 
 def compute_stats(
