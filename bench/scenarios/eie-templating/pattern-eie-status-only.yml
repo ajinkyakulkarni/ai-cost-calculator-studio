@@ -5,5 +5,5 @@ model: gpt-5.2
 description: |
   Pattern E (~9-10 turn gated drill-down) × StatusOnlyHandler (mode A).
   Tests whether the gated conversation pattern changes the templating lever.
-  Frozen workload: Mendocino County, MiCASA carbon flux v1, FIRE band,
+  Frozen workload: Mendocino County, LIS Global GPP (lis-global-da-gpp), cog_default asset,
   2020-06-01 to 2020-11-01.

@@ -20,14 +20,14 @@ class UserActor:
 
     @classmethod
     def frozen_default(cls) -> "UserActor":
-        """The canonical Mendocino x MiCASA x FIRE x 2020-summer-fall fixture."""
+        """The canonical Mendocino x LIS Global GPP x cog_default x 2020-summer-fall fixture."""
         return cls(
             answers={
                 "datetime": "yes, that's correct",
                 "state": "California",
                 "county": "Mendocino County",
-                "dataset": "MiCASA Land Carbon Flux v1",
-                "variable": "FIRE",
+                "dataset": "LIS Global GPP",
+                "variable": "cog_default",
             }
         )
 

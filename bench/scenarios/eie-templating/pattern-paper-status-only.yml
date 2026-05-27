@@ -5,5 +5,5 @@ model: gpt-5.2
 description: |
   Pattern P (paper's 6-turn ReAct) × StatusOnlyHandler (mode A).
   Tests the paper's claimed cost floor.
-  Frozen workload: Mendocino County, MiCASA carbon flux v1, FIRE band,
+  Frozen workload: Mendocino County, LIS Global GPP (lis-global-da-gpp), cog_default asset,
   2020-06-01 to 2020-11-01.

@@ -126,7 +126,7 @@ def dispatch_tool_call(name: str, args: dict[str, Any], handler: Handler, tool_c
             args["collection_id"],
             tuple(args["bbox"]),
             args["datetime_range"],
-            args.get("band", "FIRE"),
+            args.get("band", "cog_default"),
         )
     elif name == "compute_stats":
         # item_refs must be the list of StacItemFields objects (or dicts with

@@ -44,7 +44,7 @@ FORCE_COMPUTE_STATS_INSTRUCTION = (
 )
 
 PAPER_USER_QUERY = (
-    "Visualize FIRE band flux from MiCASA Land Carbon Flux v1 over Mendocino County, "
+    "Visualize gross primary production (GPP) from LIS Global DA GPP over Mendocino County, "
     "California, June 2020 to November 2020. Report mean/median/min/max plus per-month values."
 )
 
