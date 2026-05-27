@@ -1,0 +1,44 @@
+{
+  "scenario_id": "pattern-paper-status-only",
+  "pattern": "paper",
+  "handler_mode": "status_only",
+  "model": "gpt-5.2",
+  "turn_count": 3,
+  "elapsed_s": 12.232967138290405,
+  "totals": {
+    "input_tokens": 2228,
+    "output_tokens": 261,
+    "cached_tokens": 0,
+    "cache_hit_rate": 0.0
+  },
+  "per_turn_avg": {
+    "input_tokens": 742.6666666666666,
+    "output_tokens": 87.0
+  },
+  "turns": [
+    {
+      "input_tokens": 554,
+      "output_tokens": 87,
+      "cached_tokens": 0,
+      "tool_calls": [
+        "parse_datetime",
+        "geocode",
+        "search_collections"
+      ]
+    },
+    {
+      "input_tokens": 802,
+      "output_tokens": 20,
+      "cached_tokens": 0,
+      "tool_calls": [
+        "search_collections"
+      ]
+    },
+    {
+      "input_tokens": 872,
+      "output_tokens": 154,
+      "cached_tokens": 0,
+      "tool_calls": []
+    }
+  ]
+}
