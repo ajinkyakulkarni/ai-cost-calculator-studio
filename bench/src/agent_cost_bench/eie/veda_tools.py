@@ -281,8 +281,26 @@ def compute_stats(
             params = {"assets": band, "bbox": bbox_str}
             resp = client.get(url, params=params)
             resp.raise_for_status()
+            # The raster API serves the STAC Browser HTML index on unknown paths
+            # (collection or item not found) with a 200 OK status. Detect that
+            # so the error message tells the LLM what was wrong rather than
+            # surfacing an opaque JSONDecodeError.
+            ctype = resp.headers.get("content-type", "")
+            if "application/json" not in ctype:
+                raise ValueError(
+                    f"Raster /statistics returned non-JSON for {url} "
+                    f"params={params!r} content-type={ctype!r}. "
+                    "Likely the collection_id or item_id is wrong. "
+                    f"Body excerpt: {resp.text[:160]!r}"
+                )
             data = resp.json()
             key = f"{band}_b1"
+            if key not in data:
+                raise ValueError(
+                    f"Raster /statistics response for {url} did not contain key "
+                    f"{key!r}. Available keys: {list(data.keys())!r}. "
+                    f"Check the `band` argument matches an asset name."
+                )
             stats_block = data[key]
             item_mean = float(stats_block["mean"])
             item_median = float(stats_block["median"])
