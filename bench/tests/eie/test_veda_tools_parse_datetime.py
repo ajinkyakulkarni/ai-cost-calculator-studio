@@ -22,3 +22,9 @@ def test_parse_single_date_returns_same_start_end():
     r = parse_datetime("2020-06-01")
     assert r.start == "2020-06-01"
     assert r.end == "2020-06-01"
+
+
+def test_parse_iso_interval_slash_separated():
+    r = parse_datetime("2020-08-01/2020-10-31")
+    assert r.start == "2020-08-01"
+    assert r.end == "2020-10-31"

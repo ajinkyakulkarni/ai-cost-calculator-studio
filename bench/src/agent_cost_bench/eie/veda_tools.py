@@ -47,8 +47,8 @@ def parse_datetime(value: str) -> ParseDatetimeReturn:
       - "Month YYYY through Month YYYY" — natural-language range
       - "YYYY-MM-DD" — single date (start == end)
     """
-    # Try explicit "X to Y" / "X through Y" range first
-    m = re.split(r"\s+(?:to|through|-)\s+", value.strip(), maxsplit=1, flags=re.IGNORECASE)
+    # Try explicit "X to Y" / "X through Y" range, OR ISO 8601 interval "X/Y"
+    m = re.split(r"\s+(?:to|through|-)\s+|\s*/\s*", value.strip(), maxsplit=1, flags=re.IGNORECASE)
     if len(m) == 2:
         d_start = dateparser.parse(m[0])
         d_end = dateparser.parse(m[1])
