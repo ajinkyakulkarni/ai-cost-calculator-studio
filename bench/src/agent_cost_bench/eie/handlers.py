@@ -92,13 +92,17 @@ class KeyFieldsHandler:
 
     The handler is stateless; everything the LLM needs is in the
     returned JSON. No agent-side state required.
+
+    raw_response is excluded via the schema's Field(exclude=True) so it
+    never reaches the LLM context regardless of whether it was attached.
     """
 
     LIST_CAP = 10  # search_items and search_collections cap entries at this
 
     def wrap(self, tool_name: str, tool_call_id: str, raw: BaseModel) -> str:
         if isinstance(raw, SearchItemsReturn):
-            # Cap items list while preserving total_matched signal
+            # Cap items list while preserving total_matched signal.
+            # raw_response excluded automatically by Field(exclude=True).
             capped = SearchItemsReturn(
                 items=raw.items[: self.LIST_CAP],
                 total_matched=raw.total_matched,
@@ -116,16 +120,24 @@ class KeyFieldsHandler:
 class FreeformHandler:
     """Mode C: identity passthrough of the raw tool response.
 
-    Accepts either a Pydantic model (serialized with .model_dump_json)
-    or a raw dict/list (serialized with json.dumps directly — the
-    structured payload from upstream STAC calls is kept verbatim).
+    Accepts either a Pydantic model or a raw dict/list.  When the model
+    carries a ``raw_response`` attribute (set by search_items /
+    search_collections to the full STAC FeatureCollection dict), THAT
+    blob is emitted verbatim — full geometry coords, every asset URL,
+    all properties.  This is what naive ReAct loops do without any
+    output structuring.
 
-    This is what naive ReAct loops do without any output structuring.
-    Full geometry coordinates, every non-primary asset, every property,
-    full provider blob — all reach the LLM context.
+    For Pydantic models without ``raw_response`` (compute_stats,
+    parse_datetime, geocode) the normal .model_dump_json() path is used,
+    preserving existing behaviour for non-STAC tools.
     """
 
     def wrap(self, tool_name: str, tool_call_id: str, raw: Any) -> str:
         if isinstance(raw, BaseModel):
+            # Emit the attached raw STAC blob when present; otherwise fall
+            # back to the typed schema (unaffected non-search tools).
+            raw_resp = getattr(raw, "raw_response", None)
+            if raw_resp is not None:
+                return json.dumps(raw_resp, default=str)
             return raw.model_dump_json()
         return json.dumps(raw, default=str)
