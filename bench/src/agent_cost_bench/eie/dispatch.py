@@ -82,9 +82,10 @@ TOOL_SCHEMAS: list[dict[str, Any]] = [
         "function": {
             "name": "compute_stats",
             "description": (
-                "Compute band stats over a polygon AOI from a list of STAC items. "
+                "Compute band stats over a bbox AOI from a list of STAC items. "
                 "You MUST pass the item objects returned by a prior search_items call "
-                "as item_refs. If you do not have the items yet, call search_items first."
+                "as item_refs — each carries its own collection_id required for the "
+                "VEDA raster API. If you do not have the items yet, call search_items first."
             ),
             "parameters": {
                 "type": "object",
@@ -94,13 +95,18 @@ TOOL_SCHEMAS: list[dict[str, Any]] = [
                         "description": (
                             "Non-empty list of STAC item objects previously returned by "
                             "search_items. Each element must have 'id', 'datetime', 'bbox', "
-                            "and 'primary_asset_url' fields. Passing an empty list is an error."
+                            "'primary_asset_url', and 'collection_id' fields. "
+                            "Passing an empty list is an error."
                         ),
                         "items": {"type": "object"},
                         "minItems": 1,
                     },
                     "band": {"type": "string"},
-                    "geometry": {"type": "object"},
+                    "geometry": {
+                        "type": "array",
+                        "description": "Bounding box [x1, y1, x2, y2] or a GeoJSON geometry object.",
+                        "items": {"type": "number"},
+                    },
                 },
                 "required": ["item_refs", "band", "geometry"],
             },

@@ -51,6 +51,7 @@ class StacItemFields(BaseModel):
     datetime: str
     bbox: tuple[float, float, float, float]
     primary_asset_url: str
+    collection_id: str = ""
 
 
 class SearchItemsReturn(BaseModel):

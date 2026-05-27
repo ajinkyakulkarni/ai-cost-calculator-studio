@@ -46,5 +46,5 @@ def test_key_fields_search_items_caps_at_10_entries():
     parsed = json.loads(out)
     assert parsed["total_matched"] == 25
     assert len(parsed["items"]) <= 10
-    # Each emitted item has only the 4 schema fields, nothing else:
-    assert set(parsed["items"][0].keys()) == {"id", "datetime", "bbox", "primary_asset_url"}
+    # Each emitted item has only the schema fields (collection_id added in VEDA raster rewrite):
+    assert set(parsed["items"][0].keys()) == {"id", "datetime", "bbox", "primary_asset_url", "collection_id"}

@@ -1,149 +1,199 @@
-"""compute_stats — rio-tiler reads COG band over polygon AOI.
+"""compute_stats — VEDA raster /statistics API (httpx-mocked).
 
-Real bench runs hit NASA's COG store; tests mock rio_tiler.io.Reader
-so we don't fetch remote rasters during pytest. Mock returns synthetic
-numpy arrays with known statistics.
+Real bench runs call https://openveda.cloud/api/raster/collections/<cid>/items/<iid>/statistics;
+tests use pytest-httpx to stub the responses without hitting the network.
 """
 
-from unittest.mock import patch, MagicMock
-import numpy as np
+import re
+
 import pytest
+from pytest_httpx import HTTPXMock
+
 from agent_cost_bench.eie.veda_tools import compute_stats
 from agent_cost_bench.eie.schemas import StacItemFields, ComputeStatsReturn
 
 
-_GEOMETRY = {
-    "type": "Polygon",
-    "coordinates": [
-        [
-            [-123.89, 38.76],
-            [-122.82, 38.76],
-            [-122.82, 40.0],
-            [-123.89, 40.0],
-            [-123.89, 38.76],
-        ]
-    ],
-}
+_BBOX = (-123.89, 38.76, -122.82, 40.0)
+_GEOMETRY = list(_BBOX)  # [x1, y1, x2, y2] — same as bbox
 
 
-def _make_items(n: int) -> list[StacItemFields]:
+def _make_items(n: int, collection_id: str = "test-collection") -> list[StacItemFields]:
     return [
         StacItemFields(
-            id=f"item-{i:02d}",
+            id=f"LIS_GPP_2020{i:02d}010000.d01.cog",
             datetime=f"2020-{i:02d}-01T00:00:00Z",
-            bbox=(-123.89, 38.76, -122.82, 40.0),
+            bbox=_BBOX,
             primary_asset_url=f"https://example.org/{i:02d}.tif",
+            collection_id=collection_id,
         )
         for i in range(1, n + 1)
     ]
 
 
-def _mock_reader(arrays: list[np.ndarray]):
-    """Return a patched Reader class whose .feature() side_effect yields ImageData-like mocks."""
-    mock_reader = MagicMock()
-    mock_reader.__enter__ = MagicMock(return_value=mock_reader)
-    mock_reader.__exit__ = MagicMock(return_value=None)
-    mock_reader.feature.side_effect = [
-        MagicMock(
-            data=np.expand_dims(arr, axis=0),
-            mask=np.ones_like(arr, dtype=bool),
-        )
-        for arr in arrays
-    ]
-    return mock_reader
+def _stats_response(mean: float, median: float, min_: float, max_: float, band: str = "cog_default") -> dict:
+    return {
+        f"{band}_b1": {
+            "mean": mean,
+            "median": median,
+            "min": min_,
+            "max": max_,
+            "std": 1.0,
+            "count": 100,
+            "sum": mean * 100,
+        }
+    }
 
 
-def test_compute_stats_aggregates_across_items():
-    items = _make_items(3)
-    # arrays with known means: 2.0, 3.0, 4.0
-    arrays = [
-        np.array([[0.0, 2.0], [2.0, 4.0]]),  # mean=2.0
-        np.array([[1.0, 3.0], [3.0, 5.0]]),  # mean=3.0
-        np.array([[2.0, 4.0], [4.0, 6.0]]),  # mean=4.0
-    ]
-    mock_reader = _mock_reader(arrays)
-    with patch("agent_cost_bench.eie.veda_tools.Reader") as reader_cls:
-        reader_cls.return_value = mock_reader
-        r = compute_stats(items, "FIRE", _GEOMETRY)
+# ---------------------------------------------------------------------------
+# Happy-path: single item
+# ---------------------------------------------------------------------------
+
+def test_compute_stats_single_item(httpx_mock: HTTPXMock):
+    items = _make_items(1)
+    item = items[0]
+    httpx_mock.add_response(
+        url=re.compile(
+            rf"https://openveda\.cloud/api/raster/collections/{item.collection_id}/items/{re.escape(item.id)}/statistics.*"
+        ),
+        json=_stats_response(mean=5.0, median=4.5, min_=1.0, max_=10.0),
+    )
+
+    r = compute_stats(items, "cog_default", _GEOMETRY)
 
     assert isinstance(r, ComputeStatsReturn)
+    assert r.n_items == 1
+    assert r.band == "cog_default"
+    assert abs(r.mean - 5.0) < 0.001
+    assert abs(r.median - 4.5) < 0.001
+    assert abs(r.min - 1.0) < 0.001
+    assert abs(r.max - 10.0) < 0.001
+    assert len(r.per_item) == 1
+    assert r.per_item[0]["item_id"] == item.id
+
+
+# ---------------------------------------------------------------------------
+# Multi-item aggregation
+# ---------------------------------------------------------------------------
+
+def test_compute_stats_multi_item_aggregation(httpx_mock: HTTPXMock):
+    """mean = mean-of-means; min = global min; max = global max."""
+    items = _make_items(3)
+    stats = [
+        (2.0, 2.0, 0.0, 4.0),   # item-01
+        (4.0, 4.0, 2.0, 6.0),   # item-02
+        (6.0, 6.0, 4.0, 8.0),   # item-03
+    ]
+    for item, (mean, median, min_, max_) in zip(items, stats):
+        httpx_mock.add_response(
+            url=re.compile(
+                rf"https://openveda\.cloud/api/raster/collections/{item.collection_id}/items/{re.escape(item.id)}/statistics.*"
+            ),
+            json=_stats_response(mean=mean, median=median, min_=min_, max_=max_),
+        )
+
+    r = compute_stats(items, "cog_default", _GEOMETRY)
+
     assert r.n_items == 3
-    assert r.band == "FIRE"
-    # mean over all 12 pixels: (0+2+2+4 + 1+3+3+5 + 2+4+4+6) / 12 = 36/12 = 3.0
-    assert abs(r.mean - 3.0) < 0.01
-    assert r.min == 0.0
-    assert r.max == 6.0
-    assert len(r.per_item) == 3
+    # overall mean = (2+4+6)/3 = 4.0
+    assert abs(r.mean - 4.0) < 0.001
+    # overall median = median([2,4,6]) = 4.0
+    assert abs(r.median - 4.0) < 0.001
+    # global min / max across all items
+    assert abs(r.min - 0.0) < 0.001
+    assert abs(r.max - 8.0) < 0.001
 
 
-def test_compute_stats_per_item_ids():
+# ---------------------------------------------------------------------------
+# Per-item detail in return value
+# ---------------------------------------------------------------------------
+
+def test_compute_stats_per_item_contains_ids_and_means(httpx_mock: HTTPXMock):
     items = _make_items(2)
-    arrays = [np.array([[1.0, 1.0]]), np.array([[3.0, 3.0]])]
-    mock_reader = _mock_reader(arrays)
-    with patch("agent_cost_bench.eie.veda_tools.Reader") as reader_cls:
-        reader_cls.return_value = mock_reader
-        r = compute_stats(items, "FIRE", _GEOMETRY)
+    httpx_mock.add_response(
+        url=re.compile(r".*statistics.*"),
+        json=_stats_response(mean=1.0, median=1.0, min_=0.0, max_=2.0),
+    )
+    httpx_mock.add_response(
+        url=re.compile(r".*statistics.*"),
+        json=_stats_response(mean=3.0, median=3.0, min_=2.0, max_=4.0),
+    )
+
+    r = compute_stats(items, "cog_default", _GEOMETRY)
 
     ids = [d["item_id"] for d in r.per_item]
-    assert ids == ["item-01", "item-02"]
+    means = [d["mean"] for d in r.per_item]
+    assert ids == [items[0].id, items[1].id]
+    assert abs(means[0] - 1.0) < 0.001
+    assert abs(means[1] - 3.0) < 0.001
 
 
-def test_compute_stats_per_item_means():
-    items = _make_items(2)
-    arrays = [np.array([[1.0, 3.0]]), np.array([[5.0, 7.0]])]
-    mock_reader = _mock_reader(arrays)
-    with patch("agent_cost_bench.eie.veda_tools.Reader") as reader_cls:
-        reader_cls.return_value = mock_reader
-        r = compute_stats(items, "FIRE", _GEOMETRY)
+# ---------------------------------------------------------------------------
+# Empty items list raises
+# ---------------------------------------------------------------------------
 
-    assert abs(r.per_item[0]["mean"] - 2.0) < 0.01  # (1+3)/2
-    assert abs(r.per_item[1]["mean"] - 6.0) < 0.01  # (5+7)/2
+def test_compute_stats_empty_items_raises():
+    with pytest.raises((ValueError, IndexError, Exception)):
+        compute_stats([], "cog_default", _GEOMETRY)
 
 
-def test_compute_stats_median():
+# ---------------------------------------------------------------------------
+# URL structure: assets= and bbox= query params
+# ---------------------------------------------------------------------------
+
+def test_compute_stats_url_has_correct_query_params(httpx_mock: HTTPXMock):
+    """The request URL must carry assets=<band> and bbox=x1,y1,x2,y2."""
     items = _make_items(1)
-    # 5 values whose median is 3.0
-    arrays = [np.array([[1.0, 2.0, 3.0, 4.0, 5.0]])]
-    mock_reader = _mock_reader(arrays)
-    with patch("agent_cost_bench.eie.veda_tools.Reader") as reader_cls:
-        reader_cls.return_value = mock_reader
-        r = compute_stats(items, "NDVI", _GEOMETRY)
+    captured_urls: list[str] = []
 
-    assert abs(r.median - 3.0) < 0.01
-    assert r.band == "NDVI"
+    def _capture(request):
+        captured_urls.append(str(request.url))
+        from httpx import Response
+        import json as _json
+        return Response(200, json=_stats_response(mean=1.0, median=1.0, min_=0.0, max_=2.0, band="NDVI"))
+
+    httpx_mock.add_callback(_capture)
+
+    compute_stats(items, "NDVI", _GEOMETRY)
+
+    assert len(captured_urls) == 1
+    url = captured_urls[0]
+    assert "assets=NDVI" in url
+    assert "bbox=" in url
+    # bbox values should contain our coordinates
+    assert "-123.89" in url or "123.89" in url
 
 
-def test_compute_stats_returns_compute_stats_return_type():
+# ---------------------------------------------------------------------------
+# Return type check
+# ---------------------------------------------------------------------------
+
+def test_compute_stats_return_type(httpx_mock: HTTPXMock):
+    """Return value is always a ComputeStatsReturn with correct band label."""
     items = _make_items(1)
-    arrays = [np.array([[10.0]])]
-    mock_reader = _mock_reader(arrays)
-    with patch("agent_cost_bench.eie.veda_tools.Reader") as reader_cls:
-        reader_cls.return_value = mock_reader
-        r = compute_stats(items, "FIRE", _GEOMETRY)
-
+    httpx_mock.add_response(
+        url=re.compile(r".*statistics.*"),
+        json=_stats_response(mean=42.0, median=42.0, min_=42.0, max_=42.0),
+    )
+    r = compute_stats(items, "cog_default", _GEOMETRY)
     assert isinstance(r, ComputeStatsReturn)
-    assert r.mean == 10.0
-    assert r.min == 10.0
-    assert r.max == 10.0
+    assert r.band == "cog_default"
     assert r.n_items == 1
+    assert abs(r.mean - 42.0) < 0.001
 
 
-def test_compute_stats_empty_items_returns_zeros():
-    r = compute_stats([], "FIRE", _GEOMETRY)
-    assert isinstance(r, ComputeStatsReturn)
-    assert r.n_items == 0
-    assert r.mean == 0.0
-    assert r.per_item == []
+# ---------------------------------------------------------------------------
+# Empty collection_id raises clearly
+# ---------------------------------------------------------------------------
 
-
-def test_compute_stats_reader_called_per_item_url():
-    items = _make_items(2)
-    arrays = [np.array([[1.0]]), np.array([[2.0]])]
-    mock_reader = _mock_reader(arrays)
-    with patch("agent_cost_bench.eie.veda_tools.Reader") as reader_cls:
-        reader_cls.return_value = mock_reader
-        compute_stats(items, "FIRE", _GEOMETRY)
-
-    assert reader_cls.call_count == 2
-    urls = [call.args[0] for call in reader_cls.call_args_list]
-    assert urls == ["https://example.org/01.tif", "https://example.org/02.tif"]
+def test_compute_stats_empty_collection_id_raises():
+    items = [
+        StacItemFields(
+            id="some-item",
+            datetime="2020-01-01T00:00:00Z",
+            bbox=_BBOX,
+            primary_asset_url="https://example.org/item.tif",
+            collection_id="",   # empty — should raise
+        )
+    ]
+    with pytest.raises((ValueError, Exception), match=r"collection_id|collection"):
+        compute_stats(items, "cog_default", _GEOMETRY)
