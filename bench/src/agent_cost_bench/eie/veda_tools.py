@@ -89,24 +89,27 @@ def geocode(query: str, level: str = "county") -> GeocodeReturn:
         )
 
     # Normalize: accept full state names ("California") or 2-letter codes ("CA"),
-    # with or without the trailing state. Lookup keys are "<county> county, <2-letter>".
+    # multi-part queries ("Mendocino County, California, USA"), and bare county
+    # names ("Sonoma"). Lookup keys are "<county> county, <2-letter>".
     _STATE_NAME_TO_ABBREV = {
         "california": "ca",
         "calif.": "ca",
         "calif": "ca",
     }
+    _COUNTRY_NOISE = {"usa", "u.s.a.", "u.s.", "united states", "united states of america", "us"}
     raw = query.strip().lower()
-    if "," in raw:
-        left, _, right = raw.partition(",")
-        county = left.strip()
-        state = right.strip().rstrip(".")
-        state = _STATE_NAME_TO_ABBREV.get(state, state)
-        if not county.endswith(" county"):
-            county = f"{county} county"
-        key = f"{county}, {state}"
-    else:
-        county = raw if raw.endswith(" county") else f"{raw} county"
-        key = f"{county}, ca"
+    parts = [p.strip().rstrip(".") for p in raw.split(",") if p.strip()]
+    parts = [p for p in parts if p not in _COUNTRY_NOISE]
+    county = parts[0] if parts else raw
+    if not county.endswith(" county"):
+        county = f"{county} county"
+    state = "ca"
+    for p in parts[1:]:
+        cand = _STATE_NAME_TO_ABBREV.get(p, p)
+        if len(cand) == 2 or cand in _STATE_NAME_TO_ABBREV.values():
+            state = cand
+            break
+    key = f"{county}, {state}"
     if key not in _COUNTY_LOOKUP:
         raise KeyError(f"unknown county: {query!r} (normalised to {key!r})")
     bbox = _COUNTY_LOOKUP[key]

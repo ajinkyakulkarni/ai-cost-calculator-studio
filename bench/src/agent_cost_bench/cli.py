@@ -216,6 +216,8 @@ def run_eie_templating(
     else:
         ids = [scenario]
 
+    succeeded: list[str] = []
+    failed: list[tuple[str, str]] = []
     for sid in ids:
         cfg = _load_eie_scenario(_EIE_SCENARIO_DIR / f"{sid}.yml")
         if model:
@@ -223,13 +225,23 @@ def run_eie_templating(
         if force_compute_stats:
             cfg = _dataclass_replace(cfg, enforce_compute_stats=True)
         console.print(f"[cyan]Running:[/] {sid}  ({cfg.pattern} × {cfg.handler_mode} on {cfg.model})")
-        out_path = run_eie_scenario(cfg)
-        console.print(f"[green]Wrote:[/] {out_path}")
+        try:
+            out_path = run_eie_scenario(cfg)
+            console.print(f"[green]Wrote:[/] {out_path}")
+            succeeded.append(sid)
+        except Exception as exc:  # noqa: BLE001
+            console.print(f"[red]FAILED:[/] {sid} — {type(exc).__name__}: {exc}")
+            failed.append((sid, f"{type(exc).__name__}: {exc}"))
 
     console.print(
-        f"\n[bold]{len(ids)} scenario(s) complete.[/] "
-        "Now run `agent-cost-bench report-eie-templating` to emit the summary."
+        f"\n[bold]{len(succeeded)}/{len(ids)} scenario(s) succeeded.[/] "
+        "Run `agent-cost-bench report-eie-templating` for the summary."
     )
+    if failed:
+        console.print(f"[red]{len(failed)} failed:[/]")
+        for sid, msg in failed:
+            console.print(f"  - {sid}: {msg}")
+        raise typer.Exit(code=1)
 
 
 @app.command(name="report-eie-templating")
