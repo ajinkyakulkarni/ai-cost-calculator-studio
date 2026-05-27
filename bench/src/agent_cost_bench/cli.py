@@ -221,6 +221,14 @@ def run_eie_templating(
     )
 
 
+@app.command(name="report-eie-templating")
+def report_eie_templating() -> None:
+    """Emit the comparison Markdown report from the latest 6 traces."""
+    from .eie.report import emit_report
+    out = emit_report()
+    Console().print(f"[green]Report written:[/] {out}")
+
+
 def main() -> None:
     """Console-script entry point referenced by pyproject.toml."""
     app()
