@@ -26,7 +26,7 @@ class UserActor:
                 "datetime": "yes, that's correct",
                 "state": "California",
                 "county": "Mendocino County",
-                "dataset": "LIS Global GPP",
+                "dataset": "lis-global-da-gpp",
                 "variable": "cog_default",
             }
         )

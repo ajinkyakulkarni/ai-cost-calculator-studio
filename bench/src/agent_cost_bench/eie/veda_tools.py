@@ -171,6 +171,18 @@ def search_items(
     """
     bbox_str = ",".join(f"{x:.4f}" for x in bbox)
     url = f"{STAC_ROOT}/collections/{collection_id}/items"
+    # VEDA's STAC requires RFC3339 datetime ("YYYY-MM-DDTHH:MM:SSZ"), not bare
+    # "YYYY-MM-DD". Promote bare-date forms (with or without slash) to RFC3339.
+    def _to_rfc3339(d: str) -> str:
+        d = d.strip()
+        if re.fullmatch(r"\d{4}-\d{2}-\d{2}", d):
+            return f"{d}T00:00:00Z"
+        return d
+    if "/" in datetime_range:
+        a, b = datetime_range.split("/", 1)
+        datetime_range = f"{_to_rfc3339(a)}/{_to_rfc3339(b)}"
+    else:
+        datetime_range = _to_rfc3339(datetime_range)
     params = {"bbox": bbox_str, "datetime": datetime_range, "limit": limit}
     with httpx.Client(timeout=30.0) as client:
         resp = client.get(url, params=params)

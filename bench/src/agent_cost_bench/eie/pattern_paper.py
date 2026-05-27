@@ -44,8 +44,10 @@ FORCE_COMPUTE_STATS_INSTRUCTION = (
 )
 
 PAPER_USER_QUERY = (
-    "Visualize gross primary production (GPP) from LIS Global DA GPP over Mendocino County, "
-    "California, June 2020 to November 2020. Report mean/median/min/max plus per-month values."
+    "Visualize gross primary production (GPP) from the NASA VEDA STAC collection "
+    "'lis-global-da-gpp' over Mendocino County, California, June 2020 to November 2020. "
+    "Use collection_id='lis-global-da-gpp' literally in tool calls. "
+    "Report mean/median/min/max plus per-month values."
 )
 
 

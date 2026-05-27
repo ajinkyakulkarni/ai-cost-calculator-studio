@@ -19,9 +19,9 @@ def test_actor_yields_each_gate_answer_in_order():
     # Gate 3: county
     a = actor.respond("county", agent_prompt="Which county?")
     assert a == "Mendocino County"
-    # Gate 4: dataset
+    # Gate 4: dataset (literal VEDA STAC collection id)
     a = actor.respond("dataset", agent_prompt="Which dataset?")
-    assert "LIS" in a
+    assert a == "lis-global-da-gpp"
     # Gate 5: variable
     a = actor.respond("variable", agent_prompt="Which variable?")
     assert a == "cog_default"
