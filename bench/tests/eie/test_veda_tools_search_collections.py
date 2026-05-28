@@ -1,6 +1,5 @@
 """search_collections — real NASA VEDA STAC call (mocked HTTP in tests)."""
 
-import pytest
 from pytest_httpx import HTTPXMock
 from agent_cost_bench.eie.veda_tools import search_collections
 from agent_cost_bench.eie.schemas import SearchCollectionsReturn, CollectionMeta

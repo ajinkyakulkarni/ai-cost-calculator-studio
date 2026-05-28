@@ -6,8 +6,8 @@ import json
 import pytest
 from unittest.mock import patch, MagicMock
 from agent_cost_bench.eie.dispatch import dispatch_tool_call
-from agent_cost_bench.eie.handlers import StatusOnlyHandler, KeyFieldsHandler, FreeformHandler
-from agent_cost_bench.eie.schemas import StacItemFields, SearchItemsReturn
+from agent_cost_bench.eie.handlers import StatusOnlyHandler, KeyFieldsHandler
+from agent_cost_bench.eie.schemas import StacItemFields
 
 
 def test_dispatch_parse_datetime_status_mode():

@@ -2,7 +2,6 @@
 
 import re
 
-import pytest
 from pytest_httpx import HTTPXMock
 from agent_cost_bench.eie.veda_tools import search_items
 from agent_cost_bench.eie.schemas import SearchItemsReturn

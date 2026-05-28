@@ -20,7 +20,7 @@ from typing import Annotated, Any, TypedDict
 from langgraph.graph import END, START, StateGraph
 from langgraph.graph.message import add_messages
 
-from .dispatch import get_tool_schemas, dispatch_tool_call
+from .dispatch import get_tool_calls as _get_tool_calls, get_tool_schemas, dispatch_tool_call
 from .provider_shim import call_llm
 
 
@@ -74,15 +74,6 @@ def _agent_step(state: State) -> dict[str, Any]:
         temperature=0.0,
     )
     return {"messages": [msg], "turn_count": state["turn_count"] + 1}
-
-
-def _get_tool_calls(msg: Any) -> list[Any]:
-    """Extract tool_calls from either a LangChain message object or a raw dict."""
-    if isinstance(msg, dict):
-        return msg.get("tool_calls") or []
-    # LangChain AIMessage — .tool_calls is a list of ToolCall dicts with keys
-    # 'name', 'args', 'id', 'type'.
-    return getattr(msg, "tool_calls", None) or []
 
 
 def _tool_step(state: State) -> dict[str, Any]:

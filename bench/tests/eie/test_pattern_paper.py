@@ -5,7 +5,7 @@ mocked LLM (no real provider calls). We assert the conversation has
 the expected turn count and the agent ends in 'final_answer' state.
 """
 
-from unittest.mock import patch, MagicMock
+from unittest.mock import patch
 from agent_cost_bench.eie.pattern_paper import build_pattern_p_graph
 from agent_cost_bench.eie.handlers import StatusOnlyHandler
 
@@ -84,8 +84,6 @@ def test_pattern_p_invoke_with_stub_provider():
     # Last message is the final assistant answer with no tool_calls.
     # LangGraph returns LangChain message objects; use attribute access.
     last = result["messages"][-1]
-    role = last["role"] if isinstance(last, dict) else last.type
-    # AIMessage.type == "ai"; check content directly
     content = last["content"] if isinstance(last, dict) else last.content
     tool_calls = (last.get("tool_calls") if isinstance(last, dict)
                   else getattr(last, "tool_calls", None))

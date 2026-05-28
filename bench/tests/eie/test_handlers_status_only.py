@@ -6,7 +6,6 @@ asset URLs — only deterministic short summary strings.
 """
 
 import json
-import pytest
 from agent_cost_bench.eie.handlers import StatusOnlyHandler
 from agent_cost_bench.eie.schemas import (
     GeocodeReturn,

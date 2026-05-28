@@ -13,9 +13,8 @@ out so no real LLM calls occur. We verify:
 from __future__ import annotations
 
 from pathlib import Path
-from unittest.mock import MagicMock, call, patch
+from unittest.mock import patch
 
-import pytest
 from typer.testing import CliRunner
 
 from agent_cost_bench.cli import app
