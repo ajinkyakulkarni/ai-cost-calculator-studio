@@ -19,7 +19,7 @@ SYNTHETIC_RAW_RESPONSE = {
     "type": "FeatureCollection",
     "features": [
         {
-            "id": "micasa-carbonflux-monthgrid-v1-20200601",
+            "id": "LIS_GPP_20200601",
             "type": "Feature",
             "geometry": {
                 "type": "Polygon",
@@ -36,13 +36,13 @@ SYNTHETIC_RAW_RESPONSE = {
             "properties": {
                 "datetime": "2020-06-01T00:00:00Z",
                 "eo:cloud_cover": 0,
-                "platform": "GEOS-5",
+                "platform": "LIS",
                 "provider": "NASA",
             },
             "assets": {
-                "FIRE": {"href": "https://example.org/06.tif", "type": "image/tiff"},
-                "NPP": {"href": "https://example.org/06-npp.tif", "type": "image/tiff"},
-                "Rh": {"href": "https://example.org/06-rh.tif", "type": "image/tiff"},
+                "cog_default": {"href": "https://example.org/06.tif", "type": "image/tiff"},
+                "cog_secondary": {"href": "https://example.org/06-secondary.tif", "type": "image/tiff"},
+                "thumbnail": {"href": "https://example.org/06-thumb.png", "type": "image/png"},
             },
             "bbox": [-123.89, 38.76, -122.82, 40.0],
         }
@@ -55,7 +55,7 @@ SYNTHETIC_RAW_RESPONSE = {
 def _make_search_items_return_with_raw() -> SearchItemsReturn:
     """Build a SearchItemsReturn that carries the raw STAC blob."""
     item = StacItemFields(
-        id="micasa-carbonflux-monthgrid-v1-20200601",
+        id="LIS_GPP_20200601",
         datetime="2020-06-01T00:00:00Z",
         bbox=(-123.89, 38.76, -122.82, 40.0),
         primary_asset_url="https://example.org/06.tif",
@@ -87,10 +87,10 @@ def test_freeform_emits_all_assets_not_just_primary():
     out = h.wrap("search_items", "tc_i2_002", raw)
     parsed = json.loads(out)
     assets = parsed["features"][0]["assets"]
-    # All three assets present — not just the primary FIRE one
-    assert "FIRE" in assets
-    assert "NPP" in assets
-    assert "Rh" in assets
+    # All three assets present — not just the primary cog_default one
+    assert "cog_default" in assets
+    assert "cog_secondary" in assets
+    assert "thumbnail" in assets
 
 
 def test_freeform_emits_extra_properties():
@@ -131,7 +131,7 @@ def test_freeform_falls_back_to_model_dump_json_without_raw_response():
 
     h = FreeformHandler()
     raw = ComputeStatsReturn(
-        band="FIRE",
+        band="cog_default",
         n_items=2,
         mean=1.5,
         median=1.5,
@@ -141,5 +141,5 @@ def test_freeform_falls_back_to_model_dump_json_without_raw_response():
     )
     out = h.wrap("compute_stats", "tc_i2_005", raw)
     parsed = json.loads(out)
-    assert parsed["band"] == "FIRE"
+    assert parsed["band"] == "cog_default"
     assert parsed["mean"] == 1.5

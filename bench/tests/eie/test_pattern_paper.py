@@ -57,10 +57,10 @@ def test_pattern_p_invoke_with_stub_provider():
     stub_llm_responses = [
         _make_tool_call("parse_datetime", {"value": "June 2020 to November 2020"}, "tc-1"),
         _make_tool_call("geocode", {"query": "mendocino county, ca", "level": "county"}, "tc-2"),
-        _make_tool_call("search_collections", {"query": "MiCASA"}, "tc-3"),
-        _make_tool_call("search_items", {"collection_id": "micasa-carbonflux-monthgrid-v1", "bbox": [-124.0, 38.0, -122.5, 40.0], "datetime_range": "2020-06-01/2020-11-30"}, "tc-4"),
-        _make_tool_call("compute_stats", {"item_refs": [], "band": "FIRE", "geometry": {"type": "Polygon", "coordinates": [[[0, 0]]]}}, "tc-5"),
-        _make_final("Mean FIRE flux: 0.12 gC/m2/day across June–November 2020."),
+        _make_tool_call("search_collections", {"query": "global primary production"}, "tc-3"),
+        _make_tool_call("search_items", {"collection_id": "lis-global-da-gpp", "bbox": [-124.0, 38.0, -122.5, 40.0], "datetime_range": "2020-06-01/2020-11-30"}, "tc-4"),
+        _make_tool_call("compute_stats", {"item_refs": [], "band": "cog_default", "geometry": {"type": "Polygon", "coordinates": [[[0, 0]]]}}, "tc-5"),
+        _make_final("Mean GPP: 0.12 gC/m2/day across June–November 2020."),
     ]
 
     llm_iter = iter(stub_llm_responses)
@@ -90,4 +90,4 @@ def test_pattern_p_invoke_with_stub_provider():
     tool_calls = (last.get("tool_calls") if isinstance(last, dict)
                   else getattr(last, "tool_calls", None))
     assert not tool_calls
-    assert "FIRE" in content
+    assert "GPP" in content

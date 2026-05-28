@@ -62,13 +62,13 @@ def _paper_stub_responses():
     return [
         _tc("parse_datetime", {"value": "June 2020"}, "tc-1"),
         _tc("geocode", {"query": "mendocino", "level": "county"}, "tc-2"),
-        _tc("search_collections", {"query": "MiCASA"}, "tc-3"),
-        _tc("search_items", {"collection_id": "micasa-carbonflux-monthgrid-v1",
+        _tc("search_collections", {"query": "global primary production"}, "tc-3"),
+        _tc("search_items", {"collection_id": "lis-global-da-gpp",
                               "bbox": [-124, 38, -122, 40],
                               "datetime_range": "2020-06/2020-11"}, "tc-4"),
-        _tc("compute_stats", {"item_refs": [], "band": "FIRE",
+        _tc("compute_stats", {"item_refs": [], "band": "cog_default",
                                "geometry": {"type": "Polygon", "coordinates": []}}, "tc-5"),
-        _final("Mean FIRE flux: 0.12 gC/m2/day."),
+        _final("Mean GPP: 0.12 gC/m2/day."),
     ]
 
 
@@ -82,7 +82,7 @@ def _eie_stub_responses():
         _tc("geocode", {"query": "Mendocino County", "level": "county"}, "tc-e6"),
         _tc("ask_user", {"gate": "dataset", "prompt": "Which dataset?"}, "tc-e7"),
         _tc("ask_user", {"gate": "variable", "prompt": "Which band?"}, "tc-e8"),
-        _final("Mean FIRE flux over Mendocino: 0.18 gC/m2/day."),
+        _final("Mean GPP over Mendocino: 0.18 gC/m2/day."),
     ]
 
 

@@ -70,7 +70,7 @@ def test_pattern_e_invoke_with_stub():
         # Turn 8 (after gate answer): ask gate[variable]
         _tc("ask_user", {"gate": "variable", "prompt": "Which band/variable?"}, "tc-8"),
         # Turn 9 (after gate answer): search_items + compute_stats → final answer
-        _final("Mean FIRE flux over Mendocino County June–November 2020: 0.18 gC/m2/day."),
+        _final("Mean GPP over Mendocino County June–November 2020: 0.18 gC/m2/day."),
     ]
 
     llm_iter = iter(stub_responses)
@@ -96,7 +96,7 @@ def test_pattern_e_invoke_with_stub():
     tool_calls = (last.get("tool_calls") if isinstance(last, dict)
                   else getattr(last, "tool_calls", None))
     assert not tool_calls
-    assert "FIRE" in content
+    assert "GPP" in content
 
 
 def test_pattern_e_survives_novel_gate():

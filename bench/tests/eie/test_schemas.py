@@ -31,7 +31,7 @@ def test_geocode_minimum_fields():
 def test_search_items_holds_a_list_of_typed_items():
     items = [
         StacItemFields(
-            id=f"micasa-{m:02d}",
+            id=f"LIS_GPP_2020{m:02d}",
             datetime=f"2020-{m:02d}-01T00:00:00Z",
             bbox=(-123.89, 38.76, -122.82, 40.0),
             primary_asset_url=f"https://example.org/{m:02d}.tif",
@@ -40,12 +40,12 @@ def test_search_items_holds_a_list_of_typed_items():
     ]
     r = SearchItemsReturn(items=items, total_matched=len(items))
     assert r.total_matched == 6
-    assert r.items[0].id == "micasa-06"
+    assert r.items[0].id == "LIS_GPP_202006"
 
 
 def test_compute_stats_has_aggregates_and_per_item():
     r = ComputeStatsReturn(
-        band="FIRE",
+        band="cog_default",
         n_items=6,
         mean=1.96,
         median=2.0,
@@ -57,6 +57,6 @@ def test_compute_stats_has_aggregates_and_per_item():
 
 
 def test_status_return_caps_summary():
-    r = StatusReturn(ok=True, summary="6 items found in micasa-carbonflux-monthgrid-v1, 2020-06 to 2020-10", tool_call_id="ti_3f2a")
+    r = StatusReturn(ok=True, summary="6 items found in lis-global-da-gpp, 2020-06 to 2020-10", tool_call_id="ti_3f2a")
     assert r.ok is True
     assert len(r.summary) < 200
