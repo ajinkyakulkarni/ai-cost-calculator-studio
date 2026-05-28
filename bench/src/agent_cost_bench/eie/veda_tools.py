@@ -233,6 +233,61 @@ def _bbox_from_geometry(geometry: Any) -> list[float]:
     raise TypeError(f"Unsupported geometry type for bbox extraction: {type(geometry)!r}")
 
 
+# The canonical COG asset key on VEDA collections like lis-global-da-gpp.
+# Used as the fallback when an agent passes a guessed band name.
+DEFAULT_ASSET = "cog_default"
+
+
+def _fetch_stats_block(
+    client: httpx.Client,
+    item: StacItemFields,
+    asset: str,
+    bbox_str: str,
+) -> dict | None:
+    """Fetch the per-item stats block for ``asset``, or None if the asset is
+    not valid on this item.
+
+    The raster API serves a 200-OK HTML page (the STAC Browser index) when the
+    asset/collection/item path is wrong, rather than a 4xx — so a non-JSON
+    content type, or a missing ``<asset>_b1`` key, both mean "no such asset".
+    """
+    url = f"{RASTER_ROOT}/collections/{item.collection_id}/items/{item.id}/statistics"
+    resp = client.get(url, params={"assets": asset, "bbox": bbox_str})
+    resp.raise_for_status()
+    if "application/json" not in resp.headers.get("content-type", ""):
+        return None
+    data = resp.json()
+    return data.get(f"{asset}_b1")
+
+
+def _resolve_asset(
+    client: httpx.Client,
+    first_item: StacItemFields,
+    requested: str,
+    bbox_str: str,
+) -> tuple[str, dict]:
+    """Return ``(effective_asset, first_item_stats_block)``.
+
+    Probe ``requested`` on the first item; if it resolves, use it. Otherwise
+    fall back to DEFAULT_ASSET (the real COG asset) so an agent's guessed band
+    name doesn't fail the whole run. The first item's stats block is returned
+    so the caller doesn't re-fetch it. Raise only if neither asset works.
+    """
+    block = _fetch_stats_block(client, first_item, requested, bbox_str)
+    if block is not None:
+        return requested, block
+    if requested != DEFAULT_ASSET:
+        block = _fetch_stats_block(client, first_item, DEFAULT_ASSET, bbox_str)
+        if block is not None:
+            return DEFAULT_ASSET, block
+    raise ValueError(
+        f"Raster /statistics has no usable asset for item {first_item.id!r} in "
+        f"collection {first_item.collection_id!r}: tried {requested!r}"
+        + ("" if requested == DEFAULT_ASSET else f" and {DEFAULT_ASSET!r}")
+        + ". Check the collection_id and item_id."
+    )
+
+
 def compute_stats(
     items: list[StacItemFields],
     band: str,
@@ -269,39 +324,32 @@ def compute_stats(
     all_mins: list[float] = []
     all_maxs: list[float] = []
 
+    for it in items:
+        if not it.collection_id:
+            raise ValueError(
+                f"Item {it.id!r} has an empty collection_id. "
+                "Items must be retrieved via search_items so that "
+                "collection_id is populated before calling compute_stats."
+            )
+
     with httpx.Client(timeout=30.0) as client:
-        for it in items:
-            if not it.collection_id:
+        # Resolve the effective asset once on the first item. Agents often
+        # guess a band from the dataset name (e.g. "gpp") rather than the real
+        # COG asset key ("cog_default"); the raster API rejects unknown assets
+        # with a 200-OK HTML page. Probe the requested band, and if it isn't a
+        # real asset, fall back to DEFAULT_ASSET instead of failing the run.
+        # The first item's block comes back too, so we don't re-fetch it.
+        effective_band, first_block = _resolve_asset(client, items[0], band, bbox_str)
+
+        for idx, it in enumerate(items):
+            stats_block = first_block if idx == 0 else _fetch_stats_block(
+                client, it, effective_band, bbox_str
+            )
+            if stats_block is None:
                 raise ValueError(
-                    f"Item {it.id!r} has an empty collection_id. "
-                    "Items must be retrieved via search_items so that "
-                    "collection_id is populated before calling compute_stats."
+                    f"Raster /statistics returned no usable {effective_band!r} "
+                    f"stats for item {it.id!r} in collection {it.collection_id!r}."
                 )
-            url = f"{RASTER_ROOT}/collections/{it.collection_id}/items/{it.id}/statistics"
-            params = {"assets": band, "bbox": bbox_str}
-            resp = client.get(url, params=params)
-            resp.raise_for_status()
-            # The raster API serves the STAC Browser HTML index on unknown paths
-            # (collection or item not found) with a 200 OK status. Detect that
-            # so the error message tells the LLM what was wrong rather than
-            # surfacing an opaque JSONDecodeError.
-            ctype = resp.headers.get("content-type", "")
-            if "application/json" not in ctype:
-                raise ValueError(
-                    f"Raster /statistics returned non-JSON for {url} "
-                    f"params={params!r} content-type={ctype!r}. "
-                    "Likely the collection_id or item_id is wrong. "
-                    f"Body excerpt: {resp.text[:160]!r}"
-                )
-            data = resp.json()
-            key = f"{band}_b1"
-            if key not in data:
-                raise ValueError(
-                    f"Raster /statistics response for {url} did not contain key "
-                    f"{key!r}. Available keys: {list(data.keys())!r}. "
-                    f"Check the `band` argument matches an asset name."
-                )
-            stats_block = data[key]
             item_mean = float(stats_block["mean"])
             item_median = float(stats_block["median"])
             item_min = float(stats_block["min"])
@@ -319,7 +367,7 @@ def compute_stats(
             all_maxs.append(item_max)
 
     return ComputeStatsReturn(
-        band=band,
+        band=effective_band,
         n_items=len(items),
         mean=float(np.mean(all_means)),
         median=float(np.median(all_medians)),

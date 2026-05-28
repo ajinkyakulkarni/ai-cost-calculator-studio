@@ -196,3 +196,53 @@ def test_compute_stats_empty_collection_id_raises():
     ]
     with pytest.raises((ValueError, Exception), match=r"collection_id|collection"):
         compute_stats(items, "cog_default", _GEOMETRY)
+
+
+# ---------------------------------------------------------------------------
+# Band fallback: a guessed band (e.g. "gpp") falls back to cog_default
+# ---------------------------------------------------------------------------
+
+@pytest.mark.httpx_mock(can_send_already_matched_responses=True)
+def test_compute_stats_falls_back_to_cog_default_on_bad_band(httpx_mock: HTTPXMock):
+    """Agent guesses band='gpp'; raster serves HTML for it. compute_stats must
+    retry with cog_default (the real asset) and report band='cog_default'.
+
+    A callback handles every request (reusable), dispatching on the assets=
+    query param: 'gpp' → HTML (unknown asset), 'cog_default' → JSON.
+    """
+    from httpx import Response
+
+    def _dispatch(request):
+        url = str(request.url)
+        if "assets=gpp" in url:
+            return Response(
+                200,
+                text="<!doctype html><html><body>STAC Browser</body></html>",
+                headers={"content-type": "text/html"},
+            )
+        return Response(200, json=_stats_response(mean=5.0, median=4.5, min_=1.0, max_=10.0))
+
+    httpx_mock.add_callback(_dispatch)
+
+    r = compute_stats(_make_items(2), "gpp", _GEOMETRY)
+
+    assert isinstance(r, ComputeStatsReturn)
+    assert r.band == "cog_default", "must report the asset actually used, not the guess"
+    assert r.n_items == 2
+    assert abs(r.mean - 5.0) < 0.001
+
+
+def test_compute_stats_raises_when_no_asset_works(httpx_mock: HTTPXMock):
+    """If neither the requested band nor cog_default resolves, raise clearly."""
+    from httpx import Response
+
+    httpx_mock.add_callback(
+        lambda request: Response(
+            200,
+            text="<!doctype html><html><body>STAC Browser</body></html>",
+            headers={"content-type": "text/html"},
+        ),
+        is_reusable=True,
+    )
+    with pytest.raises(ValueError, match=r"no usable asset"):
+        compute_stats(_make_items(1), "gpp", _GEOMETRY)
