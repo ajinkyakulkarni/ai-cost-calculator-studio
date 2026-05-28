@@ -204,6 +204,15 @@ def run_eie_templating(
             "Use this to isolate templating cost from information-bottleneck cost."
         ),
     ),
+    with_map: bool = typer.Option(
+        False,
+        "--with-map",
+        help=(
+            "Opt-in to the render_map tool: adds it to the tool schema list and "
+            "instructs the agent to call it after compute_stats and include the "
+            "map layer URL verbatim in its final answer."
+        ),
+    ),
 ) -> None:
     """Run the eie-templating bench: 6 scenarios = 2 patterns × 3 handler modes.
 
@@ -224,6 +233,8 @@ def run_eie_templating(
             cfg = _dataclass_replace(cfg, model=model)
         if force_compute_stats:
             cfg = _dataclass_replace(cfg, enforce_compute_stats=True)
+        if with_map:
+            cfg = _dataclass_replace(cfg, emit_map=True)
         console.print(f"[cyan]Running:[/] {sid}  ({cfg.pattern} × {cfg.handler_mode} on {cfg.model})")
         try:
             out_path = run_eie_scenario(cfg)

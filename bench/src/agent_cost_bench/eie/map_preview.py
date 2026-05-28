@@ -19,9 +19,67 @@ Usage::
 
 from __future__ import annotations
 
+import urllib.parse
+
 import httpx
 
 from .veda_tools import RASTER_ROOT
+
+
+def build_preview_url(
+    collection_id: str,
+    item_id: str,
+    bbox: tuple[float, float, float, float],
+    *,
+    asset: str = "cog_default",
+    rescale: tuple[float, float] = (0.0, 0.0002),
+    colormap: str = "viridis",
+    width: int = 400,
+    height: int = 400,
+) -> str:
+    """Return the full VEDA raster /bbox URL (path + query string) for a PNG tile.
+
+    Pure string builder — no HTTP call, no side effects. Safe to call from
+    render_map (the agent-facing tool) and render_preview (the fetch helper).
+
+    Parameters
+    ----------
+    collection_id:
+        STAC collection identifier (e.g. ``"lis-global-da-gpp"``).
+    item_id:
+        STAC item identifier (e.g. ``"LIS_GPP_202006010000.d01.cog"``).
+    bbox:
+        Bounding box as ``(minx, miny, maxx, maxy)`` in WGS-84 decimal degrees.
+    asset:
+        Asset name to render. Defaults to ``"cog_default"``.
+    rescale:
+        ``(lo, hi)`` value range for contrast stretch.
+    colormap:
+        TiTiler-compatible colormap name.
+    width:
+        Output image width in pixels.
+    height:
+        Output image height in pixels.
+
+    Returns
+    -------
+    str
+        Full URL including path and percent-encoded query string.
+    """
+    minx, miny, maxx, maxy = bbox
+    bbox_path = f"{minx:.4f},{miny:.4f},{maxx:.4f},{maxy:.4f}"
+    path = (
+        f"{RASTER_ROOT}/collections/{collection_id}"
+        f"/items/{item_id}/bbox/{bbox_path}.png"
+    )
+    query = urllib.parse.urlencode({
+        "assets": asset,
+        "rescale": f"{rescale[0]},{rescale[1]}",
+        "colormap_name": colormap,
+        "width": width,
+        "height": height,
+    })
+    return f"{path}?{query}"
 
 
 def render_preview(
@@ -72,29 +130,20 @@ def render_preview(
         ``text/html``); this turns that into a clear error rather than letting
         the caller silently write an HTML file with a ``.png`` extension.
     """
-    minx, miny, maxx, maxy = bbox
-    bbox_path = f"{minx:.4f},{miny:.4f},{maxx:.4f},{maxy:.4f}"
-    url = (
-        f"{RASTER_ROOT}/collections/{collection_id}"
-        f"/items/{item_id}/bbox/{bbox_path}.png"
+    url = build_preview_url(
+        collection_id, item_id, bbox,
+        asset=asset, rescale=rescale, colormap=colormap, width=width, height=height,
     )
-    params = {
-        "assets": asset,
-        "rescale": f"{rescale[0]},{rescale[1]}",
-        "colormap_name": colormap,
-        "width": width,
-        "height": height,
-    }
 
     with httpx.Client(timeout=30.0) as client:
-        resp = client.get(url, params=params)
+        resp = client.get(url)
         resp.raise_for_status()
 
     ctype = resp.headers.get("content-type", "")
     if "image/png" not in ctype:
         raise ValueError(
             f"Raster /bbox returned non-PNG for {url} "
-            f"params={params!r} content-type={ctype!r}. "
+            f"content-type={ctype!r}. "
             "Likely the collection_id or item_id is wrong. "
             f"Body excerpt: {resp.content[:160]!r}"
         )

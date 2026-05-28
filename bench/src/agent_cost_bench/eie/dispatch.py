@@ -15,6 +15,36 @@ from .schemas import StacItemFields
 
 # Centralized JSON schemas the LLM sees for each tool. These names
 # match the dispatch keys below.
+_RENDER_MAP_SCHEMA: dict[str, Any] = {
+    "type": "function",
+    "function": {
+        "name": "render_map",
+        "description": (
+            "Return a map layer URL for a STAC item and bbox. "
+            "Call this after compute_stats to produce a renderable map tile URL. "
+            "The URL can be loaded directly by a map widget — no image is fetched here."
+        ),
+        "parameters": {
+            "type": "object",
+            "properties": {
+                "collection_id": {"type": "string"},
+                "item_id": {"type": "string"},
+                "bbox": {
+                    "type": "array",
+                    "items": {"type": "number"},
+                    "minItems": 4,
+                    "maxItems": 4,
+                },
+                "colormap": {
+                    "type": "string",
+                    "description": "TiTiler colormap name (e.g. viridis, plasma, rdylgn). Optional.",
+                },
+            },
+            "required": ["collection_id", "item_id", "bbox"],
+        },
+    },
+}
+
 TOOL_SCHEMAS: list[dict[str, Any]] = [
     {
         "type": "function",
@@ -115,6 +145,20 @@ TOOL_SCHEMAS: list[dict[str, Any]] = [
 ]
 
 
+def get_tool_schemas(with_map: bool = False) -> list[dict[str, Any]]:
+    """Return the tool schema list the LLM sees.
+
+    Parameters
+    ----------
+    with_map:
+        When True, append the render_map schema to the base 5 tools.
+        When False (default), return only the base 5 tools unchanged.
+    """
+    if with_map:
+        return TOOL_SCHEMAS + [_RENDER_MAP_SCHEMA]
+    return TOOL_SCHEMAS
+
+
 class Handler(Protocol):
     def wrap(self, tool_name: str, tool_call_id: str, raw: Any) -> str: ...
 
@@ -133,6 +177,13 @@ def dispatch_tool_call(name: str, args: dict[str, Any], handler: Handler, tool_c
             tuple(args["bbox"]),
             args["datetime_range"],
             args.get("band", "cog_default"),
+        )
+    elif name == "render_map":
+        raw = veda_tools.render_map(
+            args["collection_id"],
+            args["item_id"],
+            tuple(args["bbox"]),
+            args.get("colormap", "viridis"),
         )
     elif name == "compute_stats":
         # item_refs must be the list of StacItemFields objects (or dicts with
