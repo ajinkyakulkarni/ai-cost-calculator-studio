@@ -33,6 +33,7 @@ from .schemas import (
     RenderMapReturn,
     SearchCollectionsReturn,
     SearchItemsReturn,
+    StacItemFields,
     StatusReturn,
 )
 
@@ -59,13 +60,34 @@ class StatusOnlyHandler:
         out = StatusReturn(ok=True, summary=summary, tool_call_id=tool_call_id)
         return out.model_dump_json()
 
+    def recover_search_items(self) -> list[StacItemFields] | None:
+        """Return the most-recently-stashed search_items result's items.
+
+        In status-only mode the agent never sees item details — only a count
+        summary — so it cannot pass item_refs to compute_stats. This resolves
+        the items the agent already fetched from server-side state (the design
+        this handler documents). The agent still pays for the search_items
+        turn; this only lets it USE that result. Returns None if no
+        search_items has been stashed yet (agent genuinely skipped the search).
+        """
+        for raw in reversed(list(self.state.values())):
+            if isinstance(raw, SearchItemsReturn):
+                return raw.items
+        return None
+
     def _summarize(self, tool_name: str, raw: BaseModel) -> str:
         if isinstance(raw, ParseDatetimeReturn):
             return f"parsed datetime range {raw.start} to {raw.end}"
         if isinstance(raw, GeocodeReturn):
             return f"geocoded {raw.admin_name} ({raw.admin_level})"
         if isinstance(raw, SearchCollectionsReturn):
-            return f"{raw.total_matched} collections matched"
+            # Keep the collection IDs: they are the actionable result of a
+            # search (the agent needs one to call search_items). They are tiny
+            # strings — dropping them is what starves the agent, not the bulky
+            # titles/descriptions which we DO drop. Cap at 5 to stay terse.
+            ids = ", ".join(c.id for c in raw.collections[:5])
+            more = "" if raw.total_matched <= 5 else f" (+{raw.total_matched - 5} more)"
+            return f"{raw.total_matched} collections matched: {ids}{more}" if ids else "0 collections matched"
         if isinstance(raw, SearchItemsReturn):
             collection_hint = raw.items[0].id.split("-2020")[0] if raw.items else ""
             window = ""
