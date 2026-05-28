@@ -2688,6 +2688,52 @@ Production teams measure their primary's confidence-score distribution; escalate
 
     // AS-IS vs proposed — compare against the user's current contract spend.
     renderAsIsCompare(headlineTotal);
+
+    // Grey out sliders that are inert in the current mode so users
+    // don't drag them and wonder why the cost doesn't change.
+    syncSliderModeState();
+  }
+
+  // Marks sliders as disabled + greyed-out when they have no effect in
+  // the current configuration, and re-enables them when they become live.
+  // Called at the end of every renderPreview() pass.
+  function syncSliderModeState() {
+    // Multi-segment: s-users / s-sessions / s-turns are display-only
+    // (renderPreview pushes segment rollups onto them; dragging does nothing).
+    const multiSeg = Array.isArray(workload.segments) && workload.segments.length > 1;
+    const multiSegTip = multiSeg
+      ? 'Showing segment totals — edit per-segment traffic below to change this. ' +
+        '(Single-segment workloads let you drag these directly.)'
+      : '';
+    ['s-users', 's-sessions', 's-turns'].forEach(function(id) {
+      const el = document.getElementById(id);
+      if (!el) return;
+      el.disabled = multiSeg;
+      el.title = multiSegTip;
+      const row = el.closest('div');
+      if (row) row.classList.toggle('slider-inert', multiSeg);
+    });
+
+    // No-agents: s-agents and s-comm-pattern only affect cost in agent mode.
+    const noAgents = !Array.isArray(workload.agents) || workload.agents.length === 0;
+    const noAgentsTip = noAgents
+      ? 'Add agents in the Agent fleet section to use this control.'
+      : '';
+    ['s-agents', 's-comm-pattern'].forEach(function(id) {
+      const el = document.getElementById(id);
+      if (!el) return;
+      el.disabled = noAgents;
+      el.title = noAgentsTip;
+      const row = el.closest('div');
+      if (row) row.classList.toggle('slider-inert', noAgents);
+    });
+
+    // s-growth: always active (drives 3-yr TCO), but commonly misread as
+    // affecting the monthly headline. Clarify with a static tooltip.
+    const growthEl = document.getElementById('s-growth');
+    if (growthEl && !growthEl.title) {
+      growthEl.title = 'Affects the 3-year TCO projection, not the monthly cost headline.';
+    }
   }
 
   // Inverse calculator: given a target budget, what's the maximum MAU the

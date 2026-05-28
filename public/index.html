@@ -3477,6 +3477,13 @@ body.theme-tactical main .section .row > div > label {
 /* What-if cards */
 .simulator-pane.theme-mission .mcard .mlabel,.simulator-pane.theme-command .mcard .mlabel{color:var(--dim);}
 
+/* Inert sliders — visually greys out the entire slider row when the
+   control has no effect in the current mode (multi-segment traffic or
+   no-agents context). Tooltip on the input explains why. */
+.slider-inert { opacity: 0.45; pointer-events: none; }
+.slider-inert input[type=range] { pointer-events: none; }
+input[type=range]:disabled { cursor: not-allowed; }
+
 
 </style>
 </head>
