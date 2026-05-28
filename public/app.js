@@ -1696,6 +1696,36 @@ Production teams measure their primary's confidence-score distribution; escalate
       headlineLabel.textContent = `Total monthly cost · ${agency}`;
     }
 
+    // Payload-mode persistence. When a calibrated workload has selected a
+    // payload mode (via the 3-way Minimal/Moderate/Heavy buttons OR the
+    // freeform/templated dropdown), re-derive the anchor from that mode on
+    // EVERY render. The freeform/templated dropdown carries an inline
+    // onchange="onSlider()" that triggers a full rebuild; without this
+    // re-derivation the rebuild would re-read the default calibrated anchor
+    // (3342) and the chosen mode's tokens would be silently dropped — the
+    // dropdown moved nothing while the buttons worked. Sourcing from
+    // _payload_mode_active here makes the choice survive any rebuild and
+    // hardens the buttons too. Agent-mode workloads (no payload_modes) and
+    // un-selected calibrated workloads are untouched.
+    {
+      const _pm = workload?.anchor_query?._calibration?.payload_modes;
+      const _activeMode = workload?._payload_mode_active;
+      const _mode = _activeMode && _pm ? _pm[_activeMode] : null;
+      if (_mode) {
+        if (_mode.input_tokens != null) workload.anchor_query.input_tokens = _mode.input_tokens;
+        if (_mode.output_tokens != null) workload.anchor_query.output_tokens = _mode.output_tokens;
+        if (_mode.cache_rate_baseline != null) workload.anchor_query.cache_rate_baseline = _mode.cache_rate_baseline;
+        // Keep the freeform/templated dropdown's displayed value consistent
+        // with the active payload mode: minimal→templated, heavy→freeform.
+        // 'moderate' has no dropdown equivalent, so leave the control as-is.
+        const _shapeSel = document.getElementById('s-tool-response-mode');
+        if (_shapeSel) {
+          if (_activeMode === 'minimal' && _shapeSel.value !== 'templated') _shapeSel.value = 'templated';
+          else if (_activeMode === 'heavy' && _shapeSel.value !== 'freeform') _shapeSel.value = 'freeform';
+        }
+      }
+    }
+
     const $ = id => document.getElementById(id);
     const val = (id, fallback) => { const el = $(id); return el ? el.value : fallback; };
     const numVal = (id, fallback) => { const el = $(id); return el ? parseFloat(el.value) : fallback; };
@@ -3835,21 +3865,11 @@ Production teams measure their primary's confidence-score distribution; escalate
       else if (t.id === 's-turns')    scaleSegments('questions_per_session', v, true);
       else if (t.id === 's-sessions') scaleSegments('sessions_per_day',      v, true);
 
-      // When the freeform/templated dropdown changes and the active workload
-      // has calibration payload_modes, drive the payload lever so the dropdown
-      // is not inert. templated → minimal (lowest-token validated mode);
-      // freeform → heavy (highest-token validated mode). The middle "moderate"
-      // is still reachable via the 3-way payload buttons. When no payload_modes
-      // exist (agent-mode workloads) we leave the existing per-tool cap path
-      // unchanged — the dropdown still affects tool_response_mode opts there.
-      if (t.id === 's-tool-response-mode') {
-        const hasModes = !!(workload?.anchor_query?._calibration?.payload_modes);
-        if (hasModes) {
-          const dropdownVal = t.value;
-          if (dropdownVal === 'templated') applyPayloadMode('minimal');
-          else if (dropdownVal === 'freeform') applyPayloadMode('heavy');
-        }
-      }
+      // (The freeform/templated dropdown → payload-mode mapping lives in a
+      // dedicated, non-isTrusted-gated listener registered below — see
+      // s-tool-response-mode handler. It can't live here because this handler
+      // early-returns on !ev.isTrusted, and the mapping must also re-derive
+      // the anchor for programmatic/synthetic change events.)
 
       // Per-agent simulator slider drag in workload-mode → promote.
       if (PROMOTE_TRIGGERS.has(t.id)
@@ -3879,6 +3899,39 @@ Production teams measure their primary's confidence-score distribution; escalate
     // fire 'change' not 'input', so we register for both.
     document.addEventListener('input',  handleSimChange, true);
     document.addEventListener('change', handleSimChange, true);
+
+    // Freeform/templated "Tool return shape" dropdown → payload-mode lever.
+    // Registered directly on the SELECT (not via the isTrusted-gated
+    // handleSimChange) so it fires for both real user changes and any
+    // programmatic change events. We set _payload_mode_active and let the
+    // renderPreview re-derivation (top of renderPreview) source the anchor
+    // from payload_modes — that path also survives the inline
+    // onchange="onSlider()" rebuild the dropdown carries. Agent-mode
+    // workloads (no payload_modes) are left to the existing per-tool cap
+    // path: the dropdown still feeds tool_response_mode opts there.
+    {
+      const shapeSel = document.getElementById('s-tool-response-mode');
+      if (shapeSel) {
+        // Capture phase so this runs BEFORE the SELECT's inline
+        // onchange="onSlider()" target-phase handler. onSlider triggers a
+        // renderPreview that re-syncs the dropdown's value from
+        // _payload_mode_active — if we read shapeSel.value AFTER that, we'd
+        // see the stale re-synced value (the bug that pinned the lever at
+        // 1.0). Reading + applying here, first, sets _payload_mode_active to
+        // the user's actual selection so the ensuing onSlider render derives
+        // the right anchor.
+        shapeSel.addEventListener('change', () => {
+          const hasModes = !!(workload?.anchor_query?._calibration?.payload_modes);
+          if (!hasModes) return;
+          const v = shapeSel.value;
+          // templated → minimal (lowest-token validated mode);
+          // freeform → heavy (highest-token validated mode). 'moderate'
+          // stays reachable only via the 3-way payload buttons.
+          if (v === 'templated') applyPayloadMode('minimal');
+          else if (v === 'freeform') applyPayloadMode('heavy');
+        }, true);
+      }
+    }
 
     // (Appbar example-loader removed — unified into the chat-builder
     // "Describe your AI system" picker. The handler below was looking
