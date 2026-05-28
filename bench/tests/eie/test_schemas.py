@@ -1,10 +1,8 @@
 """Validate the typed schemas the response handlers consume + emit."""
 
-import pytest
 from agent_cost_bench.eie.schemas import (
     ParseDatetimeReturn,
     GeocodeReturn,
-    SearchCollectionsReturn,
     StacItemFields,
     SearchItemsReturn,
     ComputeStatsReturn,

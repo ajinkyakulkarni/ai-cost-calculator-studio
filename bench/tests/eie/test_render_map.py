@@ -8,7 +8,6 @@ from __future__ import annotations
 import json
 from unittest.mock import patch
 
-import pytest
 
 from agent_cost_bench.eie.schemas import RenderMapReturn
 
@@ -117,7 +116,6 @@ def test_build_preview_url_no_http_call(monkeypatch):
 
 def test_render_preview_uses_build_preview_url(httpx_mock):
     """render_preview must produce the same URL path that build_preview_url generates."""
-    from pytest_httpx import HTTPXMock
     from agent_cost_bench.eie.map_preview import build_preview_url, render_preview
 
     expected_url = build_preview_url(_COLLECTION, _ITEM, _BBOX)
@@ -175,7 +173,6 @@ def test_render_map_default_colormap_viridis():
 def test_render_map_makes_no_http_call(monkeypatch):
     """render_map must be deterministic: no HTTP, no network."""
     import httpx
-    original_client = httpx.Client
 
     def fail_if_used(**kw):
         raise RuntimeError("render_map must not make HTTP calls")

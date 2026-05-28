@@ -13,6 +13,17 @@ from . import veda_tools
 from .schemas import StacItemFields
 
 
+def get_tool_calls(msg: Any) -> list[Any]:
+    """Extract tool_calls from either a LangChain message object or a raw dict.
+
+    Shared by both pattern state machines (paper + eie), which receive
+    either a stubbed raw dict (tests) or a LangChain AIMessage (live runs).
+    """
+    if isinstance(msg, dict):
+        return msg.get("tool_calls") or []
+    return getattr(msg, "tool_calls", None) or []
+
+
 # Centralized JSON schemas the LLM sees for each tool. These names
 # match the dispatch keys below.
 _RENDER_MAP_SCHEMA: dict[str, Any] = {

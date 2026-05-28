@@ -2,7 +2,6 @@
 
 from dataclasses import replace
 from pathlib import Path
-import pytest
 from agent_cost_bench.eie.scenario_loader import load_scenario, ScenarioCfg
 
 SCENARIO_DIR = Path(__file__).resolve().parents[2] / "scenarios" / "eie-templating"

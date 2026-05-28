@@ -27,7 +27,7 @@ log = logging.getLogger(__name__)
 from langgraph.graph import END, START, StateGraph
 from langgraph.graph.message import add_messages
 
-from .dispatch import get_tool_schemas, dispatch_tool_call
+from .dispatch import get_tool_calls as _get_tool_calls, get_tool_schemas, dispatch_tool_call
 from .provider_shim import call_llm
 from .user_actor import UserActor
 
@@ -87,6 +87,10 @@ RENDER_MAP_INSTRUCTION = (
     "URL verbatim in your final answer."
 )
 
+# Injected when the live model emits a gate key UserActor has no scripted
+# answer for — keeps the run alive instead of raising (see _gate_step).
+_UNKNOWN_GATE_FALLBACK = "Please proceed with the defaults."
+
 
 class State(TypedDict):
     messages: Annotated[list[dict[str, Any]], add_messages]
@@ -95,13 +99,6 @@ class State(TypedDict):
     model: str
     turn_count: int
     emit_map: bool
-
-
-def _get_tool_calls(msg: Any) -> list[Any]:
-    """Extract tool_calls from a raw dict or a LangChain message object."""
-    if isinstance(msg, dict):
-        return msg.get("tool_calls") or []
-    return getattr(msg, "tool_calls", None) or []
 
 
 def _parse_tc(tc: Any) -> tuple[str, dict, str]:
@@ -174,7 +171,6 @@ def _gate_step(state: State) -> dict[str, Any]:
         # state machine can continue.  UserActor keeps its strict KeyError
         # behaviour (useful for test fixtures); only this call-site degrades
         # gracefully.
-        _UNKNOWN_GATE_FALLBACK = "Please proceed with the defaults."
         try:
             response = actor.respond(gate, prompt)
         except KeyError:

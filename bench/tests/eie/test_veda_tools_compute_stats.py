@@ -148,7 +148,6 @@ def test_compute_stats_url_has_correct_query_params(httpx_mock: HTTPXMock):
     def _capture(request):
         captured_urls.append(str(request.url))
         from httpx import Response
-        import json as _json
         return Response(200, json=_stats_response(mean=1.0, median=1.0, min_=0.0, max_=2.0, band="NDVI"))
 
     httpx_mock.add_callback(_capture)

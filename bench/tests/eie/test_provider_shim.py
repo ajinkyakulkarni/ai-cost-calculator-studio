@@ -7,7 +7,6 @@ to plain dicts before forwarding to litellm.completion.
 
 from __future__ import annotations
 
-import pytest
 from langchain_core.messages import (
     SystemMessage,
     HumanMessage,
@@ -56,15 +55,7 @@ def test_ai_message_no_tool_calls():
 
 def test_ai_message_with_tool_calls():
     """AIMessage tool_calls must be forwarded in OpenAI tool_calls shape."""
-    import json
 
-    tool_calls = [
-        {
-            "id": "tc-abc",
-            "type": "function",
-            "function": {"name": "geocode", "arguments": json.dumps({"query": "CA"})},
-        }
-    ]
     msg = AIMessage(content="", tool_calls=[
         {"id": "tc-abc", "name": "geocode", "args": {"query": "CA"}, "type": "tool_call"}
     ])
@@ -87,7 +78,6 @@ def test_tool_message_conversion():
 
 def test_mixed_list_conversion():
     """A realistic multi-turn conversation with mixed types."""
-    import json
 
     msgs = [
         SystemMessage(content="sys"),
