@@ -11,7 +11,7 @@
 | pattern-eie-key-fields | eie | key_fields | N | Y | 13 | 1776 | 143 | 66.5% | $0.0422 | $38,629 |
 | pattern-eie-key-fields | eie | key_fields | Y | N | 15 | 1471 | 126 | 62.1% | $0.0435 | $39,771 |
 | pattern-eie-status-only | eie | status_only | N | N | 14 | 1243 | 48 | 44.1% | $0.0277 | $25,353 |
-| pattern-eie-status-only | eie | status_only | N | Y | 12 | 1308 | 51 | 61.1% | $0.0209 | $19,132 |
+| pattern-eie-status-only | eie | status_only | N | Y | 13 | 1384 | 71 | 69.7% | $0.0246 | $22,554 |
 | pattern-eie-status-only | eie | status_only | Y | N | 11 | 1187 | 70 | 58.8% | $0.0216 | $19,735 |
 | pattern-paper-freeform | paper | freeform | N | N | 4 | 15644 | 626 | 50.3% | $0.0950 | $86,909 |
 | pattern-paper-freeform | paper | freeform | N | Y | 6 | 21952 | 712 | 74.3% | $0.1361 | $124,542 |

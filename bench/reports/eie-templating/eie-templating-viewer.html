@@ -2259,9 +2259,9 @@ const TRACE_DATA = [
     "enforce_compute_stats": false,
     "emit_map": true,
     "user_query": "Analyze carbon flux anomalies linked to major 2020 California wildfire events using model-estimated land carbon flux data.",
-    "final_answer": "I can\u2019t proceed to `search_items`/`compute_stats` yet because the STAC catalog search here returns **no collection** matching `lis-global-da-gpp`, and `cog_default` looks like a **band/asset name**, not a `collection_id`. Please reply with the **exact STAC `collection_id`** for the model-estimated land carbon flux dataset you want (as it appears in your VEDA STAC), and confirm the **band** to use (you said `cog_default`; if that\u2019s correct, keep it).",
-    "map_url": null,
-    "turn_count": 12,
+    "final_answer": "For Mendocino County, CA (bbox [-124.48, 38.69, -122.93, 40.05]) over 2020-08-01 to 2020-12-31 using the **lis-global-da-gpp** collection and band **cog_default**, the computed stats (from the first available item in the search results: **LIS_GPP_202012310000.d01.cog**, 2020-12-31) are: **min=0.00, max=0.00, mean=0.00, median=0.00** over the AOI.\n\nhttps://openveda.cloud/api/raster/collections/lis-global-da-gpp/items/LIS_GPP_202012310000.d01.cog/bbox/-124.4800,38.6900,-122.9300,40.0500.png?assets=cog_default&rescale=0.0%2C0.0002&colormap_name=viridis&width=400&height=400",
+    "map_url": "https://openveda.cloud/api/raster/collections/lis-global-da-gpp/items/LIS_GPP_202012310000.d01.cog/bbox/-124.4800,38.6900,-122.9300,40.0500.png?assets=cog_default&rescale=0.0%2C0.0002&colormap_name=viridis&width=400&height=400",
+    "turn_count": 13,
     "turns": [
       {
         "index": 1,
@@ -2285,8 +2285,8 @@ const TRACE_DATA = [
       },
       {
         "index": 2,
-        "input_tokens": 944,
-        "output_tokens": 63,
+        "input_tokens": 945,
+        "output_tokens": 64,
         "cached_tokens": 0,
         "tool_calls": [
           "ask_user"
@@ -2296,17 +2296,17 @@ const TRACE_DATA = [
             "name": "ask_user",
             "args": {
               "gate": "datetime",
-              "prompt": "Confirm the analysis window for the 2020 California wildfire period: 2020-08-01 to 2020-12-31 (inclusive). If you want a different range, provide start/end dates."
+              "prompt": "Confirm the analysis window for the 2020 California wildfire period: 2020-08-01 to 2020-12-31 (inclusive). Do you want this range, or a different start/end date?"
             }
           }
         ],
         "assistant_text": "",
-        "cost": 0.002534,
-        "running_total": 0.004444999999999999
+        "cost": 0.00254975,
+        "running_total": 0.0044607499999999994
       },
       {
         "index": 3,
-        "input_tokens": 1022,
+        "input_tokens": 1024,
         "output_tokens": 33,
         "cached_tokens": 0,
         "tool_calls": [
@@ -2322,12 +2322,12 @@ const TRACE_DATA = [
           }
         ],
         "assistant_text": "",
-        "cost": 0.0022505,
-        "running_total": 0.006695499999999999
+        "cost": 0.002254,
+        "running_total": 0.006714749999999999
       },
       {
         "index": 4,
-        "input_tokens": 1067,
+        "input_tokens": 1069,
         "output_tokens": 23,
         "cached_tokens": 0,
         "tool_calls": [
@@ -2343,14 +2343,14 @@ const TRACE_DATA = [
           }
         ],
         "assistant_text": "",
-        "cost": 0.0021892500000000002,
-        "running_total": 0.00888475
+        "cost": 0.0021927500000000003,
+        "running_total": 0.008907499999999999
       },
       {
         "index": 5,
-        "input_tokens": 1142,
-        "output_tokens": 52,
-        "cached_tokens": 0,
+        "input_tokens": 1147,
+        "output_tokens": 54,
+        "cached_tokens": 1024,
         "tool_calls": [
           "ask_user"
         ],
@@ -2359,22 +2359,21 @@ const TRACE_DATA = [
             "name": "ask_user",
             "args": {
               "gate": "county",
-              "prompt": "Which California county should I focus on for the wildfire-linked carbon flux anomaly analysis? (e.g., Butte, Napa, Sonoma, Santa Cruz, Fresno)"
+              "prompt": "Which California county should I focus on for the wildfire-linked carbon flux anomaly analysis? (e.g., Butte County, Napa County, Sonoma County, Santa Cruz County)"
             }
           }
         ],
         "assistant_text": "",
-        "cost": 0.0027264999999999998,
-        "running_total": 0.01161125
+        "cost": 0.00115045,
+        "running_total": 0.01005795
       },
       {
         "index": 6,
-        "input_tokens": 1210,
-        "output_tokens": 64,
-        "cached_tokens": 1024,
+        "input_tokens": 1217,
+        "output_tokens": 29,
+        "cached_tokens": 1152,
         "tool_calls": [
-          "geocode",
-          "search_collections"
+          "geocode"
         ],
         "tool_calls_detail": [
           {
@@ -2383,22 +2382,16 @@ const TRACE_DATA = [
               "query": "Mendocino County, California, USA",
               "level": "county"
             }
-          },
-          {
-            "name": "search_collections",
-            "args": {
-              "query": "land carbon flux anomaly model"
-            }
           }
         ],
         "assistant_text": "",
-        "cost": 0.0014007,
-        "running_total": 0.01301195
+        "cost": 0.0007213499999999999,
+        "running_total": 0.010779299999999999
       },
       {
         "index": 7,
-        "input_tokens": 1378,
-        "output_tokens": 26,
+        "input_tokens": 1305,
+        "output_tokens": 21,
         "cached_tokens": 1152,
         "tool_calls": [
           "search_collections"
@@ -2407,39 +2400,19 @@ const TRACE_DATA = [
           {
             "name": "search_collections",
             "args": {
-              "query": "NEE GPP respiration carbon flux land model"
+              "query": "land carbon flux anomaly"
             }
           }
         ],
         "assistant_text": "",
-        "cost": 0.0009611000000000001,
-        "running_total": 0.013973049999999999
+        "cost": 0.00076335,
+        "running_total": 0.011542649999999998
       },
       {
         "index": 8,
-        "input_tokens": 1456,
-        "output_tokens": 19,
+        "input_tokens": 1374,
+        "output_tokens": 77,
         "cached_tokens": 1280,
-        "tool_calls": [
-          "search_collections"
-        ],
-        "tool_calls_detail": [
-          {
-            "name": "search_collections",
-            "args": {
-              "query": "carbon flux"
-            }
-          }
-        ],
-        "assistant_text": "",
-        "cost": 0.0007980000000000001,
-        "running_total": 0.014771049999999999
-      },
-      {
-        "index": 9,
-        "input_tokens": 1527,
-        "output_tokens": 80,
-        "cached_tokens": 1408,
         "tool_calls": [
           "ask_user"
         ],
@@ -2448,39 +2421,19 @@ const TRACE_DATA = [
             "name": "ask_user",
             "args": {
               "gate": "dataset",
-              "prompt": "I\u2019m not finding any STAC collections with keywords like \u201ccarbon flux/NEE/GPP\u201d in this catalog search. Please provide the exact dataset/collection name or a keyword you know exists in your VEDA catalog (e.g., a specific model product like NEE/GPP/Reco)."
+              "prompt": "I didn\u2019t find a collection by the keyword 'land carbon flux anomaly'. Please tell me which model-estimated land carbon flux dataset/collection you want (name or STAC collection_id). If unsure, say 'list options for carbon flux' and I\u2019ll search by broader terms."
             }
           }
         ],
         "assistant_text": "",
-        "cost": 0.00157465,
-        "running_total": 0.016345699999999998
+        "cost": 0.0014665,
+        "running_total": 0.013009149999999997
       },
       {
-        "index": 10,
-        "input_tokens": 1623,
-        "output_tokens": 22,
-        "cached_tokens": 1536,
-        "tool_calls": [
-          "search_collections"
-        ],
-        "tool_calls_detail": [
-          {
-            "name": "search_collections",
-            "args": {
-              "query": "lis-global-da-gpp"
-            }
-          }
-        ],
-        "assistant_text": "",
-        "cost": 0.00072905,
-        "running_total": 0.017074749999999996
-      },
-      {
-        "index": 11,
-        "input_tokens": 1692,
-        "output_tokens": 81,
-        "cached_tokens": 1536,
+        "index": 9,
+        "input_tokens": 1467,
+        "output_tokens": 58,
+        "cached_tokens": 1280,
         "tool_calls": [
           "ask_user"
         ],
@@ -2489,32 +2442,142 @@ const TRACE_DATA = [
             "name": "ask_user",
             "args": {
               "gate": "variable",
-              "prompt": "I still can\u2019t locate a STAC collection named \u201clis-global-da-gpp\u201d in this catalog. Please (1) confirm the correct collection_id as it appears in STAC, and (2) tell me which variable/band to analyze (e.g., GPP, anomaly, zscore)."
+              "prompt": "Which band/variable should I compute stats for in collection 'lis-global-da-gpp'? (Provide the exact band name, e.g., gpp, gpp_anomaly, etc.)"
             }
           }
         ],
         "assistant_text": "",
-        "cost": 0.0016758,
-        "running_total": 0.018750549999999998
+        "cost": 0.0013632499999999999,
+        "running_total": 0.014372399999999997
+      },
+      {
+        "index": 10,
+        "input_tokens": 1539,
+        "output_tokens": 135,
+        "cached_tokens": 1408,
+        "tool_calls": [
+          "search_items",
+          "search_items"
+        ],
+        "tool_calls_detail": [
+          {
+            "name": "search_items",
+            "args": {
+              "collection_id": "lis-global-da-gpp",
+              "bbox": [
+                -124.48,
+                38.69,
+                -122.93,
+                40.05
+              ],
+              "datetime_range": "2020-08-01/2020-12-31",
+              "band": "cog_default"
+            }
+          },
+          {
+            "name": "search_items",
+            "args": {
+              "collection_id": "lis-global-da-gpp",
+              "bbox": [
+                -124.48,
+                38.69,
+                -122.93,
+                40.05
+              ],
+              "datetime_range": "2020-08-01/2020-12-31"
+            }
+          }
+        ],
+        "assistant_text": "",
+        "cost": 0.00236565,
+        "running_total": 0.016738049999999997
+      },
+      {
+        "index": 11,
+        "input_tokens": 1824,
+        "output_tokens": 114,
+        "cached_tokens": 1536,
+        "tool_calls": [
+          "compute_stats"
+        ],
+        "tool_calls_detail": [
+          {
+            "name": "compute_stats",
+            "args": {
+              "item_refs": [
+                {
+                  "id": "LIS_GPP_202012310000.d01.cog",
+                  "datetime": "2020-12-31T00:00:00Z",
+                  "bbox": [
+                    -180,
+                    -90,
+                    180,
+                    90
+                  ],
+                  "primary_asset_url": "https://example.com/lis-gpp/20201231.tif",
+                  "collection_id": "lis-global-da-gpp"
+                }
+              ],
+              "band": "cog_default",
+              "geometry": [
+                -124.48,
+                38.69,
+                -122.93,
+                40.05
+              ]
+            }
+          }
+        ],
+        "assistant_text": "",
+        "cost": 0.0023688,
+        "running_total": 0.019106849999999998
       },
       {
         "index": 12,
-        "input_tokens": 1787,
-        "output_tokens": 118,
-        "cached_tokens": 1664,
+        "input_tokens": 2015,
+        "output_tokens": 64,
+        "cached_tokens": 1792,
+        "tool_calls": [
+          "render_map"
+        ],
+        "tool_calls_detail": [
+          {
+            "name": "render_map",
+            "args": {
+              "collection_id": "lis-global-da-gpp",
+              "item_id": "LIS_GPP_202012310000.d01.cog",
+              "bbox": [
+                -124.48,
+                38.69,
+                -122.93,
+                40.05
+              ],
+              "colormap": "viridis"
+            }
+          }
+        ],
+        "assistant_text": "",
+        "cost": 0.0015998499999999999,
+        "running_total": 0.020706699999999998
+      },
+      {
+        "index": 13,
+        "input_tokens": 2213,
+        "output_tokens": 221,
+        "cached_tokens": 1920,
         "tool_calls": [],
         "tool_calls_detail": [],
-        "assistant_text": "I can\u2019t proceed to `search_items`/`compute_stats` yet because the STAC catalog search here returns **no collection** matching `lis-global-da-gpp`, and `cog_default` looks like a **band/asset name**, not a `collection_id`. Please reply with the **exact STAC `collection_id`** for the model-estimated land carbon flux dataset you want (as it appears in your VEDA STAC), and confirm the **band** to use (you said `cog_default`; if that\u2019s correct, keep it).",
-        "cost": 0.00215845,
-        "running_total": 0.020908999999999997
+        "assistant_text": "For Mendocino County, CA (bbox [-124.48, 38.69, -122.93, 40.05]) over 2020-08-01 to 2020-12-31 using the **lis-global-da-gpp** collection and band **cog_default**, the computed stats (from the first available item in the search results: **LIS_GPP_202012310000.d01.cog**, 2020-12-31) are: **min=0.00, max=0.00, mean=0.00, median=0.00** over the AOI.\n\nhttps://openveda.cloud/api/raster/collections/lis-global-da-gpp/items/LIS_GPP_202012310000.d01.cog/bbox/-124.4800,38.6900,-122.9300,40.0500.png?assets",
+        "cost": 0.00394275,
+        "running_total": 0.024649449999999996
       }
     ],
     "totals": {
-      "input_tokens": 15700,
-      "output_tokens": 611,
-      "cached_tokens": 9600,
-      "cache_hit_pct": 61.146496815286625,
-      "session_cost": 0.020909000000000004
+      "input_tokens": 17991,
+      "output_tokens": 923,
+      "cached_tokens": 12544,
+      "cache_hit_pct": 69.72375076427102,
+      "session_cost": 0.02464945
     }
   },
   {
