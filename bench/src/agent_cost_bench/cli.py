@@ -252,6 +252,77 @@ def report_eie_templating() -> None:
     Console().print(f"[green]Report written:[/] {out}")
 
 
+_EIE_PREVIEWS_DIR = Path(__file__).resolve().parents[3] / "reports" / "eie-templating"
+
+
+@app.command(name="preview-eie-templating")
+def preview_eie_templating(
+    county: str = typer.Option(
+        "Mendocino County, California",
+        help="County name to geocode as the area of interest.",
+    ),
+    datetime: str = typer.Option(
+        "2020-06-01/2020-08-01",
+        help="STAC datetime range (YYYY-MM-DD/YYYY-MM-DD or natural language).",
+    ),
+    collection: str = typer.Option(
+        "lis-global-da-gpp",
+        help="STAC collection id to preview.",
+    ),
+    max_items: int = typer.Option(
+        3,
+        help="Maximum number of items to preview.",
+    ),
+    colormap: str = typer.Option(
+        "viridis",
+        help="TiTiler-compatible colormap name (e.g. viridis, plasma, rdylgn).",
+    ),
+) -> None:
+    """Fetch PNG previews for the first N items in a VEDA collection.
+
+    Decoupled from the cost-measuring path: no LLM, no token cost, no trace.
+    Safe to run without an OpenAI key — uses only unauthenticated VEDA APIs.
+    Each preview is saved as bench/reports/eie-templating/preview-{item_id}.png.
+    """
+    from .eie.veda_tools import geocode, search_items
+    from .eie.map_preview import render_preview
+
+    # Geocode the county to a bbox
+    console.print(f"[cyan]Geocoding:[/] {county!r}")
+    geo = geocode(county)
+    bbox = geo.bbox
+    console.print(f"  bbox = {bbox}")
+
+    # Search for items
+    console.print(f"[cyan]Searching:[/] collection={collection!r}  datetime={datetime!r}")
+    result = search_items(collection, bbox, datetime, limit=max_items)
+    items = result.items[:max_items]
+    console.print(f"  found {len(items)} item(s)")
+
+    if not items:
+        console.print("[yellow]No items found — nothing to preview.[/]")
+        raise typer.Exit(code=0)
+
+    _EIE_PREVIEWS_DIR.mkdir(parents=True, exist_ok=True)
+
+    for item in items:
+        out_path = _EIE_PREVIEWS_DIR / f"preview-{item.id}.png"
+        try:
+            png_bytes = render_preview(
+                collection,
+                item.id,
+                tuple(item.bbox),  # type: ignore[arg-type]
+                colormap=colormap,
+            )
+            out_path.write_bytes(png_bytes)
+            console.print(f"[green]Saved:[/] {out_path}  ({len(png_bytes):,} bytes)")
+        except Exception as exc:  # noqa: BLE001
+            console.print(
+                f"[yellow]Warning:[/] skipping {item.id!r} — "
+                f"{type(exc).__name__}: {exc}"
+            )
+
+
 def main() -> None:
     """Console-script entry point referenced by pyproject.toml."""
     app()
