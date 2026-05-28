@@ -1,0 +1,4372 @@
+{
+  "scenario_id": "pattern-paper-freeform",
+  "pattern": "paper",
+  "handler_mode": "freeform",
+  "model": "gpt-5.2",
+  "enforce_compute_stats": false,
+  "emit_map": true,
+  "turn_count": 5,
+  "elapsed_s": 296.23506903648376,
+  "user_query": "Visualize gross primary production (GPP) from the NASA VEDA STAC collection 'lis-global-da-gpp' over Mendocino County, California, June 2020 to November 2020. Use collection_id='lis-global-da-gpp' literally in tool calls. Report mean/median/min/max plus per-month values.",
+  "final_answer": "Mendocino County, CA (bbox `[-123.89, 38.756, -122.819, 40.005]`) GPP from `lis-global-da-gpp` over 2020-06-28 to 2020-11-28 (20 daily items returned, all in Nov 2020): overall mean **2.8617111462718237e-05**, median **9.143825081991963e-06**, min **8.819054861386455e-12**, max **1.734418619889766e-04**. Per-item means (Nov 2020): 2020-11-09 **2.7074259603633338e-05**, 11-10 **2.6878021770463808e-05**, 11-11 **2.698701609576684e-05**, 11-12 **2.688650564718739e-05**, 11-13 **2.736293570656761e-05**, 11-14 **2.7719691933899673e-05**, 11-15 **2.8094471050419285e-05**, 11-16 **2.8299842812674934e-05**, 11-17 **2.8603409012548447e-05**, 11-18 **2.9584868487515313e-05**, 11-19 **3.0384655136478384e-05**, 11-20 **3.078380453996731e-05**, 11-21 **2.975501177323983e-05**, 11-22 **2.8934193574775944e-05**, 11-23 **2.9338031043564054e-05**, 11-24 **2.9347960164961443e-05**, 11-25 **2.8933348199708723e-05**, 11-26 **2.928877781918931e-05**, 11-27 **2.8808799357265068e-05**, 11-28 **2.9276625524537955e-05**; pattern: gradual rise from ~2.69e-05 (Nov 10\u201312) to a peak ~3.08e-05 (Nov 20), then slight decline/stabilization near ~2.9e-05 late month. Map layer URL: https://openveda.cloud/api/raster/collections/lis-global-da-gpp/items/LIS_GPP_202011280000.d01.cog/bbox/-123.8900,38.7560,-122.8190,40.0050.png?assets=cog_default&rescale=0.0%2C0.0002&colormap_name=viridis&width=400&height=400",
+  "map_url": "https://openveda.cloud/api/raster/collections/lis-global-da-gpp/items/LIS_GPP_202011280000.d01.cog/bbox/-123.8900,38.7560,-122.8190,40.0050.png?assets=cog_default&rescale=0.0%2C0.0002&colormap_name=viridis&width=400&height=400",
+  "totals": {
+    "input_tokens": 144976,
+    "output_tokens": 26621,
+    "cached_tokens": 112000,
+    "cache_hit_rate": 0.7725416620682044
+  },
+  "per_turn_avg": {
+    "input_tokens": 28995.2,
+    "output_tokens": 5324.2
+  },
+  "turns": [
+    {
+      "input_tokens": 769,
+      "output_tokens": 65,
+      "cached_tokens": 0,
+      "tool_calls": [
+        "parse_datetime",
+        "geocode"
+      ],
+      "tool_calls_detail": [
+        {
+          "name": "parse_datetime",
+          "args": {
+            "value": "June 2020 to November 2020"
+          }
+        },
+        {
+          "name": "geocode",
+          "args": {
+            "query": "Mendocino County, California",
+            "level": "county"
+          }
+        }
+      ],
+      "assistant_text": ""
+    },
+    {
+      "input_tokens": 912,
+      "output_tokens": 58,
+      "cached_tokens": 0,
+      "tool_calls": [
+        "search_items"
+      ],
+      "tool_calls_detail": [
+        {
+          "name": "search_items",
+          "args": {
+            "collection_id": "lis-global-da-gpp",
+            "bbox": [
+              -123.89,
+              38.756,
+              -122.819,
+              40.005
+            ],
+            "datetime_range": "2020-06-28/2020-11-28"
+          }
+        }
+      ],
+      "assistant_text": ""
+    },
+    {
+      "input_tokens": 29540,
+      "output_tokens": 25817,
+      "cached_tokens": 0,
+      "tool_calls": [
+        "compute_stats"
+      ],
+      "tool_calls_detail": [
+        {
+          "name": "compute_stats",
+          "args": {
+            "item_refs": [
+              {
+                "id": "LIS_GPP_202011280000.d01.cog",
+                "bbox": [
+                  -179.9500000157243,
+                  -59.98224871364589,
+                  179.9973980503783,
+                  89.9999999874719
+                ],
+                "type": "Feature",
+                "links": [
+                  {
+                    "rel": "collection",
+                    "type": "application/json",
+                    "href": "https://openveda.cloud/api/stac/collections/lis-global-da-gpp"
+                  },
+                  {
+                    "rel": "parent",
+                    "type": "application/json",
+                    "href": "https://openveda.cloud/api/stac/collections/lis-global-da-gpp"
+                  },
+                  {
+                    "rel": "root",
+                    "type": "application/json",
+                    "href": "https://openveda.cloud/api/stac/"
+                  },
+                  {
+                    "rel": "self",
+                    "type": "application/geo+json",
+                    "href": "https://openveda.cloud/api/stac/collections/lis-global-da-gpp/items/LIS_GPP_202011280000.d01.cog"
+                  },
+                  {
+                    "title": "Map of Item",
+                    "href": "https://openveda.cloud/api/raster/collections/lis-global-da-gpp/items/LIS_GPP_202011280000.d01.cog/WebMercatorQuad/map?bidx=1&assets=cog_default&rescale=0%2C0.0001&resampling=bilinear&colormap_name=viridis",
+                    "rel": "preview",
+                    "type": "text/html"
+                  }
+                ],
+                "assets": {
+                  "cog_default": {
+                    "href": "s3://veda-data-store/lis-global-da-gpp/LIS_GPP_202011280000.d01.cog.tif",
+                    "type": "image/tiff; application=geotiff",
+                    "roles": [
+                      "data",
+                      "layer"
+                    ],
+                    "title": "Default COG Layer",
+                    "proj:bbox": [
+                      -179.9500000157243,
+                      -59.98224871364589,
+                      179.9973980503783,
+                      89.9999999874719
+                    ],
+                    "proj:epsg": 4326,
+                    "proj:wkt2": "GEOGCS[\"WGS 84\",DATUM[\"WGS_1984\",SPHEROID[\"WGS 84\",6378137,298.257223563]],PRIMEM[\"Greenwich\",0],UNIT[\"degree\",0.0174532925199433,AUTHORITY[\"EPSG\",\"9122\"]],AXIS[\"Latitude\",NORTH],AXIS[\"Longitude\",EAST]]",
+                    "proj:shape": [
+                      1500,
+                      3600
+                    ],
+                    "description": "Cloud optimized default layer to display on map",
+                    "raster:bands": [
+                      {
+                        "scale": 1.0,
+                        "nodata": 0.0,
+                        "offset": 0.0,
+                        "sampling": "area",
+                        "data_type": "float64",
+                        "histogram": {
+                          "max": 0.00017194999963976443,
+                          "min": 5.1672298384541904e-11,
+                          "count": 11,
+                          "buckets": [
+                            39052,
+                            7124,
+                            4964,
+                            3665,
+                            2758,
+                            2635,
+                            3030,
+                            2010,
+                            522,
+                            57
+                          ]
+                        },
+                        "statistics": {
+                          "mean": 2.9276625524537955e-05,
+                          "stddev": 3.805999745853661e-05,
+                          "maximum": 0.00017194999963976443,
+                          "minimum": 5.1672298384541904e-11,
+                          "valid_percent": 15.052555986533958
+                        }
+                      }
+                    ],
+                    "proj:geometry": {
+                      "type": "Polygon",
+                      "coordinates": [
+                        [
+                          [
+                            -179.9500000157243,
+                            -59.98224871364589
+                          ],
+                          [
+                            179.9973980503783,
+                            -59.98224871364589
+                          ],
+                          [
+                            179.9973980503783,
+                            89.9999999874719
+                          ],
+                          [
+                            -179.9500000157243,
+                            89.9999999874719
+                          ],
+                          [
+                            -179.9500000157243,
+                            -59.98224871364589
+                          ]
+                        ]
+                      ]
+                    },
+                    "proj:projjson": {
+                      "name": "WGS 84",
+                      "type": "GeographicCRS",
+                      "datum": {
+                        "name": "World Geodetic System 1984",
+                        "type": "GeodeticReferenceFrame",
+                        "ellipsoid": {
+                          "name": "WGS 84",
+                          "semi_major_axis": 6378137,
+                          "inverse_flattening": 298.257223563
+                        }
+                      },
+                      "$schema": "https://proj.org/schemas/v0.4/projjson.schema.json",
+                      "coordinate_system": {
+                        "axis": [
+                          {
+                            "name": "Latitude",
+                            "unit": "degree",
+                            "direction": "north",
+                            "abbreviation": "lat"
+                          },
+                          {
+                            "name": "Longitude",
+                            "unit": "degree",
+                            "direction": "east",
+                            "abbreviation": "lon"
+                          }
+                        ],
+                        "subtype": "ellipsoidal"
+                      }
+                    },
+                    "proj:transform": [
+                      0.09998538835169517,
+                      0.0,
+                      -179.9500000157243,
+                      0.0,
+                      -0.09998816580074518,
+                      89.9999999874719,
+                      0.0,
+                      0.0,
+                      1.0
+                    ]
+                  },
+                  "rendered_preview": {
+                    "title": "Rendered preview",
+                    "href": "https://openveda.cloud/api/raster/collections/lis-global-da-gpp/items/LIS_GPP_202011280000.d01.cog/preview.png?bidx=1&assets=cog_default&rescale=0%2C0.0001&resampling=bilinear&colormap_name=viridis",
+                    "rel": "preview",
+                    "roles": [
+                      "overview"
+                    ],
+                    "type": "image/png"
+                  }
+                },
+                "geometry": {
+                  "type": "Polygon",
+                  "coordinates": [
+                    [
+                      [
+                        -179.9500000157243,
+                        -59.98224871364589
+                      ],
+                      [
+                        179.9973980503783,
+                        -59.98224871364589
+                      ],
+                      [
+                        179.9973980503783,
+                        89.9999999874719
+                      ],
+                      [
+                        -179.9500000157243,
+                        89.9999999874719
+                      ],
+                      [
+                        -179.9500000157243,
+                        -59.98224871364589
+                      ]
+                    ]
+                  ]
+                },
+                "collection": "lis-global-da-gpp",
+                "properties": {
+                  "datetime": "2020-11-28T00:00:00+00:00"
+                },
+                "stac_version": "1.0.0",
+                "stac_extensions": [
+                  "https://stac-extensions.github.io/raster/v1.1.0/schema.json",
+                  "https://stac-extensions.github.io/projection/v1.1.0/schema.json"
+                ],
+                "collection_id": "lis-global-da-gpp",
+                "datetime": "2020-11-28T00:00:00+00:00",
+                "primary_asset_url": "s3://veda-data-store/lis-global-da-gpp/LIS_GPP_202011280000.d01.cog.tif"
+              },
+              {
+                "id": "LIS_GPP_202011270000.d01.cog",
+                "bbox": [
+                  -179.9500000157243,
+                  -59.98224871364589,
+                  179.9973980503783,
+                  89.9999999874719
+                ],
+                "type": "Feature",
+                "links": [
+                  {
+                    "rel": "collection",
+                    "type": "application/json",
+                    "href": "https://openveda.cloud/api/stac/collections/lis-global-da-gpp"
+                  },
+                  {
+                    "rel": "parent",
+                    "type": "application/json",
+                    "href": "https://openveda.cloud/api/stac/collections/lis-global-da-gpp"
+                  },
+                  {
+                    "rel": "root",
+                    "type": "application/json",
+                    "href": "https://openveda.cloud/api/stac/"
+                  },
+                  {
+                    "rel": "self",
+                    "type": "application/geo+json",
+                    "href": "https://openveda.cloud/api/stac/collections/lis-global-da-gpp/items/LIS_GPP_202011270000.d01.cog"
+                  },
+                  {
+                    "title": "Map of Item",
+                    "href": "https://openveda.cloud/api/raster/collections/lis-global-da-gpp/items/LIS_GPP_202011270000.d01.cog/WebMercatorQuad/map?bidx=1&assets=cog_default&rescale=0%2C0.0001&resampling=bilinear&colormap_name=viridis",
+                    "rel": "preview",
+                    "type": "text/html"
+                  }
+                ],
+                "assets": {
+                  "cog_default": {
+                    "href": "s3://veda-data-store/lis-global-da-gpp/LIS_GPP_202011270000.d01.cog.tif",
+                    "type": "image/tiff; application=geotiff",
+                    "roles": [
+                      "data",
+                      "layer"
+                    ],
+                    "title": "Default COG Layer",
+                    "proj:bbox": [
+                      -179.9500000157243,
+                      -59.98224871364589,
+                      179.9973980503783,
+                      89.9999999874719
+                    ],
+                    "proj:epsg": 4326,
+                    "proj:wkt2": "GEOGCS[\"WGS 84\",DATUM[\"WGS_1984\",SPHEROID[\"WGS 84\",6378137,298.257223563]],PRIMEM[\"Greenwich\",0],UNIT[\"degree\",0.0174532925199433,AUTHORITY[\"EPSG\",\"9122\"]],AXIS[\"Latitude\",NORTH],AXIS[\"Longitude\",EAST]]",
+                    "proj:shape": [
+                      1500,
+                      3600
+                    ],
+                    "description": "Cloud optimized default layer to display on map",
+                    "raster:bands": [
+                      {
+                        "scale": 1.0,
+                        "nodata": 0.0,
+                        "offset": 0.0,
+                        "sampling": "area",
+                        "data_type": "float64",
+                        "histogram": {
+                          "max": 0.00017125465092249215,
+                          "min": 3.056117858779572e-11,
+                          "count": 11,
+                          "buckets": [
+                            39368,
+                            7448,
+                            4830,
+                            3542,
+                            2901,
+                            2699,
+                            2929,
+                            1853,
+                            621,
+                            61
+                          ]
+                        },
+                        "statistics": {
+                          "mean": 2.8808799357265068e-05,
+                          "stddev": 3.772340748335797e-05,
+                          "maximum": 0.00017125465092249215,
+                          "minimum": 3.056117858779572e-11,
+                          "valid_percent": 15.152041861826698
+                        }
+                      }
+                    ],
+                    "proj:geometry": {
+                      "type": "Polygon",
+                      "coordinates": [
+                        [
+                          [
+                            -179.9500000157243,
+                            -59.98224871364589
+                          ],
+                          [
+                            179.9973980503783,
+                            -59.98224871364589
+                          ],
+                          [
+                            179.9973980503783,
+                            89.9999999874719
+                          ],
+                          [
+                            -179.9500000157243,
+                            89.9999999874719
+                          ],
+                          [
+                            -179.9500000157243,
+                            -59.98224871364589
+                          ]
+                        ]
+                      ]
+                    },
+                    "proj:projjson": {
+                      "name": "WGS 84",
+                      "type": "GeographicCRS",
+                      "datum": {
+                        "name": "World Geodetic System 1984",
+                        "type": "GeodeticReferenceFrame",
+                        "ellipsoid": {
+                          "name": "WGS 84",
+                          "semi_major_axis": 6378137,
+                          "inverse_flattening": 298.257223563
+                        }
+                      },
+                      "$schema": "https://proj.org/schemas/v0.4/projjson.schema.json",
+                      "coordinate_system": {
+                        "axis": [
+                          {
+                            "name": "Latitude",
+                            "unit": "degree",
+                            "direction": "north",
+                            "abbreviation": "lat"
+                          },
+                          {
+                            "name": "Longitude",
+                            "unit": "degree",
+                            "direction": "east",
+                            "abbreviation": "lon"
+                          }
+                        ],
+                        "subtype": "ellipsoidal"
+                      }
+                    },
+                    "proj:transform": [
+                      0.09998538835169517,
+                      0.0,
+                      -179.9500000157243,
+                      0.0,
+                      -0.09998816580074518,
+                      89.9999999874719,
+                      0.0,
+                      0.0,
+                      1.0
+                    ]
+                  },
+                  "rendered_preview": {
+                    "title": "Rendered preview",
+                    "href": "https://openveda.cloud/api/raster/collections/lis-global-da-gpp/items/LIS_GPP_202011270000.d01.cog/preview.png?bidx=1&assets=cog_default&rescale=0%2C0.0001&resampling=bilinear&colormap_name=viridis",
+                    "rel": "preview",
+                    "roles": [
+                      "overview"
+                    ],
+                    "type": "image/png"
+                  }
+                },
+                "geometry": {
+                  "type": "Polygon",
+                  "coordinates": [
+                    [
+                      [
+                        -179.9500000157243,
+                        -59.98224871364589
+                      ],
+                      [
+                        179.9973980503783,
+                        -59.98224871364589
+                      ],
+                      [
+                        179.9973980503783,
+                        89.9999999874719
+                      ],
+                      [
+                        -179.9500000157243,
+                        89.9999999874719
+                      ],
+                      [
+                        -179.9500000157243,
+                        -59.98224871364589
+                      ]
+                    ]
+                  ]
+                },
+                "collection": "lis-global-da-gpp",
+                "properties": {
+                  "datetime": "2020-11-27T00:00:00+00:00"
+                },
+                "stac_version": "1.0.0",
+                "stac_extensions": [
+                  "https://stac-extensions.github.io/raster/v1.1.0/schema.json",
+                  "https://stac-extensions.github.io/projection/v1.1.0/schema.json"
+                ],
+                "collection_id": "lis-global-da-gpp",
+                "datetime": "2020-11-27T00:00:00+00:00",
+                "primary_asset_url": "s3://veda-data-store/lis-global-da-gpp/LIS_GPP_202011270000.d01.cog.tif"
+              },
+              {
+                "id": "LIS_GPP_202011260000.d01.cog",
+                "bbox": [
+                  -179.9500000157243,
+                  -59.98224871364589,
+                  179.9973980503783,
+                  89.9999999874719
+                ],
+                "type": "Feature",
+                "links": [
+                  {
+                    "rel": "collection",
+                    "type": "application/json",
+                    "href": "https://openveda.cloud/api/stac/collections/lis-global-da-gpp"
+                  },
+                  {
+                    "rel": "parent",
+                    "type": "application/json",
+                    "href": "https://openveda.cloud/api/stac/collections/lis-global-da-gpp"
+                  },
+                  {
+                    "rel": "root",
+                    "type": "application/json",
+                    "href": "https://openveda.cloud/api/stac/"
+                  },
+                  {
+                    "rel": "self",
+                    "type": "application/geo+json",
+                    "href": "https://openveda.cloud/api/stac/collections/lis-global-da-gpp/items/LIS_GPP_202011260000.d01.cog"
+                  },
+                  {
+                    "title": "Map of Item",
+                    "href": "https://openveda.cloud/api/raster/collections/lis-global-da-gpp/items/LIS_GPP_202011260000.d01.cog/WebMercatorQuad/map?bidx=1&assets=cog_default&rescale=0%2C0.0001&resampling=bilinear&colormap_name=viridis",
+                    "rel": "preview",
+                    "type": "text/html"
+                  }
+                ],
+                "assets": {
+                  "cog_default": {
+                    "href": "s3://veda-data-store/lis-global-da-gpp/LIS_GPP_202011260000.d01.cog.tif",
+                    "type": "image/tiff; application=geotiff",
+                    "roles": [
+                      "data",
+                      "layer"
+                    ],
+                    "title": "Default COG Layer",
+                    "proj:bbox": [
+                      -179.9500000157243,
+                      -59.98224871364589,
+                      179.9973980503783,
+                      89.9999999874719
+                    ],
+                    "proj:epsg": 4326,
+                    "proj:wkt2": "GEOGCS[\"WGS 84\",DATUM[\"WGS_1984\",SPHEROID[\"WGS 84\",6378137,298.257223563]],PRIMEM[\"Greenwich\",0],UNIT[\"degree\",0.0174532925199433,AUTHORITY[\"EPSG\",\"9122\"]],AXIS[\"Latitude\",NORTH],AXIS[\"Longitude\",EAST]]",
+                    "proj:shape": [
+                      1500,
+                      3600
+                    ],
+                    "description": "Cloud optimized default layer to display on map",
+                    "raster:bands": [
+                      {
+                        "scale": 1.0,
+                        "nodata": 0.0,
+                        "offset": 0.0,
+                        "sampling": "area",
+                        "data_type": "float64",
+                        "histogram": {
+                          "max": 0.00017245457274839282,
+                          "min": 8.819054861386455e-12,
+                          "count": 11,
+                          "buckets": [
+                            39344,
+                            6949,
+                            4871,
+                            3515,
+                            2914,
+                            2682,
+                            2578,
+                            2157,
+                            765,
+                            31
+                          ]
+                        },
+                        "statistics": {
+                          "mean": 2.928877781918931e-05,
+                          "stddev": 3.85543346938382e-05,
+                          "maximum": 0.00017245457274839282,
+                          "minimum": 8.819054861386455e-12,
+                          "valid_percent": 15.05004025175644
+                        }
+                      }
+                    ],
+                    "proj:geometry": {
+                      "type": "Polygon",
+                      "coordinates": [
+                        [
+                          [
+                            -179.9500000157243,
+                            -59.98224871364589
+                          ],
+                          [
+                            179.9973980503783,
+                            -59.98224871364589
+                          ],
+                          [
+                            179.9973980503783,
+                            89.9999999874719
+                          ],
+                          [
+                            -179.9500000157243,
+                            89.9999999874719
+                          ],
+                          [
+                            -179.9500000157243,
+                            -59.98224871364589
+                          ]
+                        ]
+                      ]
+                    },
+                    "proj:projjson": {
+                      "name": "WGS 84",
+                      "type": "GeographicCRS",
+                      "datum": {
+                        "name": "World Geodetic System 1984",
+                        "type": "GeodeticReferenceFrame",
+                        "ellipsoid": {
+                          "name": "WGS 84",
+                          "semi_major_axis": 6378137,
+                          "inverse_flattening": 298.257223563
+                        }
+                      },
+                      "$schema": "https://proj.org/schemas/v0.4/projjson.schema.json",
+                      "coordinate_system": {
+                        "axis": [
+                          {
+                            "name": "Latitude",
+                            "unit": "degree",
+                            "direction": "north",
+                            "abbreviation": "lat"
+                          },
+                          {
+                            "name": "Longitude",
+                            "unit": "degree",
+                            "direction": "east",
+                            "abbreviation": "lon"
+                          }
+                        ],
+                        "subtype": "ellipsoidal"
+                      }
+                    },
+                    "proj:transform": [
+                      0.09998538835169517,
+                      0.0,
+                      -179.9500000157243,
+                      0.0,
+                      -0.09998816580074518,
+                      89.9999999874719,
+                      0.0,
+                      0.0,
+                      1.0
+                    ]
+                  },
+                  "rendered_preview": {
+                    "title": "Rendered preview",
+                    "href": "https://openveda.cloud/api/raster/collections/lis-global-da-gpp/items/LIS_GPP_202011260000.d01.cog/preview.png?bidx=1&assets=cog_default&rescale=0%2C0.0001&resampling=bilinear&colormap_name=viridis",
+                    "rel": "preview",
+                    "roles": [
+                      "overview"
+                    ],
+                    "type": "image/png"
+                  }
+                },
+                "geometry": {
+                  "type": "Polygon",
+                  "coordinates": [
+                    [
+                      [
+                        -179.9500000157243,
+                        -59.98224871364589
+                      ],
+                      [
+                        179.9973980503783,
+                        -59.98224871364589
+                      ],
+                      [
+                        179.9973980503783,
+                        89.9999999874719
+                      ],
+                      [
+                        -179.9500000157243,
+                        89.9999999874719
+                      ],
+                      [
+                        -179.9500000157243,
+                        -59.98224871364589
+                      ]
+                    ]
+                  ]
+                },
+                "collection": "lis-global-da-gpp",
+                "properties": {
+                  "datetime": "2020-11-26T00:00:00+00:00"
+                },
+                "stac_version": "1.0.0",
+                "stac_extensions": [
+                  "https://stac-extensions.github.io/raster/v1.1.0/schema.json",
+                  "https://stac-extensions.github.io/projection/v1.1.0/schema.json"
+                ],
+                "collection_id": "lis-global-da-gpp",
+                "datetime": "2020-11-26T00:00:00+00:00",
+                "primary_asset_url": "s3://veda-data-store/lis-global-da-gpp/LIS_GPP_202011260000.d01.cog.tif"
+              },
+              {
+                "id": "LIS_GPP_202011250000.d01.cog",
+                "bbox": [
+                  -179.9500000157243,
+                  -59.98224871364589,
+                  179.9973980503783,
+                  89.9999999874719
+                ],
+                "type": "Feature",
+                "links": [
+                  {
+                    "rel": "collection",
+                    "type": "application/json",
+                    "href": "https://openveda.cloud/api/stac/collections/lis-global-da-gpp"
+                  },
+                  {
+                    "rel": "parent",
+                    "type": "application/json",
+                    "href": "https://openveda.cloud/api/stac/collections/lis-global-da-gpp"
+                  },
+                  {
+                    "rel": "root",
+                    "type": "application/json",
+                    "href": "https://openveda.cloud/api/stac/"
+                  },
+                  {
+                    "rel": "self",
+                    "type": "application/geo+json",
+                    "href": "https://openveda.cloud/api/stac/collections/lis-global-da-gpp/items/LIS_GPP_202011250000.d01.cog"
+                  },
+                  {
+                    "title": "Map of Item",
+                    "href": "https://openveda.cloud/api/raster/collections/lis-global-da-gpp/items/LIS_GPP_202011250000.d01.cog/WebMercatorQuad/map?bidx=1&assets=cog_default&rescale=0%2C0.0001&resampling=bilinear&colormap_name=viridis",
+                    "rel": "preview",
+                    "type": "text/html"
+                  }
+                ],
+                "assets": {
+                  "cog_default": {
+                    "href": "s3://veda-data-store/lis-global-da-gpp/LIS_GPP_202011250000.d01.cog.tif",
+                    "type": "image/tiff; application=geotiff",
+                    "roles": [
+                      "data",
+                      "layer"
+                    ],
+                    "title": "Default COG Layer",
+                    "proj:bbox": [
+                      -179.9500000157243,
+                      -59.98224871364589,
+                      179.9973980503783,
+                      89.9999999874719
+                    ],
+                    "proj:epsg": 4326,
+                    "proj:wkt2": "GEOGCS[\"WGS 84\",DATUM[\"WGS_1984\",SPHEROID[\"WGS 84\",6378137,298.257223563]],PRIMEM[\"Greenwich\",0],UNIT[\"degree\",0.0174532925199433,AUTHORITY[\"EPSG\",\"9122\"]],AXIS[\"Latitude\",NORTH],AXIS[\"Longitude\",EAST]]",
+                    "proj:shape": [
+                      1500,
+                      3600
+                    ],
+                    "description": "Cloud optimized default layer to display on map",
+                    "raster:bands": [
+                      {
+                        "scale": 1.0,
+                        "nodata": 0.0,
+                        "offset": 0.0,
+                        "sampling": "area",
+                        "data_type": "float64",
+                        "histogram": {
+                          "max": 0.00017069662862922996,
+                          "min": 5.771245287222726e-11,
+                          "count": 11,
+                          "buckets": [
+                            39478,
+                            7006,
+                            4602,
+                            3570,
+                            2874,
+                            2769,
+                            2779,
+                            2140,
+                            561,
+                            47
+                          ]
+                        },
+                        "statistics": {
+                          "mean": 2.8933348199708723e-05,
+                          "stddev": 3.796865592642566e-05,
+                          "maximum": 0.00017069662862922996,
+                          "minimum": 5.771245287222726e-11,
+                          "valid_percent": 15.05461431498829
+                        }
+                      }
+                    ],
+                    "proj:geometry": {
+                      "type": "Polygon",
+                      "coordinates": [
+                        [
+                          [
+                            -179.9500000157243,
+                            -59.98224871364589
+                          ],
+                          [
+                            179.9973980503783,
+                            -59.98224871364589
+                          ],
+                          [
+                            179.9973980503783,
+                            89.9999999874719
+                          ],
+                          [
+                            -179.9500000157243,
+                            89.9999999874719
+                          ],
+                          [
+                            -179.9500000157243,
+                            -59.98224871364589
+                          ]
+                        ]
+                      ]
+                    },
+                    "proj:projjson": {
+                      "name": "WGS 84",
+                      "type": "GeographicCRS",
+                      "datum": {
+                        "name": "World Geodetic System 1984",
+                        "type": "GeodeticReferenceFrame",
+                        "ellipsoid": {
+                          "name": "WGS 84",
+                          "semi_major_axis": 6378137,
+                          "inverse_flattening": 298.257223563
+                        }
+                      },
+                      "$schema": "https://proj.org/schemas/v0.4/projjson.schema.json",
+                      "coordinate_system": {
+                        "axis": [
+                          {
+                            "name": "Latitude",
+                            "unit": "degree",
+                            "direction": "north",
+                            "abbreviation": "lat"
+                          },
+                          {
+                            "name": "Longitude",
+                            "unit": "degree",
+                            "direction": "east",
+                            "abbreviation": "lon"
+                          }
+                        ],
+                        "subtype": "ellipsoidal"
+                      }
+                    },
+                    "proj:transform": [
+                      0.09998538835169517,
+                      0.0,
+                      -179.9500000157243,
+                      0.0,
+                      -0.09998816580074518,
+                      89.9999999874719,
+                      0.0,
+                      0.0,
+                      1.0
+                    ]
+                  },
+                  "rendered_preview": {
+                    "title": "Rendered preview",
+                    "href": "https://openveda.cloud/api/raster/collections/lis-global-da-gpp/items/LIS_GPP_202011250000.d01.cog/preview.png?bidx=1&assets=cog_default&rescale=0%2C0.0001&resampling=bilinear&colormap_name=viridis",
+                    "rel": "preview",
+                    "roles": [
+                      "overview"
+                    ],
+                    "type": "image/png"
+                  }
+                },
+                "geometry": {
+                  "type": "Polygon",
+                  "coordinates": [
+                    [
+                      [
+                        -179.9500000157243,
+                        -59.98224871364589
+                      ],
+                      [
+                        179.9973980503783,
+                        -59.98224871364589
+                      ],
+                      [
+                        179.9973980503783,
+                        89.9999999874719
+                      ],
+                      [
+                        -179.9500000157243,
+                        89.9999999874719
+                      ],
+                      [
+                        -179.9500000157243,
+                        -59.98224871364589
+                      ]
+                    ]
+                  ]
+                },
+                "collection": "lis-global-da-gpp",
+                "properties": {
+                  "datetime": "2020-11-25T00:00:00+00:00"
+                },
+                "stac_version": "1.0.0",
+                "stac_extensions": [
+                  "https://stac-extensions.github.io/raster/v1.1.0/schema.json",
+                  "https://stac-extensions.github.io/projection/v1.1.0/schema.json"
+                ],
+                "collection_id": "lis-global-da-gpp",
+                "datetime": "2020-11-25T00:00:00+00:00",
+                "primary_asset_url": "s3://veda-data-store/lis-global-da-gpp/LIS_GPP_202011250000.d01.cog.tif"
+              },
+              {
+                "id": "LIS_GPP_202011240000.d01.cog",
+                "bbox": [
+                  -179.9500000157243,
+                  -59.98224871364589,
+                  179.9973980503783,
+                  89.9999999874719
+                ],
+                "type": "Feature",
+                "links": [
+                  {
+                    "rel": "collection",
+                    "type": "application/json",
+                    "href": "https://openveda.cloud/api/stac/collections/lis-global-da-gpp"
+                  },
+                  {
+                    "rel": "parent",
+                    "type": "application/json",
+                    "href": "https://openveda.cloud/api/stac/collections/lis-global-da-gpp"
+                  },
+                  {
+                    "rel": "root",
+                    "type": "application/json",
+                    "href": "https://openveda.cloud/api/stac/"
+                  },
+                  {
+                    "rel": "self",
+                    "type": "application/geo+json",
+                    "href": "https://openveda.cloud/api/stac/collections/lis-global-da-gpp/items/LIS_GPP_202011240000.d01.cog"
+                  },
+                  {
+                    "title": "Map of Item",
+                    "href": "https://openveda.cloud/api/raster/collections/lis-global-da-gpp/items/LIS_GPP_202011240000.d01.cog/WebMercatorQuad/map?bidx=1&assets=cog_default&rescale=0%2C0.0001&resampling=bilinear&colormap_name=viridis",
+                    "rel": "preview",
+                    "type": "text/html"
+                  }
+                ],
+                "assets": {
+                  "cog_default": {
+                    "href": "s3://veda-data-store/lis-global-da-gpp/LIS_GPP_202011240000.d01.cog.tif",
+                    "type": "image/tiff; application=geotiff",
+                    "roles": [
+                      "data",
+                      "layer"
+                    ],
+                    "title": "Default COG Layer",
+                    "proj:bbox": [
+                      -179.9500000157243,
+                      -59.98224871364589,
+                      179.9973980503783,
+                      89.9999999874719
+                    ],
+                    "proj:epsg": 4326,
+                    "proj:wkt2": "GEOGCS[\"WGS 84\",DATUM[\"WGS_1984\",SPHEROID[\"WGS 84\",6378137,298.257223563]],PRIMEM[\"Greenwich\",0],UNIT[\"degree\",0.0174532925199433,AUTHORITY[\"EPSG\",\"9122\"]],AXIS[\"Latitude\",NORTH],AXIS[\"Longitude\",EAST]]",
+                    "proj:shape": [
+                      1500,
+                      3600
+                    ],
+                    "description": "Cloud optimized default layer to display on map",
+                    "raster:bands": [
+                      {
+                        "scale": 1.0,
+                        "nodata": 0.0,
+                        "offset": 0.0,
+                        "sampling": "area",
+                        "data_type": "float64",
+                        "histogram": {
+                          "max": 0.0001681415451457724,
+                          "min": 5.402938513254796e-11,
+                          "count": 11,
+                          "buckets": [
+                            38569,
+                            7080,
+                            4745,
+                            3539,
+                            3013,
+                            2751,
+                            2720,
+                            2246,
+                            667,
+                            97
+                          ]
+                        },
+                        "statistics": {
+                          "mean": 2.934796016496144e-05,
+                          "stddev": 3.795241662827577e-05,
+                          "maximum": 0.0001681415451457724,
+                          "minimum": 5.402938513254796e-11,
+                          "valid_percent": 14.96336175351288
+                        }
+                      }
+                    ],
+                    "proj:geometry": {
+                      "type": "Polygon",
+                      "coordinates": [
+                        [
+                          [
+                            -179.9500000157243,
+                            -59.98224871364589
+                          ],
+                          [
+                            179.9973980503783,
+                            -59.98224871364589
+                          ],
+                          [
+                            179.9973980503783,
+                            89.9999999874719
+                          ],
+                          [
+                            -179.9500000157243,
+                            89.9999999874719
+                          ],
+                          [
+                            -179.9500000157243,
+                            -59.98224871364589
+                          ]
+                        ]
+                      ]
+                    },
+                    "proj:projjson": {
+                      "name": "WGS 84",
+                      "type": "GeographicCRS",
+                      "datum": {
+                        "name": "World Geodetic System 1984",
+                        "type": "GeodeticReferenceFrame",
+                        "ellipsoid": {
+                          "name": "WGS 84",
+                          "semi_major_axis": 6378137,
+                          "inverse_flattening": 298.257223563
+                        }
+                      },
+                      "$schema": "https://proj.org/schemas/v0.4/projjson.schema.json",
+                      "coordinate_system": {
+                        "axis": [
+                          {
+                            "name": "Latitude",
+                            "unit": "degree",
+                            "direction": "north",
+                            "abbreviation": "lat"
+                          },
+                          {
+                            "name": "Longitude",
+                            "unit": "degree",
+                            "direction": "east",
+                            "abbreviation": "lon"
+                          }
+                        ],
+                        "subtype": "ellipsoidal"
+                      }
+                    },
+                    "proj:transform": [
+                      0.09998538835169517,
+                      0.0,
+                      -179.9500000157243,
+                      0.0,
+                      -0.09998816580074518,
+                      89.9999999874719,
+                      0.0,
+                      0.0,
+                      1.0
+                    ]
+                  },
+                  "rendered_preview": {
+                    "title": "Rendered preview",
+                    "href": "https://openveda.cloud/api/raster/collections/lis-global-da-gpp/items/LIS_GPP_202011240000.d01.cog/preview.png?bidx=1&assets=cog_default&rescale=0%2C0.0001&resampling=bilinear&colormap_name=viridis",
+                    "rel": "preview",
+                    "roles": [
+                      "overview"
+                    ],
+                    "type": "image/png"
+                  }
+                },
+                "geometry": {
+                  "type": "Polygon",
+                  "coordinates": [
+                    [
+                      [
+                        -179.9500000157243,
+                        -59.98224871364589
+                      ],
+                      [
+                        179.9973980503783,
+                        -59.98224871364589
+                      ],
+                      [
+                        179.9973980503783,
+                        89.9999999874719
+                      ],
+                      [
+                        -179.9500000157243,
+                        89.9999999874719
+                      ],
+                      [
+                        -179.9500000157243,
+                        -59.98224871364589
+                      ]
+                    ]
+                  ]
+                },
+                "collection": "lis-global-da-gpp",
+                "properties": {
+                  "datetime": "2020-11-24T00:00:00+00:00"
+                },
+                "stac_version": "1.0.0",
+                "stac_extensions": [
+                  "https://stac-extensions.github.io/raster/v1.1.0/schema.json",
+                  "https://stac-extensions.github.io/projection/v1.1.0/schema.json"
+                ],
+                "collection_id": "lis-global-da-gpp",
+                "datetime": "2020-11-24T00:00:00+00:00",
+                "primary_asset_url": "s3://veda-data-store/lis-global-da-gpp/LIS_GPP_202011240000.d01.cog.tif"
+              },
+              {
+                "id": "LIS_GPP_202011230000.d01.cog",
+                "bbox": [
+                  -179.9500000157243,
+                  -59.98224871364589,
+                  179.9973980503783,
+                  89.9999999874719
+                ],
+                "type": "Feature",
+                "links": [
+                  {
+                    "rel": "collection",
+                    "type": "application/json",
+                    "href": "https://openveda.cloud/api/stac/collections/lis-global-da-gpp"
+                  },
+                  {
+                    "rel": "parent",
+                    "type": "application/json",
+                    "href": "https://openveda.cloud/api/stac/collections/lis-global-da-gpp"
+                  },
+                  {
+                    "rel": "root",
+                    "type": "application/json",
+                    "href": "https://openveda.cloud/api/stac/"
+                  },
+                  {
+                    "rel": "self",
+                    "type": "application/geo+json",
+                    "href": "https://openveda.cloud/api/stac/collections/lis-global-da-gpp/items/LIS_GPP_202011230000.d01.cog"
+                  },
+                  {
+                    "title": "Map of Item",
+                    "href": "https://openveda.cloud/api/raster/collections/lis-global-da-gpp/items/LIS_GPP_202011230000.d01.cog/WebMercatorQuad/map?bidx=1&assets=cog_default&rescale=0%2C0.0001&resampling=bilinear&colormap_name=viridis",
+                    "rel": "preview",
+                    "type": "text/html"
+                  }
+                ],
+                "assets": {
+                  "cog_default": {
+                    "href": "s3://veda-data-store/lis-global-da-gpp/LIS_GPP_202011230000.d01.cog.tif",
+                    "type": "image/tiff; application=geotiff",
+                    "roles": [
+                      "data",
+                      "layer"
+                    ],
+                    "title": "Default COG Layer",
+                    "proj:bbox": [
+                      -179.9500000157243,
+                      -59.98224871364589,
+                      179.9973980503783,
+                      89.9999999874719
+                    ],
+                    "proj:epsg": 4326,
+                    "proj:wkt2": "GEOGCS[\"WGS 84\",DATUM[\"WGS_1984\",SPHEROID[\"WGS 84\",6378137,298.257223563]],PRIMEM[\"Greenwich\",0],UNIT[\"degree\",0.0174532925199433,AUTHORITY[\"EPSG\",\"9122\"]],AXIS[\"Latitude\",NORTH],AXIS[\"Longitude\",EAST]]",
+                    "proj:shape": [
+                      1500,
+                      3600
+                    ],
+                    "description": "Cloud optimized default layer to display on map",
+                    "raster:bands": [
+                      {
+                        "scale": 1.0,
+                        "nodata": 0.0,
+                        "offset": 0.0,
+                        "sampling": "area",
+                        "data_type": "float64",
+                        "histogram": {
+                          "max": 0.00016943979426287115,
+                          "min": 3.859032191022571e-11,
+                          "count": 11,
+                          "buckets": [
+                            39063,
+                            7071,
+                            4981,
+                            3846,
+                            2844,
+                            2607,
+                            2536,
+                            2163,
+                            922,
+                            93
+                          ]
+                        },
+                        "statistics": {
+                          "mean": 2.9338031043564054e-05,
+                          "stddev": 3.828712128502958e-05,
+                          "maximum": 0.00016943979426287115,
+                          "minimum": 3.859032191022571e-11,
+                          "valid_percent": 15.123225263466042
+                        }
+                      }
+                    ],
+                    "proj:geometry": {
+                      "type": "Polygon",
+                      "coordinates": [
+                        [
+                          [
+                            -179.9500000157243,
+                            -59.98224871364589
+                          ],
+                          [
+                            179.9973980503783,
+                            -59.98224871364589
+                          ],
+                          [
+                            179.9973980503783,
+                            89.9999999874719
+                          ],
+                          [
+                            -179.9500000157243,
+                            89.9999999874719
+                          ],
+                          [
+                            -179.9500000157243,
+                            -59.98224871364589
+                          ]
+                        ]
+                      ]
+                    },
+                    "proj:projjson": {
+                      "name": "WGS 84",
+                      "type": "GeographicCRS",
+                      "datum": {
+                        "name": "World Geodetic System 1984",
+                        "type": "GeodeticReferenceFrame",
+                        "ellipsoid": {
+                          "name": "WGS 84",
+                          "semi_major_axis": 6378137,
+                          "inverse_flattening": 298.257223563
+                        }
+                      },
+                      "$schema": "https://proj.org/schemas/v0.4/projjson.schema.json",
+                      "coordinate_system": {
+                        "axis": [
+                          {
+                            "name": "Latitude",
+                            "unit": "degree",
+                            "direction": "north",
+                            "abbreviation": "lat"
+                          },
+                          {
+                            "name": "Longitude",
+                            "unit": "degree",
+                            "direction": "east",
+                            "abbreviation": "lon"
+                          }
+                        ],
+                        "subtype": "ellipsoidal"
+                      }
+                    },
+                    "proj:transform": [
+                      0.09998538835169517,
+                      0.0,
+                      -179.9500000157243,
+                      0.0,
+                      -0.09998816580074518,
+                      89.9999999874719,
+                      0.0,
+                      0.0,
+                      1.0
+                    ]
+                  },
+                  "rendered_preview": {
+                    "title": "Rendered preview",
+                    "href": "https://openveda.cloud/api/raster/collections/lis-global-da-gpp/items/LIS_GPP_202011230000.d01.cog/preview.png?bidx=1&assets=cog_default&rescale=0%2C0.0001&resampling=bilinear&colormap_name=viridis",
+                    "rel": "preview",
+                    "roles": [
+                      "overview"
+                    ],
+                    "type": "image/png"
+                  }
+                },
+                "geometry": {
+                  "type": "Polygon",
+                  "coordinates": [
+                    [
+                      [
+                        -179.9500000157243,
+                        -59.98224871364589
+                      ],
+                      [
+                        179.9973980503783,
+                        -59.98224871364589
+                      ],
+                      [
+                        179.9973980503783,
+                        89.9999999874719
+                      ],
+                      [
+                        -179.9500000157243,
+                        89.9999999874719
+                      ],
+                      [
+                        -179.9500000157243,
+                        -59.98224871364589
+                      ]
+                    ]
+                  ]
+                },
+                "collection": "lis-global-da-gpp",
+                "properties": {
+                  "datetime": "2020-11-23T00:00:00+00:00"
+                },
+                "stac_version": "1.0.0",
+                "stac_extensions": [
+                  "https://stac-extensions.github.io/raster/v1.1.0/schema.json",
+                  "https://stac-extensions.github.io/projection/v1.1.0/schema.json"
+                ],
+                "collection_id": "lis-global-da-gpp",
+                "datetime": "2020-11-23T00:00:00+00:00",
+                "primary_asset_url": "s3://veda-data-store/lis-global-da-gpp/LIS_GPP_202011230000.d01.cog.tif"
+              },
+              {
+                "id": "LIS_GPP_202011220000.d01.cog",
+                "bbox": [
+                  -179.9500000157243,
+                  -59.98224871364589,
+                  179.9973980503783,
+                  89.9999999874719
+                ],
+                "type": "Feature",
+                "links": [
+                  {
+                    "rel": "collection",
+                    "type": "application/json",
+                    "href": "https://openveda.cloud/api/stac/collections/lis-global-da-gpp"
+                  },
+                  {
+                    "rel": "parent",
+                    "type": "application/json",
+                    "href": "https://openveda.cloud/api/stac/collections/lis-global-da-gpp"
+                  },
+                  {
+                    "rel": "root",
+                    "type": "application/json",
+                    "href": "https://openveda.cloud/api/stac/"
+                  },
+                  {
+                    "rel": "self",
+                    "type": "application/geo+json",
+                    "href": "https://openveda.cloud/api/stac/collections/lis-global-da-gpp/items/LIS_GPP_202011220000.d01.cog"
+                  },
+                  {
+                    "title": "Map of Item",
+                    "href": "https://openveda.cloud/api/raster/collections/lis-global-da-gpp/items/LIS_GPP_202011220000.d01.cog/WebMercatorQuad/map?bidx=1&assets=cog_default&rescale=0%2C0.0001&resampling=bilinear&colormap_name=viridis",
+                    "rel": "preview",
+                    "type": "text/html"
+                  }
+                ],
+                "assets": {
+                  "cog_default": {
+                    "href": "s3://veda-data-store/lis-global-da-gpp/LIS_GPP_202011220000.d01.cog.tif",
+                    "type": "image/tiff; application=geotiff",
+                    "roles": [
+                      "data",
+                      "layer"
+                    ],
+                    "title": "Default COG Layer",
+                    "proj:bbox": [
+                      -179.9500000157243,
+                      -59.98224871364589,
+                      179.9973980503783,
+                      89.9999999874719
+                    ],
+                    "proj:epsg": 4326,
+                    "proj:wkt2": "GEOGCS[\"WGS 84\",DATUM[\"WGS_1984\",SPHEROID[\"WGS 84\",6378137,298.257223563]],PRIMEM[\"Greenwich\",0],UNIT[\"degree\",0.0174532925199433,AUTHORITY[\"EPSG\",\"9122\"]],AXIS[\"Latitude\",NORTH],AXIS[\"Longitude\",EAST]]",
+                    "proj:shape": [
+                      1500,
+                      3600
+                    ],
+                    "description": "Cloud optimized default layer to display on map",
+                    "raster:bands": [
+                      {
+                        "scale": 1.0,
+                        "nodata": 0.0,
+                        "offset": 0.0,
+                        "sampling": "area",
+                        "data_type": "float64",
+                        "histogram": {
+                          "max": 0.00016563849931117147,
+                          "min": 5.812521297610118e-11,
+                          "count": 11,
+                          "buckets": [
+                            39877,
+                            7183,
+                            4987,
+                            3990,
+                            2933,
+                            2830,
+                            2672,
+                            2132,
+                            907,
+                            195
+                          ]
+                        },
+                        "statistics": {
+                          "mean": 2.8934193574775944e-05,
+                          "stddev": 3.7744234047931456e-05,
+                          "maximum": 0.00016563849931117147,
+                          "minimum": 5.812521297610118e-11,
+                          "valid_percent": 15.484576258782202
+                        }
+                      }
+                    ],
+                    "proj:geometry": {
+                      "type": "Polygon",
+                      "coordinates": [
+                        [
+                          [
+                            -179.9500000157243,
+                            -59.98224871364589
+                          ],
+                          [
+                            179.9973980503783,
+                            -59.98224871364589
+                          ],
+                          [
+                            179.9973980503783,
+                            89.9999999874719
+                          ],
+                          [
+                            -179.9500000157243,
+                            89.9999999874719
+                          ],
+                          [
+                            -179.9500000157243,
+                            -59.98224871364589
+                          ]
+                        ]
+                      ]
+                    },
+                    "proj:projjson": {
+                      "name": "WGS 84",
+                      "type": "GeographicCRS",
+                      "datum": {
+                        "name": "World Geodetic System 1984",
+                        "type": "GeodeticReferenceFrame",
+                        "ellipsoid": {
+                          "name": "WGS 84",
+                          "semi_major_axis": 6378137,
+                          "inverse_flattening": 298.257223563
+                        }
+                      },
+                      "$schema": "https://proj.org/schemas/v0.4/projjson.schema.json",
+                      "coordinate_system": {
+                        "axis": [
+                          {
+                            "name": "Latitude",
+                            "unit": "degree",
+                            "direction": "north",
+                            "abbreviation": "lat"
+                          },
+                          {
+                            "name": "Longitude",
+                            "unit": "degree",
+                            "direction": "east",
+                            "abbreviation": "lon"
+                          }
+                        ],
+                        "subtype": "ellipsoidal"
+                      }
+                    },
+                    "proj:transform": [
+                      0.09998538835169517,
+                      0.0,
+                      -179.9500000157243,
+                      0.0,
+                      -0.09998816580074518,
+                      89.9999999874719,
+                      0.0,
+                      0.0,
+                      1.0
+                    ]
+                  },
+                  "rendered_preview": {
+                    "title": "Rendered preview",
+                    "href": "https://openveda.cloud/api/raster/collections/lis-global-da-gpp/items/LIS_GPP_202011220000.d01.cog/preview.png?bidx=1&assets=cog_default&rescale=0%2C0.0001&resampling=bilinear&colormap_name=viridis",
+                    "rel": "preview",
+                    "roles": [
+                      "overview"
+                    ],
+                    "type": "image/png"
+                  }
+                },
+                "geometry": {
+                  "type": "Polygon",
+                  "coordinates": [
+                    [
+                      [
+                        -179.9500000157243,
+                        -59.98224871364589
+                      ],
+                      [
+                        179.9973980503783,
+                        -59.98224871364589
+                      ],
+                      [
+                        179.9973980503783,
+                        89.9999999874719
+                      ],
+                      [
+                        -179.9500000157243,
+                        89.9999999874719
+                      ],
+                      [
+                        -179.9500000157243,
+                        -59.98224871364589
+                      ]
+                    ]
+                  ]
+                },
+                "collection": "lis-global-da-gpp",
+                "properties": {
+                  "datetime": "2020-11-22T00:00:00+00:00"
+                },
+                "stac_version": "1.0.0",
+                "stac_extensions": [
+                  "https://stac-extensions.github.io/raster/v1.1.0/schema.json",
+                  "https://stac-extensions.github.io/projection/v1.1.0/schema.json"
+                ],
+                "collection_id": "lis-global-da-gpp",
+                "datetime": "2020-11-22T00:00:00+00:00",
+                "primary_asset_url": "s3://veda-data-store/lis-global-da-gpp/LIS_GPP_202011220000.d01.cog.tif"
+              },
+              {
+                "id": "LIS_GPP_202011210000.d01.cog",
+                "bbox": [
+                  -179.9500000157243,
+                  -59.98224871364589,
+                  179.9973980503783,
+                  89.9999999874719
+                ],
+                "type": "Feature",
+                "links": [
+                  {
+                    "rel": "collection",
+                    "type": "application/json",
+                    "href": "https://openveda.cloud/api/stac/collections/lis-global-da-gpp"
+                  },
+                  {
+                    "rel": "parent",
+                    "type": "application/json",
+                    "href": "https://openveda.cloud/api/stac/collections/lis-global-da-gpp"
+                  },
+                  {
+                    "rel": "root",
+                    "type": "application/json",
+                    "href": "https://openveda.cloud/api/stac/"
+                  },
+                  {
+                    "rel": "self",
+                    "type": "application/geo+json",
+                    "href": "https://openveda.cloud/api/stac/collections/lis-global-da-gpp/items/LIS_GPP_202011210000.d01.cog"
+                  },
+                  {
+                    "title": "Map of Item",
+                    "href": "https://openveda.cloud/api/raster/collections/lis-global-da-gpp/items/LIS_GPP_202011210000.d01.cog/WebMercatorQuad/map?bidx=1&assets=cog_default&rescale=0%2C0.0001&resampling=bilinear&colormap_name=viridis",
+                    "rel": "preview",
+                    "type": "text/html"
+                  }
+                ],
+                "assets": {
+                  "cog_default": {
+                    "href": "s3://veda-data-store/lis-global-da-gpp/LIS_GPP_202011210000.d01.cog.tif",
+                    "type": "image/tiff; application=geotiff",
+                    "roles": [
+                      "data",
+                      "layer"
+                    ],
+                    "title": "Default COG Layer",
+                    "proj:bbox": [
+                      -179.9500000157243,
+                      -59.98224871364589,
+                      179.9973980503783,
+                      89.9999999874719
+                    ],
+                    "proj:epsg": 4326,
+                    "proj:wkt2": "GEOGCS[\"WGS 84\",DATUM[\"WGS_1984\",SPHEROID[\"WGS 84\",6378137,298.257223563]],PRIMEM[\"Greenwich\",0],UNIT[\"degree\",0.0174532925199433,AUTHORITY[\"EPSG\",\"9122\"]],AXIS[\"Latitude\",NORTH],AXIS[\"Longitude\",EAST]]",
+                    "proj:shape": [
+                      1500,
+                      3600
+                    ],
+                    "description": "Cloud optimized default layer to display on map",
+                    "raster:bands": [
+                      {
+                        "scale": 1.0,
+                        "nodata": 0.0,
+                        "offset": 0.0,
+                        "sampling": "area",
+                        "data_type": "float64",
+                        "histogram": {
+                          "max": 0.0001708413619780913,
+                          "min": 6.342806835313297e-11,
+                          "count": 11,
+                          "buckets": [
+                            39394,
+                            7314,
+                            5051,
+                            4189,
+                            2691,
+                            2536,
+                            3238,
+                            2228,
+                            569,
+                            61
+                          ]
+                        },
+                        "statistics": {
+                          "mean": 2.975501177323983e-05,
+                          "stddev": 3.8186782632448984e-05,
+                          "maximum": 0.0001708413619780913,
+                          "minimum": 6.342806835313297e-11,
+                          "valid_percent": 15.38509038348946
+                        }
+                      }
+                    ],
+                    "proj:geometry": {
+                      "type": "Polygon",
+                      "coordinates": [
+                        [
+                          [
+                            -179.9500000157243,
+                            -59.98224871364589
+                          ],
+                          [
+                            179.9973980503783,
+                            -59.98224871364589
+                          ],
+                          [
+                            179.9973980503783,
+                            89.9999999874719
+                          ],
+                          [
+                            -179.9500000157243,
+                            89.9999999874719
+                          ],
+                          [
+                            -179.9500000157243,
+                            -59.98224871364589
+                          ]
+                        ]
+                      ]
+                    },
+                    "proj:projjson": {
+                      "name": "WGS 84",
+                      "type": "GeographicCRS",
+                      "datum": {
+                        "name": "World Geodetic System 1984",
+                        "type": "GeodeticReferenceFrame",
+                        "ellipsoid": {
+                          "name": "WGS 84",
+                          "semi_major_axis": 6378137,
+                          "inverse_flattening": 298.257223563
+                        }
+                      },
+                      "$schema": "https://proj.org/schemas/v0.4/projjson.schema.json",
+                      "coordinate_system": {
+                        "axis": [
+                          {
+                            "name": "Latitude",
+                            "unit": "degree",
+                            "direction": "north",
+                            "abbreviation": "lat"
+                          },
+                          {
+                            "name": "Longitude",
+                            "unit": "degree",
+                            "direction": "east",
+                            "abbreviation": "lon"
+                          }
+                        ],
+                        "subtype": "ellipsoidal"
+                      }
+                    },
+                    "proj:transform": [
+                      0.09998538835169517,
+                      0.0,
+                      -179.9500000157243,
+                      0.0,
+                      -0.09998816580074518,
+                      89.9999999874719,
+                      0.0,
+                      0.0,
+                      1.0
+                    ]
+                  },
+                  "rendered_preview": {
+                    "title": "Rendered preview",
+                    "href": "https://openveda.cloud/api/raster/collections/lis-global-da-gpp/items/LIS_GPP_202011210000.d01.cog/preview.png?bidx=1&assets=cog_default&rescale=0%2C0.0001&resampling=bilinear&colormap_name=viridis",
+                    "rel": "preview",
+                    "roles": [
+                      "overview"
+                    ],
+                    "type": "image/png"
+                  }
+                },
+                "geometry": {
+                  "type": "Polygon",
+                  "coordinates": [
+                    [
+                      [
+                        -179.9500000157243,
+                        -59.98224871364589
+                      ],
+                      [
+                        179.9973980503783,
+                        -59.98224871364589
+                      ],
+                      [
+                        179.9973980503783,
+                        89.9999999874719
+                      ],
+                      [
+                        -179.9500000157243,
+                        89.9999999874719
+                      ],
+                      [
+                        -179.9500000157243,
+                        -59.98224871364589
+                      ]
+                    ]
+                  ]
+                },
+                "collection": "lis-global-da-gpp",
+                "properties": {
+                  "datetime": "2020-11-21T00:00:00+00:00"
+                },
+                "stac_version": "1.0.0",
+                "stac_extensions": [
+                  "https://stac-extensions.github.io/raster/v1.1.0/schema.json",
+                  "https://stac-extensions.github.io/projection/v1.1.0/schema.json"
+                ],
+                "collection_id": "lis-global-da-gpp",
+                "datetime": "2020-11-21T00:00:00+00:00",
+                "primary_asset_url": "s3://veda-data-store/lis-global-da-gpp/LIS_GPP_202011210000.d01.cog.tif"
+              },
+              {
+                "id": "LIS_GPP_202011200000.d01.cog",
+                "bbox": [
+                  -179.9500000157243,
+                  -59.98224871364589,
+                  179.9973980503783,
+                  89.9999999874719
+                ],
+                "type": "Feature",
+                "links": [
+                  {
+                    "rel": "collection",
+                    "type": "application/json",
+                    "href": "https://openveda.cloud/api/stac/collections/lis-global-da-gpp"
+                  },
+                  {
+                    "rel": "parent",
+                    "type": "application/json",
+                    "href": "https://openveda.cloud/api/stac/collections/lis-global-da-gpp"
+                  },
+                  {
+                    "rel": "root",
+                    "type": "application/json",
+                    "href": "https://openveda.cloud/api/stac/"
+                  },
+                  {
+                    "rel": "self",
+                    "type": "application/geo+json",
+                    "href": "https://openveda.cloud/api/stac/collections/lis-global-da-gpp/items/LIS_GPP_202011200000.d01.cog"
+                  },
+                  {
+                    "title": "Map of Item",
+                    "href": "https://openveda.cloud/api/raster/collections/lis-global-da-gpp/items/LIS_GPP_202011200000.d01.cog/WebMercatorQuad/map?bidx=1&assets=cog_default&rescale=0%2C0.0001&resampling=bilinear&colormap_name=viridis",
+                    "rel": "preview",
+                    "type": "text/html"
+                  }
+                ],
+                "assets": {
+                  "cog_default": {
+                    "href": "s3://veda-data-store/lis-global-da-gpp/LIS_GPP_202011200000.d01.cog.tif",
+                    "type": "image/tiff; application=geotiff",
+                    "roles": [
+                      "data",
+                      "layer"
+                    ],
+                    "title": "Default COG Layer",
+                    "proj:bbox": [
+                      -179.9500000157243,
+                      -59.98224871364589,
+                      179.9973980503783,
+                      89.9999999874719
+                    ],
+                    "proj:epsg": 4326,
+                    "proj:wkt2": "GEOGCS[\"WGS 84\",DATUM[\"WGS_1984\",SPHEROID[\"WGS 84\",6378137,298.257223563]],PRIMEM[\"Greenwich\",0],UNIT[\"degree\",0.0174532925199433,AUTHORITY[\"EPSG\",\"9122\"]],AXIS[\"Latitude\",NORTH],AXIS[\"Longitude\",EAST]]",
+                    "proj:shape": [
+                      1500,
+                      3600
+                    ],
+                    "description": "Cloud optimized default layer to display on map",
+                    "raster:bands": [
+                      {
+                        "scale": 1.0,
+                        "nodata": 0.0,
+                        "offset": 0.0,
+                        "sampling": "area",
+                        "data_type": "float64",
+                        "histogram": {
+                          "max": 0.00017003878019750118,
+                          "min": 6.04781572044466e-11,
+                          "count": 11,
+                          "buckets": [
+                            37786,
+                            7206,
+                            5250,
+                            3944,
+                            2780,
+                            2454,
+                            2763,
+                            2440,
+                            892,
+                            173
+                          ]
+                        },
+                        "statistics": {
+                          "mean": 3.078380453996731e-05,
+                          "stddev": 3.911441856098487e-05,
+                          "maximum": 0.00017003878019750118,
+                          "minimum": 6.04781572044466e-11,
+                          "valid_percent": 15.023053278688526
+                        }
+                      }
+                    ],
+                    "proj:geometry": {
+                      "type": "Polygon",
+                      "coordinates": [
+                        [
+                          [
+                            -179.9500000157243,
+                            -59.98224871364589
+                          ],
+                          [
+                            179.9973980503783,
+                            -59.98224871364589
+                          ],
+                          [
+                            179.9973980503783,
+                            89.9999999874719
+                          ],
+                          [
+                            -179.9500000157243,
+                            89.9999999874719
+                          ],
+                          [
+                            -179.9500000157243,
+                            -59.98224871364589
+                          ]
+                        ]
+                      ]
+                    },
+                    "proj:projjson": {
+                      "name": "WGS 84",
+                      "type": "GeographicCRS",
+                      "datum": {
+                        "name": "World Geodetic System 1984",
+                        "type": "GeodeticReferenceFrame",
+                        "ellipsoid": {
+                          "name": "WGS 84",
+                          "semi_major_axis": 6378137,
+                          "inverse_flattening": 298.257223563
+                        }
+                      },
+                      "$schema": "https://proj.org/schemas/v0.4/projjson.schema.json",
+                      "coordinate_system": {
+                        "axis": [
+                          {
+                            "name": "Latitude",
+                            "unit": "degree",
+                            "direction": "north",
+                            "abbreviation": "lat"
+                          },
+                          {
+                            "name": "Longitude",
+                            "unit": "degree",
+                            "direction": "east",
+                            "abbreviation": "lon"
+                          }
+                        ],
+                        "subtype": "ellipsoidal"
+                      }
+                    },
+                    "proj:transform": [
+                      0.09998538835169517,
+                      0.0,
+                      -179.9500000157243,
+                      0.0,
+                      -0.09998816580074518,
+                      89.9999999874719,
+                      0.0,
+                      0.0,
+                      1.0
+                    ]
+                  },
+                  "rendered_preview": {
+                    "title": "Rendered preview",
+                    "href": "https://openveda.cloud/api/raster/collections/lis-global-da-gpp/items/LIS_GPP_202011200000.d01.cog/preview.png?bidx=1&assets=cog_default&rescale=0%2C0.0001&resampling=bilinear&colormap_name=viridis",
+                    "rel": "preview",
+                    "roles": [
+                      "overview"
+                    ],
+                    "type": "image/png"
+                  }
+                },
+                "geometry": {
+                  "type": "Polygon",
+                  "coordinates": [
+                    [
+                      [
+                        -179.9500000157243,
+                        -59.98224871364589
+                      ],
+                      [
+                        179.9973980503783,
+                        -59.98224871364589
+                      ],
+                      [
+                        179.9973980503783,
+                        89.9999999874719
+                      ],
+                      [
+                        -179.9500000157243,
+                        89.9999999874719
+                      ],
+                      [
+                        -179.9500000157243,
+                        -59.98224871364589
+                      ]
+                    ]
+                  ]
+                },
+                "collection": "lis-global-da-gpp",
+                "properties": {
+                  "datetime": "2020-11-20T00:00:00+00:00"
+                },
+                "stac_version": "1.0.0",
+                "stac_extensions": [
+                  "https://stac-extensions.github.io/raster/v1.1.0/schema.json",
+                  "https://stac-extensions.github.io/projection/v1.1.0/schema.json"
+                ],
+                "collection_id": "lis-global-da-gpp",
+                "datetime": "2020-11-20T00:00:00+00:00",
+                "primary_asset_url": "s3://veda-data-store/lis-global-da-gpp/LIS_GPP_202011200000.d01.cog.tif"
+              },
+              {
+                "id": "LIS_GPP_202011190000.d01.cog",
+                "bbox": [
+                  -179.9500000157243,
+                  -59.98224871364589,
+                  179.9973980503783,
+                  89.9999999874719
+                ],
+                "type": "Feature",
+                "links": [
+                  {
+                    "rel": "collection",
+                    "type": "application/json",
+                    "href": "https://openveda.cloud/api/stac/collections/lis-global-da-gpp"
+                  },
+                  {
+                    "rel": "parent",
+                    "type": "application/json",
+                    "href": "https://openveda.cloud/api/stac/collections/lis-global-da-gpp"
+                  },
+                  {
+                    "rel": "root",
+                    "type": "application/json",
+                    "href": "https://openveda.cloud/api/stac/"
+                  },
+                  {
+                    "rel": "self",
+                    "type": "application/geo+json",
+                    "href": "https://openveda.cloud/api/stac/collections/lis-global-da-gpp/items/LIS_GPP_202011190000.d01.cog"
+                  },
+                  {
+                    "title": "Map of Item",
+                    "href": "https://openveda.cloud/api/raster/collections/lis-global-da-gpp/items/LIS_GPP_202011190000.d01.cog/WebMercatorQuad/map?bidx=1&assets=cog_default&rescale=0%2C0.0001&resampling=bilinear&colormap_name=viridis",
+                    "rel": "preview",
+                    "type": "text/html"
+                  }
+                ],
+                "assets": {
+                  "cog_default": {
+                    "href": "s3://veda-data-store/lis-global-da-gpp/LIS_GPP_202011190000.d01.cog.tif",
+                    "type": "image/tiff; application=geotiff",
+                    "roles": [
+                      "data",
+                      "layer"
+                    ],
+                    "title": "Default COG Layer",
+                    "proj:bbox": [
+                      -179.9500000157243,
+                      -59.98224871364589,
+                      179.9973980503783,
+                      89.9999999874719
+                    ],
+                    "proj:epsg": 4326,
+                    "proj:wkt2": "GEOGCS[\"WGS 84\",DATUM[\"WGS_1984\",SPHEROID[\"WGS 84\",6378137,298.257223563]],PRIMEM[\"Greenwich\",0],UNIT[\"degree\",0.0174532925199433,AUTHORITY[\"EPSG\",\"9122\"]],AXIS[\"Latitude\",NORTH],AXIS[\"Longitude\",EAST]]",
+                    "proj:shape": [
+                      1500,
+                      3600
+                    ],
+                    "description": "Cloud optimized default layer to display on map",
+                    "raster:bands": [
+                      {
+                        "scale": 1.0,
+                        "nodata": 0.0,
+                        "offset": 0.0,
+                        "sampling": "area",
+                        "data_type": "float64",
+                        "histogram": {
+                          "max": 0.00016959241474978626,
+                          "min": 4.448315327199026e-11,
+                          "count": 11,
+                          "buckets": [
+                            38155,
+                            7569,
+                            5190,
+                            3978,
+                            2666,
+                            2360,
+                            2623,
+                            2422,
+                            1061,
+                            137
+                          ]
+                        },
+                        "statistics": {
+                          "mean": 3.038465513647839e-05,
+                          "stddev": 3.8959233086189514e-05,
+                          "maximum": 0.00016959241474978626,
+                          "minimum": 4.448315327199026e-11,
+                          "valid_percent": 15.131229874121779
+                        }
+                      }
+                    ],
+                    "proj:geometry": {
+                      "type": "Polygon",
+                      "coordinates": [
+                        [
+                          [
+                            -179.9500000157243,
+                            -59.98224871364589
+                          ],
+                          [
+                            179.9973980503783,
+                            -59.98224871364589
+                          ],
+                          [
+                            179.9973980503783,
+                            89.9999999874719
+                          ],
+                          [
+                            -179.9500000157243,
+                            89.9999999874719
+                          ],
+                          [
+                            -179.9500000157243,
+                            -59.98224871364589
+                          ]
+                        ]
+                      ]
+                    },
+                    "proj:projjson": {
+                      "name": "WGS 84",
+                      "type": "GeographicCRS",
+                      "datum": {
+                        "name": "World Geodetic System 1984",
+                        "type": "GeodeticReferenceFrame",
+                        "ellipsoid": {
+                          "name": "WGS 84",
+                          "semi_major_axis": 6378137,
+                          "inverse_flattening": 298.257223563
+                        }
+                      },
+                      "$schema": "https://proj.org/schemas/v0.4/projjson.schema.json",
+                      "coordinate_system": {
+                        "axis": [
+                          {
+                            "name": "Latitude",
+                            "unit": "degree",
+                            "direction": "north",
+                            "abbreviation": "lat"
+                          },
+                          {
+                            "name": "Longitude",
+                            "unit": "degree",
+                            "direction": "east",
+                            "abbreviation": "lon"
+                          }
+                        ],
+                        "subtype": "ellipsoidal"
+                      }
+                    },
+                    "proj:transform": [
+                      0.09998538835169517,
+                      0.0,
+                      -179.9500000157243,
+                      0.0,
+                      -0.09998816580074518,
+                      89.9999999874719,
+                      0.0,
+                      0.0,
+                      1.0
+                    ]
+                  },
+                  "rendered_preview": {
+                    "title": "Rendered preview",
+                    "href": "https://openveda.cloud/api/raster/collections/lis-global-da-gpp/items/LIS_GPP_202011190000.d01.cog/preview.png?bidx=1&assets=cog_default&rescale=0%2C0.0001&resampling=bilinear&colormap_name=viridis",
+                    "rel": "preview",
+                    "roles": [
+                      "overview"
+                    ],
+                    "type": "image/png"
+                  }
+                },
+                "geometry": {
+                  "type": "Polygon",
+                  "coordinates": [
+                    [
+                      [
+                        -179.9500000157243,
+                        -59.98224871364589
+                      ],
+                      [
+                        179.9973980503783,
+                        -59.98224871364589
+                      ],
+                      [
+                        179.9973980503783,
+                        89.9999999874719
+                      ],
+                      [
+                        -179.9500000157243,
+                        89.9999999874719
+                      ],
+                      [
+                        -179.9500000157243,
+                        -59.98224871364589
+                      ]
+                    ]
+                  ]
+                },
+                "collection": "lis-global-da-gpp",
+                "properties": {
+                  "datetime": "2020-11-19T00:00:00+00:00"
+                },
+                "stac_version": "1.0.0",
+                "stac_extensions": [
+                  "https://stac-extensions.github.io/raster/v1.1.0/schema.json",
+                  "https://stac-extensions.github.io/projection/v1.1.0/schema.json"
+                ],
+                "collection_id": "lis-global-da-gpp",
+                "datetime": "2020-11-19T00:00:00+00:00",
+                "primary_asset_url": "s3://veda-data-store/lis-global-da-gpp/LIS_GPP_202011190000.d01.cog.tif"
+              },
+              {
+                "id": "LIS_GPP_202011180000.d01.cog",
+                "bbox": [
+                  -179.9500000157243,
+                  -59.98224871364589,
+                  179.9973980503783,
+                  89.9999999874719
+                ],
+                "type": "Feature",
+                "links": [
+                  {
+                    "rel": "collection",
+                    "type": "application/json",
+                    "href": "https://openveda.cloud/api/stac/collections/lis-global-da-gpp"
+                  },
+                  {
+                    "rel": "parent",
+                    "type": "application/json",
+                    "href": "https://openveda.cloud/api/stac/collections/lis-global-da-gpp"
+                  },
+                  {
+                    "rel": "root",
+                    "type": "application/json",
+                    "href": "https://openveda.cloud/api/stac/"
+                  },
+                  {
+                    "rel": "self",
+                    "type": "application/geo+json",
+                    "href": "https://openveda.cloud/api/stac/collections/lis-global-da-gpp/items/LIS_GPP_202011180000.d01.cog"
+                  },
+                  {
+                    "title": "Map of Item",
+                    "href": "https://openveda.cloud/api/raster/collections/lis-global-da-gpp/items/LIS_GPP_202011180000.d01.cog/WebMercatorQuad/map?bidx=1&assets=cog_default&rescale=0%2C0.0001&resampling=bilinear&colormap_name=viridis",
+                    "rel": "preview",
+                    "type": "text/html"
+                  }
+                ],
+                "assets": {
+                  "cog_default": {
+                    "href": "s3://veda-data-store/lis-global-da-gpp/LIS_GPP_202011180000.d01.cog.tif",
+                    "type": "image/tiff; application=geotiff",
+                    "roles": [
+                      "data",
+                      "layer"
+                    ],
+                    "title": "Default COG Layer",
+                    "proj:bbox": [
+                      -179.9500000157243,
+                      -59.98224871364589,
+                      179.9973980503783,
+                      89.9999999874719
+                    ],
+                    "proj:epsg": 4326,
+                    "proj:wkt2": "GEOGCS[\"WGS 84\",DATUM[\"WGS_1984\",SPHEROID[\"WGS 84\",6378137,298.257223563]],PRIMEM[\"Greenwich\",0],UNIT[\"degree\",0.0174532925199433,AUTHORITY[\"EPSG\",\"9122\"]],AXIS[\"Latitude\",NORTH],AXIS[\"Longitude\",EAST]]",
+                    "proj:shape": [
+                      1500,
+                      3600
+                    ],
+                    "description": "Cloud optimized default layer to display on map",
+                    "raster:bands": [
+                      {
+                        "scale": 1.0,
+                        "nodata": 0.0,
+                        "offset": 0.0,
+                        "sampling": "area",
+                        "data_type": "float64",
+                        "histogram": {
+                          "max": 0.00016854765999596566,
+                          "min": 1.1822660905824733e-11,
+                          "count": 11,
+                          "buckets": [
+                            39479,
+                            7724,
+                            5119,
+                            3939,
+                            2533,
+                            2436,
+                            2805,
+                            2271,
+                            1075,
+                            138
+                          ]
+                        },
+                        "statistics": {
+                          "mean": 2.9584868487515313e-05,
+                          "stddev": 3.8542799092417756e-05,
+                          "maximum": 0.00016854765999596566,
+                          "minimum": 1.1822660905824733e-11,
+                          "valid_percent": 15.441808767564403
+                        }
+                      }
+                    ],
+                    "proj:geometry": {
+                      "type": "Polygon",
+                      "coordinates": [
+                        [
+                          [
+                            -179.9500000157243,
+                            -59.98224871364589
+                          ],
+                          [
+                            179.9973980503783,
+                            -59.98224871364589
+                          ],
+                          [
+                            179.9973980503783,
+                            89.9999999874719
+                          ],
+                          [
+                            -179.9500000157243,
+                            89.9999999874719
+                          ],
+                          [
+                            -179.9500000157243,
+                            -59.98224871364589
+                          ]
+                        ]
+                      ]
+                    },
+                    "proj:projjson": {
+                      "name": "WGS 84",
+                      "type": "GeographicCRS",
+                      "datum": {
+                        "name": "World Geodetic System 1984",
+                        "type": "GeodeticReferenceFrame",
+                        "ellipsoid": {
+                          "name": "WGS 84",
+                          "semi_major_axis": 6378137,
+                          "inverse_flattening": 298.257223563
+                        }
+                      },
+                      "$schema": "https://proj.org/schemas/v0.4/projjson.schema.json",
+                      "coordinate_system": {
+                        "axis": [
+                          {
+                            "name": "Latitude",
+                            "unit": "degree",
+                            "direction": "north",
+                            "abbreviation": "lat"
+                          },
+                          {
+                            "name": "Longitude",
+                            "unit": "degree",
+                            "direction": "east",
+                            "abbreviation": "lon"
+                          }
+                        ],
+                        "subtype": "ellipsoidal"
+                      }
+                    },
+                    "proj:transform": [
+                      0.09998538835169517,
+                      0.0,
+                      -179.9500000157243,
+                      0.0,
+                      -0.09998816580074518,
+                      89.9999999874719,
+                      0.0,
+                      0.0,
+                      1.0
+                    ]
+                  },
+                  "rendered_preview": {
+                    "title": "Rendered preview",
+                    "href": "https://openveda.cloud/api/raster/collections/lis-global-da-gpp/items/LIS_GPP_202011180000.d01.cog/preview.png?bidx=1&assets=cog_default&rescale=0%2C0.0001&resampling=bilinear&colormap_name=viridis",
+                    "rel": "preview",
+                    "roles": [
+                      "overview"
+                    ],
+                    "type": "image/png"
+                  }
+                },
+                "geometry": {
+                  "type": "Polygon",
+                  "coordinates": [
+                    [
+                      [
+                        -179.9500000157243,
+                        -59.98224871364589
+                      ],
+                      [
+                        179.9973980503783,
+                        -59.98224871364589
+                      ],
+                      [
+                        179.9973980503783,
+                        89.9999999874719
+                      ],
+                      [
+                        -179.9500000157243,
+                        89.9999999874719
+                      ],
+                      [
+                        -179.9500000157243,
+                        -59.98224871364589
+                      ]
+                    ]
+                  ]
+                },
+                "collection": "lis-global-da-gpp",
+                "properties": {
+                  "datetime": "2020-11-18T00:00:00+00:00"
+                },
+                "stac_version": "1.0.0",
+                "stac_extensions": [
+                  "https://stac-extensions.github.io/raster/v1.1.0/schema.json",
+                  "https://stac-extensions.github.io/projection/v1.1.0/schema.json"
+                ],
+                "collection_id": "lis-global-da-gpp",
+                "datetime": "2020-11-18T00:00:00+00:00",
+                "primary_asset_url": "s3://veda-data-store/lis-global-da-gpp/LIS_GPP_202011180000.d01.cog.tif"
+              },
+              {
+                "id": "LIS_GPP_202011170000.d01.cog",
+                "bbox": [
+                  -179.9500000157243,
+                  -59.98224871364589,
+                  179.9973980503783,
+                  89.9999999874719
+                ],
+                "type": "Feature",
+                "links": [
+                  {
+                    "rel": "collection",
+                    "type": "application/json",
+                    "href": "https://openveda.cloud/api/stac/collections/lis-global-da-gpp"
+                  },
+                  {
+                    "rel": "parent",
+                    "type": "application/json",
+                    "href": "https://openveda.cloud/api/stac/collections/lis-global-da-gpp"
+                  },
+                  {
+                    "rel": "root",
+                    "type": "application/json",
+                    "href": "https://openveda.cloud/api/stac/"
+                  },
+                  {
+                    "rel": "self",
+                    "type": "application/geo+json",
+                    "href": "https://openveda.cloud/api/stac/collections/lis-global-da-gpp/items/LIS_GPP_202011170000.d01.cog"
+                  },
+                  {
+                    "title": "Map of Item",
+                    "href": "https://openveda.cloud/api/raster/collections/lis-global-da-gpp/items/LIS_GPP_202011170000.d01.cog/WebMercatorQuad/map?bidx=1&assets=cog_default&rescale=0%2C0.0001&resampling=bilinear&colormap_name=viridis",
+                    "rel": "preview",
+                    "type": "text/html"
+                  }
+                ],
+                "assets": {
+                  "cog_default": {
+                    "href": "s3://veda-data-store/lis-global-da-gpp/LIS_GPP_202011170000.d01.cog.tif",
+                    "type": "image/tiff; application=geotiff",
+                    "roles": [
+                      "data",
+                      "layer"
+                    ],
+                    "title": "Default COG Layer",
+                    "proj:bbox": [
+                      -179.9500000157243,
+                      -59.98224871364589,
+                      179.9973980503783,
+                      89.9999999874719
+                    ],
+                    "proj:epsg": 4326,
+                    "proj:wkt2": "GEOGCS[\"WGS 84\",DATUM[\"WGS_1984\",SPHEROID[\"WGS 84\",6378137,298.257223563]],PRIMEM[\"Greenwich\",0],UNIT[\"degree\",0.0174532925199433,AUTHORITY[\"EPSG\",\"9122\"]],AXIS[\"Latitude\",NORTH],AXIS[\"Longitude\",EAST]]",
+                    "proj:shape": [
+                      1500,
+                      3600
+                    ],
+                    "description": "Cloud optimized default layer to display on map",
+                    "raster:bands": [
+                      {
+                        "scale": 1.0,
+                        "nodata": 0.0,
+                        "offset": 0.0,
+                        "sampling": "area",
+                        "data_type": "float64",
+                        "histogram": {
+                          "max": 0.00016910074918996543,
+                          "min": 5.920225421007785e-11,
+                          "count": 11,
+                          "buckets": [
+                            41568,
+                            7557,
+                            5154,
+                            3988,
+                            2614,
+                            2259,
+                            2975,
+                            2440,
+                            743,
+                            77
+                          ]
+                        },
+                        "statistics": {
+                          "mean": 2.8603409012548447e-05,
+                          "stddev": 3.778628791991038e-05,
+                          "maximum": 0.00016910074918996543,
+                          "minimum": 5.920225421007785e-11,
+                          "valid_percent": 15.866281835480095
+                        }
+                      }
+                    ],
+                    "proj:geometry": {
+                      "type": "Polygon",
+                      "coordinates": [
+                        [
+                          [
+                            -179.9500000157243,
+                            -59.98224871364589
+                          ],
+                          [
+                            179.9973980503783,
+                            -59.98224871364589
+                          ],
+                          [
+                            179.9973980503783,
+                            89.9999999874719
+                          ],
+                          [
+                            -179.9500000157243,
+                            89.9999999874719
+                          ],
+                          [
+                            -179.9500000157243,
+                            -59.98224871364589
+                          ]
+                        ]
+                      ]
+                    },
+                    "proj:projjson": {
+                      "name": "WGS 84",
+                      "type": "GeographicCRS",
+                      "datum": {
+                        "name": "World Geodetic System 1984",
+                        "type": "GeodeticReferenceFrame",
+                        "ellipsoid": {
+                          "name": "WGS 84",
+                          "semi_major_axis": 6378137,
+                          "inverse_flattening": 298.257223563
+                        }
+                      },
+                      "$schema": "https://proj.org/schemas/v0.4/projjson.schema.json",
+                      "coordinate_system": {
+                        "axis": [
+                          {
+                            "name": "Latitude",
+                            "unit": "degree",
+                            "direction": "north",
+                            "abbreviation": "lat"
+                          },
+                          {
+                            "name": "Longitude",
+                            "unit": "degree",
+                            "direction": "east",
+                            "abbreviation": "lon"
+                          }
+                        ],
+                        "subtype": "ellipsoidal"
+                      }
+                    },
+                    "proj:transform": [
+                      0.09998538835169517,
+                      0.0,
+                      -179.9500000157243,
+                      0.0,
+                      -0.09998816580074518,
+                      89.9999999874719,
+                      0.0,
+                      0.0,
+                      1.0
+                    ]
+                  },
+                  "rendered_preview": {
+                    "title": "Rendered preview",
+                    "href": "https://openveda.cloud/api/raster/collections/lis-global-da-gpp/items/LIS_GPP_202011170000.d01.cog/preview.png?bidx=1&assets=cog_default&rescale=0%2C0.0001&resampling=bilinear&colormap_name=viridis",
+                    "rel": "preview",
+                    "roles": [
+                      "overview"
+                    ],
+                    "type": "image/png"
+                  }
+                },
+                "geometry": {
+                  "type": "Polygon",
+                  "coordinates": [
+                    [
+                      [
+                        -179.9500000157243,
+                        -59.98224871364589
+                      ],
+                      [
+                        179.9973980503783,
+                        -59.98224871364589
+                      ],
+                      [
+                        179.9973980503783,
+                        89.9999999874719
+                      ],
+                      [
+                        -179.9500000157243,
+                        89.9999999874719
+                      ],
+                      [
+                        -179.9500000157243,
+                        -59.98224871364589
+                      ]
+                    ]
+                  ]
+                },
+                "collection": "lis-global-da-gpp",
+                "properties": {
+                  "datetime": "2020-11-17T00:00:00+00:00"
+                },
+                "stac_version": "1.0.0",
+                "stac_extensions": [
+                  "https://stac-extensions.github.io/raster/v1.1.0/schema.json",
+                  "https://stac-extensions.github.io/projection/v1.1.0/schema.json"
+                ],
+                "collection_id": "lis-global-da-gpp",
+                "datetime": "2020-11-17T00:00:00+00:00",
+                "primary_asset_url": "s3://veda-data-store/lis-global-da-gpp/LIS_GPP_202011170000.d01.cog.tif"
+              },
+              {
+                "id": "LIS_GPP_202011160000.d01.cog",
+                "bbox": [
+                  -179.9500000157243,
+                  -59.98224871364589,
+                  179.9973980503783,
+                  89.9999999874719
+                ],
+                "type": "Feature",
+                "links": [
+                  {
+                    "rel": "collection",
+                    "type": "application/json",
+                    "href": "https://openveda.cloud/api/stac/collections/lis-global-da-gpp"
+                  },
+                  {
+                    "rel": "parent",
+                    "type": "application/json",
+                    "href": "https://openveda.cloud/api/stac/collections/lis-global-da-gpp"
+                  },
+                  {
+                    "rel": "root",
+                    "type": "application/json",
+                    "href": "https://openveda.cloud/api/stac/"
+                  },
+                  {
+                    "rel": "self",
+                    "type": "application/geo+json",
+                    "href": "https://openveda.cloud/api/stac/collections/lis-global-da-gpp/items/LIS_GPP_202011160000.d01.cog"
+                  },
+                  {
+                    "title": "Map of Item",
+                    "href": "https://openveda.cloud/api/raster/collections/lis-global-da-gpp/items/LIS_GPP_202011160000.d01.cog/WebMercatorQuad/map?bidx=1&assets=cog_default&rescale=0%2C0.0001&resampling=bilinear&colormap_name=viridis",
+                    "rel": "preview",
+                    "type": "text/html"
+                  }
+                ],
+                "assets": {
+                  "cog_default": {
+                    "href": "s3://veda-data-store/lis-global-da-gpp/LIS_GPP_202011160000.d01.cog.tif",
+                    "type": "image/tiff; application=geotiff",
+                    "roles": [
+                      "data",
+                      "layer"
+                    ],
+                    "title": "Default COG Layer",
+                    "proj:bbox": [
+                      -179.9500000157243,
+                      -59.98224871364589,
+                      179.9973980503783,
+                      89.9999999874719
+                    ],
+                    "proj:epsg": 4326,
+                    "proj:wkt2": "GEOGCS[\"WGS 84\",DATUM[\"WGS_1984\",SPHEROID[\"WGS 84\",6378137,298.257223563]],PRIMEM[\"Greenwich\",0],UNIT[\"degree\",0.0174532925199433,AUTHORITY[\"EPSG\",\"9122\"]],AXIS[\"Latitude\",NORTH],AXIS[\"Longitude\",EAST]]",
+                    "proj:shape": [
+                      1500,
+                      3600
+                    ],
+                    "description": "Cloud optimized default layer to display on map",
+                    "raster:bands": [
+                      {
+                        "scale": 1.0,
+                        "nodata": 0.0,
+                        "offset": 0.0,
+                        "sampling": "area",
+                        "data_type": "float64",
+                        "histogram": {
+                          "max": 0.0001734418619889766,
+                          "min": 6.092051862971459e-11,
+                          "count": 11,
+                          "buckets": [
+                            43396,
+                            7600,
+                            5200,
+                            3981,
+                            2503,
+                            2475,
+                            3079,
+                            2420,
+                            450,
+                            35
+                          ]
+                        },
+                        "statistics": {
+                          "mean": 2.8299842812674934e-05,
+                          "stddev": 3.7780494846182335e-05,
+                          "maximum": 0.0001734418619889766,
+                          "minimum": 6.092051862971459e-11,
+                          "valid_percent": 16.269714212529273
+                        }
+                      }
+                    ],
+                    "proj:geometry": {
+                      "type": "Polygon",
+                      "coordinates": [
+                        [
+                          [
+                            -179.9500000157243,
+                            -59.98224871364589
+                          ],
+                          [
+                            179.9973980503783,
+                            -59.98224871364589
+                          ],
+                          [
+                            179.9973980503783,
+                            89.9999999874719
+                          ],
+                          [
+                            -179.9500000157243,
+                            89.9999999874719
+                          ],
+                          [
+                            -179.9500000157243,
+                            -59.98224871364589
+                          ]
+                        ]
+                      ]
+                    },
+                    "proj:projjson": {
+                      "name": "WGS 84",
+                      "type": "GeographicCRS",
+                      "datum": {
+                        "name": "World Geodetic System 1984",
+                        "type": "GeodeticReferenceFrame",
+                        "ellipsoid": {
+                          "name": "WGS 84",
+                          "semi_major_axis": 6378137,
+                          "inverse_flattening": 298.257223563
+                        }
+                      },
+                      "$schema": "https://proj.org/schemas/v0.4/projjson.schema.json",
+                      "coordinate_system": {
+                        "axis": [
+                          {
+                            "name": "Latitude",
+                            "unit": "degree",
+                            "direction": "north",
+                            "abbreviation": "lat"
+                          },
+                          {
+                            "name": "Longitude",
+                            "unit": "degree",
+                            "direction": "east",
+                            "abbreviation": "lon"
+                          }
+                        ],
+                        "subtype": "ellipsoidal"
+                      }
+                    },
+                    "proj:transform": [
+                      0.09998538835169517,
+                      0.0,
+                      -179.9500000157243,
+                      0.0,
+                      -0.09998816580074518,
+                      89.9999999874719,
+                      0.0,
+                      0.0,
+                      1.0
+                    ]
+                  },
+                  "rendered_preview": {
+                    "title": "Rendered preview",
+                    "href": "https://openveda.cloud/api/raster/collections/lis-global-da-gpp/items/LIS_GPP_202011160000.d01.cog/preview.png?bidx=1&assets=cog_default&rescale=0%2C0.0001&resampling=bilinear&colormap_name=viridis",
+                    "rel": "preview",
+                    "roles": [
+                      "overview"
+                    ],
+                    "type": "image/png"
+                  }
+                },
+                "geometry": {
+                  "type": "Polygon",
+                  "coordinates": [
+                    [
+                      [
+                        -179.9500000157243,
+                        -59.98224871364589
+                      ],
+                      [
+                        179.9973980503783,
+                        -59.98224871364589
+                      ],
+                      [
+                        179.9973980503783,
+                        89.9999999874719
+                      ],
+                      [
+                        -179.9500000157243,
+                        89.9999999874719
+                      ],
+                      [
+                        -179.9500000157243,
+                        -59.98224871364589
+                      ]
+                    ]
+                  ]
+                },
+                "collection": "lis-global-da-gpp",
+                "properties": {
+                  "datetime": "2020-11-16T00:00:00+00:00"
+                },
+                "stac_version": "1.0.0",
+                "stac_extensions": [
+                  "https://stac-extensions.github.io/raster/v1.1.0/schema.json",
+                  "https://stac-extensions.github.io/projection/v1.1.0/schema.json"
+                ],
+                "collection_id": "lis-global-da-gpp",
+                "datetime": "2020-11-16T00:00:00+00:00",
+                "primary_asset_url": "s3://veda-data-store/lis-global-da-gpp/LIS_GPP_202011160000.d01.cog.tif"
+              },
+              {
+                "id": "LIS_GPP_202011150000.d01.cog",
+                "bbox": [
+                  -179.9500000157243,
+                  -59.98224871364589,
+                  179.9973980503783,
+                  89.9999999874719
+                ],
+                "type": "Feature",
+                "links": [
+                  {
+                    "rel": "collection",
+                    "type": "application/json",
+                    "href": "https://openveda.cloud/api/stac/collections/lis-global-da-gpp"
+                  },
+                  {
+                    "rel": "parent",
+                    "type": "application/json",
+                    "href": "https://openveda.cloud/api/stac/collections/lis-global-da-gpp"
+                  },
+                  {
+                    "rel": "root",
+                    "type": "application/json",
+                    "href": "https://openveda.cloud/api/stac/"
+                  },
+                  {
+                    "rel": "self",
+                    "type": "application/geo+json",
+                    "href": "https://openveda.cloud/api/stac/collections/lis-global-da-gpp/items/LIS_GPP_202011150000.d01.cog"
+                  },
+                  {
+                    "title": "Map of Item",
+                    "href": "https://openveda.cloud/api/raster/collections/lis-global-da-gpp/items/LIS_GPP_202011150000.d01.cog/WebMercatorQuad/map?bidx=1&assets=cog_default&rescale=0%2C0.0001&resampling=bilinear&colormap_name=viridis",
+                    "rel": "preview",
+                    "type": "text/html"
+                  }
+                ],
+                "assets": {
+                  "cog_default": {
+                    "href": "s3://veda-data-store/lis-global-da-gpp/LIS_GPP_202011150000.d01.cog.tif",
+                    "type": "image/tiff; application=geotiff",
+                    "roles": [
+                      "data",
+                      "layer"
+                    ],
+                    "title": "Default COG Layer",
+                    "proj:bbox": [
+                      -179.9500000157243,
+                      -59.98224871364589,
+                      179.9973980503783,
+                      89.9999999874719
+                    ],
+                    "proj:epsg": 4326,
+                    "proj:wkt2": "GEOGCS[\"WGS 84\",DATUM[\"WGS_1984\",SPHEROID[\"WGS 84\",6378137,298.257223563]],PRIMEM[\"Greenwich\",0],UNIT[\"degree\",0.0174532925199433,AUTHORITY[\"EPSG\",\"9122\"]],AXIS[\"Latitude\",NORTH],AXIS[\"Longitude\",EAST]]",
+                    "proj:shape": [
+                      1500,
+                      3600
+                    ],
+                    "description": "Cloud optimized default layer to display on map",
+                    "raster:bands": [
+                      {
+                        "scale": 1.0,
+                        "nodata": 0.0,
+                        "offset": 0.0,
+                        "sampling": "area",
+                        "data_type": "float64",
+                        "histogram": {
+                          "max": 0.00017225761257577688,
+                          "min": 5.958585708176756e-11,
+                          "count": 11,
+                          "buckets": [
+                            44797,
+                            7919,
+                            5082,
+                            3822,
+                            2662,
+                            2302,
+                            2763,
+                            2388,
+                            1066,
+                            85
+                          ]
+                        },
+                        "statistics": {
+                          "mean": 2.8094471050419285e-05,
+                          "stddev": 3.8419488231677844e-05,
+                          "maximum": 0.00017225761257577688,
+                          "minimum": 5.958585708176756e-11,
+                          "valid_percent": 16.669258635831383
+                        }
+                      }
+                    ],
+                    "proj:geometry": {
+                      "type": "Polygon",
+                      "coordinates": [
+                        [
+                          [
+                            -179.9500000157243,
+                            -59.98224871364589
+                          ],
+                          [
+                            179.9973980503783,
+                            -59.98224871364589
+                          ],
+                          [
+                            179.9973980503783,
+                            89.9999999874719
+                          ],
+                          [
+                            -179.9500000157243,
+                            89.9999999874719
+                          ],
+                          [
+                            -179.9500000157243,
+                            -59.98224871364589
+                          ]
+                        ]
+                      ]
+                    },
+                    "proj:projjson": {
+                      "name": "WGS 84",
+                      "type": "GeographicCRS",
+                      "datum": {
+                        "name": "World Geodetic System 1984",
+                        "type": "GeodeticReferenceFrame",
+                        "ellipsoid": {
+                          "name": "WGS 84",
+                          "semi_major_axis": 6378137,
+                          "inverse_flattening": 298.257223563
+                        }
+                      },
+                      "$schema": "https://proj.org/schemas/v0.4/projjson.schema.json",
+                      "coordinate_system": {
+                        "axis": [
+                          {
+                            "name": "Latitude",
+                            "unit": "degree",
+                            "direction": "north",
+                            "abbreviation": "lat"
+                          },
+                          {
+                            "name": "Longitude",
+                            "unit": "degree",
+                            "direction": "east",
+                            "abbreviation": "lon"
+                          }
+                        ],
+                        "subtype": "ellipsoidal"
+                      }
+                    },
+                    "proj:transform": [
+                      0.09998538835169517,
+                      0.0,
+                      -179.9500000157243,
+                      0.0,
+                      -0.09998816580074518,
+                      89.9999999874719,
+                      0.0,
+                      0.0,
+                      1.0
+                    ]
+                  },
+                  "rendered_preview": {
+                    "title": "Rendered preview",
+                    "href": "https://openveda.cloud/api/raster/collections/lis-global-da-gpp/items/LIS_GPP_202011150000.d01.cog/preview.png?bidx=1&assets=cog_default&rescale=0%2C0.0001&resampling=bilinear&colormap_name=viridis",
+                    "rel": "preview",
+                    "roles": [
+                      "overview"
+                    ],
+                    "type": "image/png"
+                  }
+                },
+                "geometry": {
+                  "type": "Polygon",
+                  "coordinates": [
+                    [
+                      [
+                        -179.9500000157243,
+                        -59.98224871364589
+                      ],
+                      [
+                        179.9973980503783,
+                        -59.98224871364589
+                      ],
+                      [
+                        179.9973980503783,
+                        89.9999999874719
+                      ],
+                      [
+                        -179.9500000157243,
+                        89.9999999874719
+                      ],
+                      [
+                        -179.9500000157243,
+                        -59.98224871364589
+                      ]
+                    ]
+                  ]
+                },
+                "collection": "lis-global-da-gpp",
+                "properties": {
+                  "datetime": "2020-11-15T00:00:00+00:00"
+                },
+                "stac_version": "1.0.0",
+                "stac_extensions": [
+                  "https://stac-extensions.github.io/raster/v1.1.0/schema.json",
+                  "https://stac-extensions.github.io/projection/v1.1.0/schema.json"
+                ],
+                "collection_id": "lis-global-da-gpp",
+                "datetime": "2020-11-15T00:00:00+00:00",
+                "primary_asset_url": "s3://veda-data-store/lis-global-da-gpp/LIS_GPP_202011150000.d01.cog.tif"
+              },
+              {
+                "id": "LIS_GPP_202011140000.d01.cog",
+                "bbox": [
+                  -179.9500000157243,
+                  -59.98224871364589,
+                  179.9973980503783,
+                  89.9999999874719
+                ],
+                "type": "Feature",
+                "links": [
+                  {
+                    "rel": "collection",
+                    "type": "application/json",
+                    "href": "https://openveda.cloud/api/stac/collections/lis-global-da-gpp"
+                  },
+                  {
+                    "rel": "parent",
+                    "type": "application/json",
+                    "href": "https://openveda.cloud/api/stac/collections/lis-global-da-gpp"
+                  },
+                  {
+                    "rel": "root",
+                    "type": "application/json",
+                    "href": "https://openveda.cloud/api/stac/"
+                  },
+                  {
+                    "rel": "self",
+                    "type": "application/geo+json",
+                    "href": "https://openveda.cloud/api/stac/collections/lis-global-da-gpp/items/LIS_GPP_202011140000.d01.cog"
+                  },
+                  {
+                    "title": "Map of Item",
+                    "href": "https://openveda.cloud/api/raster/collections/lis-global-da-gpp/items/LIS_GPP_202011140000.d01.cog/WebMercatorQuad/map?bidx=1&assets=cog_default&rescale=0%2C0.0001&resampling=bilinear&colormap_name=viridis",
+                    "rel": "preview",
+                    "type": "text/html"
+                  }
+                ],
+                "assets": {
+                  "cog_default": {
+                    "href": "s3://veda-data-store/lis-global-da-gpp/LIS_GPP_202011140000.d01.cog.tif",
+                    "type": "image/tiff; application=geotiff",
+                    "roles": [
+                      "data",
+                      "layer"
+                    ],
+                    "title": "Default COG Layer",
+                    "proj:bbox": [
+                      -179.9500000157243,
+                      -59.98224871364589,
+                      179.9973980503783,
+                      89.9999999874719
+                    ],
+                    "proj:epsg": 4326,
+                    "proj:wkt2": "GEOGCS[\"WGS 84\",DATUM[\"WGS_1984\",SPHEROID[\"WGS 84\",6378137,298.257223563]],PRIMEM[\"Greenwich\",0],UNIT[\"degree\",0.0174532925199433,AUTHORITY[\"EPSG\",\"9122\"]],AXIS[\"Latitude\",NORTH],AXIS[\"Longitude\",EAST]]",
+                    "proj:shape": [
+                      1500,
+                      3600
+                    ],
+                    "description": "Cloud optimized default layer to display on map",
+                    "raster:bands": [
+                      {
+                        "scale": 1.0,
+                        "nodata": 0.0,
+                        "offset": 0.0,
+                        "sampling": "area",
+                        "data_type": "float64",
+                        "histogram": {
+                          "max": 0.0001712975063128397,
+                          "min": 6.233898813823302e-11,
+                          "count": 11,
+                          "buckets": [
+                            46392,
+                            7883,
+                            5105,
+                            3898,
+                            2763,
+                            2486,
+                            2844,
+                            2304,
+                            1031,
+                            152
+                          ]
+                        },
+                        "statistics": {
+                          "mean": 2.7719691933899673e-05,
+                          "stddev": 3.8183373061431136e-05,
+                          "maximum": 0.0001712975063128397,
+                          "minimum": 6.233898813823302e-11,
+                          "valid_percent": 17.120261270491806
+                        }
+                      }
+                    ],
+                    "proj:geometry": {
+                      "type": "Polygon",
+                      "coordinates": [
+                        [
+                          [
+                            -179.9500000157243,
+                            -59.98224871364589
+                          ],
+                          [
+                            179.9973980503783,
+                            -59.98224871364589
+                          ],
+                          [
+                            179.9973980503783,
+                            89.9999999874719
+                          ],
+                          [
+                            -179.9500000157243,
+                            89.9999999874719
+                          ],
+                          [
+                            -179.9500000157243,
+                            -59.98224871364589
+                          ]
+                        ]
+                      ]
+                    },
+                    "proj:projjson": {
+                      "name": "WGS 84",
+                      "type": "GeographicCRS",
+                      "datum": {
+                        "name": "World Geodetic System 1984",
+                        "type": "GeodeticReferenceFrame",
+                        "ellipsoid": {
+                          "name": "WGS 84",
+                          "semi_major_axis": 6378137,
+                          "inverse_flattening": 298.257223563
+                        }
+                      },
+                      "$schema": "https://proj.org/schemas/v0.4/projjson.schema.json",
+                      "coordinate_system": {
+                        "axis": [
+                          {
+                            "name": "Latitude",
+                            "unit": "degree",
+                            "direction": "north",
+                            "abbreviation": "lat"
+                          },
+                          {
+                            "name": "Longitude",
+                            "unit": "degree",
+                            "direction": "east",
+                            "abbreviation": "lon"
+                          }
+                        ],
+                        "subtype": "ellipsoidal"
+                      }
+                    },
+                    "proj:transform": [
+                      0.09998538835169517,
+                      0.0,
+                      -179.9500000157243,
+                      0.0,
+                      -0.09998816580074518,
+                      89.9999999874719,
+                      0.0,
+                      0.0,
+                      1.0
+                    ]
+                  },
+                  "rendered_preview": {
+                    "title": "Rendered preview",
+                    "href": "https://openveda.cloud/api/raster/collections/lis-global-da-gpp/items/LIS_GPP_202011140000.d01.cog/preview.png?bidx=1&assets=cog_default&rescale=0%2C0.0001&resampling=bilinear&colormap_name=viridis",
+                    "rel": "preview",
+                    "roles": [
+                      "overview"
+                    ],
+                    "type": "image/png"
+                  }
+                },
+                "geometry": {
+                  "type": "Polygon",
+                  "coordinates": [
+                    [
+                      [
+                        -179.9500000157243,
+                        -59.98224871364589
+                      ],
+                      [
+                        179.9973980503783,
+                        -59.98224871364589
+                      ],
+                      [
+                        179.9973980503783,
+                        89.9999999874719
+                      ],
+                      [
+                        -179.9500000157243,
+                        89.9999999874719
+                      ],
+                      [
+                        -179.9500000157243,
+                        -59.98224871364589
+                      ]
+                    ]
+                  ]
+                },
+                "collection": "lis-global-da-gpp",
+                "properties": {
+                  "datetime": "2020-11-14T00:00:00+00:00"
+                },
+                "stac_version": "1.0.0",
+                "stac_extensions": [
+                  "https://stac-extensions.github.io/raster/v1.1.0/schema.json",
+                  "https://stac-extensions.github.io/projection/v1.1.0/schema.json"
+                ],
+                "collection_id": "lis-global-da-gpp",
+                "datetime": "2020-11-14T00:00:00+00:00",
+                "primary_asset_url": "s3://veda-data-store/lis-global-da-gpp/LIS_GPP_202011140000.d01.cog.tif"
+              },
+              {
+                "id": "LIS_GPP_202011130000.d01.cog",
+                "bbox": [
+                  -179.9500000157243,
+                  -59.98224871364589,
+                  179.9973980503783,
+                  89.9999999874719
+                ],
+                "type": "Feature",
+                "links": [
+                  {
+                    "rel": "collection",
+                    "type": "application/json",
+                    "href": "https://openveda.cloud/api/stac/collections/lis-global-da-gpp"
+                  },
+                  {
+                    "rel": "parent",
+                    "type": "application/json",
+                    "href": "https://openveda.cloud/api/stac/collections/lis-global-da-gpp"
+                  },
+                  {
+                    "rel": "root",
+                    "type": "application/json",
+                    "href": "https://openveda.cloud/api/stac/"
+                  },
+                  {
+                    "rel": "self",
+                    "type": "application/geo+json",
+                    "href": "https://openveda.cloud/api/stac/collections/lis-global-da-gpp/items/LIS_GPP_202011130000.d01.cog"
+                  },
+                  {
+                    "title": "Map of Item",
+                    "href": "https://openveda.cloud/api/raster/collections/lis-global-da-gpp/items/LIS_GPP_202011130000.d01.cog/WebMercatorQuad/map?bidx=1&assets=cog_default&rescale=0%2C0.0001&resampling=bilinear&colormap_name=viridis",
+                    "rel": "preview",
+                    "type": "text/html"
+                  }
+                ],
+                "assets": {
+                  "cog_default": {
+                    "href": "s3://veda-data-store/lis-global-da-gpp/LIS_GPP_202011130000.d01.cog.tif",
+                    "type": "image/tiff; application=geotiff",
+                    "roles": [
+                      "data",
+                      "layer"
+                    ],
+                    "title": "Default COG Layer",
+                    "proj:bbox": [
+                      -179.9500000157243,
+                      -59.98224871364589,
+                      179.9973980503783,
+                      89.9999999874719
+                    ],
+                    "proj:epsg": 4326,
+                    "proj:wkt2": "GEOGCS[\"WGS 84\",DATUM[\"WGS_1984\",SPHEROID[\"WGS 84\",6378137,298.257223563]],PRIMEM[\"Greenwich\",0],UNIT[\"degree\",0.0174532925199433,AUTHORITY[\"EPSG\",\"9122\"]],AXIS[\"Latitude\",NORTH],AXIS[\"Longitude\",EAST]]",
+                    "proj:shape": [
+                      1500,
+                      3600
+                    ],
+                    "description": "Cloud optimized default layer to display on map",
+                    "raster:bands": [
+                      {
+                        "scale": 1.0,
+                        "nodata": 0.0,
+                        "offset": 0.0,
+                        "sampling": "area",
+                        "data_type": "float64",
+                        "histogram": {
+                          "max": 0.00017205160111188889,
+                          "min": 3.0181298432685466e-11,
+                          "count": 11,
+                          "buckets": [
+                            48172,
+                            7827,
+                            5174,
+                            3969,
+                            2734,
+                            2520,
+                            2782,
+                            2233,
+                            1133,
+                            168
+                          ]
+                        },
+                        "statistics": {
+                          "mean": 2.736293570656761e-05,
+                          "stddev": 3.8219876564284395e-05,
+                          "maximum": 0.00017205160111188889,
+                          "minimum": 3.0181298432685466e-11,
+                          "valid_percent": 17.54427693208431
+                        }
+                      }
+                    ],
+                    "proj:geometry": {
+                      "type": "Polygon",
+                      "coordinates": [
+                        [
+                          [
+                            -179.9500000157243,
+                            -59.98224871364589
+                          ],
+                          [
+                            179.9973980503783,
+                            -59.98224871364589
+                          ],
+                          [
+                            179.9973980503783,
+                            89.9999999874719
+                          ],
+                          [
+                            -179.9500000157243,
+                            89.9999999874719
+                          ],
+                          [
+                            -179.9500000157243,
+                            -59.98224871364589
+                          ]
+                        ]
+                      ]
+                    },
+                    "proj:projjson": {
+                      "name": "WGS 84",
+                      "type": "GeographicCRS",
+                      "datum": {
+                        "name": "World Geodetic System 1984",
+                        "type": "GeodeticReferenceFrame",
+                        "ellipsoid": {
+                          "name": "WGS 84",
+                          "semi_major_axis": 6378137,
+                          "inverse_flattening": 298.257223563
+                        }
+                      },
+                      "$schema": "https://proj.org/schemas/v0.4/projjson.schema.json",
+                      "coordinate_system": {
+                        "axis": [
+                          {
+                            "name": "Latitude",
+                            "unit": "degree",
+                            "direction": "north",
+                            "abbreviation": "lat"
+                          },
+                          {
+                            "name": "Longitude",
+                            "unit": "degree",
+                            "direction": "east",
+                            "abbreviation": "lon"
+                          }
+                        ],
+                        "subtype": "ellipsoidal"
+                      }
+                    },
+                    "proj:transform": [
+                      0.09998538835169517,
+                      0.0,
+                      -179.9500000157243,
+                      0.0,
+                      -0.09998816580074518,
+                      89.9999999874719,
+                      0.0,
+                      0.0,
+                      1.0
+                    ]
+                  },
+                  "rendered_preview": {
+                    "title": "Rendered preview",
+                    "href": "https://openveda.cloud/api/raster/collections/lis-global-da-gpp/items/LIS_GPP_202011130000.d01.cog/preview.png?bidx=1&assets=cog_default&rescale=0%2C0.0001&resampling=bilinear&colormap_name=viridis",
+                    "rel": "preview",
+                    "roles": [
+                      "overview"
+                    ],
+                    "type": "image/png"
+                  }
+                },
+                "geometry": {
+                  "type": "Polygon",
+                  "coordinates": [
+                    [
+                      [
+                        -179.9500000157243,
+                        -59.98224871364589
+                      ],
+                      [
+                        179.9973980503783,
+                        -59.98224871364589
+                      ],
+                      [
+                        179.9973980503783,
+                        89.9999999874719
+                      ],
+                      [
+                        -179.9500000157243,
+                        89.9999999874719
+                      ],
+                      [
+                        -179.9500000157243,
+                        -59.98224871364589
+                      ]
+                    ]
+                  ]
+                },
+                "collection": "lis-global-da-gpp",
+                "properties": {
+                  "datetime": "2020-11-13T00:00:00+00:00"
+                },
+                "stac_version": "1.0.0",
+                "stac_extensions": [
+                  "https://stac-extensions.github.io/raster/v1.1.0/schema.json",
+                  "https://stac-extensions.github.io/projection/v1.1.0/schema.json"
+                ],
+                "collection_id": "lis-global-da-gpp",
+                "datetime": "2020-11-13T00:00:00+00:00",
+                "primary_asset_url": "s3://veda-data-store/lis-global-da-gpp/LIS_GPP_202011130000.d01.cog.tif"
+              },
+              {
+                "id": "LIS_GPP_202011120000.d01.cog",
+                "bbox": [
+                  -179.9500000157243,
+                  -59.98224871364589,
+                  179.9973980503783,
+                  89.9999999874719
+                ],
+                "type": "Feature",
+                "links": [
+                  {
+                    "rel": "collection",
+                    "type": "application/json",
+                    "href": "https://openveda.cloud/api/stac/collections/lis-global-da-gpp"
+                  },
+                  {
+                    "rel": "parent",
+                    "type": "application/json",
+                    "href": "https://openveda.cloud/api/stac/collections/lis-global-da-gpp"
+                  },
+                  {
+                    "rel": "root",
+                    "type": "application/json",
+                    "href": "https://openveda.cloud/api/stac/"
+                  },
+                  {
+                    "rel": "self",
+                    "type": "application/geo+json",
+                    "href": "https://openveda.cloud/api/stac/collections/lis-global-da-gpp/items/LIS_GPP_202011120000.d01.cog"
+                  },
+                  {
+                    "title": "Map of Item",
+                    "href": "https://openveda.cloud/api/raster/collections/lis-global-da-gpp/items/LIS_GPP_202011120000.d01.cog/WebMercatorQuad/map?bidx=1&assets=cog_default&rescale=0%2C0.0001&resampling=bilinear&colormap_name=viridis",
+                    "rel": "preview",
+                    "type": "text/html"
+                  }
+                ],
+                "assets": {
+                  "cog_default": {
+                    "href": "s3://veda-data-store/lis-global-da-gpp/LIS_GPP_202011120000.d01.cog.tif",
+                    "type": "image/tiff; application=geotiff",
+                    "roles": [
+                      "data",
+                      "layer"
+                    ],
+                    "title": "Default COG Layer",
+                    "proj:bbox": [
+                      -179.9500000157243,
+                      -59.98224871364589,
+                      179.9973980503783,
+                      89.9999999874719
+                    ],
+                    "proj:epsg": 4326,
+                    "proj:wkt2": "GEOGCS[\"WGS 84\",DATUM[\"WGS_1984\",SPHEROID[\"WGS 84\",6378137,298.257223563]],PRIMEM[\"Greenwich\",0],UNIT[\"degree\",0.0174532925199433,AUTHORITY[\"EPSG\",\"9122\"]],AXIS[\"Latitude\",NORTH],AXIS[\"Longitude\",EAST]]",
+                    "proj:shape": [
+                      1500,
+                      3600
+                    ],
+                    "description": "Cloud optimized default layer to display on map",
+                    "raster:bands": [
+                      {
+                        "scale": 1.0,
+                        "nodata": 0.0,
+                        "offset": 0.0,
+                        "sampling": "area",
+                        "data_type": "float64",
+                        "histogram": {
+                          "max": 0.00016705552116036415,
+                          "min": 6.152784531865407e-11,
+                          "count": 11,
+                          "buckets": [
+                            49261,
+                            7724,
+                            5158,
+                            4031,
+                            2867,
+                            2131,
+                            2563,
+                            2433,
+                            1578,
+                            294
+                          ]
+                        },
+                        "statistics": {
+                          "mean": 2.688650564718739e-05,
+                          "stddev": 3.8148873263194214e-05,
+                          "maximum": 0.00016705552116036415,
+                          "minimum": 6.152784531865407e-11,
+                          "valid_percent": 17.847994730679158
+                        }
+                      }
+                    ],
+                    "proj:geometry": {
+                      "type": "Polygon",
+                      "coordinates": [
+                        [
+                          [
+                            -179.9500000157243,
+                            -59.98224871364589
+                          ],
+                          [
+                            179.9973980503783,
+                            -59.98224871364589
+                          ],
+                          [
+                            179.9973980503783,
+                            89.9999999874719
+                          ],
+                          [
+                            -179.9500000157243,
+                            89.9999999874719
+                          ],
+                          [
+                            -179.9500000157243,
+                            -59.98224871364589
+                          ]
+                        ]
+                      ]
+                    },
+                    "proj:projjson": {
+                      "name": "WGS 84",
+                      "type": "GeographicCRS",
+                      "datum": {
+                        "name": "World Geodetic System 1984",
+                        "type": "GeodeticReferenceFrame",
+                        "ellipsoid": {
+                          "name": "WGS 84",
+                          "semi_major_axis": 6378137,
+                          "inverse_flattening": 298.257223563
+                        }
+                      },
+                      "$schema": "https://proj.org/schemas/v0.4/projjson.schema.json",
+                      "coordinate_system": {
+                        "axis": [
+                          {
+                            "name": "Latitude",
+                            "unit": "degree",
+                            "direction": "north",
+                            "abbreviation": "lat"
+                          },
+                          {
+                            "name": "Longitude",
+                            "unit": "degree",
+                            "direction": "east",
+                            "abbreviation": "lon"
+                          }
+                        ],
+                        "subtype": "ellipsoidal"
+                      }
+                    },
+                    "proj:transform": [
+                      0.09998538835169517,
+                      0.0,
+                      -179.9500000157243,
+                      0.0,
+                      -0.09998816580074518,
+                      89.9999999874719,
+                      0.0,
+                      0.0,
+                      1.0
+                    ]
+                  },
+                  "rendered_preview": {
+                    "title": "Rendered preview",
+                    "href": "https://openveda.cloud/api/raster/collections/lis-global-da-gpp/items/LIS_GPP_202011120000.d01.cog/preview.png?bidx=1&assets=cog_default&rescale=0%2C0.0001&resampling=bilinear&colormap_name=viridis",
+                    "rel": "preview",
+                    "roles": [
+                      "overview"
+                    ],
+                    "type": "image/png"
+                  }
+                },
+                "geometry": {
+                  "type": "Polygon",
+                  "coordinates": [
+                    [
+                      [
+                        -179.9500000157243,
+                        -59.98224871364589
+                      ],
+                      [
+                        179.9973980503783,
+                        -59.98224871364589
+                      ],
+                      [
+                        179.9973980503783,
+                        89.9999999874719
+                      ],
+                      [
+                        -179.9500000157243,
+                        89.9999999874719
+                      ],
+                      [
+                        -179.9500000157243,
+                        -59.98224871364589
+                      ]
+                    ]
+                  ]
+                },
+                "collection": "lis-global-da-gpp",
+                "properties": {
+                  "datetime": "2020-11-12T00:00:00+00:00"
+                },
+                "stac_version": "1.0.0",
+                "stac_extensions": [
+                  "https://stac-extensions.github.io/raster/v1.1.0/schema.json",
+                  "https://stac-extensions.github.io/projection/v1.1.0/schema.json"
+                ],
+                "collection_id": "lis-global-da-gpp",
+                "datetime": "2020-11-12T00:00:00+00:00",
+                "primary_asset_url": "s3://veda-data-store/lis-global-da-gpp/LIS_GPP_202011120000.d01.cog.tif"
+              },
+              {
+                "id": "LIS_GPP_202011110000.d01.cog",
+                "bbox": [
+                  -179.9500000157243,
+                  -59.98224871364589,
+                  179.9973980503783,
+                  89.9999999874719
+                ],
+                "type": "Feature",
+                "links": [
+                  {
+                    "rel": "collection",
+                    "type": "application/json",
+                    "href": "https://openveda.cloud/api/stac/collections/lis-global-da-gpp"
+                  },
+                  {
+                    "rel": "parent",
+                    "type": "application/json",
+                    "href": "https://openveda.cloud/api/stac/collections/lis-global-da-gpp"
+                  },
+                  {
+                    "rel": "root",
+                    "type": "application/json",
+                    "href": "https://openveda.cloud/api/stac/"
+                  },
+                  {
+                    "rel": "self",
+                    "type": "application/geo+json",
+                    "href": "https://openveda.cloud/api/stac/collections/lis-global-da-gpp/items/LIS_GPP_202011110000.d01.cog"
+                  },
+                  {
+                    "title": "Map of Item",
+                    "href": "https://openveda.cloud/api/raster/collections/lis-global-da-gpp/items/LIS_GPP_202011110000.d01.cog/WebMercatorQuad/map?bidx=1&assets=cog_default&rescale=0%2C0.0001&resampling=bilinear&colormap_name=viridis",
+                    "rel": "preview",
+                    "type": "text/html"
+                  }
+                ],
+                "assets": {
+                  "cog_default": {
+                    "href": "s3://veda-data-store/lis-global-da-gpp/LIS_GPP_202011110000.d01.cog.tif",
+                    "type": "image/tiff; application=geotiff",
+                    "roles": [
+                      "data",
+                      "layer"
+                    ],
+                    "title": "Default COG Layer",
+                    "proj:bbox": [
+                      -179.9500000157243,
+                      -59.98224871364589,
+                      179.9973980503783,
+                      89.9999999874719
+                    ],
+                    "proj:epsg": 4326,
+                    "proj:wkt2": "GEOGCS[\"WGS 84\",DATUM[\"WGS_1984\",SPHEROID[\"WGS 84\",6378137,298.257223563]],PRIMEM[\"Greenwich\",0],UNIT[\"degree\",0.0174532925199433,AUTHORITY[\"EPSG\",\"9122\"]],AXIS[\"Latitude\",NORTH],AXIS[\"Longitude\",EAST]]",
+                    "proj:shape": [
+                      1500,
+                      3600
+                    ],
+                    "description": "Cloud optimized default layer to display on map",
+                    "raster:bands": [
+                      {
+                        "scale": 1.0,
+                        "nodata": 0.0,
+                        "offset": 0.0,
+                        "sampling": "area",
+                        "data_type": "float64",
+                        "histogram": {
+                          "max": 0.0001730973890516907,
+                          "min": 6.360877796707243e-11,
+                          "count": 11,
+                          "buckets": [
+                            49482,
+                            8438,
+                            5300,
+                            3877,
+                            2843,
+                            2176,
+                            2813,
+                            2468,
+                            1073,
+                            139
+                          ]
+                        },
+                        "statistics": {
+                          "mean": 2.698701609576684e-05,
+                          "stddev": 3.817250703811898e-05,
+                          "maximum": 0.0001730973890516907,
+                          "minimum": 6.360877796707243e-11,
+                          "valid_percent": 17.978126829625293
+                        }
+                      }
+                    ],
+                    "proj:geometry": {
+                      "type": "Polygon",
+                      "coordinates": [
+                        [
+                          [
+                            -179.9500000157243,
+                            -59.98224871364589
+                          ],
+                          [
+                            179.9973980503783,
+                            -59.98224871364589
+                          ],
+                          [
+                            179.9973980503783,
+                            89.9999999874719
+                          ],
+                          [
+                            -179.9500000157243,
+                            89.9999999874719
+                          ],
+                          [
+                            -179.9500000157243,
+                            -59.98224871364589
+                          ]
+                        ]
+                      ]
+                    },
+                    "proj:projjson": {
+                      "name": "WGS 84",
+                      "type": "GeographicCRS",
+                      "datum": {
+                        "name": "World Geodetic System 1984",
+                        "type": "GeodeticReferenceFrame",
+                        "ellipsoid": {
+                          "name": "WGS 84",
+                          "semi_major_axis": 6378137,
+                          "inverse_flattening": 298.257223563
+                        }
+                      },
+                      "$schema": "https://proj.org/schemas/v0.4/projjson.schema.json",
+                      "coordinate_system": {
+                        "axis": [
+                          {
+                            "name": "Latitude",
+                            "unit": "degree",
+                            "direction": "north",
+                            "abbreviation": "lat"
+                          },
+                          {
+                            "name": "Longitude",
+                            "unit": "degree",
+                            "direction": "east",
+                            "abbreviation": "lon"
+                          }
+                        ],
+                        "subtype": "ellipsoidal"
+                      }
+                    },
+                    "proj:transform": [
+                      0.09998538835169517,
+                      0.0,
+                      -179.9500000157243,
+                      0.0,
+                      -0.09998816580074518,
+                      89.9999999874719,
+                      0.0,
+                      0.0,
+                      1.0
+                    ]
+                  },
+                  "rendered_preview": {
+                    "title": "Rendered preview",
+                    "href": "https://openveda.cloud/api/raster/collections/lis-global-da-gpp/items/LIS_GPP_202011110000.d01.cog/preview.png?bidx=1&assets=cog_default&rescale=0%2C0.0001&resampling=bilinear&colormap_name=viridis",
+                    "rel": "preview",
+                    "roles": [
+                      "overview"
+                    ],
+                    "type": "image/png"
+                  }
+                },
+                "geometry": {
+                  "type": "Polygon",
+                  "coordinates": [
+                    [
+                      [
+                        -179.9500000157243,
+                        -59.98224871364589
+                      ],
+                      [
+                        179.9973980503783,
+                        -59.98224871364589
+                      ],
+                      [
+                        179.9973980503783,
+                        89.9999999874719
+                      ],
+                      [
+                        -179.9500000157243,
+                        89.9999999874719
+                      ],
+                      [
+                        -179.9500000157243,
+                        -59.98224871364589
+                      ]
+                    ]
+                  ]
+                },
+                "collection": "lis-global-da-gpp",
+                "properties": {
+                  "datetime": "2020-11-11T00:00:00+00:00"
+                },
+                "stac_version": "1.0.0",
+                "stac_extensions": [
+                  "https://stac-extensions.github.io/raster/v1.1.0/schema.json",
+                  "https://stac-extensions.github.io/projection/v1.1.0/schema.json"
+                ],
+                "collection_id": "lis-global-da-gpp",
+                "datetime": "2020-11-11T00:00:00+00:00",
+                "primary_asset_url": "s3://veda-data-store/lis-global-da-gpp/LIS_GPP_202011110000.d01.cog.tif"
+              },
+              {
+                "id": "LIS_GPP_202011100000.d01.cog",
+                "bbox": [
+                  -179.9500000157243,
+                  -59.98224871364589,
+                  179.9973980503783,
+                  89.9999999874719
+                ],
+                "type": "Feature",
+                "links": [
+                  {
+                    "rel": "collection",
+                    "type": "application/json",
+                    "href": "https://openveda.cloud/api/stac/collections/lis-global-da-gpp"
+                  },
+                  {
+                    "rel": "parent",
+                    "type": "application/json",
+                    "href": "https://openveda.cloud/api/stac/collections/lis-global-da-gpp"
+                  },
+                  {
+                    "rel": "root",
+                    "type": "application/json",
+                    "href": "https://openveda.cloud/api/stac/"
+                  },
+                  {
+                    "rel": "self",
+                    "type": "application/geo+json",
+                    "href": "https://openveda.cloud/api/stac/collections/lis-global-da-gpp/items/LIS_GPP_202011100000.d01.cog"
+                  },
+                  {
+                    "title": "Map of Item",
+                    "href": "https://openveda.cloud/api/raster/collections/lis-global-da-gpp/items/LIS_GPP_202011100000.d01.cog/WebMercatorQuad/map?bidx=1&assets=cog_default&rescale=0%2C0.0001&resampling=bilinear&colormap_name=viridis",
+                    "rel": "preview",
+                    "type": "text/html"
+                  }
+                ],
+                "assets": {
+                  "cog_default": {
+                    "href": "s3://veda-data-store/lis-global-da-gpp/LIS_GPP_202011100000.d01.cog.tif",
+                    "type": "image/tiff; application=geotiff",
+                    "roles": [
+                      "data",
+                      "layer"
+                    ],
+                    "title": "Default COG Layer",
+                    "proj:bbox": [
+                      -179.9500000157243,
+                      -59.98224871364589,
+                      179.9973980503783,
+                      89.9999999874719
+                    ],
+                    "proj:epsg": 4326,
+                    "proj:wkt2": "GEOGCS[\"WGS 84\",DATUM[\"WGS_1984\",SPHEROID[\"WGS 84\",6378137,298.257223563]],PRIMEM[\"Greenwich\",0],UNIT[\"degree\",0.0174532925199433,AUTHORITY[\"EPSG\",\"9122\"]],AXIS[\"Latitude\",NORTH],AXIS[\"Longitude\",EAST]]",
+                    "proj:shape": [
+                      1500,
+                      3600
+                    ],
+                    "description": "Cloud optimized default layer to display on map",
+                    "raster:bands": [
+                      {
+                        "scale": 1.0,
+                        "nodata": 0.0,
+                        "offset": 0.0,
+                        "sampling": "area",
+                        "data_type": "float64",
+                        "histogram": {
+                          "max": 0.00017052370822057128,
+                          "min": 6.607479841047592e-11,
+                          "count": 11,
+                          "buckets": [
+                            49441,
+                            8499,
+                            5170,
+                            3988,
+                            2813,
+                            2160,
+                            2985,
+                            2581,
+                            894,
+                            199
+                          ]
+                        },
+                        "statistics": {
+                          "mean": 2.6878021770463808e-05,
+                          "stddev": 3.7653404899247635e-05,
+                          "maximum": 0.00017052370822057128,
+                          "minimum": 6.607479841047592e-11,
+                          "valid_percent": 18.005799912177984
+                        }
+                      }
+                    ],
+                    "proj:geometry": {
+                      "type": "Polygon",
+                      "coordinates": [
+                        [
+                          [
+                            -179.9500000157243,
+                            -59.98224871364589
+                          ],
+                          [
+                            179.9973980503783,
+                            -59.98224871364589
+                          ],
+                          [
+                            179.9973980503783,
+                            89.9999999874719
+                          ],
+                          [
+                            -179.9500000157243,
+                            89.9999999874719
+                          ],
+                          [
+                            -179.9500000157243,
+                            -59.98224871364589
+                          ]
+                        ]
+                      ]
+                    },
+                    "proj:projjson": {
+                      "name": "WGS 84",
+                      "type": "GeographicCRS",
+                      "datum": {
+                        "name": "World Geodetic System 1984",
+                        "type": "GeodeticReferenceFrame",
+                        "ellipsoid": {
+                          "name": "WGS 84",
+                          "semi_major_axis": 6378137,
+                          "inverse_flattening": 298.257223563
+                        }
+                      },
+                      "$schema": "https://proj.org/schemas/v0.4/projjson.schema.json",
+                      "coordinate_system": {
+                        "axis": [
+                          {
+                            "name": "Latitude",
+                            "unit": "degree",
+                            "direction": "north",
+                            "abbreviation": "lat"
+                          },
+                          {
+                            "name": "Longitude",
+                            "unit": "degree",
+                            "direction": "east",
+                            "abbreviation": "lon"
+                          }
+                        ],
+                        "subtype": "ellipsoidal"
+                      }
+                    },
+                    "proj:transform": [
+                      0.09998538835169517,
+                      0.0,
+                      -179.9500000157243,
+                      0.0,
+                      -0.09998816580074518,
+                      89.9999999874719,
+                      0.0,
+                      0.0,
+                      1.0
+                    ]
+                  },
+                  "rendered_preview": {
+                    "title": "Rendered preview",
+                    "href": "https://openveda.cloud/api/raster/collections/lis-global-da-gpp/items/LIS_GPP_202011100000.d01.cog/preview.png?bidx=1&assets=cog_default&rescale=0%2C0.0001&resampling=bilinear&colormap_name=viridis",
+                    "rel": "preview",
+                    "roles": [
+                      "overview"
+                    ],
+                    "type": "image/png"
+                  }
+                },
+                "geometry": {
+                  "type": "Polygon",
+                  "coordinates": [
+                    [
+                      [
+                        -179.9500000157243,
+                        -59.98224871364589
+                      ],
+                      [
+                        179.9973980503783,
+                        -59.98224871364589
+                      ],
+                      [
+                        179.9973980503783,
+                        89.9999999874719
+                      ],
+                      [
+                        -179.9500000157243,
+                        89.9999999874719
+                      ],
+                      [
+                        -179.9500000157243,
+                        -59.98224871364589
+                      ]
+                    ]
+                  ]
+                },
+                "collection": "lis-global-da-gpp",
+                "properties": {
+                  "datetime": "2020-11-10T00:00:00+00:00"
+                },
+                "stac_version": "1.0.0",
+                "stac_extensions": [
+                  "https://stac-extensions.github.io/raster/v1.1.0/schema.json",
+                  "https://stac-extensions.github.io/projection/v1.1.0/schema.json"
+                ],
+                "collection_id": "lis-global-da-gpp",
+                "datetime": "2020-11-10T00:00:00+00:00",
+                "primary_asset_url": "s3://veda-data-store/lis-global-da-gpp/LIS_GPP_202011100000.d01.cog.tif"
+              },
+              {
+                "id": "LIS_GPP_202011090000.d01.cog",
+                "bbox": [
+                  -179.9500000157243,
+                  -59.98224871364589,
+                  179.9973980503783,
+                  89.9999999874719
+                ],
+                "type": "Feature",
+                "links": [
+                  {
+                    "rel": "collection",
+                    "type": "application/json",
+                    "href": "https://openveda.cloud/api/stac/collections/lis-global-da-gpp"
+                  },
+                  {
+                    "rel": "parent",
+                    "type": "application/json",
+                    "href": "https://openveda.cloud/api/stac/collections/lis-global-da-gpp"
+                  },
+                  {
+                    "rel": "root",
+                    "type": "application/json",
+                    "href": "https://openveda.cloud/api/stac/"
+                  },
+                  {
+                    "rel": "self",
+                    "type": "application/geo+json",
+                    "href": "https://openveda.cloud/api/stac/collections/lis-global-da-gpp/items/LIS_GPP_202011090000.d01.cog"
+                  },
+                  {
+                    "title": "Map of Item",
+                    "href": "https://openveda.cloud/api/raster/collections/lis-global-da-gpp/items/LIS_GPP_202011090000.d01.cog/WebMercatorQuad/map?bidx=1&assets=cog_default&rescale=0%2C0.0001&resampling=bilinear&colormap_name=viridis",
+                    "rel": "preview",
+                    "type": "text/html"
+                  }
+                ],
+                "assets": {
+                  "cog_default": {
+                    "href": "s3://veda-data-store/lis-global-da-gpp/LIS_GPP_202011090000.d01.cog.tif",
+                    "type": "image/tiff; application=geotiff",
+                    "roles": [
+                      "data",
+                      "layer"
+                    ],
+                    "title": "Default COG Layer",
+                    "proj:bbox": [
+                      -179.9500000157243,
+                      -59.98224871364589,
+                      179.9973980503783,
+                      89.9999999874719
+                    ],
+                    "proj:epsg": 4326,
+                    "proj:wkt2": "GEOGCS[\"WGS 84\",DATUM[\"WGS_1984\",SPHEROID[\"WGS 84\",6378137,298.257223563]],PRIMEM[\"Greenwich\",0],UNIT[\"degree\",0.0174532925199433,AUTHORITY[\"EPSG\",\"9122\"]],AXIS[\"Latitude\",NORTH],AXIS[\"Longitude\",EAST]]",
+                    "proj:shape": [
+                      1500,
+                      3600
+                    ],
+                    "description": "Cloud optimized default layer to display on map",
+                    "raster:bands": [
+                      {
+                        "scale": 1.0,
+                        "nodata": 0.0,
+                        "offset": 0.0,
+                        "sampling": "area",
+                        "data_type": "float64",
+                        "histogram": {
+                          "max": 0.0001723640743875876,
+                          "min": 6.376431327392851e-11,
+                          "count": 11,
+                          "buckets": [
+                            49635,
+                            8162,
+                            5015,
+                            3912,
+                            2681,
+                            2243,
+                            2895,
+                            2645,
+                            988,
+                            106
+                          ]
+                        },
+                        "statistics": {
+                          "mean": 2.7074259603633338e-05,
+                          "stddev": 3.801618575932637e-05,
+                          "maximum": 0.0001723640743875876,
+                          "minimum": 6.376431327392851e-11,
+                          "valid_percent": 17.903340895784545
+                        }
+                      }
+                    ],
+                    "proj:geometry": {
+                      "type": "Polygon",
+                      "coordinates": [
+                        [
+                          [
+                            -179.9500000157243,
+                            -59.98224871364589
+                          ],
+                          [
+                            179.9973980503783,
+                            -59.98224871364589
+                          ],
+                          [
+                            179.9973980503783,
+                            89.9999999874719
+                          ],
+                          [
+                            -179.9500000157243,
+                            89.9999999874719
+                          ],
+                          [
+                            -179.9500000157243,
+                            -59.98224871364589
+                          ]
+                        ]
+                      ]
+                    },
+                    "proj:projjson": {
+                      "name": "WGS 84",
+                      "type": "GeographicCRS",
+                      "datum": {
+                        "name": "World Geodetic System 1984",
+                        "type": "GeodeticReferenceFrame",
+                        "ellipsoid": {
+                          "name": "WGS 84",
+                          "semi_major_axis": 6378137,
+                          "inverse_flattening": 298.257223563
+                        }
+                      },
+                      "$schema": "https://proj.org/schemas/v0.4/projjson.schema.json",
+                      "coordinate_system": {
+                        "axis": [
+                          {
+                            "name": "Latitude",
+                            "unit": "degree",
+                            "direction": "north",
+                            "abbreviation": "lat"
+                          },
+                          {
+                            "name": "Longitude",
+                            "unit": "degree",
+                            "direction": "east",
+                            "abbreviation": "lon"
+                          }
+                        ],
+                        "subtype": "ellipsoidal"
+                      }
+                    },
+                    "proj:transform": [
+                      0.09998538835169517,
+                      0.0,
+                      -179.9500000157243,
+                      0.0,
+                      -0.09998816580074518,
+                      89.9999999874719,
+                      0.0,
+                      0.0,
+                      1.0
+                    ]
+                  },
+                  "rendered_preview": {
+                    "title": "Rendered preview",
+                    "href": "https://openveda.cloud/api/raster/collections/lis-global-da-gpp/items/LIS_GPP_202011090000.d01.cog/preview.png?bidx=1&assets=cog_default&rescale=0%2C0.0001&resampling=bilinear&colormap_name=viridis",
+                    "rel": "preview",
+                    "roles": [
+                      "overview"
+                    ],
+                    "type": "image/png"
+                  }
+                },
+                "geometry": {
+                  "type": "Polygon",
+                  "coordinates": [
+                    [
+                      [
+                        -179.9500000157243,
+                        -59.98224871364589
+                      ],
+                      [
+                        179.9973980503783,
+                        -59.98224871364589
+                      ],
+                      [
+                        179.9973980503783,
+                        89.9999999874719
+                      ],
+                      [
+                        -179.9500000157243,
+                        89.9999999874719
+                      ],
+                      [
+                        -179.9500000157243,
+                        -59.98224871364589
+                      ]
+                    ]
+                  ]
+                },
+                "collection": "lis-global-da-gpp",
+                "properties": {
+                  "datetime": "2020-11-09T00:00:00+00:00"
+                },
+                "stac_version": "1.0.0",
+                "stac_extensions": [
+                  "https://stac-extensions.github.io/raster/v1.1.0/schema.json",
+                  "https://stac-extensions.github.io/projection/v1.1.0/schema.json"
+                ],
+                "collection_id": "lis-global-da-gpp",
+                "datetime": "2020-11-09T00:00:00+00:00",
+                "primary_asset_url": "s3://veda-data-store/lis-global-da-gpp/LIS_GPP_202011090000.d01.cog.tif"
+              }
+            ],
+            "band": "b1",
+            "geometry": [
+              -123.89,
+              38.756,
+              -122.819,
+              40.005
+            ]
+          }
+        }
+      ],
+      "assistant_text": ""
+    },
+    {
+      "input_tokens": 56778,
+      "output_tokens": 64,
+      "cached_tokens": 55296,
+      "tool_calls": [
+        "render_map"
+      ],
+      "tool_calls_detail": [
+        {
+          "name": "render_map",
+          "args": {
+            "collection_id": "lis-global-da-gpp",
+            "item_id": "LIS_GPP_202011280000.d01.cog",
+            "bbox": [
+              -123.89,
+              38.756,
+              -122.819,
+              40.005
+            ],
+            "colormap": "viridis"
+          }
+        }
+      ],
+      "assistant_text": ""
+    },
+    {
+      "input_tokens": 56977,
+      "output_tokens": 617,
+      "cached_tokens": 56704,
+      "tool_calls": [],
+      "tool_calls_detail": [],
+      "assistant_text": "Mendocino County, CA (bbox `[-123.89, 38.756, -122.819, 40.005]`) GPP from `lis-global-da-gpp` over 2020-06-28 to 2020-11-28 (20 daily items returned, all in Nov 2020): overall mean **2.8617111462718237e-05**, median **9.143825081991963e-06**, min **8.819054861386455e-12**, max **1.734418619889766e-04**. Per-item means (Nov 2020): 2020-11-09 **2.7074259603633338e-05**, 11-10 **2.6878021770463808e-05**, 11-11 **2.698701609576684e-05**, 11-12 **2.688650564718739e-05**, 11-13 **2.736293570656761e-0"
+    }
+  ]
+}

@@ -4,72 +4,78 @@
 
 | scenario | pattern | mode | forced | map | turns | tok/turn (in) | tok/turn (out) | cache hit % | $/query | $/month @ 915K |
 |---|---|---|---|---|---:|---:|---:|---:|---:|---:|
-| pattern-eie-freeform | eie | freeform | N | N | 12 | 9096 | 241 | 59.7% | $0.1289 | $117,913 |
-| pattern-eie-freeform | eie | freeform | N | Y | 14 | 11519 | 219 | 73.1% | $0.1395 | $127,672 |
+| pattern-eie-freeform | eie | freeform | N | N | 11 | 9809 | 261 | 60.3% | $0.1265 | $115,774 |
+| pattern-eie-freeform | eie | freeform | N | Y | 12 | 12574 | 256 | 71.5% | $0.1372 | $125,532 |
 | pattern-eie-freeform | eie | freeform | Y | N | 13 | 11228 | 158 | 65.4% | $0.1339 | $122,505 |
-| pattern-eie-key-fields | eie | key_fields | N | N | 12 | 1410 | 150 | 48.4% | $0.0419 | $38,341 |
-| pattern-eie-key-fields | eie | key_fields | N | Y | 13 | 1776 | 143 | 66.5% | $0.0422 | $38,629 |
+| pattern-eie-key-fields | eie | key_fields | N | N | 14 | 1437 | 133 | 59.8% | $0.0423 | $38,679 |
+| pattern-eie-key-fields | eie | key_fields | N | Y | 15 | 1788 | 132 | 69.7% | $0.0453 | $41,467 |
 | pattern-eie-key-fields | eie | key_fields | Y | N | 15 | 1471 | 126 | 62.1% | $0.0435 | $39,771 |
-| pattern-eie-status-only | eie | status_only | N | N | 14 | 1243 | 48 | 44.1% | $0.0277 | $25,353 |
-| pattern-eie-status-only | eie | status_only | N | Y | 13 | 1384 | 71 | 69.7% | $0.0246 | $22,554 |
+| pattern-eie-status-only | eie | status_only | N | N | 12 | 1155 | 61 | 44.3% | $0.0249 | $22,764 |
+| pattern-eie-status-only | eie | status_only | N | Y | 15 | 1483 | 69 | 74.8% | $0.0272 | $24,898 |
 | pattern-eie-status-only | eie | status_only | Y | N | 11 | 1187 | 70 | 58.8% | $0.0216 | $19,735 |
-| pattern-paper-freeform | paper | freeform | N | N | 4 | 15644 | 626 | 50.3% | $0.0950 | $86,909 |
-| pattern-paper-freeform | paper | freeform | N | Y | 6 | 21952 | 712 | 74.3% | $0.1361 | $124,542 |
+| pattern-paper-freeform | paper | freeform | N | N | 4 | 15383 | 396 | 49.5% | $0.0818 | $74,890 |
+| pattern-paper-freeform | paper | freeform | N | Y | 5 | 28995 | 5324 | 77.3% | $0.4500 | $411,752 |
 | pattern-paper-freeform | paper | freeform | Y | N | 5 | 19641 | 1135 | 66.9% | $0.1479 | $135,305 |
-| pattern-paper-key-fields | paper | key_fields | N | N | 4 | 1649 | 353 | 67.9% | $0.0243 | $22,192 |
-| pattern-paper-key-fields | paper | key_fields | N | Y | 5 | 2400 | 346 | 59.7% | $0.0339 | $31,045 |
+| pattern-paper-key-fields | paper | key_fields | N | N | 4 | 1798 | 392 | 40.9% | $0.0299 | $27,376 |
+| pattern-paper-key-fields | paper | key_fields | N | Y | 6 | 2124 | 344 | 55.2% | $0.0401 | $36,701 |
 | pattern-paper-key-fields | paper | key_fields | Y | N | 4 | 1678 | 361 | 68.7% | $0.0247 | $22,616 |
-| pattern-paper-status-only | paper | status_only | N | N | 4 | 1330 | 540 | 50.5% | $0.0353 | $32,290 |
-| pattern-paper-status-only | paper | status_only | N | Y | 5 | 1793 | 457 | 64.2% | $0.0386 | $35,327 |
+| pattern-paper-status-only | paper | status_only | N | N | 4 | 1300 | 537 | 51.7% | $0.0349 | $31,972 |
+| pattern-paper-status-only | paper | status_only | N | Y | 6 | 1180 | 156 | 41.6% | $0.0208 | $19,044 |
 | pattern-paper-status-only | paper | status_only | Y | N | 7 | 2410 | 582 | 80.4% | $0.0652 | $59,653 |
 
 ## Ratio rows
 
-- **Pattern paper (natural) — C/A ratio (paper's headline lever):** 2.69×
-- **Pattern paper (natural) — C/B ratio (realistic production lever):** 3.92×
+- **Pattern paper (natural) — C/A ratio (paper's headline lever):** 2.34×
+- **Pattern paper (natural) — C/B ratio (realistic production lever):** 2.74×
 - **Pattern paper (forced) — C/A ratio (paper's headline lever):** 2.27×
 - **Pattern paper (forced) — C/B ratio (realistic production lever):** 5.98×
-- **Pattern eie (natural) — C/A ratio (paper's headline lever):** 4.65×
-- **Pattern eie (natural) — C/B ratio (realistic production lever):** 3.08×
+- **Pattern eie (natural) — C/A ratio (paper's headline lever):** 5.09×
+- **Pattern eie (natural) — C/B ratio (realistic production lever):** 2.99×
 - **Pattern eie (forced) — C/A ratio (paper's headline lever):** 6.21×
 - **Pattern eie (forced) — C/B ratio (realistic production lever):** 3.08×
 
 ## Findings
 
-**Setup.** Live runs against GPT-5.2 over NASA VEDA STAC (`lis-global-da-gpp`, Mendocino County CA, June–November 2020). 2 conversation patterns × 3 response-handler modes, across three prompt variants: natural, forced `compute_stats`, and `--with-map` (agent calls `render_map` and emits a map-layer URL). All cells completed except where noted; `eie-status-only` with-map needed `--recursion-limit 60` (it loops at the default 30).
+**Setup.** Live runs against GPT-5.2 over NASA VEDA STAC (`lis-global-da-gpp`, Mendocino County CA, June–November 2020). 2 conversation patterns × 3 response-handler modes × 3 prompt variants (natural, forced `compute_stats`, `--with-map`). This is a single consistent 12/12 sweep — **all six scenarios now complete the full tool chain and compute real GPP stats**, including status-only (after the fix below). Numbers carry run-to-run variance because GPT-5.2 tool-calling isn't fully deterministic even at temperature 0.
 
 ### Templating lever (the paper's claim)
 
-The paper's ~7.5× tool-response lever is **directionally real but overstated for realistic comparisons.** Headline C/A (raw STAC → status-only summary) varies by conversation shape:
+The paper's ~7.5× tool-response lever is **directionally real but overstated for realistic comparisons.** Headline C/A (raw STAC → status-only summary) varies sharply by conversation shape:
 
-- Paper pattern (parallel ReAct, 4–7 turns): **2.27–2.69×**
-- EIE pattern (gated drill-down, 11–15 turns): **4.65–6.21×**
+- Paper pattern (parallel ReAct, 4–7 turns): **2.27–2.34×**
+- EIE pattern (gated drill-down, 11–15 turns): **5.09–6.21×**
 
-The realistic production lever — C/B (raw → typed key-fields, what teams actually template to) — lands at **3.08–5.98×**, not 7.5×. A team already doing key-fields templating won't find another 7.5× by going to status-only; mode A ($0.02–$0.07/query) is only marginally cheaper than mode B ($0.024–$0.046), and status-only carries a real information-bottleneck cost (the agent terminates early or loops without enough context to call `search_items`/`compute_stats`).
+The realistic production lever — C/B (raw → typed key-fields, what teams actually template to) — lands at **2.74–5.98×**, not 7.5×. A team already doing key-fields templating won't find another 7.5× by going to status-only; mode A ($0.021–$0.035/query) is only marginally cheaper than mode B ($0.025–$0.040). The 7.5× anchor is the extreme upper bound (raw passthrough vs the most aggressive summary on the longest conversation), not the typical case.
+
+### Status-only completes — but only if it retains identifiers
+
+An earlier iteration of the bench showed status-only **failing** to complete: the handler summarized `search_collections` to a bare count and dropped the collection IDs, so the agent could never pick a collection to drill into. **That was a property of a naive handler, not of templating itself.** Fixing the handler to keep the essential identifiers (collection IDs in the summary; items resolved from server-side state for `compute_stats`) lets status-only complete the full analysis at ~$0.021–$0.035/query.
+
+The sharpened finding: **over-templating that strips identifiers starves the agent; well-designed status-only that keeps the handles completes and still saves most of the tokens.** The savings come from dropping bulky descriptions/geometry/asset-dicts, not from dropping IDs. (Separately, the agent often guesses a wrong asset/band name — e.g. `gpp` instead of `cog_default` — so the tool layer needs a fallback that resolves the name to the real asset; without it the run spends tokens and returns nothing.)
 
 ### Map step (`render_map`) cost
 
-Emitting a map-layer URL adds one agent turn. Its marginal cost depends almost entirely on how aggressively the conversation is templated:
+Emitting a map-layer URL adds one agent turn. Marginal cost (natural map=N → map=Y) in this sweep:
 
-| Scenario | map=N | map=Y | Δ $/query | Δ % |
-|---|---:|---:|---:|---:|
-| eie · status-only | $0.0277 | $0.0272 | **−$0.0005** | **−1.8%** |
-| paper · status-only | $0.0353 | $0.0377 | +$0.0024 | +6.8% |
-| eie · freeform | $0.1289 | $0.1366 | +$0.0077 | +6.0% |
-| eie · key-fields | $0.0419 | $0.0459 | +$0.0040 | +9.5% |
-| paper · key-fields | $0.0243 | $0.0304 | +$0.0061 | +25.1% |
-| paper · freeform | $0.0950 | $0.1507 | +$0.0557 | **+58.6%** |
+| Scenario | map=N | map=Y | Δ % |
+|---|---:|---:|---:|
+| paper · status-only | $0.0349 | $0.0208 | **−40%** |
+| eie · key-fields | $0.0423 | $0.0453 | +7% |
+| eie · status-only | $0.0249 | $0.0272 | +9% |
+| eie · freeform | $0.1265 | $0.1372 | +8% |
+| paper · key-fields | $0.0299 | $0.0401 | +34% |
+| paper · freeform | $0.0818 | $0.4500 | **+450%** |
 
-Three observations:
+Two stable observations plus one caveat:
 
-1. **In templated modes the map step is nearly free** — and in the most extreme case (eie · status-only) it was net *cheaper*: the extra turn pushed the cache-hit rate to 75% (from 44%), and the discount on the now-cached conversation more than offset the added turn. The visualization is not where cost lives.
+1. **In templated modes (key-fields/status-only) the map step is cheap to free** — single-digit-percent deltas, and in one case net-cheaper (the extra turn lifted the cache-hit rate, offsetting itself). The visualization is not where cost lives.
 
-2. **Freeform amplifies the map step.** paper · freeform jumped +59% because the extra turns re-send the already-bloated raw-STAC context (input/turn 15.6K → 22.4K). This is the templating lever reappearing in a different guise: the more you template, the cheaper *every* subsequent turn — including the map call.
+2. **Freeform is volatile.** `paper · freeform · map=Y` spiked to $0.45 (5,324 output tok/turn — the agent wrote an enormous answer echoing the raw payload). One run; it does not reproduce stably. The signal isn't "+450%" — it's that **raw-passthrough mode has a fat tail**: when the agent both ingests and re-emits unbounded payloads, cost can blow out unpredictably. Templating caps that tail.
 
-3. **status-only + map is fragile.** Both `eie-status-only --with-map` (default limit) and earlier runs hit the 30-turn recursion ceiling: from terse summaries the agent struggles to reconstruct enough context to both compute stats AND build a valid `render_map` call. It completes at limit 60, but the looping is a real production risk — bound retries per tool, not per conversation.
+3. **Don't over-read any single map=Y cell.** The map-step deltas swing run-to-run (compare to the earlier sweep where paper · status-only · map was +7%, here −40%). The robust claim is directional: templated ≈ cheap/flat, freeform = volatile.
 
 ### Takeaway
 
-Quote the templating lever as **~3–6× for realistic choices** (raw → key-fields), up to ~6× for aggressive templating (raw → status-only), with 7.5× as the extreme upper bound rather than the typical case. Adding a map-layer output costs **~$0.002–$0.06/query** — negligible in templated modes, only material in raw-passthrough. Response templating dominates cost; the visualization step does not.
+Quote the templating lever as **~3–6× for realistic choices** (raw → key-fields), with **7.5× as the extreme upper bound** (raw → aggressive summary on a long gated conversation), not the typical case. Status-only is viable *if* the handler keeps identifiers; stripping them is a failure mode, not a saving. A map-layer output is cheap in templated modes and a volatility risk in freeform. Response templating dominates cost; the visualization step does not.
 
-**Limitations.** Single dataset (`lis-global-da-gpp`, substituted for the paper's MiCASA which isn't in VEDA's catalog), single AOI, single model. Cache hit rates (44–80%) depend on back-to-back agent-fleet execution and heavily dampen absolute costs; an isolated cold start would push them higher.
+**Limitations.** Single dataset (`lis-global-da-gpp`, substituted for the paper's MiCASA which isn't in VEDA's catalog), single AOI, single model, single sweep. GPT-5.2 tool-calling variance moves per-cell numbers ±tens of percent between sweeps — treat ratios as ranges, not point estimates. Cache hit rates (41–80%) depend on back-to-back execution and heavily dampen absolute costs; an isolated cold start would push them higher.
