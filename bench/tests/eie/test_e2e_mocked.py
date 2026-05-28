@@ -76,16 +76,16 @@ def _paper_llm_sequence():
     return iter([
         _tc("parse_datetime", {"value": "2020-06-01 to 2020-11-01"}, "tc-p1"),
         _tc("geocode", {"query": "Mendocino County", "level": "county"}, "tc-p2"),
-        _tc("search_collections", {"query": "MiCASA carbon flux"}, "tc-p3"),
+        _tc("search_collections", {"query": "GPP global primary production"}, "tc-p3"),
         _tc("search_items", {
-            "collection_id": "micasa-carbonflux-monthgrid-v1",
+            "collection_id": "lis-global-da-gpp",
             "bbox": [-123.89, 38.76, -122.82, 40.0],
             "datetime_range": "2020-06-01/2020-11-01",
-            "band": "FIRE",
+            "band": "cog_default",
         }, "tc-p4"),
         _tc("compute_stats", {
             "item_refs": ["tc-p4"],
-            "band": "FIRE",
+            "band": "cog_default",
             "geometry": {
                 "type": "Polygon",
                 "coordinates": [[
@@ -95,7 +95,7 @@ def _paper_llm_sequence():
                 ]],
             },
         }, "tc-p5"),
-        _final("Mean FIRE = 1.96 across 6 monthly grids; min 0.0, max 4.98."),
+        _final("Mean GPP = 1.96 across 6 monthly grids; min 0.0, max 4.98."),
     ])
 
 
@@ -109,7 +109,7 @@ def _eie_llm_sequence():
         _tc("geocode", {"query": "Mendocino County", "level": "county"}, "tc-e6"),
         _tc("ask_user", {"gate": "dataset", "prompt": "Which dataset?"}, "tc-e7"),
         _tc("ask_user", {"gate": "variable", "prompt": "Which band?"}, "tc-e8"),
-        _final("Mean FIRE flux over Mendocino: 0.18 gC/m2/day."),
+        _final("Mean GPP over Mendocino: 0.18 gC/m2/day."),
     ])
 
 

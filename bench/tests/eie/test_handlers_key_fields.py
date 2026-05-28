@@ -34,7 +34,7 @@ def test_key_fields_search_items_caps_at_10_entries():
     # total_matched preserves the true count.
     items = [
         StacItemFields(
-            id=f"micasa-{i:02d}",
+            id=f"LIS_GPP_2020{i:02d}",
             datetime=f"2020-{i:02d}-01T00:00:00Z",
             bbox=(-123.89, 38.76, -122.82, 40.0),
             primary_asset_url=f"https://example.org/{i:02d}.tif",

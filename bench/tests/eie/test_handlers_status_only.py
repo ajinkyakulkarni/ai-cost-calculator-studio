@@ -42,7 +42,7 @@ def test_status_handler_caps_search_items_with_many_items():
     h = StatusOnlyHandler()
     items = [
         StacItemFields(
-            id=f"micasa-{i:02d}",
+            id=f"LIS_GPP_2020{i:02d}",
             datetime=f"2020-{i:02d}-01T00:00:00Z",
             bbox=(-123.89, 38.76, -122.82, 40.0),
             primary_asset_url=f"https://example.org/{i:02d}.tif",
@@ -59,12 +59,12 @@ def test_status_handler_caps_search_items_with_many_items():
 def test_status_handler_compute_stats_summary_includes_numbers():
     h = StatusOnlyHandler()
     raw = ComputeStatsReturn(
-        band="FIRE", n_items=6, mean=1.96, median=2.0, min=0.0, max=4.98, per_item=[]
+        band="cog_default", n_items=6, mean=1.96, median=2.0, min=0.0, max=4.98, per_item=[]
     )
     out = h.wrap("compute_stats", "tc_003", raw)
     parsed = json.loads(out)
     # Stats values DO surface in the summary because they ARE the final
     # answer the LLM composes from. Structured per-item array does not.
     assert "1.96" in parsed["summary"]
-    assert "FIRE" in parsed["summary"]
+    assert "cog_default" in parsed["summary"]
     assert _approx_tokens(out) <= 60

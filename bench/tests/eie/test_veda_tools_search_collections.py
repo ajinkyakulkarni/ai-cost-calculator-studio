@@ -9,9 +9,9 @@ from agent_cost_bench.eie.schemas import SearchCollectionsReturn, CollectionMeta
 MOCK_COLLECTIONS_PAYLOAD = {
     "collections": [
         {
-            "id": "micasa-carbonflux-monthgrid-v1",
-            "title": "MiCASA Land Carbon Flux v1",
-            "description": "Monthly land carbon flux from the MiCASA model",
+            "id": "lis-global-da-gpp",
+            "title": "LIS Global DA GPP",
+            "description": "Land Information System global gross primary production (a carbon flux measure)",
         },
         {
             "id": "modis-ndvi",
@@ -44,8 +44,8 @@ def test_search_collections_matches_keyword(httpx_mock: HTTPXMock):
         json=MOCK_COLLECTIONS_PAYLOAD,
     )
     r = search_collections("carbon")
-    # MiCASA title+description contain "carbon"; MODIS and OCO-2 do not
-    assert any("micasa" in c.id for c in r.collections)
+    # LIS GPP description contains "carbon"; MODIS and OCO-2 do not
+    assert any("lis-global-da-gpp" in c.id for c in r.collections)
     assert r.total_matched >= 1
 
 
@@ -66,7 +66,7 @@ def test_search_collections_case_insensitive(httpx_mock: HTTPXMock):
         json=MOCK_COLLECTIONS_PAYLOAD,
     )
     r = search_collections("CARBON")
-    assert any("micasa" in c.id for c in r.collections)
+    assert any("lis-global-da-gpp" in c.id for c in r.collections)
 
 
 def test_search_collections_collection_meta_fields(httpx_mock: HTTPXMock):
@@ -78,8 +78,8 @@ def test_search_collections_collection_meta_fields(httpx_mock: HTTPXMock):
     assert len(r.collections) >= 1
     c = r.collections[0]
     assert isinstance(c, CollectionMeta)
-    assert c.id == "micasa-carbonflux-monthgrid-v1"
-    assert "Carbon" in c.title or "carbon" in c.title.lower()
+    assert c.id == "lis-global-da-gpp"
+    assert "GPP" in c.title or "gpp" in c.title.lower()
     assert len(c.description) > 0
 
 
@@ -94,14 +94,14 @@ def test_search_collections_no_matches_returns_empty(httpx_mock: HTTPXMock):
 
 
 def test_search_collections_description_truncated(httpx_mock: HTTPXMock):
-    long_desc = "Monthly land carbon flux from the MiCASA model. " + "X" * 500
+    long_desc = "Land Information System global gross primary production (a carbon flux measure). " + "X" * 500
     httpx_mock.add_response(
         url="https://openveda.cloud/api/stac/collections",
         json={
             "collections": [
                 {
-                    "id": "micasa-carbonflux-monthgrid-v1",
-                    "title": "MiCASA Land Carbon Flux v1",
+                    "id": "lis-global-da-gpp",
+                    "title": "LIS Global DA GPP",
                     "description": long_desc,
                 }
             ]

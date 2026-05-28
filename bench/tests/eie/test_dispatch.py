@@ -32,7 +32,7 @@ def test_dispatch_geocode_key_fields_mode():
 def _make_fake_items():
     return [
         StacItemFields(
-            id="micasa-carbonflux-monthgrid-v1-2020-06",
+            id="LIS_GPP_202006",
             datetime="2020-06-01T00:00:00Z",
             bbox=(-123.89, 38.76, -122.82, 40.0),
             primary_asset_url="https://example.nasa.gov/cog/2020-06.tif",
@@ -55,14 +55,14 @@ def test_compute_stats_uses_passed_items_not_refetch():
     fake_items = _make_fake_items()
     fake_result = MagicMock()
     fake_result.model_dump_json.return_value = (
-        '{"band":"FIRE","n_items":1,"mean":1.0,"median":1.0,"min":1.0,"max":1.0,"per_item":[]}'
+        '{"band":"cog_default","n_items":1,"mean":1.0,"median":1.0,"min":1.0,"max":1.0,"per_item":[]}'
     )
 
     with patch("agent_cost_bench.eie.dispatch.veda_tools.compute_stats", return_value=fake_result) as mock_compute, \
          patch("agent_cost_bench.eie.dispatch.veda_tools.search_items") as mock_search:
 
         items_as_dicts = [item.model_dump() for item in fake_items]
-        args = {"item_refs": items_as_dicts, "band": "FIRE", "geometry": _GEOMETRY}
+        args = {"item_refs": items_as_dicts, "band": "cog_default", "geometry": _GEOMETRY}
         h = KeyFieldsHandler()
         dispatch_tool_call("compute_stats", args, h, "tc_cs_01")
 
@@ -80,7 +80,7 @@ def test_compute_stats_empty_item_refs_raises():
     """When item_refs is empty (mode A: LLM never saw item IDs), dispatch
     raises ValueError rather than silently re-fetching from STAC.
     This is the honest measurement: mode A needs an extra search_items turn."""
-    args = {"item_refs": [], "band": "FIRE", "geometry": _GEOMETRY}
+    args = {"item_refs": [], "band": "cog_default", "geometry": _GEOMETRY}
     h = StatusOnlyHandler()
 
     with pytest.raises(ValueError, match="item_refs"):
@@ -89,7 +89,7 @@ def test_compute_stats_empty_item_refs_raises():
 
 def test_compute_stats_missing_item_refs_raises():
     """item_refs key absent entirely also raises cleanly."""
-    args = {"band": "FIRE", "geometry": _GEOMETRY}
+    args = {"band": "cog_default", "geometry": _GEOMETRY}
     h = KeyFieldsHandler()
 
     with pytest.raises((ValueError, KeyError)):
