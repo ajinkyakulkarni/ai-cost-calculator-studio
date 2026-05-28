@@ -1,0 +1,3520 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>eie-templating bench viewer</title>
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: system-ui, -apple-system, sans-serif; background: #1a1a2e; color: #e0e0e0; height: 100vh; display: flex; flex-direction: column; }
+  #topbar { padding: 10px 16px; background: #16213e; border-bottom: 1px solid #0f3460; display: flex; align-items: center; gap: 12px; flex-shrink: 0; }
+  #topbar h1 { font-size: 0.95rem; font-weight: 600; color: #a8dadc; white-space: nowrap; }
+  #scenario-select { flex: 1; background: #0f3460; border: 1px solid #457b9d; color: #e0e0e0; padding: 5px 8px; border-radius: 4px; font-size: 0.85rem; }
+  #main { display: flex; flex: 1; overflow: hidden; }
+  #conv-panel { width: 380px; flex-shrink: 0; overflow-y: auto; padding: 12px; border-right: 1px solid #0f3460; display: flex; flex-direction: column; gap: 8px; }
+  #map-panel { flex: 1; position: relative; }
+  #map { width: 100%; height: 100%; }
+  #map-note { position: absolute; top: 8px; left: 50%; transform: translateX(-50%); background: rgba(0,0,0,0.6); color: #ffd; padding: 4px 10px; border-radius: 4px; font-size: 0.78rem; z-index: 500; pointer-events: none; }
+  #bottom-panel { height: 200px; flex-shrink: 0; border-top: 1px solid #0f3460; overflow-y: auto; padding: 10px 16px; background: #16213e; display: flex; gap: 20px; }
+  #cost-table-wrap { flex: 1; overflow-y: auto; }
+  #projection-wrap { flex-shrink: 0; width: 240px; display: flex; flex-direction: column; gap: 6px; }
+  .bubble { padding: 8px 12px; border-radius: 8px; max-width: 100%; word-break: break-word; font-size: 0.82rem; line-height: 1.5; }
+  .bubble-user { background: #0f3460; border-left: 3px solid #457b9d; }
+  .bubble-final { background: #1d4e3a; border-left: 3px solid #52b788; }
+  .turn-block { background: #1e1e3a; border: 1px solid #2a2a5a; border-radius: 6px; padding: 8px 10px; font-size: 0.80rem; }
+  .turn-header { font-size: 0.75rem; font-weight: 600; color: #a8dadc; margin-bottom: 4px; display: flex; justify-content: space-between; }
+  .chip { display: inline-block; background: #0f3460; border: 1px solid #457b9d; border-radius: 10px; padding: 1px 7px; font-size: 0.72rem; margin: 1px; font-family: monospace; color: #90caf9; }
+  .turn-text { color: #bbb; margin-top: 4px; font-size: 0.78rem; white-space: pre-wrap; }
+  .turn-cost { font-size: 0.72rem; color: #a0c4a0; font-family: monospace; }
+  table { border-collapse: collapse; width: 100%; font-size: 0.75rem; }
+  th { background: #0f3460; color: #a8dadc; padding: 4px 8px; text-align: right; font-weight: 600; position: sticky; top: 0; }
+  th:first-child { text-align: left; }
+  td { padding: 3px 8px; text-align: right; border-bottom: 1px solid #252550; font-family: monospace; }
+  td:first-child { text-align: left; }
+  tr:last-child td { font-weight: 600; background: #202040; }
+  label { font-size: 0.78rem; color: #a8dadc; }
+  input[type=number] { background: #0f3460; border: 1px solid #457b9d; color: #e0e0e0; padding: 4px 8px; border-radius: 4px; font-size: 0.82rem; width: 100%; }
+  .preset-btns { display: flex; gap: 4px; flex-wrap: wrap; }
+  .preset-btn { background: #0f3460; border: 1px solid #457b9d; color: #90caf9; padding: 3px 10px; border-radius: 4px; cursor: pointer; font-size: 0.75rem; }
+  .preset-btn:hover { background: #1a4a7a; }
+  #monthly-result { font-size: 1.1rem; font-weight: 700; color: #52b788; font-family: monospace; }
+  #monthly-label { font-size: 0.72rem; color: #888; }
+  .section-label { font-size: 0.70rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.08em; color: #666; margin-bottom: 2px; }
+  #no-data { color: #888; font-size: 0.85rem; padding: 20px; text-align: center; }
+</style>
+</head>
+<body>
+<div id="topbar">
+  <h1>eie-templating bench viewer</h1>
+  <select id="scenario-select"></select>
+</div>
+<div id="main">
+  <div id="conv-panel"><div id="no-data">No traces loaded.</div></div>
+  <div id="map-panel">
+    <div id="map"></div>
+    <div id="map-note" style="display:none"></div>
+  </div>
+</div>
+<div id="bottom-panel">
+  <div id="cost-table-wrap">
+    <div class="section-label">Per-turn cost breakdown</div>
+    <table id="cost-table">
+      <thead><tr>
+        <th>Turn</th><th>Input tok</th><th>Output tok</th><th>Cached tok</th>
+        <th>$/turn</th><th>Running $</th>
+      </tr></thead>
+      <tbody id="cost-tbody"></tbody>
+    </table>
+  </div>
+  <div id="projection-wrap">
+    <div class="section-label">Monthly cost projection</div>
+    <label for="qpm">Queries / month</label>
+    <input type="number" id="qpm" value="50000" min="1" step="1000">
+    <div class="preset-btns">
+      <button class="preset-btn" onclick="setQPM(50000)">50K</button>
+      <button class="preset-btn" onclick="setQPM(75000)">75K</button>
+      <button class="preset-btn" onclick="setQPM(915000)">915K</button>
+    </div>
+    <div id="monthly-result">—</div>
+    <div id="monthly-label">= $/query × queries/month</div>
+    <div id="per-query-label" style="font-size:0.72rem;color:#888;font-family:monospace;margin-top:4px;"></div>
+  </div>
+</div>
+
+<script>
+const TRACE_DATA = [
+  {
+    "key": [
+      "pattern-eie-freeform",
+      true,
+      false
+    ],
+    "label": "pattern-eie-freeform \u00b7 forced \u00b7 map=N",
+    "scenario_id": "pattern-eie-freeform",
+    "pattern": "eie",
+    "handler_mode": "freeform",
+    "model": "gpt-5.2",
+    "enforce_compute_stats": true,
+    "emit_map": false,
+    "user_query": "",
+    "final_answer": "",
+    "map_url": null,
+    "turn_count": 13,
+    "turns": [
+      {
+        "index": 1,
+        "input_tokens": 731,
+        "output_tokens": 30,
+        "cached_tokens": 0,
+        "tool_calls": [
+          "parse_datetime"
+        ],
+        "tool_calls_detail": [],
+        "assistant_text": "",
+        "cost": 0.00169925,
+        "running_total": 0.00169925
+      },
+      {
+        "index": 2,
+        "input_tokens": 791,
+        "output_tokens": 70,
+        "cached_tokens": 0,
+        "tool_calls": [
+          "ask_user"
+        ],
+        "tool_calls_detail": [],
+        "assistant_text": "",
+        "cost": 0.00236425,
+        "running_total": 0.0040635
+      },
+      {
+        "index": 3,
+        "input_tokens": 876,
+        "output_tokens": 33,
+        "cached_tokens": 0,
+        "tool_calls": [
+          "ask_user"
+        ],
+        "tool_calls_detail": [],
+        "assistant_text": "",
+        "cost": 0.0019950000000000002,
+        "running_total": 0.0060585000000000005
+      },
+      {
+        "index": 4,
+        "input_tokens": 921,
+        "output_tokens": 23,
+        "cached_tokens": 0,
+        "tool_calls": [
+          "geocode"
+        ],
+        "tool_calls_detail": [],
+        "assistant_text": "",
+        "cost": 0.00193375,
+        "running_total": 0.007992250000000001
+      },
+      {
+        "index": 5,
+        "input_tokens": 987,
+        "output_tokens": 55,
+        "cached_tokens": 0,
+        "tool_calls": [
+          "ask_user"
+        ],
+        "tool_calls_detail": [],
+        "assistant_text": "",
+        "cost": 0.00249725,
+        "running_total": 0.0104895
+      },
+      {
+        "index": 6,
+        "input_tokens": 1058,
+        "output_tokens": 29,
+        "cached_tokens": 0,
+        "tool_calls": [
+          "geocode"
+        ],
+        "tool_calls_detail": [],
+        "assistant_text": "",
+        "cost": 0.0022575,
+        "running_total": 0.012747000000000001
+      },
+      {
+        "index": 7,
+        "input_tokens": 1132,
+        "output_tokens": 22,
+        "cached_tokens": 1024,
+        "tool_calls": [
+          "search_collections"
+        ],
+        "tool_calls_detail": [],
+        "assistant_text": "",
+        "cost": 0.0006762000000000001,
+        "running_total": 0.013423200000000001
+      },
+      {
+        "index": 8,
+        "input_tokens": 8297,
+        "output_tokens": 82,
+        "cached_tokens": 1024,
+        "tool_calls": [
+          "ask_user"
+        ],
+        "tool_calls_detail": [],
+        "assistant_text": "",
+        "cost": 0.014054949999999998,
+        "running_total": 0.02747815
+      },
+      {
+        "index": 9,
+        "input_tokens": 8395,
+        "output_tokens": 57,
+        "cached_tokens": 8320,
+        "tool_calls": [
+          "ask_user"
+        ],
+        "tool_calls_detail": [],
+        "assistant_text": "",
+        "cost": 0.0023852500000000002,
+        "running_total": 0.0298634
+      },
+      {
+        "index": 10,
+        "input_tokens": 8466,
+        "output_tokens": 64,
+        "cached_tokens": 8320,
+        "tool_calls": [
+          "search_items"
+        ],
+        "tool_calls_detail": [],
+        "assistant_text": "",
+        "cost": 0.0026075,
+        "running_total": 0.0324709
+      },
+      {
+        "index": 11,
+        "input_tokens": 37084,
+        "output_tokens": 1297,
+        "cached_tokens": 0,
+        "tool_calls": [
+          "compute_stats"
+        ],
+        "tool_calls_detail": [],
+        "assistant_text": "",
+        "cost": 0.08305499999999999,
+        "running_total": 0.11552589999999999
+      },
+      {
+        "index": 12,
+        "input_tokens": 38464,
+        "output_tokens": 154,
+        "cached_tokens": 38272,
+        "tool_calls": [
+          "compute_stats"
+        ],
+        "tool_calls_detail": [],
+        "assistant_text": "",
+        "cost": 0.0091896,
+        "running_total": 0.12471549999999998
+      },
+      {
+        "index": 13,
+        "input_tokens": 38763,
+        "output_tokens": 144,
+        "cached_tokens": 38528,
+        "tool_calls": [],
+        "tool_calls_detail": [],
+        "assistant_text": "",
+        "cost": 0.00916965,
+        "running_total": 0.13388514999999998
+      }
+    ],
+    "totals": {
+      "input_tokens": 145965,
+      "output_tokens": 2060,
+      "cached_tokens": 95488,
+      "cache_hit_pct": 65.41842222450587,
+      "session_cost": 0.13388515
+    }
+  },
+  {
+    "key": [
+      "pattern-eie-freeform",
+      false,
+      false
+    ],
+    "label": "pattern-eie-freeform \u00b7 map=N",
+    "scenario_id": "pattern-eie-freeform",
+    "pattern": "eie",
+    "handler_mode": "freeform",
+    "model": "gpt-5.2",
+    "enforce_compute_stats": false,
+    "emit_map": false,
+    "user_query": "",
+    "final_answer": "",
+    "map_url": null,
+    "turn_count": 12,
+    "turns": [
+      {
+        "index": 1,
+        "input_tokens": 702,
+        "output_tokens": 30,
+        "cached_tokens": 0,
+        "tool_calls": [
+          "parse_datetime"
+        ],
+        "tool_calls_detail": [],
+        "assistant_text": "",
+        "cost": 0.0016485,
+        "running_total": 0.0016485
+      },
+      {
+        "index": 2,
+        "input_tokens": 762,
+        "output_tokens": 69,
+        "cached_tokens": 0,
+        "tool_calls": [
+          "ask_user"
+        ],
+        "tool_calls_detail": [],
+        "assistant_text": "",
+        "cost": 0.0022995,
+        "running_total": 0.003948
+      },
+      {
+        "index": 3,
+        "input_tokens": 846,
+        "output_tokens": 33,
+        "cached_tokens": 0,
+        "tool_calls": [
+          "ask_user"
+        ],
+        "tool_calls_detail": [],
+        "assistant_text": "",
+        "cost": 0.0019425,
+        "running_total": 0.0058905
+      },
+      {
+        "index": 4,
+        "input_tokens": 891,
+        "output_tokens": 23,
+        "cached_tokens": 0,
+        "tool_calls": [
+          "geocode"
+        ],
+        "tool_calls_detail": [],
+        "assistant_text": "",
+        "cost": 0.0018812500000000001,
+        "running_total": 0.00777175
+      },
+      {
+        "index": 5,
+        "input_tokens": 957,
+        "output_tokens": 54,
+        "cached_tokens": 0,
+        "tool_calls": [
+          "ask_user"
+        ],
+        "tool_calls_detail": [],
+        "assistant_text": "",
+        "cost": 0.00243075,
+        "running_total": 0.0102025
+      },
+      {
+        "index": 6,
+        "input_tokens": 1027,
+        "output_tokens": 29,
+        "cached_tokens": 0,
+        "tool_calls": [
+          "geocode"
+        ],
+        "tool_calls_detail": [],
+        "assistant_text": "",
+        "cost": 0.00220325,
+        "running_total": 0.01240575
+      },
+      {
+        "index": 7,
+        "input_tokens": 1101,
+        "output_tokens": 22,
+        "cached_tokens": 0,
+        "tool_calls": [
+          "search_collections"
+        ],
+        "tool_calls_detail": [],
+        "assistant_text": "",
+        "cost": 0.00223475,
+        "running_total": 0.0146405
+      },
+      {
+        "index": 8,
+        "input_tokens": 8266,
+        "output_tokens": 91,
+        "cached_tokens": 1024,
+        "tool_calls": [
+          "ask_user"
+        ],
+        "tool_calls_detail": [],
+        "assistant_text": "",
+        "cost": 0.014126699999999999,
+        "running_total": 0.0287672
+      },
+      {
+        "index": 9,
+        "input_tokens": 8373,
+        "output_tokens": 56,
+        "cached_tokens": 8192,
+        "tool_calls": [
+          "ask_user"
+        ],
+        "tool_calls_detail": [],
+        "assistant_text": "",
+        "cost": 0.00253435,
+        "running_total": 0.03130155
+      },
+      {
+        "index": 10,
+        "input_tokens": 8443,
+        "output_tokens": 64,
+        "cached_tokens": 8320,
+        "tool_calls": [
+          "search_items"
+        ],
+        "tool_calls_detail": [],
+        "assistant_text": "",
+        "cost": 0.00256725,
+        "running_total": 0.0338688
+      },
+      {
+        "index": 11,
+        "input_tokens": 37061,
+        "output_tokens": 2263,
+        "cached_tokens": 8448,
+        "tool_calls": [
+          "compute_stats"
+        ],
+        "tool_calls_detail": [],
+        "assistant_text": "",
+        "cost": 0.08323315,
+        "running_total": 0.11710195000000001
+      },
+      {
+        "index": 12,
+        "input_tokens": 40726,
+        "output_tokens": 156,
+        "cached_tokens": 39168,
+        "tool_calls": [],
+        "tool_calls_detail": [],
+        "assistant_text": "",
+        "cost": 0.0117649,
+        "running_total": 0.12886685
+      }
+    ],
+    "totals": {
+      "input_tokens": 109155,
+      "output_tokens": 2890,
+      "cached_tokens": 65152,
+      "cache_hit_pct": 59.68760020154825,
+      "session_cost": 0.12886685
+    }
+  },
+  {
+    "key": [
+      "pattern-eie-freeform",
+      false,
+      true
+    ],
+    "label": "pattern-eie-freeform \u00b7 map=Y",
+    "scenario_id": "pattern-eie-freeform",
+    "pattern": "eie",
+    "handler_mode": "freeform",
+    "model": "gpt-5.2",
+    "enforce_compute_stats": false,
+    "emit_map": true,
+    "user_query": "Analyze carbon flux anomalies linked to major 2020 California wildfire events using model-estimated land carbon flux data.",
+    "final_answer": "For Mendocino County, CA (bbox `[-123.89, 38.756, -122.819, 40.005]`) using the model-estimated land carbon flux dataset `lis-global-da-gpp` (band `cog_default`), the computed stats over the first 20 available 2020 daily items (2020-12-12 to 2020-12-31) are: mean **3.2444346841419277e-05**, median **1.2603411050804425e-05**, min **8.445217063239282e-16**, max **0.000203213348868303** (n_items=20). Map layer URL: https://openveda.cloud/api/raster/collections/lis-global-da-gpp/items/LIS_GPP_202012310000.d01.cog/bbox/-123.8900,38.7560,-122.8190,40.0050.png?assets=cog_default&rescale=0.0%2C0.0002&colormap_name=viridis&width=400&height=400",
+    "map_url": "https://openveda.cloud/api/raster/collections/lis-global-da-gpp/items/LIS_GPP_202012310000.d01.cog/bbox/-123.8900,38.7560,-122.8190,40.0050.png?assets=cog_default&rescale=0.0%2C0.0002&colormap_name=viridis&width=400&height=400",
+    "turn_count": 14,
+    "turns": [
+      {
+        "index": 1,
+        "input_tokens": 852,
+        "output_tokens": 18,
+        "cached_tokens": 0,
+        "tool_calls": [
+          "parse_datetime"
+        ],
+        "tool_calls_detail": [
+          {
+            "name": "parse_datetime",
+            "args": {
+              "value": "2020"
+            }
+          }
+        ],
+        "assistant_text": "",
+        "cost": 0.001743,
+        "running_total": 0.001743
+      },
+      {
+        "index": 2,
+        "input_tokens": 900,
+        "output_tokens": 67,
+        "cached_tokens": 0,
+        "tool_calls": [
+          "ask_user"
+        ],
+        "tool_calls_detail": [
+          {
+            "name": "ask_user",
+            "args": {
+              "gate": "datetime",
+              "prompt": "Confirm the analysis time window for 2020 California wildfire carbon-flux anomalies. Use a range like 2020-08-01 to 2020-12-31 (peak fire season) or specify exact start/end dates."
+            }
+          }
+        ],
+        "assistant_text": "",
+        "cost": 0.002513,
+        "running_total": 0.004256
+      },
+      {
+        "index": 3,
+        "input_tokens": 982,
+        "output_tokens": 33,
+        "cached_tokens": 0,
+        "tool_calls": [
+          "ask_user"
+        ],
+        "tool_calls_detail": [
+          {
+            "name": "ask_user",
+            "args": {
+              "gate": "state",
+              "prompt": "Which US state should I analyze? (e.g., California)"
+            }
+          }
+        ],
+        "assistant_text": "",
+        "cost": 0.0021805,
+        "running_total": 0.0064365
+      },
+      {
+        "index": 4,
+        "input_tokens": 1027,
+        "output_tokens": 21,
+        "cached_tokens": 0,
+        "tool_calls": [
+          "geocode"
+        ],
+        "tool_calls_detail": [
+          {
+            "name": "geocode",
+            "args": {
+              "query": "California",
+              "level": "state"
+            }
+          }
+        ],
+        "assistant_text": "",
+        "cost": 0.0020912500000000002,
+        "running_total": 0.00852775
+      },
+      {
+        "index": 5,
+        "input_tokens": 1089,
+        "output_tokens": 54,
+        "cached_tokens": 0,
+        "tool_calls": [
+          "ask_user"
+        ],
+        "tool_calls_detail": [
+          {
+            "name": "ask_user",
+            "args": {
+              "gate": "county",
+              "prompt": "Which California county should I focus on for the wildfire events (e.g., Butte, Napa, Sonoma, Santa Cruz, Shasta), or should I use statewide?"
+            }
+          }
+        ],
+        "assistant_text": "",
+        "cost": 0.00266175,
+        "running_total": 0.011189500000000002
+      },
+      {
+        "index": 6,
+        "input_tokens": 1159,
+        "output_tokens": 27,
+        "cached_tokens": 1024,
+        "tool_calls": [
+          "geocode"
+        ],
+        "tool_calls_detail": [
+          {
+            "name": "geocode",
+            "args": {
+              "query": "Mendocino County, California",
+              "level": "county"
+            }
+          }
+        ],
+        "assistant_text": "",
+        "cost": 0.00079345,
+        "running_total": 0.011982950000000001
+      },
+      {
+        "index": 7,
+        "input_tokens": 1231,
+        "output_tokens": 21,
+        "cached_tokens": 1024,
+        "tool_calls": [
+          "search_collections"
+        ],
+        "tool_calls_detail": [
+          {
+            "name": "search_collections",
+            "args": {
+              "query": "land carbon flux model"
+            }
+          }
+        ],
+        "assistant_text": "",
+        "cost": 0.00083545,
+        "running_total": 0.0128184
+      },
+      {
+        "index": 8,
+        "input_tokens": 8395,
+        "output_tokens": 82,
+        "cached_tokens": 1152,
+        "tool_calls": [
+          "ask_user"
+        ],
+        "tool_calls_detail": [
+          {
+            "name": "ask_user",
+            "args": {
+              "gate": "dataset",
+              "prompt": "Select the model-estimated land carbon flux collection to use (reply with a collection_id). If you don\u2019t see one in the results, tell me a keyword to refine (e.g., 'CASA', 'NEE', 'GPP', 'NPP', 'carbon flux', 'GFED')."
+            }
+          }
+        ],
+        "assistant_text": "",
+        "cost": 0.01402485,
+        "running_total": 0.02684325
+      },
+      {
+        "index": 9,
+        "input_tokens": 8493,
+        "output_tokens": 54,
+        "cached_tokens": 8320,
+        "tool_calls": [
+          "ask_user"
+        ],
+        "tool_calls_detail": [
+          {
+            "name": "ask_user",
+            "args": {
+              "gate": "variable",
+              "prompt": "Which variable/band should I compute stats for in collection 'lis-global-da-gpp'? Reply with the band name (e.g., gpp, anomaly, etc.)."
+            }
+          }
+        ],
+        "assistant_text": "",
+        "cost": 0.00251475,
+        "running_total": 0.029358
+      },
+      {
+        "index": 10,
+        "input_tokens": 8561,
+        "output_tokens": 64,
+        "cached_tokens": 8448,
+        "tool_calls": [
+          "search_items"
+        ],
+        "tool_calls_detail": [
+          {
+            "name": "search_items",
+            "args": {
+              "collection_id": "lis-global-da-gpp",
+              "bbox": [
+                -123.89,
+                38.756,
+                -122.819,
+                40.005
+              ],
+              "datetime_range": "2020-05-28/2020-05-28",
+              "band": "cog_default"
+            }
+          }
+        ],
+        "assistant_text": "",
+        "cost": 0.00257215,
+        "running_total": 0.03193015
+      },
+      {
+        "index": 11,
+        "input_tokens": 8798,
+        "output_tokens": 64,
+        "cached_tokens": 8576,
+        "tool_calls": [
+          "search_items"
+        ],
+        "tool_calls_detail": [
+          {
+            "name": "search_items",
+            "args": {
+              "collection_id": "lis-global-da-gpp",
+              "bbox": [
+                -123.89,
+                38.756,
+                -122.819,
+                40.005
+              ],
+              "datetime_range": "2020-01-01/2020-12-31",
+              "band": "cog_default"
+            }
+          }
+        ],
+        "assistant_text": "",
+        "cost": 0.0027853,
+        "running_total": 0.034715449999999995
+      },
+      {
+        "index": 12,
+        "input_tokens": 37416,
+        "output_tokens": 2263,
+        "cached_tokens": 8704,
+        "tool_calls": [
+          "compute_stats"
+        ],
+        "tool_calls_detail": [
+          {
+            "name": "compute_stats",
+            "args": {
+              "item_refs": [
+                {
+                  "id": "LIS_GPP_202012310000.d01.cog",
+                  "bbox": [
+                    -179.9500000157243,
+                    -59.98224871364589,
+                    179.9973980503783,
+                    89.9999999874719
+                  ],
+                  "collection_id": "lis-global-da-gpp",
+                  "datetime": "2020-12-31T00:00:00+00:00",
+                  "primary_asset_url": "s3://veda-data-store/lis-global-da-gpp/LIS_GPP_202012310000.d01.cog.tif"
+                },
+                {
+                  "id": "LIS_GPP_202012300000.d01.cog",
+                  "bbox": [
+                    -179.9500000157243,
+                    -59.98224871364589,
+                    179.9973980503783,
+                    89.9999999874719
+                  ],
+                  "collection_id": "lis-global-da-gpp",
+                  "datetime": "2020-12-30T00:00:00+00:00",
+                  "primary_asset_url": "s3://veda-data-store/lis-global-da-gpp/LIS_GPP_202012300000.d01.cog.tif"
+                },
+                {
+                  "id": "LIS_GPP_202012290000.d01.cog",
+                  "bbox": [
+                    -179.9500000157243,
+                    -59.98224871364589,
+                    179.9973980503783,
+                    89.9999999874719
+                  ],
+                  "collection_id": "lis-global-da-gpp",
+                  "datetime": "2020-12-29T00:00:00+00:00",
+                  "primary_asset_url": "s3://veda-data-store/lis-global-da-gpp/LIS_GPP_202012290000.d01.cog.tif"
+                },
+                {
+                  "id": "LIS_GPP_202012280000.d01.cog",
+                  "bbox": [
+                    -179.9500000157243,
+                    -59.98224871364589,
+                    179.9973980503783,
+                    89.9999999874719
+                  ],
+                  "collection_id": "lis-global-da-gpp",
+                  "datetime": "2020-12-28T00:00:00+00:00",
+                  "primary_asset_url": "s3://veda-data-store/lis-global-da-gpp/LIS_GPP_202012280000.d01.cog.tif"
+                },
+                {
+                  "id": "LIS_GPP_202012270000.d01.cog",
+                  "bbox": [
+                    -179.9500000157243,
+                    -59.98224871364589,
+                    179.9973980503783,
+                    89.9999999874719
+                  ],
+                  "collection_id": "lis-global-da-gpp",
+                  "datetime": "2020-12-27T00:00:00+00:00",
+                  "primary_asset_url": "s3://veda-data-store/lis-global-da-gpp/LIS_GPP_202012270000.d01.cog.tif"
+                },
+                {
+                  "id": "LIS_GPP_202012260000.d01.cog",
+                  "bbox": [
+                    -179.9500000157243,
+                    -59.98224871364589,
+                    179.9973980503783,
+                    89.9999999874719
+                  ],
+                  "collection_id": "lis-global-da-gpp",
+                  "datetime": "2020-12-26T00:00:00+00:00",
+                  "primary_asset_url": "s3://veda-data-store/lis-global-da-gpp/LIS_GPP_202012260000.d01.cog.tif"
+                },
+                {
+                  "id": "LIS_GPP_202012250000.d01.cog",
+                  "bbox": [
+                    -179.9500000157243,
+                    -59.98224871364589,
+                    179.9973980503783,
+                    89.9999999874719
+                  ],
+                  "collection_id": "lis-global-da-gpp",
+                  "datetime": "2020-12-25T00:00:00+00:00",
+                  "primary_asset_url": "s3://veda-data-store/lis-global-da-gpp/LIS_GPP_202012250000.d01.cog.tif"
+                },
+                {
+                  "id": "LIS_GPP_202012240000.d01.cog",
+                  "bbox": [
+                    -179.9500000157243,
+                    -59.98224871364589,
+                    179.9973980503783,
+                    89.9999999874719
+                  ],
+                  "collection_id": "lis-global-da-gpp",
+                  "datetime": "2020-12-24T00:00:00+00:00",
+                  "primary_asset_url": "s3://veda-data-store/lis-global-da-gpp/LIS_GPP_202012240000.d01.cog.tif"
+                },
+                {
+                  "id": "LIS_GPP_202012230000.d01.cog",
+                  "bbox": [
+                    -179.9500000157243,
+                    -59.98224871364589,
+                    179.9973980503783,
+                    89.9999999874719
+                  ],
+                  "collection_id": "lis-global-da-gpp",
+                  "datetime": "2020-12-23T00:00:00+00:00",
+                  "primary_asset_url": "s3://veda-data-store/lis-global-da-gpp/LIS_GPP_202012230000.d01.cog.tif"
+                },
+                {
+                  "id": "LIS_GPP_202012220000.d01.cog",
+                  "bbox": [
+                    -179.9500000157243,
+                    -59.98224871364589,
+                    179.9973980503783,
+                    89.9999999874719
+                  ],
+                  "collection_id": "lis-global-da-gpp",
+                  "datetime": "2020-12-22T00:00:00+00:00",
+                  "primary_asset_url": "s3://veda-data-store/lis-global-da-gpp/LIS_GPP_202012220000.d01.cog.tif"
+                },
+                {
+                  "id": "LIS_GPP_202012210000.d01.cog",
+                  "bbox": [
+                    -179.9500000157243,
+                    -59.98224871364589,
+                    179.9973980503783,
+                    89.9999999874719
+                  ],
+                  "collection_id": "lis-global-da-gpp",
+                  "datetime": "2020-12-21T00:00:00+00:00",
+                  "primary_asset_url": "s3://veda-data-store/lis-global-da-gpp/LIS_GPP_202012210000.d01.cog.tif"
+                },
+                {
+                  "id": "LIS_GPP_202012200000.d01.cog",
+                  "bbox": [
+                    -179.9500000157243,
+                    -59.98224871364589,
+                    179.9973980503783,
+                    89.9999999874719
+                  ],
+                  "collection_id": "lis-global-da-gpp",
+                  "datetime": "2020-12-20T00:00:00+00:00",
+                  "primary_asset_url": "s3://veda-data-store/lis-global-da-gpp/LIS_GPP_202012200000.d01.cog.tif"
+                },
+                {
+                  "id": "LIS_GPP_202012190000.d01.cog",
+                  "bbox": [
+                    -179.9500000157243,
+                    -59.98224871364589,
+                    179.9973980503783,
+                    89.9999999874719
+                  ],
+                  "collection_id": "lis-global-da-gpp",
+                  "datetime": "2020-12-19T00:00:00+00:00",
+                  "primary_asset_url": "s3://veda-data-store/lis-global-da-gpp/LIS_GPP_202012190000.d01.cog.tif"
+                },
+                {
+                  "id": "LIS_GPP_202012180000.d01.cog",
+                  "bbox": [
+                    -179.9500000157243,
+                    -59.98224871364589,
+                    179.9973980503783,
+                    89.9999999874719
+                  ],
+                  "collection_id": "lis-global-da-gpp",
+                  "datetime": "2020-12-18T00:00:00+00:00",
+                  "primary_asset_url": "s3://veda-data-store/lis-global-da-gpp/LIS_GPP_202012180000.d01.cog.tif"
+                },
+                {
+                  "id": "LIS_GPP_202012170000.d01.cog",
+                  "bbox": [
+                    -179.9500000157243,
+                    -59.98224871364589,
+                    179.9973980503783,
+                    89.9999999874719
+                  ],
+                  "collection_id": "lis-global-da-gpp",
+                  "datetime": "2020-12-17T00:00:00+00:00",
+                  "primary_asset_url": "s3://veda-data-store/lis-global-da-gpp/LIS_GPP_202012170000.d01.cog.tif"
+                },
+                {
+                  "id": "LIS_GPP_202012160000.d01.cog",
+                  "bbox": [
+                    -179.9500000157243,
+                    -59.98224871364589,
+                    179.9973980503783,
+                    89.9999999874719
+                  ],
+                  "collection_id": "lis-global-da-gpp",
+                  "datetime": "2020-12-16T00:00:00+00:00",
+                  "primary_asset_url": "s3://veda-data-store/lis-global-da-gpp/LIS_GPP_202012160000.d01.cog.tif"
+                },
+                {
+                  "id": "LIS_GPP_202012150000.d01.cog",
+                  "bbox": [
+                    -179.9500000157243,
+                    -59.98224871364589,
+                    179.9973980503783,
+                    89.9999999874719
+                  ],
+                  "collection_id": "lis-global-da-gpp",
+                  "datetime": "2020-12-15T00:00:00+00:00",
+                  "primary_asset_url": "s3://veda-data-store/lis-global-da-gpp/LIS_GPP_202012150000.d01.cog.tif"
+                },
+                {
+                  "id": "LIS_GPP_202012140000.d01.cog",
+                  "bbox": [
+                    -179.9500000157243,
+                    -59.98224871364589,
+                    179.9973980503783,
+                    89.9999999874719
+                  ],
+                  "collection_id": "lis-global-da-gpp",
+                  "datetime": "2020-12-14T00:00:00+00:00",
+                  "primary_asset_url": "s3://veda-data-store/lis-global-da-gpp/LIS_GPP_202012140000.d01.cog.tif"
+                },
+                {
+                  "id": "LIS_GPP_202012130000.d01.cog",
+                  "bbox": [
+                    -179.9500000157243,
+                    -59.98224871364589,
+                    179.9973980503783,
+                    89.9999999874719
+                  ],
+                  "collection_id": "lis-global-da-gpp",
+                  "datetime": "2020-12-13T00:00:00+00:00",
+                  "primary_asset_url": "s3://veda-data-store/lis-global-da-gpp/LIS_GPP_202012130000.d01.cog.tif"
+                },
+                {
+                  "id": "LIS_GPP_202012120000.d01.cog",
+                  "bbox": [
+                    -179.9500000157243,
+                    -59.98224871364589,
+                    179.9973980503783,
+                    89.9999999874719
+                  ],
+                  "collection_id": "lis-global-da-gpp",
+                  "datetime": "2020-12-12T00:00:00+00:00",
+                  "primary_asset_url": "s3://veda-data-store/lis-global-da-gpp/LIS_GPP_202012120000.d01.cog.tif"
+                }
+              ],
+              "band": "cog_default",
+              "geometry": [
+                -123.89,
+                38.756,
+                -122.819,
+                40.005
+              ]
+            }
+          }
+        ],
+        "assistant_text": "",
+        "cost": 0.0834512,
+        "running_total": 0.11816665
+      },
+      {
+        "index": 13,
+        "input_tokens": 41081,
+        "output_tokens": 64,
+        "cached_tokens": 39552,
+        "tool_calls": [
+          "render_map"
+        ],
+        "tool_calls_detail": [
+          {
+            "name": "render_map",
+            "args": {
+              "collection_id": "lis-global-da-gpp",
+              "item_id": "LIS_GPP_202012310000.d01.cog",
+              "bbox": [
+                -123.89,
+                38.756,
+                -122.819,
+                40.005
+              ],
+              "colormap": "viridis"
+            }
+          }
+        ],
+        "assistant_text": "",
+        "cost": 0.010493349999999999,
+        "running_total": 0.12866
+      },
+      {
+        "index": 14,
+        "input_tokens": 41280,
+        "output_tokens": 239,
+        "cached_tokens": 41088,
+        "tool_calls": [],
+        "tool_calls_detail": [],
+        "assistant_text": "For Mendocino County, CA (bbox `[-123.89, 38.756, -122.819, 40.005]`) using the model-estimated land carbon flux dataset `lis-global-da-gpp` (band `cog_default`), the computed stats over the first 20 available 2020 daily items (2020-12-12 to 2020-12-31) are: mean **3.2444346841419277e-05**, median **1.2603411050804425e-05**, min **8.445217063239282e-16**, max **0.000203213348868303** (n_items=20). Map layer URL: https://openveda.cloud/api/raster/collections/lis-global-da-gpp/items/LIS_GPP_202012",
+        "cost": 0.0108724,
+        "running_total": 0.1395324
+      }
+    ],
+    "totals": {
+      "input_tokens": 161264,
+      "output_tokens": 3071,
+      "cached_tokens": 117888,
+      "cache_hit_pct": 73.10249032642128,
+      "session_cost": 0.1395324
+    }
+  },
+  {
+    "key": [
+      "pattern-eie-key-fields",
+      true,
+      false
+    ],
+    "label": "pattern-eie-key-fields \u00b7 forced \u00b7 map=N",
+    "scenario_id": "pattern-eie-key-fields",
+    "pattern": "eie",
+    "handler_mode": "key_fields",
+    "model": "gpt-5.2",
+    "enforce_compute_stats": true,
+    "emit_map": false,
+    "user_query": "",
+    "final_answer": "",
+    "map_url": null,
+    "turn_count": 15,
+    "turns": [
+      {
+        "index": 1,
+        "input_tokens": 731,
+        "output_tokens": 30,
+        "cached_tokens": 0,
+        "tool_calls": [
+          "parse_datetime"
+        ],
+        "tool_calls_detail": [],
+        "assistant_text": "",
+        "cost": 0.00169925,
+        "running_total": 0.00169925
+      },
+      {
+        "index": 2,
+        "input_tokens": 791,
+        "output_tokens": 62,
+        "cached_tokens": 0,
+        "tool_calls": [
+          "ask_user"
+        ],
+        "tool_calls_detail": [],
+        "assistant_text": "",
+        "cost": 0.00225225,
+        "running_total": 0.0039515
+      },
+      {
+        "index": 3,
+        "input_tokens": 868,
+        "output_tokens": 33,
+        "cached_tokens": 0,
+        "tool_calls": [
+          "ask_user"
+        ],
+        "tool_calls_detail": [],
+        "assistant_text": "",
+        "cost": 0.001981,
+        "running_total": 0.0059325
+      },
+      {
+        "index": 4,
+        "input_tokens": 913,
+        "output_tokens": 23,
+        "cached_tokens": 0,
+        "tool_calls": [
+          "geocode"
+        ],
+        "tool_calls_detail": [],
+        "assistant_text": "",
+        "cost": 0.00191975,
+        "running_total": 0.00785225
+      },
+      {
+        "index": 5,
+        "input_tokens": 979,
+        "output_tokens": 59,
+        "cached_tokens": 0,
+        "tool_calls": [
+          "ask_user"
+        ],
+        "tool_calls_detail": [],
+        "assistant_text": "",
+        "cost": 0.00253925,
+        "running_total": 0.0103915
+      },
+      {
+        "index": 6,
+        "input_tokens": 1054,
+        "output_tokens": 63,
+        "cached_tokens": 0,
+        "tool_calls": [
+          "geocode",
+          "search_collections"
+        ],
+        "tool_calls_detail": [],
+        "assistant_text": "",
+        "cost": 0.0027264999999999998,
+        "running_total": 0.013118
+      },
+      {
+        "index": 7,
+        "input_tokens": 1184,
+        "output_tokens": 19,
+        "cached_tokens": 1024,
+        "tool_calls": [
+          "search_collections"
+        ],
+        "tool_calls_detail": [],
+        "assistant_text": "",
+        "cost": 0.0007252000000000001,
+        "running_total": 0.0138432
+      },
+      {
+        "index": 8,
+        "input_tokens": 1225,
+        "output_tokens": 19,
+        "cached_tokens": 1152,
+        "tool_calls": [
+          "search_collections"
+        ],
+        "tool_calls_detail": [],
+        "assistant_text": "",
+        "cost": 0.0005953499999999999,
+        "running_total": 0.01443855
+      },
+      {
+        "index": 9,
+        "input_tokens": 1266,
+        "output_tokens": 19,
+        "cached_tokens": 1152,
+        "tool_calls": [
+          "search_collections"
+        ],
+        "tool_calls_detail": [],
+        "assistant_text": "",
+        "cost": 0.0006671,
+        "running_total": 0.01510565
+      },
+      {
+        "index": 10,
+        "input_tokens": 1307,
+        "output_tokens": 92,
+        "cached_tokens": 1152,
+        "tool_calls": [
+          "ask_user"
+        ],
+        "tool_calls_detail": [],
+        "assistant_text": "",
+        "cost": 0.00176085,
+        "running_total": 0.0168665
+      },
+      {
+        "index": 11,
+        "input_tokens": 1415,
+        "output_tokens": 22,
+        "cached_tokens": 1280,
+        "tool_calls": [
+          "search_collections"
+        ],
+        "tool_calls_detail": [],
+        "assistant_text": "",
+        "cost": 0.00076825,
+        "running_total": 0.01763475
+      },
+      {
+        "index": 12,
+        "input_tokens": 1459,
+        "output_tokens": 55,
+        "cached_tokens": 1280,
+        "tool_calls": [
+          "ask_user"
+        ],
+        "tool_calls_detail": [],
+        "assistant_text": "",
+        "cost": 0.0013072499999999998,
+        "running_total": 0.018942
+      },
+      {
+        "index": 13,
+        "input_tokens": 1528,
+        "output_tokens": 64,
+        "cached_tokens": 1408,
+        "tool_calls": [
+          "search_items"
+        ],
+        "tool_calls_detail": [],
+        "assistant_text": "",
+        "cost": 0.0013524,
+        "running_total": 0.0202944
+      },
+      {
+        "index": 14,
+        "input_tokens": 2724,
+        "output_tokens": 1153,
+        "cached_tokens": 1536,
+        "tool_calls": [
+          "compute_stats"
+        ],
+        "tool_calls_detail": [],
+        "assistant_text": "",
+        "cost": 0.0184898,
+        "running_total": 0.038784200000000005
+      },
+      {
+        "index": 15,
+        "input_tokens": 4616,
+        "output_tokens": 175,
+        "cached_tokens": 3712,
+        "tool_calls": [],
+        "tool_calls_detail": [],
+        "assistant_text": "",
+        "cost": 0.0046816,
+        "running_total": 0.043465800000000006
+      }
+    ],
+    "totals": {
+      "input_tokens": 22060,
+      "output_tokens": 1888,
+      "cached_tokens": 13696,
+      "cache_hit_pct": 62.08522212148685,
+      "session_cost": 0.0434658
+    }
+  },
+  {
+    "key": [
+      "pattern-eie-key-fields",
+      false,
+      false
+    ],
+    "label": "pattern-eie-key-fields \u00b7 map=N",
+    "scenario_id": "pattern-eie-key-fields",
+    "pattern": "eie",
+    "handler_mode": "key_fields",
+    "model": "gpt-5.2",
+    "enforce_compute_stats": false,
+    "emit_map": false,
+    "user_query": "",
+    "final_answer": "",
+    "map_url": null,
+    "turn_count": 12,
+    "turns": [
+      {
+        "index": 1,
+        "input_tokens": 702,
+        "output_tokens": 30,
+        "cached_tokens": 0,
+        "tool_calls": [
+          "parse_datetime"
+        ],
+        "tool_calls_detail": [],
+        "assistant_text": "",
+        "cost": 0.0016485,
+        "running_total": 0.0016485
+      },
+      {
+        "index": 2,
+        "input_tokens": 762,
+        "output_tokens": 69,
+        "cached_tokens": 0,
+        "tool_calls": [
+          "ask_user"
+        ],
+        "tool_calls_detail": [],
+        "assistant_text": "",
+        "cost": 0.0022995,
+        "running_total": 0.003948
+      },
+      {
+        "index": 3,
+        "input_tokens": 846,
+        "output_tokens": 33,
+        "cached_tokens": 0,
+        "tool_calls": [
+          "ask_user"
+        ],
+        "tool_calls_detail": [],
+        "assistant_text": "",
+        "cost": 0.0019425,
+        "running_total": 0.0058905
+      },
+      {
+        "index": 4,
+        "input_tokens": 891,
+        "output_tokens": 23,
+        "cached_tokens": 0,
+        "tool_calls": [
+          "geocode"
+        ],
+        "tool_calls_detail": [],
+        "assistant_text": "",
+        "cost": 0.0018812500000000001,
+        "running_total": 0.00777175
+      },
+      {
+        "index": 5,
+        "input_tokens": 957,
+        "output_tokens": 55,
+        "cached_tokens": 0,
+        "tool_calls": [
+          "ask_user"
+        ],
+        "tool_calls_detail": [],
+        "assistant_text": "",
+        "cost": 0.00244475,
+        "running_total": 0.0102165
+      },
+      {
+        "index": 6,
+        "input_tokens": 1028,
+        "output_tokens": 29,
+        "cached_tokens": 0,
+        "tool_calls": [
+          "geocode"
+        ],
+        "tool_calls_detail": [],
+        "assistant_text": "",
+        "cost": 0.002205,
+        "running_total": 0.0124215
+      },
+      {
+        "index": 7,
+        "input_tokens": 1102,
+        "output_tokens": 21,
+        "cached_tokens": 0,
+        "tool_calls": [
+          "search_collections"
+        ],
+        "tool_calls_detail": [],
+        "assistant_text": "",
+        "cost": 0.0022225,
+        "running_total": 0.014644
+      },
+      {
+        "index": 8,
+        "input_tokens": 1145,
+        "output_tokens": 82,
+        "cached_tokens": 1024,
+        "tool_calls": [
+          "ask_user"
+        ],
+        "tool_calls_detail": [],
+        "assistant_text": "",
+        "cost": 0.0015389499999999999,
+        "running_total": 0.01618295
+      },
+      {
+        "index": 9,
+        "input_tokens": 1243,
+        "output_tokens": 62,
+        "cached_tokens": 1152,
+        "tool_calls": [
+          "ask_user"
+        ],
+        "tool_calls_detail": [],
+        "assistant_text": "",
+        "cost": 0.00122885,
+        "running_total": 0.0174118
+      },
+      {
+        "index": 10,
+        "input_tokens": 1319,
+        "output_tokens": 64,
+        "cached_tokens": 1152,
+        "tool_calls": [
+          "search_items"
+        ],
+        "tool_calls_detail": [],
+        "assistant_text": "",
+        "cost": 0.00138985,
+        "running_total": 0.018801650000000003
+      },
+      {
+        "index": 11,
+        "input_tokens": 2515,
+        "output_tokens": 1153,
+        "cached_tokens": 1280,
+        "tool_calls": [
+          "compute_stats"
+        ],
+        "tool_calls_detail": [],
+        "assistant_text": "",
+        "cost": 0.01852725,
+        "running_total": 0.0373289
+      },
+      {
+        "index": 12,
+        "input_tokens": 4407,
+        "output_tokens": 179,
+        "cached_tokens": 3584,
+        "tool_calls": [],
+        "tool_calls_detail": [],
+        "assistant_text": "",
+        "cost": 0.00457345,
+        "running_total": 0.04190235
+      }
+    ],
+    "totals": {
+      "input_tokens": 16917,
+      "output_tokens": 1800,
+      "cached_tokens": 8192,
+      "cache_hit_pct": 48.424661583022996,
+      "session_cost": 0.04190235
+    }
+  },
+  {
+    "key": [
+      "pattern-eie-key-fields",
+      false,
+      true
+    ],
+    "label": "pattern-eie-key-fields \u00b7 map=Y",
+    "scenario_id": "pattern-eie-key-fields",
+    "pattern": "eie",
+    "handler_mode": "key_fields",
+    "model": "gpt-5.2",
+    "enforce_compute_stats": false,
+    "emit_map": true,
+    "user_query": "Analyze carbon flux anomalies linked to major 2020 California wildfire events using model-estimated land carbon flux data.",
+    "final_answer": "For Mendocino County, California (bbox [-123.89, 38.756, -122.819, 40.005]) over 2020-08-01 to 2020-12-31 using the **lis-global-da-gpp** collection (band **cog_default**), summary stats across the first 10 matched daily items were: **mean=3.257066e-05**, **median=1.283387e-05**, **min=8.445217e-16**, **max=2.032133e-04** (n_items=10). Map layer URL: https://openveda.cloud/api/raster/collections/lis-global-da-gpp/items/LIS_GPP_202012310000.d01.cog/bbox/-123.8900,38.7560,-122.8190,40.0050.png?assets=cog_default&rescale=0.0%2C0.0002&colormap_name=viridis&width=400&height=400",
+    "map_url": "https://openveda.cloud/api/raster/collections/lis-global-da-gpp/items/LIS_GPP_202012310000.d01.cog/bbox/-123.8900,38.7560,-122.8190,40.0050.png?assets=cog_default&rescale=0.0%2C0.0002&colormap_name=viridis&width=400&height=400",
+    "turn_count": 13,
+    "turns": [
+      {
+        "index": 1,
+        "input_tokens": 852,
+        "output_tokens": 18,
+        "cached_tokens": 0,
+        "tool_calls": [
+          "parse_datetime"
+        ],
+        "tool_calls_detail": [
+          {
+            "name": "parse_datetime",
+            "args": {
+              "value": "2020"
+            }
+          }
+        ],
+        "assistant_text": "",
+        "cost": 0.001743,
+        "running_total": 0.001743
+      },
+      {
+        "index": 2,
+        "input_tokens": 900,
+        "output_tokens": 63,
+        "cached_tokens": 0,
+        "tool_calls": [
+          "ask_user"
+        ],
+        "tool_calls_detail": [
+          {
+            "name": "ask_user",
+            "args": {
+              "gate": "datetime",
+              "prompt": "Confirm the analysis time window for the 2020 California wildfire period. Use a date range like 2020-08-01 to 2020-12-31, or specify your preferred start/end dates."
+            }
+          }
+        ],
+        "assistant_text": "",
+        "cost": 0.002457,
+        "running_total": 0.0042
+      },
+      {
+        "index": 3,
+        "input_tokens": 978,
+        "output_tokens": 33,
+        "cached_tokens": 0,
+        "tool_calls": [
+          "ask_user"
+        ],
+        "tool_calls_detail": [
+          {
+            "name": "ask_user",
+            "args": {
+              "gate": "state",
+              "prompt": "Which US state should I analyze? (e.g., California)"
+            }
+          }
+        ],
+        "assistant_text": "",
+        "cost": 0.0021735,
+        "running_total": 0.0063735
+      },
+      {
+        "index": 4,
+        "input_tokens": 1023,
+        "output_tokens": 21,
+        "cached_tokens": 0,
+        "tool_calls": [
+          "geocode"
+        ],
+        "tool_calls_detail": [
+          {
+            "name": "geocode",
+            "args": {
+              "query": "California",
+              "level": "state"
+            }
+          }
+        ],
+        "assistant_text": "",
+        "cost": 0.00208425,
+        "running_total": 0.00845775
+      },
+      {
+        "index": 5,
+        "input_tokens": 1085,
+        "output_tokens": 53,
+        "cached_tokens": 0,
+        "tool_calls": [
+          "ask_user"
+        ],
+        "tool_calls_detail": [
+          {
+            "name": "ask_user",
+            "args": {
+              "gate": "county",
+              "prompt": "Which California county should I focus on for the wildfire-linked carbon flux anomalies? (e.g., Butte County, Napa County, Sonoma County, Los Angeles County)"
+            }
+          }
+        ],
+        "assistant_text": "",
+        "cost": 0.00264075,
+        "running_total": 0.0110985
+      },
+      {
+        "index": 6,
+        "input_tokens": 1154,
+        "output_tokens": 27,
+        "cached_tokens": 1024,
+        "tool_calls": [
+          "geocode"
+        ],
+        "tool_calls_detail": [
+          {
+            "name": "geocode",
+            "args": {
+              "query": "Mendocino County, California",
+              "level": "county"
+            }
+          }
+        ],
+        "assistant_text": "",
+        "cost": 0.0007846999999999999,
+        "running_total": 0.0118832
+      },
+      {
+        "index": 7,
+        "input_tokens": 1226,
+        "output_tokens": 21,
+        "cached_tokens": 1024,
+        "tool_calls": [
+          "search_collections"
+        ],
+        "tool_calls_detail": [
+          {
+            "name": "search_collections",
+            "args": {
+              "query": "land carbon flux model"
+            }
+          }
+        ],
+        "assistant_text": "",
+        "cost": 0.0008267,
+        "running_total": 0.0127099
+      },
+      {
+        "index": 8,
+        "input_tokens": 1269,
+        "output_tokens": 69,
+        "cached_tokens": 1152,
+        "tool_calls": [
+          "ask_user"
+        ],
+        "tool_calls_detail": [
+          {
+            "name": "ask_user",
+            "args": {
+              "gate": "dataset",
+              "prompt": "I didn\u2019t find a collection with the keyword search. Please provide the exact VEDA STAC collection_id you want (e.g., a CASA/GFED/Flux model product), or a couple of keywords you know are in the dataset name."
+            }
+          }
+        ],
+        "assistant_text": "",
+        "cost": 0.00137235,
+        "running_total": 0.01408225
+      },
+      {
+        "index": 9,
+        "input_tokens": 1354,
+        "output_tokens": 52,
+        "cached_tokens": 1280,
+        "tool_calls": [
+          "ask_user"
+        ],
+        "tool_calls_detail": [
+          {
+            "name": "ask_user",
+            "args": {
+              "gate": "variable",
+              "prompt": "Which band/variable should I compute stats for in lis-global-da-gpp? Provide the exact band name (e.g., gpp, anomaly, etc.)."
+            }
+          }
+        ],
+        "assistant_text": "",
+        "cost": 0.0010815,
+        "running_total": 0.01516375
+      },
+      {
+        "index": 10,
+        "input_tokens": 1420,
+        "output_tokens": 64,
+        "cached_tokens": 1280,
+        "tool_calls": [
+          "search_items"
+        ],
+        "tool_calls_detail": [
+          {
+            "name": "search_items",
+            "args": {
+              "collection_id": "lis-global-da-gpp",
+              "bbox": [
+                -123.89,
+                38.756,
+                -122.819,
+                40.005
+              ],
+              "datetime_range": "2020-08-01/2020-12-31",
+              "band": "cog_default"
+            }
+          }
+        ],
+        "assistant_text": "",
+        "cost": 0.001365,
+        "running_total": 0.016528750000000002
+      },
+      {
+        "index": 11,
+        "input_tokens": 2616,
+        "output_tokens": 1153,
+        "cached_tokens": 1408,
+        "tool_calls": [
+          "compute_stats"
+        ],
+        "tool_calls_detail": [
+          {
+            "name": "compute_stats",
+            "args": {
+              "item_refs": [
+                {
+                  "id": "LIS_GPP_202012310000.d01.cog",
+                  "datetime": "2020-12-31T00:00:00+00:00",
+                  "bbox": [
+                    -179.9500000157243,
+                    -59.98224871364589,
+                    179.9973980503783,
+                    89.9999999874719
+                  ],
+                  "primary_asset_url": "s3://veda-data-store/lis-global-da-gpp/LIS_GPP_202012310000.d01.cog.tif",
+                  "collection_id": "lis-global-da-gpp"
+                },
+                {
+                  "id": "LIS_GPP_202012300000.d01.cog",
+                  "datetime": "2020-12-30T00:00:00+00:00",
+                  "bbox": [
+                    -179.9500000157243,
+                    -59.98224871364589,
+                    179.9973980503783,
+                    89.9999999874719
+                  ],
+                  "primary_asset_url": "s3://veda-data-store/lis-global-da-gpp/LIS_GPP_202012300000.d01.cog.tif",
+                  "collection_id": "lis-global-da-gpp"
+                },
+                {
+                  "id": "LIS_GPP_202012290000.d01.cog",
+                  "datetime": "2020-12-29T00:00:00+00:00",
+                  "bbox": [
+                    -179.9500000157243,
+                    -59.98224871364589,
+                    179.9973980503783,
+                    89.9999999874719
+                  ],
+                  "primary_asset_url": "s3://veda-data-store/lis-global-da-gpp/LIS_GPP_202012290000.d01.cog.tif",
+                  "collection_id": "lis-global-da-gpp"
+                },
+                {
+                  "id": "LIS_GPP_202012280000.d01.cog",
+                  "datetime": "2020-12-28T00:00:00+00:00",
+                  "bbox": [
+                    -179.9500000157243,
+                    -59.98224871364589,
+                    179.9973980503783,
+                    89.9999999874719
+                  ],
+                  "primary_asset_url": "s3://veda-data-store/lis-global-da-gpp/LIS_GPP_202012280000.d01.cog.tif",
+                  "collection_id": "lis-global-da-gpp"
+                },
+                {
+                  "id": "LIS_GPP_202012270000.d01.cog",
+                  "datetime": "2020-12-27T00:00:00+00:00",
+                  "bbox": [
+                    -179.9500000157243,
+                    -59.98224871364589,
+                    179.9973980503783,
+                    89.9999999874719
+                  ],
+                  "primary_asset_url": "s3://veda-data-store/lis-global-da-gpp/LIS_GPP_202012270000.d01.cog.tif",
+                  "collection_id": "lis-global-da-gpp"
+                },
+                {
+                  "id": "LIS_GPP_202012260000.d01.cog",
+                  "datetime": "2020-12-26T00:00:00+00:00",
+                  "bbox": [
+                    -179.9500000157243,
+                    -59.98224871364589,
+                    179.9973980503783,
+                    89.9999999874719
+                  ],
+                  "primary_asset_url": "s3://veda-data-store/lis-global-da-gpp/LIS_GPP_202012260000.d01.cog.tif",
+                  "collection_id": "lis-global-da-gpp"
+                },
+                {
+                  "id": "LIS_GPP_202012250000.d01.cog",
+                  "datetime": "2020-12-25T00:00:00+00:00",
+                  "bbox": [
+                    -179.9500000157243,
+                    -59.98224871364589,
+                    179.9973980503783,
+                    89.9999999874719
+                  ],
+                  "primary_asset_url": "s3://veda-data-store/lis-global-da-gpp/LIS_GPP_202012250000.d01.cog.tif",
+                  "collection_id": "lis-global-da-gpp"
+                },
+                {
+                  "id": "LIS_GPP_202012240000.d01.cog",
+                  "datetime": "2020-12-24T00:00:00+00:00",
+                  "bbox": [
+                    -179.9500000157243,
+                    -59.98224871364589,
+                    179.9973980503783,
+                    89.9999999874719
+                  ],
+                  "primary_asset_url": "s3://veda-data-store/lis-global-da-gpp/LIS_GPP_202012240000.d01.cog.tif",
+                  "collection_id": "lis-global-da-gpp"
+                },
+                {
+                  "id": "LIS_GPP_202012230000.d01.cog",
+                  "datetime": "2020-12-23T00:00:00+00:00",
+                  "bbox": [
+                    -179.9500000157243,
+                    -59.98224871364589,
+                    179.9973980503783,
+                    89.9999999874719
+                  ],
+                  "primary_asset_url": "s3://veda-data-store/lis-global-da-gpp/LIS_GPP_202012230000.d01.cog.tif",
+                  "collection_id": "lis-global-da-gpp"
+                },
+                {
+                  "id": "LIS_GPP_202012220000.d01.cog",
+                  "datetime": "2020-12-22T00:00:00+00:00",
+                  "bbox": [
+                    -179.9500000157243,
+                    -59.98224871364589,
+                    179.9973980503783,
+                    89.9999999874719
+                  ],
+                  "primary_asset_url": "s3://veda-data-store/lis-global-da-gpp/LIS_GPP_202012220000.d01.cog.tif",
+                  "collection_id": "lis-global-da-gpp"
+                }
+              ],
+              "band": "cog_default",
+              "geometry": [
+                -123.89,
+                38.756,
+                -122.819,
+                40.005
+              ]
+            }
+          }
+        ],
+        "assistant_text": "",
+        "cost": 0.0185024,
+        "running_total": 0.03503115
+      },
+      {
+        "index": 12,
+        "input_tokens": 4508,
+        "output_tokens": 64,
+        "cached_tokens": 3712,
+        "tool_calls": [
+          "render_map"
+        ],
+        "tool_calls_detail": [
+          {
+            "name": "render_map",
+            "args": {
+              "collection_id": "lis-global-da-gpp",
+              "item_id": "LIS_GPP_202012310000.d01.cog",
+              "bbox": [
+                -123.89,
+                38.756,
+                -122.819,
+                40.005
+              ],
+              "colormap": "viridis"
+            }
+          }
+        ],
+        "assistant_text": "",
+        "cost": 0.0029386,
+        "running_total": 0.03796975
+      },
+      {
+        "index": 13,
+        "input_tokens": 4707,
+        "output_tokens": 219,
+        "cached_tokens": 4480,
+        "tool_calls": [],
+        "tool_calls_detail": [],
+        "assistant_text": "For Mendocino County, California (bbox [-123.89, 38.756, -122.819, 40.005]) over 2020-08-01 to 2020-12-31 using the **lis-global-da-gpp** collection (band **cog_default**), summary stats across the first 10 matched daily items were: **mean=3.257066e-05**, **median=1.283387e-05**, **min=8.445217e-16**, **max=2.032133e-04** (n_items=10). Map layer URL: https://openveda.cloud/api/raster/collections/lis-global-da-gpp/items/LIS_GPP_202012310000.d01.cog/bbox/-123.8900,38.7560,-122.8190,40.0050.png?ass",
+        "cost": 0.00424725,
+        "running_total": 0.042217
+      }
+    ],
+    "totals": {
+      "input_tokens": 23092,
+      "output_tokens": 1857,
+      "cached_tokens": 15360,
+      "cache_hit_pct": 66.51654252554997,
+      "session_cost": 0.042217000000000005
+    }
+  },
+  {
+    "key": [
+      "pattern-eie-status-only",
+      true,
+      false
+    ],
+    "label": "pattern-eie-status-only \u00b7 forced \u00b7 map=N",
+    "scenario_id": "pattern-eie-status-only",
+    "pattern": "eie",
+    "handler_mode": "status_only",
+    "model": "gpt-5.2",
+    "enforce_compute_stats": true,
+    "emit_map": false,
+    "user_query": "",
+    "final_answer": "",
+    "map_url": null,
+    "turn_count": 11,
+    "turns": [
+      {
+        "index": 1,
+        "input_tokens": 731,
+        "output_tokens": 30,
+        "cached_tokens": 0,
+        "tool_calls": [
+          "parse_datetime"
+        ],
+        "tool_calls_detail": [],
+        "assistant_text": "",
+        "cost": 0.00169925,
+        "running_total": 0.00169925
+      },
+      {
+        "index": 2,
+        "input_tokens": 825,
+        "output_tokens": 68,
+        "cached_tokens": 0,
+        "tool_calls": [
+          "ask_user"
+        ],
+        "tool_calls_detail": [],
+        "assistant_text": "",
+        "cost": 0.00239575,
+        "running_total": 0.004095
+      },
+      {
+        "index": 3,
+        "input_tokens": 908,
+        "output_tokens": 33,
+        "cached_tokens": 0,
+        "tool_calls": [
+          "ask_user"
+        ],
+        "tool_calls_detail": [],
+        "assistant_text": "",
+        "cost": 0.002051,
+        "running_total": 0.0061459999999999996
+      },
+      {
+        "index": 4,
+        "input_tokens": 953,
+        "output_tokens": 23,
+        "cached_tokens": 0,
+        "tool_calls": [
+          "geocode"
+        ],
+        "tool_calls_detail": [],
+        "assistant_text": "",
+        "cost": 0.00198975,
+        "running_total": 0.00813575
+      },
+      {
+        "index": 5,
+        "input_tokens": 1033,
+        "output_tokens": 54,
+        "cached_tokens": 0,
+        "tool_calls": [
+          "ask_user"
+        ],
+        "tool_calls_detail": [],
+        "assistant_text": "",
+        "cost": 0.00256375,
+        "running_total": 0.0106995
+      },
+      {
+        "index": 6,
+        "input_tokens": 1103,
+        "output_tokens": 64,
+        "cached_tokens": 1024,
+        "tool_calls": [
+          "geocode",
+          "search_collections"
+        ],
+        "tool_calls_detail": [],
+        "assistant_text": "",
+        "cost": 0.00121345,
+        "running_total": 0.01191295
+      },
+      {
+        "index": 7,
+        "input_tokens": 1271,
+        "output_tokens": 82,
+        "cached_tokens": 1024,
+        "tool_calls": [
+          "ask_user"
+        ],
+        "tool_calls_detail": [],
+        "assistant_text": "",
+        "cost": 0.00175945,
+        "running_total": 0.013672400000000001
+      },
+      {
+        "index": 8,
+        "input_tokens": 1369,
+        "output_tokens": 55,
+        "cached_tokens": 1280,
+        "tool_calls": [
+          "ask_user"
+        ],
+        "tool_calls_detail": [],
+        "assistant_text": "",
+        "cost": 0.00114975,
+        "running_total": 0.014822150000000001
+      },
+      {
+        "index": 9,
+        "input_tokens": 1438,
+        "output_tokens": 64,
+        "cached_tokens": 1280,
+        "tool_calls": [
+          "search_items"
+        ],
+        "tool_calls_detail": [],
+        "assistant_text": "",
+        "cost": 0.0013965,
+        "running_total": 0.01621865
+      },
+      {
+        "index": 10,
+        "input_tokens": 1577,
+        "output_tokens": 191,
+        "cached_tokens": 1408,
+        "tool_calls": [
+          "compute_stats"
+        ],
+        "tool_calls_detail": [],
+        "assistant_text": "",
+        "cost": 0.00321615,
+        "running_total": 0.019434800000000002
+      },
+      {
+        "index": 11,
+        "input_tokens": 1845,
+        "output_tokens": 109,
+        "cached_tokens": 1664,
+        "tool_calls": [],
+        "tool_calls_detail": [],
+        "assistant_text": "",
+        "cost": 0.00213395,
+        "running_total": 0.02156875
+      }
+    ],
+    "totals": {
+      "input_tokens": 13053,
+      "output_tokens": 773,
+      "cached_tokens": 7680,
+      "cache_hit_pct": 58.83704895426338,
+      "session_cost": 0.021568749999999998
+    }
+  },
+  {
+    "key": [
+      "pattern-eie-status-only",
+      false,
+      false
+    ],
+    "label": "pattern-eie-status-only \u00b7 map=N",
+    "scenario_id": "pattern-eie-status-only",
+    "pattern": "eie",
+    "handler_mode": "status_only",
+    "model": "gpt-5.2",
+    "enforce_compute_stats": false,
+    "emit_map": false,
+    "user_query": "",
+    "final_answer": "",
+    "map_url": null,
+    "turn_count": 14,
+    "turns": [
+      {
+        "index": 1,
+        "input_tokens": 702,
+        "output_tokens": 30,
+        "cached_tokens": 0,
+        "tool_calls": [
+          "parse_datetime"
+        ],
+        "tool_calls_detail": [],
+        "assistant_text": "",
+        "cost": 0.0016485,
+        "running_total": 0.0016485
+      },
+      {
+        "index": 2,
+        "input_tokens": 798,
+        "output_tokens": 73,
+        "cached_tokens": 0,
+        "tool_calls": [
+          "ask_user"
+        ],
+        "tool_calls_detail": [],
+        "assistant_text": "",
+        "cost": 0.0024184999999999996,
+        "running_total": 0.0040669999999999994
+      },
+      {
+        "index": 3,
+        "input_tokens": 886,
+        "output_tokens": 33,
+        "cached_tokens": 0,
+        "tool_calls": [
+          "ask_user"
+        ],
+        "tool_calls_detail": [],
+        "assistant_text": "",
+        "cost": 0.0020125,
+        "running_total": 0.0060795
+      },
+      {
+        "index": 4,
+        "input_tokens": 931,
+        "output_tokens": 23,
+        "cached_tokens": 0,
+        "tool_calls": [
+          "geocode"
+        ],
+        "tool_calls_detail": [],
+        "assistant_text": "",
+        "cost": 0.00195125,
+        "running_total": 0.00803075
+      },
+      {
+        "index": 5,
+        "input_tokens": 1008,
+        "output_tokens": 46,
+        "cached_tokens": 0,
+        "tool_calls": [
+          "ask_user"
+        ],
+        "tool_calls_detail": [],
+        "assistant_text": "",
+        "cost": 0.002408,
+        "running_total": 0.01043875
+      },
+      {
+        "index": 6,
+        "input_tokens": 1070,
+        "output_tokens": 70,
+        "cached_tokens": 0,
+        "tool_calls": [
+          "geocode",
+          "search_collections"
+        ],
+        "tool_calls_detail": [],
+        "assistant_text": "",
+        "cost": 0.0028525,
+        "running_total": 0.013291250000000001
+      },
+      {
+        "index": 7,
+        "input_tokens": 1246,
+        "output_tokens": 19,
+        "cached_tokens": 0,
+        "tool_calls": [
+          "search_collections"
+        ],
+        "tool_calls_detail": [],
+        "assistant_text": "",
+        "cost": 0.0024465000000000003,
+        "running_total": 0.015737750000000002
+      },
+      {
+        "index": 8,
+        "input_tokens": 1314,
+        "output_tokens": 19,
+        "cached_tokens": 1152,
+        "tool_calls": [
+          "search_collections"
+        ],
+        "tool_calls_detail": [],
+        "assistant_text": "",
+        "cost": 0.0007511,
+        "running_total": 0.016488850000000003
+      },
+      {
+        "index": 9,
+        "input_tokens": 1381,
+        "output_tokens": 20,
+        "cached_tokens": 1280,
+        "tool_calls": [
+          "search_collections"
+        ],
+        "tool_calls_detail": [],
+        "assistant_text": "",
+        "cost": 0.0006807499999999999,
+        "running_total": 0.017169600000000004
+      },
+      {
+        "index": 10,
+        "input_tokens": 1450,
+        "output_tokens": 19,
+        "cached_tokens": 1280,
+        "tool_calls": [
+          "search_collections"
+        ],
+        "tool_calls_detail": [],
+        "assistant_text": "",
+        "cost": 0.0007875,
+        "running_total": 0.017957100000000004
+      },
+      {
+        "index": 11,
+        "input_tokens": 1518,
+        "output_tokens": 81,
+        "cached_tokens": 1408,
+        "tool_calls": [
+          "ask_user"
+        ],
+        "tool_calls_detail": [],
+        "assistant_text": "",
+        "cost": 0.0015729,
+        "running_total": 0.019530000000000002
+      },
+      {
+        "index": 12,
+        "input_tokens": 1615,
+        "output_tokens": 22,
+        "cached_tokens": 1024,
+        "tool_calls": [
+          "search_collections"
+        ],
+        "tool_calls_detail": [],
+        "assistant_text": "",
+        "cost": 0.0015214500000000001,
+        "running_total": 0.021051450000000003
+      },
+      {
+        "index": 13,
+        "input_tokens": 1688,
+        "output_tokens": 92,
+        "cached_tokens": 1536,
+        "tool_calls": [
+          "ask_user"
+        ],
+        "tool_calls_detail": [],
+        "assistant_text": "",
+        "cost": 0.0018228,
+        "running_total": 0.022874250000000002
+      },
+      {
+        "index": 14,
+        "input_tokens": 1794,
+        "output_tokens": 121,
+        "cached_tokens": 0,
+        "tool_calls": [],
+        "tool_calls_detail": [],
+        "assistant_text": "",
+        "cost": 0.0048335,
+        "running_total": 0.027707750000000003
+      }
+    ],
+    "totals": {
+      "input_tokens": 17401,
+      "output_tokens": 668,
+      "cached_tokens": 7680,
+      "cache_hit_pct": 44.13539451755646,
+      "session_cost": 0.02770775
+    }
+  },
+  {
+    "key": [
+      "pattern-eie-status-only",
+      false,
+      true
+    ],
+    "label": "pattern-eie-status-only \u00b7 map=Y",
+    "scenario_id": "pattern-eie-status-only",
+    "pattern": "eie",
+    "handler_mode": "status_only",
+    "model": "gpt-5.2",
+    "enforce_compute_stats": false,
+    "emit_map": true,
+    "user_query": "Analyze carbon flux anomalies linked to major 2020 California wildfire events using model-estimated land carbon flux data.",
+    "final_answer": "I can\u2019t proceed to `search_items`/`compute_stats` yet because the STAC catalog search here returns **no collection** matching `lis-global-da-gpp`, and `cog_default` looks like a **band/asset name**, not a `collection_id`. Please reply with the **exact STAC `collection_id`** for the model-estimated land carbon flux dataset you want (as it appears in your VEDA STAC), and confirm the **band** to use (you said `cog_default`; if that\u2019s correct, keep it).",
+    "map_url": null,
+    "turn_count": 12,
+    "turns": [
+      {
+        "index": 1,
+        "input_tokens": 852,
+        "output_tokens": 30,
+        "cached_tokens": 0,
+        "tool_calls": [
+          "parse_datetime"
+        ],
+        "tool_calls_detail": [
+          {
+            "name": "parse_datetime",
+            "args": {
+              "value": "2020-08-01 to 2020-12-31"
+            }
+          }
+        ],
+        "assistant_text": "",
+        "cost": 0.001911,
+        "running_total": 0.001911
+      },
+      {
+        "index": 2,
+        "input_tokens": 944,
+        "output_tokens": 63,
+        "cached_tokens": 0,
+        "tool_calls": [
+          "ask_user"
+        ],
+        "tool_calls_detail": [
+          {
+            "name": "ask_user",
+            "args": {
+              "gate": "datetime",
+              "prompt": "Confirm the analysis window for the 2020 California wildfire period: 2020-08-01 to 2020-12-31 (inclusive). If you want a different range, provide start/end dates."
+            }
+          }
+        ],
+        "assistant_text": "",
+        "cost": 0.002534,
+        "running_total": 0.004444999999999999
+      },
+      {
+        "index": 3,
+        "input_tokens": 1022,
+        "output_tokens": 33,
+        "cached_tokens": 0,
+        "tool_calls": [
+          "ask_user"
+        ],
+        "tool_calls_detail": [
+          {
+            "name": "ask_user",
+            "args": {
+              "gate": "state",
+              "prompt": "Which US state should I analyze? (e.g., California)"
+            }
+          }
+        ],
+        "assistant_text": "",
+        "cost": 0.0022505,
+        "running_total": 0.006695499999999999
+      },
+      {
+        "index": 4,
+        "input_tokens": 1067,
+        "output_tokens": 23,
+        "cached_tokens": 0,
+        "tool_calls": [
+          "geocode"
+        ],
+        "tool_calls_detail": [
+          {
+            "name": "geocode",
+            "args": {
+              "query": "California, USA",
+              "level": "state"
+            }
+          }
+        ],
+        "assistant_text": "",
+        "cost": 0.0021892500000000002,
+        "running_total": 0.00888475
+      },
+      {
+        "index": 5,
+        "input_tokens": 1142,
+        "output_tokens": 52,
+        "cached_tokens": 0,
+        "tool_calls": [
+          "ask_user"
+        ],
+        "tool_calls_detail": [
+          {
+            "name": "ask_user",
+            "args": {
+              "gate": "county",
+              "prompt": "Which California county should I focus on for the wildfire-linked carbon flux anomaly analysis? (e.g., Butte, Napa, Sonoma, Santa Cruz, Fresno)"
+            }
+          }
+        ],
+        "assistant_text": "",
+        "cost": 0.0027264999999999998,
+        "running_total": 0.01161125
+      },
+      {
+        "index": 6,
+        "input_tokens": 1210,
+        "output_tokens": 64,
+        "cached_tokens": 1024,
+        "tool_calls": [
+          "geocode",
+          "search_collections"
+        ],
+        "tool_calls_detail": [
+          {
+            "name": "geocode",
+            "args": {
+              "query": "Mendocino County, California, USA",
+              "level": "county"
+            }
+          },
+          {
+            "name": "search_collections",
+            "args": {
+              "query": "land carbon flux anomaly model"
+            }
+          }
+        ],
+        "assistant_text": "",
+        "cost": 0.0014007,
+        "running_total": 0.01301195
+      },
+      {
+        "index": 7,
+        "input_tokens": 1378,
+        "output_tokens": 26,
+        "cached_tokens": 1152,
+        "tool_calls": [
+          "search_collections"
+        ],
+        "tool_calls_detail": [
+          {
+            "name": "search_collections",
+            "args": {
+              "query": "NEE GPP respiration carbon flux land model"
+            }
+          }
+        ],
+        "assistant_text": "",
+        "cost": 0.0009611000000000001,
+        "running_total": 0.013973049999999999
+      },
+      {
+        "index": 8,
+        "input_tokens": 1456,
+        "output_tokens": 19,
+        "cached_tokens": 1280,
+        "tool_calls": [
+          "search_collections"
+        ],
+        "tool_calls_detail": [
+          {
+            "name": "search_collections",
+            "args": {
+              "query": "carbon flux"
+            }
+          }
+        ],
+        "assistant_text": "",
+        "cost": 0.0007980000000000001,
+        "running_total": 0.014771049999999999
+      },
+      {
+        "index": 9,
+        "input_tokens": 1527,
+        "output_tokens": 80,
+        "cached_tokens": 1408,
+        "tool_calls": [
+          "ask_user"
+        ],
+        "tool_calls_detail": [
+          {
+            "name": "ask_user",
+            "args": {
+              "gate": "dataset",
+              "prompt": "I\u2019m not finding any STAC collections with keywords like \u201ccarbon flux/NEE/GPP\u201d in this catalog search. Please provide the exact dataset/collection name or a keyword you know exists in your VEDA catalog (e.g., a specific model product like NEE/GPP/Reco)."
+            }
+          }
+        ],
+        "assistant_text": "",
+        "cost": 0.00157465,
+        "running_total": 0.016345699999999998
+      },
+      {
+        "index": 10,
+        "input_tokens": 1623,
+        "output_tokens": 22,
+        "cached_tokens": 1536,
+        "tool_calls": [
+          "search_collections"
+        ],
+        "tool_calls_detail": [
+          {
+            "name": "search_collections",
+            "args": {
+              "query": "lis-global-da-gpp"
+            }
+          }
+        ],
+        "assistant_text": "",
+        "cost": 0.00072905,
+        "running_total": 0.017074749999999996
+      },
+      {
+        "index": 11,
+        "input_tokens": 1692,
+        "output_tokens": 81,
+        "cached_tokens": 1536,
+        "tool_calls": [
+          "ask_user"
+        ],
+        "tool_calls_detail": [
+          {
+            "name": "ask_user",
+            "args": {
+              "gate": "variable",
+              "prompt": "I still can\u2019t locate a STAC collection named \u201clis-global-da-gpp\u201d in this catalog. Please (1) confirm the correct collection_id as it appears in STAC, and (2) tell me which variable/band to analyze (e.g., GPP, anomaly, zscore)."
+            }
+          }
+        ],
+        "assistant_text": "",
+        "cost": 0.0016758,
+        "running_total": 0.018750549999999998
+      },
+      {
+        "index": 12,
+        "input_tokens": 1787,
+        "output_tokens": 118,
+        "cached_tokens": 1664,
+        "tool_calls": [],
+        "tool_calls_detail": [],
+        "assistant_text": "I can\u2019t proceed to `search_items`/`compute_stats` yet because the STAC catalog search here returns **no collection** matching `lis-global-da-gpp`, and `cog_default` looks like a **band/asset name**, not a `collection_id`. Please reply with the **exact STAC `collection_id`** for the model-estimated land carbon flux dataset you want (as it appears in your VEDA STAC), and confirm the **band** to use (you said `cog_default`; if that\u2019s correct, keep it).",
+        "cost": 0.00215845,
+        "running_total": 0.020908999999999997
+      }
+    ],
+    "totals": {
+      "input_tokens": 15700,
+      "output_tokens": 611,
+      "cached_tokens": 9600,
+      "cache_hit_pct": 61.146496815286625,
+      "session_cost": 0.020909000000000004
+    }
+  },
+  {
+    "key": [
+      "pattern-paper-freeform",
+      true,
+      false
+    ],
+    "label": "pattern-paper-freeform \u00b7 forced \u00b7 map=N",
+    "scenario_id": "pattern-paper-freeform",
+    "pattern": "paper",
+    "handler_mode": "freeform",
+    "model": "gpt-5.2",
+    "enforce_compute_stats": true,
+    "emit_map": false,
+    "user_query": "",
+    "final_answer": "",
+    "map_url": null,
+    "turn_count": 5,
+    "turns": [
+      {
+        "index": 1,
+        "input_tokens": 648,
+        "output_tokens": 65,
+        "cached_tokens": 0,
+        "tool_calls": [
+          "parse_datetime",
+          "geocode"
+        ],
+        "tool_calls_detail": [],
+        "assistant_text": "",
+        "cost": 0.002044,
+        "running_total": 0.002044
+      },
+      {
+        "index": 2,
+        "input_tokens": 791,
+        "output_tokens": 63,
+        "cached_tokens": 0,
+        "tool_calls": [
+          "search_items"
+        ],
+        "tool_calls_detail": [],
+        "assistant_text": "",
+        "cost": 0.00226625,
+        "running_total": 0.00431025
+      },
+      {
+        "index": 3,
+        "input_tokens": 29421,
+        "output_tokens": 2262,
+        "cached_tokens": 0,
+        "tool_calls": [
+          "compute_stats"
+        ],
+        "tool_calls_detail": [],
+        "assistant_text": "",
+        "cost": 0.08315475,
+        "running_total": 0.087465
+      },
+      {
+        "index": 4,
+        "input_tokens": 31831,
+        "output_tokens": 2263,
+        "cached_tokens": 31616,
+        "tool_calls": [
+          "compute_stats"
+        ],
+        "tool_calls_detail": [],
+        "assistant_text": "",
+        "cost": 0.03759105,
+        "running_total": 0.12505605
+      },
+      {
+        "index": 5,
+        "input_tokens": 35514,
+        "output_tokens": 1021,
+        "cached_tokens": 34048,
+        "tool_calls": [],
+        "tool_calls_detail": [],
+        "assistant_text": "",
+        "cost": 0.022817900000000002,
+        "running_total": 0.14787395
+      }
+    ],
+    "totals": {
+      "input_tokens": 98205,
+      "output_tokens": 5674,
+      "cached_tokens": 65664,
+      "cache_hit_pct": 66.86421261646555,
+      "session_cost": 0.14787395
+    }
+  },
+  {
+    "key": [
+      "pattern-paper-freeform",
+      false,
+      false
+    ],
+    "label": "pattern-paper-freeform \u00b7 map=N",
+    "scenario_id": "pattern-paper-freeform",
+    "pattern": "paper",
+    "handler_mode": "freeform",
+    "model": "gpt-5.2",
+    "enforce_compute_stats": false,
+    "emit_map": false,
+    "user_query": "",
+    "final_answer": "",
+    "map_url": null,
+    "turn_count": 4,
+    "turns": [
+      {
+        "index": 1,
+        "input_tokens": 619,
+        "output_tokens": 65,
+        "cached_tokens": 0,
+        "tool_calls": [
+          "parse_datetime",
+          "geocode"
+        ],
+        "tool_calls_detail": [],
+        "assistant_text": "",
+        "cost": 0.0019932500000000002,
+        "running_total": 0.0019932500000000002
+      },
+      {
+        "index": 2,
+        "input_tokens": 762,
+        "output_tokens": 63,
+        "cached_tokens": 0,
+        "tool_calls": [
+          "search_items"
+        ],
+        "tool_calls_detail": [],
+        "assistant_text": "",
+        "cost": 0.0022155,
+        "running_total": 0.004208750000000001
+      },
+      {
+        "index": 3,
+        "input_tokens": 29392,
+        "output_tokens": 2262,
+        "cached_tokens": 0,
+        "tool_calls": [
+          "compute_stats"
+        ],
+        "tool_calls_detail": [],
+        "assistant_text": "",
+        "cost": 0.08310400000000001,
+        "running_total": 0.08731275000000001
+      },
+      {
+        "index": 4,
+        "input_tokens": 31802,
+        "output_tokens": 115,
+        "cached_tokens": 31488,
+        "tool_calls": [],
+        "tool_calls_detail": [],
+        "assistant_text": "",
+        "cost": 0.0076698999999999995,
+        "running_total": 0.09498265
+      }
+    ],
+    "totals": {
+      "input_tokens": 62575,
+      "output_tokens": 2505,
+      "cached_tokens": 31488,
+      "cache_hit_pct": 50.320415501398315,
+      "session_cost": 0.09498265
+    }
+  },
+  {
+    "key": [
+      "pattern-paper-freeform",
+      false,
+      true
+    ],
+    "label": "pattern-paper-freeform \u00b7 map=Y",
+    "scenario_id": "pattern-paper-freeform",
+    "pattern": "paper",
+    "handler_mode": "freeform",
+    "model": "gpt-5.2",
+    "enforce_compute_stats": false,
+    "emit_map": true,
+    "user_query": "",
+    "final_answer": "",
+    "map_url": null,
+    "turn_count": 6,
+    "turns": [
+      {
+        "index": 1,
+        "input_tokens": 769,
+        "output_tokens": 65,
+        "cached_tokens": 0,
+        "tool_calls": [
+          "parse_datetime",
+          "geocode"
+        ],
+        "tool_calls_detail": [],
+        "assistant_text": "",
+        "cost": 0.00225575,
+        "running_total": 0.00225575
+      },
+      {
+        "index": 2,
+        "input_tokens": 912,
+        "output_tokens": 58,
+        "cached_tokens": 0,
+        "tool_calls": [
+          "search_items"
+        ],
+        "tool_calls_detail": [],
+        "assistant_text": "",
+        "cost": 0.002408,
+        "running_total": 0.0046637499999999995
+      },
+      {
+        "index": 3,
+        "input_tokens": 29540,
+        "output_tokens": 2262,
+        "cached_tokens": 0,
+        "tool_calls": [
+          "compute_stats"
+        ],
+        "tool_calls_detail": [],
+        "assistant_text": "",
+        "cost": 0.08336299999999999,
+        "running_total": 0.08802674999999999
+      },
+      {
+        "index": 4,
+        "input_tokens": 31950,
+        "output_tokens": 2263,
+        "cached_tokens": 31744,
+        "tool_calls": [
+          "compute_stats"
+        ],
+        "tool_calls_detail": [],
+        "assistant_text": "",
+        "cost": 0.0375977,
+        "running_total": 0.12562445
+      },
+      {
+        "index": 5,
+        "input_tokens": 35634,
+        "output_tokens": 64,
+        "cached_tokens": 34048,
+        "tool_calls": [
+          "render_map"
+        ],
+        "tool_calls_detail": [],
+        "assistant_text": "",
+        "cost": 0.009629899999999999,
+        "running_total": 0.13525435
+      },
+      {
+        "index": 6,
+        "input_tokens": 35833,
+        "output_tokens": 627,
+        "cached_tokens": 35584,
+        "tool_calls": [],
+        "tool_calls_detail": [],
+        "assistant_text": "",
+        "cost": 0.015440949999999998,
+        "running_total": 0.1506953
+      }
+    ],
+    "totals": {
+      "input_tokens": 134638,
+      "output_tokens": 5339,
+      "cached_tokens": 101376,
+      "cache_hit_pct": 75.29523611461846,
+      "session_cost": 0.1506953
+    }
+  },
+  {
+    "key": [
+      "pattern-paper-key-fields",
+      true,
+      false
+    ],
+    "label": "pattern-paper-key-fields \u00b7 forced \u00b7 map=N",
+    "scenario_id": "pattern-paper-key-fields",
+    "pattern": "paper",
+    "handler_mode": "key_fields",
+    "model": "gpt-5.2",
+    "enforce_compute_stats": true,
+    "emit_map": false,
+    "user_query": "",
+    "final_answer": "",
+    "map_url": null,
+    "turn_count": 4,
+    "turns": [
+      {
+        "index": 1,
+        "input_tokens": 648,
+        "output_tokens": 65,
+        "cached_tokens": 0,
+        "tool_calls": [
+          "parse_datetime",
+          "geocode"
+        ],
+        "tool_calls_detail": [],
+        "assistant_text": "",
+        "cost": 0.002044,
+        "running_total": 0.002044
+      },
+      {
+        "index": 2,
+        "input_tokens": 791,
+        "output_tokens": 63,
+        "cached_tokens": 0,
+        "tool_calls": [
+          "search_items"
+        ],
+        "tool_calls_detail": [],
+        "assistant_text": "",
+        "cost": 0.00226625,
+        "running_total": 0.00431025
+      },
+      {
+        "index": 3,
+        "input_tokens": 1986,
+        "output_tokens": 1152,
+        "cached_tokens": 1536,
+        "tool_calls": [
+          "compute_stats"
+        ],
+        "tool_calls_detail": [],
+        "assistant_text": "",
+        "cost": 0.0171843,
+        "running_total": 0.02149455
+      },
+      {
+        "index": 4,
+        "input_tokens": 3286,
+        "output_tokens": 165,
+        "cached_tokens": 3072,
+        "tool_calls": [],
+        "tool_calls_detail": [],
+        "assistant_text": "",
+        "cost": 0.0032221,
+        "running_total": 0.02471665
+      }
+    ],
+    "totals": {
+      "input_tokens": 6711,
+      "output_tokens": 1445,
+      "cached_tokens": 4608,
+      "cache_hit_pct": 68.66338846669647,
+      "session_cost": 0.02471665
+    }
+  },
+  {
+    "key": [
+      "pattern-paper-key-fields",
+      false,
+      false
+    ],
+    "label": "pattern-paper-key-fields \u00b7 map=N",
+    "scenario_id": "pattern-paper-key-fields",
+    "pattern": "paper",
+    "handler_mode": "key_fields",
+    "model": "gpt-5.2",
+    "enforce_compute_stats": false,
+    "emit_map": false,
+    "user_query": "",
+    "final_answer": "",
+    "map_url": null,
+    "turn_count": 4,
+    "turns": [
+      {
+        "index": 1,
+        "input_tokens": 619,
+        "output_tokens": 65,
+        "cached_tokens": 0,
+        "tool_calls": [
+          "parse_datetime",
+          "geocode"
+        ],
+        "tool_calls_detail": [],
+        "assistant_text": "",
+        "cost": 0.0019932500000000002,
+        "running_total": 0.0019932500000000002
+      },
+      {
+        "index": 2,
+        "input_tokens": 762,
+        "output_tokens": 63,
+        "cached_tokens": 0,
+        "tool_calls": [
+          "search_items"
+        ],
+        "tool_calls_detail": [],
+        "assistant_text": "",
+        "cost": 0.0022155,
+        "running_total": 0.004208750000000001
+      },
+      {
+        "index": 3,
+        "input_tokens": 1957,
+        "output_tokens": 1152,
+        "cached_tokens": 1536,
+        "tool_calls": [
+          "compute_stats"
+        ],
+        "tool_calls_detail": [],
+        "assistant_text": "",
+        "cost": 0.01713355,
+        "running_total": 0.0213423
+      },
+      {
+        "index": 4,
+        "input_tokens": 3257,
+        "output_tokens": 132,
+        "cached_tokens": 2944,
+        "tool_calls": [],
+        "tool_calls_detail": [],
+        "assistant_text": "",
+        "cost": 0.00291095,
+        "running_total": 0.02425325
+      }
+    ],
+    "totals": {
+      "input_tokens": 6595,
+      "output_tokens": 1412,
+      "cached_tokens": 4480,
+      "cache_hit_pct": 67.93025018953753,
+      "session_cost": 0.02425325
+    }
+  },
+  {
+    "key": [
+      "pattern-paper-key-fields",
+      false,
+      true
+    ],
+    "label": "pattern-paper-key-fields \u00b7 map=Y",
+    "scenario_id": "pattern-paper-key-fields",
+    "pattern": "paper",
+    "handler_mode": "key_fields",
+    "model": "gpt-5.2",
+    "enforce_compute_stats": false,
+    "emit_map": true,
+    "user_query": "",
+    "final_answer": "",
+    "map_url": null,
+    "turn_count": 5,
+    "turns": [
+      {
+        "index": 1,
+        "input_tokens": 769,
+        "output_tokens": 65,
+        "cached_tokens": 0,
+        "tool_calls": [
+          "parse_datetime",
+          "geocode"
+        ],
+        "tool_calls_detail": [],
+        "assistant_text": "",
+        "cost": 0.00225575,
+        "running_total": 0.00225575
+      },
+      {
+        "index": 2,
+        "input_tokens": 912,
+        "output_tokens": 63,
+        "cached_tokens": 0,
+        "tool_calls": [
+          "search_items"
+        ],
+        "tool_calls_detail": [],
+        "assistant_text": "",
+        "cost": 0.002478,
+        "running_total": 0.00473375
+      },
+      {
+        "index": 3,
+        "input_tokens": 2107,
+        "output_tokens": 1152,
+        "cached_tokens": 0,
+        "tool_calls": [
+          "compute_stats"
+        ],
+        "tool_calls_detail": [],
+        "assistant_text": "",
+        "cost": 0.01981525,
+        "running_total": 0.024549
+      },
+      {
+        "index": 4,
+        "input_tokens": 3407,
+        "output_tokens": 64,
+        "cached_tokens": 3200,
+        "tool_calls": [
+          "render_map"
+        ],
+        "tool_calls_detail": [],
+        "assistant_text": "",
+        "cost": 0.00181825,
+        "running_total": 0.026367250000000002
+      },
+      {
+        "index": 5,
+        "input_tokens": 3606,
+        "output_tokens": 209,
+        "cached_tokens": 3328,
+        "tool_calls": [],
+        "tool_calls_detail": [],
+        "assistant_text": "",
+        "cost": 0.0039949,
+        "running_total": 0.03036215
+      }
+    ],
+    "totals": {
+      "input_tokens": 10801,
+      "output_tokens": 1553,
+      "cached_tokens": 6528,
+      "cache_hit_pct": 60.438848254791225,
+      "session_cost": 0.03036215
+    }
+  },
+  {
+    "key": [
+      "pattern-paper-status-only",
+      true,
+      false
+    ],
+    "label": "pattern-paper-status-only \u00b7 forced \u00b7 map=N",
+    "scenario_id": "pattern-paper-status-only",
+    "pattern": "paper",
+    "handler_mode": "status_only",
+    "model": "gpt-5.2",
+    "enforce_compute_stats": true,
+    "emit_map": false,
+    "user_query": "",
+    "final_answer": "",
+    "map_url": null,
+    "turn_count": 7,
+    "turns": [
+      {
+        "index": 1,
+        "input_tokens": 648,
+        "output_tokens": 65,
+        "cached_tokens": 0,
+        "tool_calls": [
+          "parse_datetime",
+          "geocode"
+        ],
+        "tool_calls_detail": [],
+        "assistant_text": "",
+        "cost": 0.002044,
+        "running_total": 0.002044
+      },
+      {
+        "index": 2,
+        "input_tokens": 834,
+        "output_tokens": 63,
+        "cached_tokens": 0,
+        "tool_calls": [
+          "search_items"
+        ],
+        "tool_calls_detail": [],
+        "assistant_text": "",
+        "cost": 0.0023415,
+        "running_total": 0.0043855
+      },
+      {
+        "index": 3,
+        "input_tokens": 972,
+        "output_tokens": 1862,
+        "cached_tokens": 0,
+        "tool_calls": [
+          "compute_stats"
+        ],
+        "tool_calls_detail": [],
+        "assistant_text": "",
+        "cost": 0.027769000000000002,
+        "running_total": 0.0321545
+      },
+      {
+        "index": 4,
+        "input_tokens": 2982,
+        "output_tokens": 24,
+        "cached_tokens": 2688,
+        "tool_calls": [
+          "search_collections"
+        ],
+        "tool_calls_detail": [],
+        "assistant_text": "",
+        "cost": 0.0013208999999999999,
+        "running_total": 0.0334754
+      },
+      {
+        "index": 5,
+        "input_tokens": 3055,
+        "output_tokens": 58,
+        "cached_tokens": 2944,
+        "tool_calls": [
+          "search_items"
+        ],
+        "tool_calls_detail": [],
+        "assistant_text": "",
+        "cost": 0.00152145,
+        "running_total": 0.03499685
+      },
+      {
+        "index": 6,
+        "input_tokens": 3186,
+        "output_tokens": 1862,
+        "cached_tokens": 2944,
+        "tool_calls": [
+          "compute_stats"
+        ],
+        "tool_calls_detail": [],
+        "assistant_text": "",
+        "cost": 0.0270067,
+        "running_total": 0.062003550000000004
+      },
+      {
+        "index": 7,
+        "input_tokens": 5196,
+        "output_tokens": 140,
+        "cached_tokens": 4992,
+        "tool_calls": [],
+        "tool_calls_detail": [],
+        "assistant_text": "",
+        "cost": 0.0031906,
+        "running_total": 0.06519415
+      }
+    ],
+    "totals": {
+      "input_tokens": 16873,
+      "output_tokens": 4074,
+      "cached_tokens": 13568,
+      "cache_hit_pct": 80.41249333254311,
+      "session_cost": 0.06519415
+    }
+  },
+  {
+    "key": [
+      "pattern-paper-status-only",
+      false,
+      false
+    ],
+    "label": "pattern-paper-status-only \u00b7 map=N",
+    "scenario_id": "pattern-paper-status-only",
+    "pattern": "paper",
+    "handler_mode": "status_only",
+    "model": "gpt-5.2",
+    "enforce_compute_stats": false,
+    "emit_map": false,
+    "user_query": "",
+    "final_answer": "",
+    "map_url": null,
+    "turn_count": 4,
+    "turns": [
+      {
+        "index": 1,
+        "input_tokens": 619,
+        "output_tokens": 65,
+        "cached_tokens": 0,
+        "tool_calls": [
+          "parse_datetime",
+          "geocode"
+        ],
+        "tool_calls_detail": [],
+        "assistant_text": "",
+        "cost": 0.0019932500000000002,
+        "running_total": 0.0019932500000000002
+      },
+      {
+        "index": 2,
+        "input_tokens": 802,
+        "output_tokens": 65,
+        "cached_tokens": 0,
+        "tool_calls": [
+          "search_items"
+        ],
+        "tool_calls_detail": [],
+        "assistant_text": "",
+        "cost": 0.0023135,
+        "running_total": 0.00430675
+      },
+      {
+        "index": 3,
+        "input_tokens": 943,
+        "output_tokens": 1864,
+        "cached_tokens": 0,
+        "tool_calls": [
+          "compute_stats"
+        ],
+        "tool_calls_detail": [],
+        "assistant_text": "",
+        "cost": 0.02774625,
+        "running_total": 0.032053
+      },
+      {
+        "index": 4,
+        "input_tokens": 2957,
+        "output_tokens": 164,
+        "cached_tokens": 2688,
+        "tool_calls": [],
+        "tool_calls_detail": [],
+        "assistant_text": "",
+        "cost": 0.00323715,
+        "running_total": 0.03529015
+      }
+    ],
+    "totals": {
+      "input_tokens": 5321,
+      "output_tokens": 2158,
+      "cached_tokens": 2688,
+      "cache_hit_pct": 50.51682014658899,
+      "session_cost": 0.03529015
+    }
+  },
+  {
+    "key": [
+      "pattern-paper-status-only",
+      false,
+      true
+    ],
+    "label": "pattern-paper-status-only \u00b7 map=Y",
+    "scenario_id": "pattern-paper-status-only",
+    "pattern": "paper",
+    "handler_mode": "status_only",
+    "model": "gpt-5.2",
+    "enforce_compute_stats": false,
+    "emit_map": true,
+    "user_query": "",
+    "final_answer": "",
+    "map_url": null,
+    "turn_count": 5,
+    "turns": [
+      {
+        "index": 1,
+        "input_tokens": 769,
+        "output_tokens": 65,
+        "cached_tokens": 0,
+        "tool_calls": [
+          "parse_datetime",
+          "geocode"
+        ],
+        "tool_calls_detail": [],
+        "assistant_text": "",
+        "cost": 0.00225575,
+        "running_total": 0.00225575
+      },
+      {
+        "index": 2,
+        "input_tokens": 955,
+        "output_tokens": 63,
+        "cached_tokens": 0,
+        "tool_calls": [
+          "search_items"
+        ],
+        "tool_calls_detail": [],
+        "assistant_text": "",
+        "cost": 0.00255325,
+        "running_total": 0.004809
+      },
+      {
+        "index": 3,
+        "input_tokens": 1092,
+        "output_tokens": 1822,
+        "cached_tokens": 0,
+        "tool_calls": [
+          "compute_stats"
+        ],
+        "tool_calls_detail": [],
+        "assistant_text": "",
+        "cost": 0.027419,
+        "running_total": 0.032228
+      },
+      {
+        "index": 4,
+        "input_tokens": 3062,
+        "output_tokens": 64,
+        "cached_tokens": 2816,
+        "tool_calls": [
+          "render_map"
+        ],
+        "tool_calls_detail": [],
+        "assistant_text": "",
+        "cost": 0.0018192999999999998,
+        "running_total": 0.0340473
+      },
+      {
+        "index": 5,
+        "input_tokens": 3262,
+        "output_tokens": 201,
+        "cached_tokens": 3072,
+        "tool_calls": [],
+        "tool_calls_detail": [],
+        "assistant_text": "",
+        "cost": 0.0036841,
+        "running_total": 0.037731400000000005
+      }
+    ],
+    "totals": {
+      "input_tokens": 9140,
+      "output_tokens": 2215,
+      "cached_tokens": 5888,
+      "cache_hit_pct": 64.42013129102845,
+      "session_cost": 0.0377314
+    }
+  }
+];
+
+let map = null;
+let overlayLayer = null;
+const AOI_BOUNDS = [[38.756, -123.89], [40.005, -122.819]];
+const MAP_CENTER = [39.38, -123.35];
+
+function initMap() {
+  if (typeof L === 'undefined') return;  // Leaflet CDN unavailable; map stays blank
+  map = L.map('map', { center: MAP_CENTER, zoom: 9 });
+  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+    attribution: '© OpenStreetMap contributors',
+    maxZoom: 18,
+  }).addTo(map);
+}
+
+function updateMap(scenario) {
+  if (typeof L === 'undefined' || !map) {
+    const note = document.getElementById('map-note');
+    note.textContent = 'Map unavailable (Leaflet failed to load — check network).';
+    note.style.display = 'block';
+    return;
+  }
+  if (overlayLayer) { map.removeLayer(overlayLayer); overlayLayer = null; }
+  const note = document.getElementById('map-note');
+  if (scenario && scenario.map_url) {
+    overlayLayer = L.imageOverlay(scenario.map_url, AOI_BOUNDS, { opacity: 0.75 }).addTo(map);
+    map.fitBounds(AOI_BOUNDS);
+    const cm = scenario.map_url.match(/colormap_name=([^&]+)/);
+    note.textContent = 'Map layer: ' + (cm ? cm[1] : 'viridis') + (scenario.handler_mode ? ' · ' + scenario.handler_mode : '');
+    note.style.display = 'block';
+  } else {
+    map.fitBounds(AOI_BOUNDS);
+    note.textContent = 'No map layer in this trace (emit_map=false or render_map not called)';
+    note.style.display = 'block';
+  }
+}
+
+function renderConversation(scenario) {
+  const panel = document.getElementById('conv-panel');
+  panel.innerHTML = '';
+  if (!scenario) {
+    panel.innerHTML = '<div id="no-data">No traces loaded.</div>';
+    return;
+  }
+
+  // User bubble
+  if (scenario.user_query) {
+    const uq = document.createElement('div');
+    uq.className = 'bubble bubble-user';
+    uq.textContent = scenario.user_query;
+    panel.appendChild(uq);
+  }
+
+  // Per-turn blocks
+  scenario.turns.forEach(function(turn) {
+    const block = document.createElement('div');
+    block.className = 'turn-block';
+
+    const header = document.createElement('div');
+    header.className = 'turn-header';
+    const titleSpan = document.createElement('span');
+    titleSpan.textContent = 'Turn ' + turn.index;
+    const costSpan = document.createElement('span');
+    costSpan.className = 'turn-cost';
+    costSpan.textContent = '$' + turn.cost.toFixed(5);
+    header.appendChild(titleSpan);
+    header.appendChild(costSpan);
+    block.appendChild(header);
+
+    if (turn.assistant_text) {
+      const txt = document.createElement('div');
+      txt.className = 'turn-text';
+      txt.textContent = turn.assistant_text;
+      block.appendChild(txt);
+    }
+
+    if (turn.tool_calls_detail && turn.tool_calls_detail.length > 0) {
+      const chipsDiv = document.createElement('div');
+      chipsDiv.style.marginTop = '4px';
+      turn.tool_calls_detail.forEach(function(tc) {
+        const chip = document.createElement('span');
+        chip.className = 'chip';
+        const argsStr = tc.args && Object.keys(tc.args).length > 0
+          ? '(' + Object.keys(tc.args).slice(0, 2).map(function(k) { return k + ': ' + JSON.stringify(tc.args[k]).slice(0, 20); }).join(', ') + ')'
+          : '()';
+        chip.textContent = tc.name + argsStr;
+        chipsDiv.appendChild(chip);
+      });
+      block.appendChild(chipsDiv);
+    } else if (turn.tool_calls && turn.tool_calls.length > 0) {
+      const chipsDiv = document.createElement('div');
+      chipsDiv.style.marginTop = '4px';
+      turn.tool_calls.forEach(function(name) {
+        const chip = document.createElement('span');
+        chip.className = 'chip';
+        chip.textContent = name + '()';
+        chipsDiv.appendChild(chip);
+      });
+      block.appendChild(chipsDiv);
+    }
+
+    panel.appendChild(block);
+  });
+
+  // Final answer bubble
+  if (scenario.final_answer) {
+    const fa = document.createElement('div');
+    fa.className = 'bubble bubble-final';
+    fa.textContent = scenario.final_answer;
+    panel.appendChild(fa);
+  }
+}
+
+function renderCostTable(scenario) {
+  const tbody = document.getElementById('cost-tbody');
+  tbody.innerHTML = '';
+  if (!scenario) return;
+  scenario.turns.forEach(function(turn) {
+    const tr = document.createElement('tr');
+    tr.innerHTML = '<td>' + turn.index + '</td>' +
+      '<td>' + turn.input_tokens.toLocaleString() + '</td>' +
+      '<td>' + turn.output_tokens.toLocaleString() + '</td>' +
+      '<td>' + turn.cached_tokens.toLocaleString() + '</td>' +
+      '<td>$' + turn.cost.toFixed(5) + '</td>' +
+      '<td>$' + turn.running_total.toFixed(5) + '</td>';
+    tbody.appendChild(tr);
+  });
+  // Totals row
+  const tot = scenario.totals;
+  const tr = document.createElement('tr');
+  tr.innerHTML = '<td>TOTAL</td>' +
+    '<td>' + tot.input_tokens.toLocaleString() + '</td>' +
+    '<td>' + tot.output_tokens.toLocaleString() + '</td>' +
+    '<td>' + tot.cached_tokens.toLocaleString() + ' (' + tot.cache_hit_pct.toFixed(1) + '% hit)</td>' +
+    '<td>$' + tot.session_cost.toFixed(5) + '</td>' +
+    '<td>—</td>';
+  tbody.appendChild(tr);
+}
+
+function updateProjection() {
+  const sel = document.getElementById('scenario-select');
+  const idx = sel.value;
+  const scenario = TRACE_DATA[idx];
+  if (!scenario) return;
+  const qpm = parseFloat(document.getElementById('qpm').value) || 0;
+  const monthly = scenario.totals.session_cost * qpm;
+  document.getElementById('monthly-result').textContent = '$' + monthly.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2});
+  document.getElementById('per-query-label').textContent = '$/query = $' + scenario.totals.session_cost.toFixed(6);
+}
+
+function setQPM(n) {
+  document.getElementById('qpm').value = n;
+  updateProjection();
+}
+
+function onScenarioChange() {
+  const sel = document.getElementById('scenario-select');
+  const idx = parseInt(sel.value, 10);
+  const scenario = TRACE_DATA[idx];
+  renderConversation(scenario);
+  renderCostTable(scenario);
+  updateMap(scenario);
+  updateProjection();
+}
+
+// Init
+(function() {
+  const sel = document.getElementById('scenario-select');
+  TRACE_DATA.forEach(function(sc, i) {
+    const opt = document.createElement('option');
+    opt.value = i;
+    opt.textContent = sc.label;
+    sel.appendChild(opt);
+  });
+  sel.addEventListener('change', onScenarioChange);
+  document.getElementById('qpm').addEventListener('input', updateProjection);
+
+  // Render conversation/cost/projection FIRST so a map (network) failure
+  // can't abort the rest of init. initMap is wrapped defensively too.
+  if (TRACE_DATA.length > 0) {
+    renderConversation(TRACE_DATA[0]);
+    renderCostTable(TRACE_DATA[0]);
+    updateProjection();
+  }
+  try {
+    initMap();
+    if (TRACE_DATA.length > 0) updateMap(TRACE_DATA[0]);
+  } catch (e) {
+    console.error('map init failed (non-fatal):', e);
+  }
+})();
+</script>
+</body>
+</html>
