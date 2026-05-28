@@ -1479,6 +1479,27 @@ Production teams measure their primary's confidence-score distribution; escalate
   // Render the calibration badge above the headline. Reads
   // workload.anchor_query._calibration; shows nothing when absent.
   //
+  // Shared helper — applies one named payload mode (e.g. 'minimal',
+  // 'moderate', 'heavy') from the current workload's calibration block.
+  // Used by both the 3-way mode-toggle buttons and the coarse
+  // freeform/templated dropdown so they stay in sync.
+  function applyPayloadMode(k) {
+    const modes = workload?.anchor_query?._calibration?.payload_modes;
+    const mode = modes?.[k];
+    if (!mode) return;
+    workload._payload_mode_active = k;
+    // Rewrite the anchor — preserve session_baseline_turns + example.
+    if (mode.input_tokens != null) workload.anchor_query.input_tokens = mode.input_tokens;
+    if (mode.output_tokens != null) workload.anchor_query.output_tokens = mode.output_tokens;
+    if (mode.cache_rate_baseline != null) workload.anchor_query.cache_rate_baseline = mode.cache_rate_baseline;
+    // Mirror updated anchor into the simulator (s-cache slider + anchor agent)
+    // with writeback suspended so the repaint doesn't push stale state back.
+    window.__setSimWritebackEnabled?.(false);
+    window.__setSimulatorFromWorkload?.(workload);
+    renderPreview();
+    window.__setSimWritebackEnabled?.(true);
+  }
+
   // When _calibration.payload_modes is present, renders three toggle
   // buttons (Minimal / Moderate / Heavy). Selecting one rewrites
   // anchor_query.input_tokens / output_tokens / cache_rate_baseline
@@ -1566,19 +1587,7 @@ Production teams measure their primary's confidence-score distribution; escalate
     el.querySelectorAll('.cal-mode-btn').forEach(btn => {
       btn.addEventListener('click', () => {
         const k = btn.dataset.mode;
-        const mode = modes?.[k];
-        if (!mode) return;
-        workload._payload_mode_active = k;
-        // Rewrite the anchor — preserve session_baseline_turns + example.
-        if (mode.input_tokens != null) workload.anchor_query.input_tokens = mode.input_tokens;
-        if (mode.output_tokens != null) workload.anchor_query.output_tokens = mode.output_tokens;
-        if (mode.cache_rate_baseline != null) workload.anchor_query.cache_rate_baseline = mode.cache_rate_baseline;
-        // Mirror updated anchor into the simulator (s-cache slider + anchor agent)
-        // with writeback suspended so the repaint doesn't push stale state back.
-        window.__setSimWritebackEnabled?.(false);
-        window.__setSimulatorFromWorkload?.(workload);
-        renderPreview();
-        window.__setSimWritebackEnabled?.(true);
+        applyPayloadMode(k);
       });
     });
   }
@@ -3825,6 +3834,22 @@ Production teams measure their primary's confidence-score distribution; escalate
       if (t.id === 's-users')         scaleSegments('mau',                   v, false);
       else if (t.id === 's-turns')    scaleSegments('questions_per_session', v, true);
       else if (t.id === 's-sessions') scaleSegments('sessions_per_day',      v, true);
+
+      // When the freeform/templated dropdown changes and the active workload
+      // has calibration payload_modes, drive the payload lever so the dropdown
+      // is not inert. templated → minimal (lowest-token validated mode);
+      // freeform → heavy (highest-token validated mode). The middle "moderate"
+      // is still reachable via the 3-way payload buttons. When no payload_modes
+      // exist (agent-mode workloads) we leave the existing per-tool cap path
+      // unchanged — the dropdown still affects tool_response_mode opts there.
+      if (t.id === 's-tool-response-mode') {
+        const hasModes = !!(workload?.anchor_query?._calibration?.payload_modes);
+        if (hasModes) {
+          const dropdownVal = t.value;
+          if (dropdownVal === 'templated') applyPayloadMode('minimal');
+          else if (dropdownVal === 'freeform') applyPayloadMode('heavy');
+        }
+      }
 
       // Per-agent simulator slider drag in workload-mode → promote.
       if (PROMOTE_TRIGGERS.has(t.id)
