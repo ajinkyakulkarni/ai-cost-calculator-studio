@@ -213,6 +213,15 @@ def run_eie_templating(
             "map layer URL verbatim in its final answer."
         ),
     ),
+    recursion_limit: int = typer.Option(
+        30,
+        "--recursion-limit",
+        help=(
+            "Max LangGraph node transitions before the run aborts. Raise it for "
+            "status-only or with-map runs where the agent needs more turns to "
+            "reconstruct context from terse responses."
+        ),
+    ),
 ) -> None:
     """Run the eie-templating bench: 6 scenarios = 2 patterns × 3 handler modes.
 
@@ -237,7 +246,7 @@ def run_eie_templating(
             cfg = _dataclass_replace(cfg, emit_map=True)
         console.print(f"[cyan]Running:[/] {sid}  ({cfg.pattern} × {cfg.handler_mode} on {cfg.model})")
         try:
-            out_path = run_eie_scenario(cfg)
+            out_path = run_eie_scenario(cfg, max_turns=recursion_limit)
             console.print(f"[green]Wrote:[/] {out_path}")
             succeeded.append(sid)
         except Exception as exc:  # noqa: BLE001

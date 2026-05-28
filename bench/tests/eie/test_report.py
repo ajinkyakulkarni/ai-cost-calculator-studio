@@ -168,6 +168,34 @@ def test_emit_report_contains_all_scenario_ids(reports_dir):
         assert sid in content, f"scenario {sid!r} missing from report"
 
 
+def test_emit_report_uses_fixed_descriptive_filename(reports_dir):
+    from agent_cost_bench.eie import report as rmod
+
+    with patch.object(rmod, "REPORTS_DIR", reports_dir):
+        out = rmod.emit_report()
+
+    # Not date-stamped — a single durable, descriptively-named report.
+    assert out.name == "eie-templating-bench-report.md"
+
+
+def test_emit_report_preserves_handwritten_findings(reports_dir):
+    """Regenerating must not clobber a hand-written Findings section."""
+    from agent_cost_bench.eie import report as rmod
+
+    with patch.object(rmod, "REPORTS_DIR", reports_dir):
+        out = rmod.emit_report()  # first pass → placeholder findings
+        # Replace the placeholder with hand-written analysis.
+        text = out.read_text()
+        head = text[: text.find("## Findings")]
+        out.write_text(head + "## Findings\n\nThe lever is ~3-6x, not 7.5x.\n")
+        # Regenerate — tables rebuild, but findings must survive.
+        rmod.emit_report()
+
+    final = out.read_text()
+    assert "The lever is ~3-6x, not 7.5x." in final
+    assert "this report builder leaves the" not in final
+
+
 def test_emit_report_contains_ratio_rows(reports_dir):
     from agent_cost_bench.eie import report as rmod
 
