@@ -14,6 +14,13 @@ from pathlib import Path
 
 REPORTS_DIR = Path(__file__).resolve().parents[3] / "reports" / "eie-templating"
 
+# One durable, descriptively-named report (not date-stamped) so regenerating
+# overwrites the same file rather than littering one per day. The run date is
+# kept as a heading inside the document.
+REPORT_FILENAME = "eie-templating-bench-report.md"
+
+_FINDINGS_PLACEHOLDER_MARKER = "this report builder leaves the"
+
 # GPT-5.2 pricing (USD per million tokens)
 GPT52_INPUT_PER_M = 1.75
 GPT52_CACHED_PER_M = 0.175  # 10% of input rate
@@ -58,11 +65,32 @@ def _latest_traces() -> dict[tuple[str, bool, bool], dict]:
     return {key: t for key, (_, t) in by_key.items()}
 
 
+def _existing_findings_block(out: Path) -> str | None:
+    """Return the hand-written '## Findings' section from an existing report.
+
+    Regenerating the report rebuilds the tables from the latest traces, but a
+    human writes the findings by hand. Preserve that section across regens so
+    the analysis isn't clobbered. Returns None if the file is absent or the
+    findings are still the auto-generated placeholder.
+    """
+    if not out.exists():
+        return None
+    text = out.read_text()
+    idx = text.find("## Findings")
+    if idx == -1:
+        return None
+    block = text[idx:].rstrip()
+    if _FINDINGS_PLACEHOLDER_MARKER in block:
+        return None
+    return block
+
+
 def emit_report() -> Path:
     """Build the comparison Markdown and write it to REPORTS_DIR."""
     traces = _latest_traces()
     ts = datetime.now(timezone.utc).strftime("%Y-%m-%d")
-    out = REPORTS_DIR / f"{ts}-summary.md"
+    out = REPORTS_DIR / REPORT_FILENAME
+    preserved_findings = _existing_findings_block(out)
 
     rows: list[dict] = []
     for (sid, forced, with_map), t in traces.items():
@@ -132,11 +160,14 @@ def emit_report() -> Path:
                     f" {c['cost_per_q'] / b['cost_per_q']:.2f}×"
                 )
 
-    lines.append("\n## Findings\n")
-    lines.append(
-        "- (Drafted by hand after a real run; this report builder leaves the"
-        " findings section empty so the analyst writes from the observed numbers.)\n"
-    )
+    if preserved_findings:
+        lines.append("\n" + preserved_findings + "\n")
+    else:
+        lines.append("\n## Findings\n")
+        lines.append(
+            "- (Drafted by hand after a real run; this report builder leaves the"
+            " findings section empty so the analyst writes from the observed numbers.)\n"
+        )
 
     REPORTS_DIR.mkdir(parents=True, exist_ok=True)
     out.write_text("\n".join(lines))

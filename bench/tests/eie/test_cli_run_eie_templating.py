@@ -55,13 +55,46 @@ def test_all_scenarios_run(tmp_path):
         p.write_text("{}")
 
     with patch("agent_cost_bench.cli.run_eie_scenario") as mock_run:
-        mock_run.side_effect = lambda cfg: fake_paths[cfg.id]
+        mock_run.side_effect = lambda cfg, **kwargs: fake_paths[cfg.id]
         result = runner.invoke(app, ["run-eie-templating", "--scenario", "all"])
 
     assert result.exit_code == 0, result.output
     assert mock_run.call_count == len(ALL_SCENARIO_IDS)
     for sid in ALL_SCENARIO_IDS:
         assert sid in result.output
+
+
+# ---------------------------------------------------------------------------
+# --recursion-limit threads through to run_scenario(max_turns=…)
+# ---------------------------------------------------------------------------
+
+def test_recursion_limit_threaded(tmp_path):
+    sid = ALL_SCENARIO_IDS[0]
+    fake_path = tmp_path / f"{sid}.trace.json"
+    fake_path.write_text("{}")
+
+    with patch("agent_cost_bench.cli.run_eie_scenario") as mock_run:
+        mock_run.return_value = fake_path
+        result = runner.invoke(
+            app,
+            ["run-eie-templating", "--scenario", sid, "--recursion-limit", "60"],
+        )
+
+    assert result.exit_code == 0, result.output
+    assert mock_run.call_args.kwargs["max_turns"] == 60
+
+
+def test_recursion_limit_defaults_to_30(tmp_path):
+    sid = ALL_SCENARIO_IDS[0]
+    fake_path = tmp_path / f"{sid}.trace.json"
+    fake_path.write_text("{}")
+
+    with patch("agent_cost_bench.cli.run_eie_scenario") as mock_run:
+        mock_run.return_value = fake_path
+        result = runner.invoke(app, ["run-eie-templating", "--scenario", sid])
+
+    assert result.exit_code == 0, result.output
+    assert mock_run.call_args.kwargs["max_turns"] == 30
 
 
 # ---------------------------------------------------------------------------

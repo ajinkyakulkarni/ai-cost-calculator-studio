@@ -1,0 +1,69 @@
+{
+  "scenario_id": "pattern-paper-freeform",
+  "pattern": "paper",
+  "handler_mode": "freeform",
+  "model": "gpt-5.2",
+  "enforce_compute_stats": false,
+  "emit_map": true,
+  "turn_count": 6,
+  "elapsed_s": 84.00233197212219,
+  "totals": {
+    "input_tokens": 134638,
+    "output_tokens": 5339,
+    "cached_tokens": 101376,
+    "cache_hit_rate": 0.7529523611461846
+  },
+  "per_turn_avg": {
+    "input_tokens": 22439.666666666668,
+    "output_tokens": 889.8333333333334
+  },
+  "turns": [
+    {
+      "input_tokens": 769,
+      "output_tokens": 65,
+      "cached_tokens": 0,
+      "tool_calls": [
+        "parse_datetime",
+        "geocode"
+      ]
+    },
+    {
+      "input_tokens": 912,
+      "output_tokens": 58,
+      "cached_tokens": 0,
+      "tool_calls": [
+        "search_items"
+      ]
+    },
+    {
+      "input_tokens": 29540,
+      "output_tokens": 2262,
+      "cached_tokens": 0,
+      "tool_calls": [
+        "compute_stats"
+      ]
+    },
+    {
+      "input_tokens": 31950,
+      "output_tokens": 2263,
+      "cached_tokens": 31744,
+      "tool_calls": [
+        "compute_stats"
+      ]
+    },
+    {
+      "input_tokens": 35634,
+      "output_tokens": 64,
+      "cached_tokens": 34048,
+      "tool_calls": [
+        "render_map"
+      ]
+    },
+    {
+      "input_tokens": 35833,
+      "output_tokens": 627,
+      "cached_tokens": 35584,
+      "tool_calls": []
+    }
+  ]
+}

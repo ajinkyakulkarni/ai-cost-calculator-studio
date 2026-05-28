@@ -781,7 +781,7 @@ def test_cli_run_eie_templating_with_map_sets_emit_map(tmp_path, monkeypatch):
 
     collected_cfgs: list = []
 
-    def fake_run(cfg):
+    def fake_run(cfg, **kwargs):
         collected_cfgs.append(cfg)
         # Return a fake trace path
         p = tmp_path / f"{cfg.id}.trace.json"
