@@ -148,10 +148,8 @@ def _html(scenarios_json: str) -> str:
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>eie-templating bench viewer</title>
-<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
-      integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin=""/>
-<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
-        integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV/XN/WLs=" crossorigin=""></script>
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <style>
   * {{ box-sizing: border-box; margin: 0; padding: 0; }}
   body {{ font-family: system-ui, -apple-system, sans-serif; background: #1a1a2e; color: #e0e0e0; height: 100vh; display: flex; flex-direction: column; }}
@@ -238,6 +236,7 @@ const AOI_BOUNDS = [[38.756, -123.89], [40.005, -122.819]];
 const MAP_CENTER = [39.38, -123.35];
 
 function initMap() {{
+  if (typeof L === 'undefined') return;  // Leaflet CDN unavailable; map stays blank
   map = L.map('map', {{ center: MAP_CENTER, zoom: 9 }});
   L.tileLayer('https://{{s}}.tile.openstreetmap.org/{{z}}/{{x}}/{{y}}.png', {{
     attribution: '© OpenStreetMap contributors',
@@ -246,6 +245,12 @@ function initMap() {{
 }}
 
 function updateMap(scenario) {{
+  if (typeof L === 'undefined' || !map) {{
+    const note = document.getElementById('map-note');
+    note.textContent = 'Map unavailable (Leaflet failed to load — check network).';
+    note.style.display = 'block';
+    return;
+  }}
   if (overlayLayer) {{ map.removeLayer(overlayLayer); overlayLayer = null; }}
   const note = document.getElementById('map-note');
   if (scenario && scenario.map_url) {{
@@ -401,11 +406,18 @@ function onScenarioChange() {{
   sel.addEventListener('change', onScenarioChange);
   document.getElementById('qpm').addEventListener('input', updateProjection);
 
-  initMap();
+  // Render conversation/cost/projection FIRST so a map (network) failure
+  // can't abort the rest of init. initMap is wrapped defensively too.
   if (TRACE_DATA.length > 0) {{
-    onScenarioChange();
-  }} else {{
+    renderConversation(TRACE_DATA[0]);
+    renderCostTable(TRACE_DATA[0]);
+    updateProjection();
+  }}
+  try {{
     initMap();
+    if (TRACE_DATA.length > 0) updateMap(TRACE_DATA[0]);
+  }} catch (e) {{
+    console.error('map init failed (non-fatal):', e);
   }}
 }})();
 </script>
