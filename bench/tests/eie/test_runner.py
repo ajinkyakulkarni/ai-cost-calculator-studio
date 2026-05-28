@@ -451,3 +451,277 @@ def test_enforce_compute_stats_trace_json_contains_field_false(tmp_path):
 
     trace = json.loads(out_path.read_text())
     assert trace["enforce_compute_stats"] is False
+
+
+# ---------------------------------------------------------------------------
+# Enrichment fields: user_query, final_answer, map_url, tool_calls_detail,
+# assistant_text
+# ---------------------------------------------------------------------------
+
+def _tc_with_text(name: str, args: dict, call_id: str, text: str = "") -> dict:
+    """Assistant turn: tool call + optional text."""
+    return {
+        "role": "assistant",
+        "content": text,
+        "tool_calls": [
+            {
+                "id": call_id,
+                "type": "function",
+                "function": {"name": name, "arguments": json.dumps(args)},
+            }
+        ],
+        "_usage": {
+            "prompt_tokens": 20,
+            "completion_tokens": 8,
+            "total_tokens": 28,
+            "prompt_tokens_details": {"cached_tokens": 5},
+        },
+    }
+
+
+def _paper_enriched_responses():
+    """Responses that yield text on two turns so assistant_text is non-empty."""
+    return [
+        _tc_with_text("parse_datetime", {"value": "June 2020"}, "tc-1", "Parsing date."),
+        _tc("geocode", {"query": "mendocino", "level": "county"}, "tc-2"),
+        _tc("search_collections", {"query": "global primary production"}, "tc-3"),
+        _tc("search_items", {"collection_id": "lis-global-da-gpp",
+                              "bbox": [-124, 38, -122, 40],
+                              "datetime_range": "2020-06/2020-11"}, "tc-4"),
+        _tc("compute_stats", {"item_refs": [], "band": "cog_default",
+                               "geometry": {"type": "Polygon", "coordinates": []}}, "tc-5"),
+        _final("Mean GPP: 0.12 gC/m2/day."),
+    ]
+
+
+def test_trace_contains_user_query(tmp_path):
+    """Trace top level must include user_query from the initial user message."""
+    cfg = ScenarioCfg(
+        id="pattern-paper-status-only",
+        pattern="paper",
+        handler_mode="status_only",
+        model="gpt-stub",
+        description="test",
+    )
+    responses = iter(_paper_stub_responses())
+
+    with patch("agent_cost_bench.eie.pattern_paper.call_llm",
+               side_effect=lambda **kw: next(responses)), \
+         patch("agent_cost_bench.eie.pattern_paper.dispatch_tool_call",
+               side_effect=_fake_dispatch), \
+         patch("agent_cost_bench.eie.runner.REPORTS_DIR", tmp_path):
+        out_path = run_scenario(cfg)
+
+    trace = json.loads(out_path.read_text())
+    assert "user_query" in trace
+    # Should contain the paper query text
+    assert "GPP" in trace["user_query"] or len(trace["user_query"]) > 0
+
+
+def test_trace_contains_final_answer(tmp_path):
+    """Trace top level must include final_answer (last assistant text content)."""
+    cfg = ScenarioCfg(
+        id="pattern-paper-key-fields",
+        pattern="paper",
+        handler_mode="key_fields",
+        model="gpt-stub",
+        description="test",
+    )
+    responses = iter(_paper_stub_responses())
+
+    with patch("agent_cost_bench.eie.pattern_paper.call_llm",
+               side_effect=lambda **kw: next(responses)), \
+         patch("agent_cost_bench.eie.pattern_paper.dispatch_tool_call",
+               side_effect=_fake_dispatch), \
+         patch("agent_cost_bench.eie.runner.REPORTS_DIR", tmp_path):
+        out_path = run_scenario(cfg)
+
+    trace = json.loads(out_path.read_text())
+    assert "final_answer" in trace
+    assert "Mean GPP" in trace["final_answer"]
+
+
+def test_trace_final_answer_truncated_at_2000(tmp_path):
+    """final_answer is truncated to 2000 chars."""
+    cfg = ScenarioCfg(
+        id="pattern-paper-freeform",
+        pattern="paper",
+        handler_mode="freeform",
+        model="gpt-stub",
+        description="test",
+    )
+    long_answer = "x" * 3000
+    responses = iter([
+        _tc("parse_datetime", {"value": "June 2020"}, "tc-1"),
+        _tc("geocode", {"query": "mendocino", "level": "county"}, "tc-2"),
+        _tc("search_collections", {"query": "primary production"}, "tc-3"),
+        _tc("search_items", {"collection_id": "gpp", "bbox": [-124, 38, -122, 40],
+                              "datetime_range": "2020-06/2020-11"}, "tc-4"),
+        _tc("compute_stats", {"item_refs": [], "band": "cog_default",
+                               "geometry": {}}, "tc-5"),
+        _final(long_answer),
+    ])
+
+    with patch("agent_cost_bench.eie.pattern_paper.call_llm",
+               side_effect=lambda **kw: next(responses)), \
+         patch("agent_cost_bench.eie.pattern_paper.dispatch_tool_call",
+               side_effect=_fake_dispatch), \
+         patch("agent_cost_bench.eie.runner.REPORTS_DIR", tmp_path):
+        out_path = run_scenario(cfg)
+
+    trace = json.loads(out_path.read_text())
+    assert len(trace["final_answer"]) <= 2000
+
+
+def test_trace_map_url_null_when_no_render_map(tmp_path):
+    """map_url must be null in a trace that never calls render_map."""
+    cfg = ScenarioCfg(
+        id="pattern-paper-status-only",
+        pattern="paper",
+        handler_mode="status_only",
+        model="gpt-stub",
+        description="test",
+    )
+    responses = iter(_paper_stub_responses())
+
+    with patch("agent_cost_bench.eie.pattern_paper.call_llm",
+               side_effect=lambda **kw: next(responses)), \
+         patch("agent_cost_bench.eie.pattern_paper.dispatch_tool_call",
+               side_effect=_fake_dispatch), \
+         patch("agent_cost_bench.eie.runner.REPORTS_DIR", tmp_path):
+        out_path = run_scenario(cfg)
+
+    trace = json.loads(out_path.read_text())
+    assert "map_url" in trace
+    assert trace["map_url"] is None
+
+
+def test_trace_map_url_extracted_from_render_map_result(tmp_path):
+    """map_url is extracted from the tool result message for render_map."""
+    import json as _json
+    cfg = ScenarioCfg(
+        id="pattern-paper-key-fields",
+        pattern="paper",
+        handler_mode="key_fields",
+        model="gpt-stub",
+        description="test",
+    )
+    fake_map_url = "https://veda.example.com/map?collection=lis-global-da-gpp"
+
+    def _dispatch_with_map(name, args, handler, tool_call_id):
+        if name == "render_map":
+            return _json.dumps({"map_url": fake_map_url, "item_id": "item-1"})
+        return f"ok:{name}"
+
+    responses = iter([
+        _tc("parse_datetime", {"value": "June 2020"}, "tc-1"),
+        _tc("geocode", {"query": "mendocino", "level": "county"}, "tc-2"),
+        _tc("search_collections", {"query": "primary production"}, "tc-3"),
+        _tc("search_items", {"collection_id": "gpp", "bbox": [-124, 38, -122, 40],
+                              "datetime_range": "2020-06/2020-11"}, "tc-4"),
+        _tc("compute_stats", {"item_refs": [], "band": "cog_default",
+                               "geometry": {}}, "tc-5"),
+        _tc("render_map", {"collection_id": "lis-global-da-gpp",
+                            "item_id": "item-1",
+                            "bbox": [-124, 38, -122, 40]}, "tc-6"),
+        _final("Map: " + fake_map_url),
+    ])
+
+    with patch("agent_cost_bench.eie.pattern_paper.call_llm",
+               side_effect=lambda **kw: next(responses)), \
+         patch("agent_cost_bench.eie.pattern_paper.dispatch_tool_call",
+               side_effect=_dispatch_with_map), \
+         patch("agent_cost_bench.eie.runner.REPORTS_DIR", tmp_path):
+        out_path = run_scenario(cfg)
+
+    trace = json.loads(out_path.read_text())
+    assert trace["map_url"] == fake_map_url
+
+
+def test_trace_per_turn_tool_calls_detail(tmp_path):
+    """Each turn must include tool_calls_detail with name+args."""
+    cfg = ScenarioCfg(
+        id="pattern-paper-status-only",
+        pattern="paper",
+        handler_mode="status_only",
+        model="gpt-stub",
+        description="test",
+    )
+    responses = iter(_paper_stub_responses())
+
+    with patch("agent_cost_bench.eie.pattern_paper.call_llm",
+               side_effect=lambda **kw: next(responses)), \
+         patch("agent_cost_bench.eie.pattern_paper.dispatch_tool_call",
+               side_effect=_fake_dispatch), \
+         patch("agent_cost_bench.eie.runner.REPORTS_DIR", tmp_path):
+        out_path = run_scenario(cfg)
+
+    trace = json.loads(out_path.read_text())
+    # First turn calls parse_datetime
+    first_turn = trace["turns"][0]
+    assert "tool_calls_detail" in first_turn
+    assert len(first_turn["tool_calls_detail"]) == 1
+    detail = first_turn["tool_calls_detail"][0]
+    assert detail["name"] == "parse_datetime"
+    assert "args" in detail
+    # Existing tool_calls list still present for backward compat
+    assert "tool_calls" in first_turn
+    assert first_turn["tool_calls"] == ["parse_datetime"]
+
+
+def test_trace_per_turn_assistant_text(tmp_path):
+    """Turns with text content must expose it in assistant_text."""
+    cfg = ScenarioCfg(
+        id="pattern-paper-freeform",
+        pattern="paper",
+        handler_mode="freeform",
+        model="gpt-stub",
+        description="test",
+    )
+    responses = iter(_paper_enriched_responses())
+
+    with patch("agent_cost_bench.eie.pattern_paper.call_llm",
+               side_effect=lambda **kw: next(responses)), \
+         patch("agent_cost_bench.eie.pattern_paper.dispatch_tool_call",
+               side_effect=_fake_dispatch), \
+         patch("agent_cost_bench.eie.runner.REPORTS_DIR", tmp_path):
+        out_path = run_scenario(cfg)
+
+    trace = json.loads(out_path.read_text())
+    # First turn has text "Parsing date."
+    assert trace["turns"][0]["assistant_text"] == "Parsing date."
+    # Second turn has no text — must be empty string, not missing
+    assert "assistant_text" in trace["turns"][1]
+    assert trace["turns"][1]["assistant_text"] == ""
+
+
+def test_trace_per_turn_assistant_text_truncated_at_500(tmp_path):
+    """assistant_text is truncated to 500 chars."""
+    long_text = "w" * 1000
+    cfg = ScenarioCfg(
+        id="pattern-paper-status-only",
+        pattern="paper",
+        handler_mode="status_only",
+        model="gpt-stub",
+        description="test",
+    )
+    responses = iter([
+        _tc_with_text("parse_datetime", {"value": "June 2020"}, "tc-1", long_text),
+        _tc("geocode", {"query": "mendocino", "level": "county"}, "tc-2"),
+        _tc("search_collections", {"query": "primary production"}, "tc-3"),
+        _tc("search_items", {"collection_id": "gpp", "bbox": [-124, 38, -122, 40],
+                              "datetime_range": "2020-06/2020-11"}, "tc-4"),
+        _tc("compute_stats", {"item_refs": [], "band": "cog_default",
+                               "geometry": {}}, "tc-5"),
+        _final("done"),
+    ])
+
+    with patch("agent_cost_bench.eie.pattern_paper.call_llm",
+               side_effect=lambda **kw: next(responses)), \
+         patch("agent_cost_bench.eie.pattern_paper.dispatch_tool_call",
+               side_effect=_fake_dispatch), \
+         patch("agent_cost_bench.eie.runner.REPORTS_DIR", tmp_path):
+        out_path = run_scenario(cfg)
+
+    trace = json.loads(out_path.read_text())
+    assert len(trace["turns"][0]["assistant_text"]) <= 500

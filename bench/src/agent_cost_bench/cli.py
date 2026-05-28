@@ -271,6 +271,21 @@ def report_eie_templating() -> None:
     Console().print(f"[green]Report written:[/] {out}")
 
 
+@app.command(name="view-eie-templating")
+def view_eie_templating() -> None:
+    """Generate a self-contained HTML viewer for the eie-templating bench traces.
+
+    Reads the latest trace per (scenario_id, enforce_compute_stats, emit_map),
+    bakes all trace data and per-turn costs into a single HTML file, and prints
+    the output path. Open the file in any browser — no server required.
+
+    This command does not make any API calls or modify any cost measurements.
+    """
+    from .eie.viewer import build_viewer
+    out = build_viewer()
+    Console().print(f"[green]Viewer written:[/] {out}")
+
+
 # cli.py lives one level shallower than eie/runner.py, so parents[2] (not [3])
 # resolves to bench/, matching REPORTS_DIR where trace JSONs are written.
 _EIE_PREVIEWS_DIR = Path(__file__).resolve().parents[2] / "reports" / "eie-templating"
