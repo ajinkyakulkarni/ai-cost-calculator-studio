@@ -1,0 +1,61 @@
+{
+  "scenario_id": "pattern-paper-key-fields",
+  "pattern": "paper",
+  "handler_mode": "key_fields",
+  "model": "gpt-5.2",
+  "enforce_compute_stats": false,
+  "emit_map": true,
+  "turn_count": 5,
+  "elapsed_s": 24.289597749710083,
+  "totals": {
+    "input_tokens": 10786,
+    "output_tokens": 1552,
+    "cached_tokens": 6528,
+    "cache_hit_rate": 0.6052290005562767
+  },
+  "per_turn_avg": {
+    "input_tokens": 2157.2,
+    "output_tokens": 310.4
+  },
+  "turns": [
+    {
+      "input_tokens": 769,
+      "output_tokens": 65,
+      "cached_tokens": 0,
+      "tool_calls": [
+        "parse_datetime",
+        "geocode"
+      ]
+    },
+    {
+      "input_tokens": 912,
+      "output_tokens": 58,
+      "cached_tokens": 0,
+      "tool_calls": [
+        "search_items"
+      ]
+    },
+    {
+      "input_tokens": 2102,
+      "output_tokens": 1152,
+      "cached_tokens": 0,
+      "tool_calls": [
+        "compute_stats"
+      ]
+    },
+    {
+      "input_tokens": 3402,
+      "output_tokens": 64,
+      "cached_tokens": 3200,
+      "tool_calls": [
+        "render_map"
+      ]
+    },
+    {
+      "input_tokens": 3601,
+      "output_tokens": 213,
+      "cached_tokens": 3328,
+      "tool_calls": []
+    }
+  ]
+}
