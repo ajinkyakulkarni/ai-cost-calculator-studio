@@ -34,14 +34,14 @@ def _cost_per_query(t: dict) -> float:
     )
 
 
-def _latest_traces() -> dict[tuple[str, bool], dict]:
-    """Map (scenario_id, enforce_compute_stats) → latest trace dict.
+def _latest_traces() -> dict[tuple[str, bool, bool], dict]:
+    """Map (scenario_id, enforce_compute_stats, emit_map) → latest trace dict.
 
-    Natural and forced variants of the same scenario_id are kept as
-    separate entries so the report can show both.  Old traces without
-    the ``enforce_compute_stats`` field are treated as natural (False).
+    Natural, forced, and map variants of the same scenario_id are kept as
+    separate entries so the report can show all three.  Old traces without
+    ``enforce_compute_stats`` or ``emit_map`` fields are treated as False.
     """
-    by_key: dict[tuple[str, bool], tuple[float, dict]] = {}
+    by_key: dict[tuple[str, bool, bool], tuple[float, dict]] = {}
     for p in REPORTS_DIR.glob("*.trace.json"):
         try:
             with p.open() as f:
@@ -49,7 +49,8 @@ def _latest_traces() -> dict[tuple[str, bool], dict]:
             mtime = p.stat().st_mtime
             sid = t["scenario_id"]
             forced = bool(t.get("enforce_compute_stats", False))
-            key = (sid, forced)
+            with_map = bool(t.get("emit_map", False))
+            key = (sid, forced, with_map)
             if key not in by_key or mtime > by_key[key][0]:
                 by_key[key] = (mtime, t)
         except (json.JSONDecodeError, KeyError, ValueError):
@@ -64,13 +65,14 @@ def emit_report() -> Path:
     out = REPORTS_DIR / f"{ts}-summary.md"
 
     rows: list[dict] = []
-    for (sid, forced), t in traces.items():
+    for (sid, forced, with_map), t in traces.items():
         cost = _cost_per_query(t)
         rows.append({
             "id": sid,
             "pattern": t["pattern"],
             "mode": t["handler_mode"],
             "forced": forced,
+            "with_map": with_map,
             "turns": t["turn_count"],
             "in_per_turn": t["per_turn_avg"]["input_tokens"],
             "out_per_turn": t["per_turn_avg"]["output_tokens"],
@@ -78,44 +80,46 @@ def emit_report() -> Path:
             "cost_per_q": cost,
             "monthly": cost * MONTHLY_QUERIES,
         })
-    rows.sort(key=lambda r: (r["pattern"], r["mode"], r["forced"]))
+    rows.sort(key=lambda r: (r["pattern"], r["mode"], r["forced"], r["with_map"]))
 
     lines: list[str] = []
     lines.append(f"# eie-templating bench summary — {ts}\n")
     lines.append("## Per-scenario results\n")
     lines.append(
-        "| scenario | pattern | mode | forced | turns | tok/turn (in) | tok/turn (out)"
+        "| scenario | pattern | mode | forced | map | turns | tok/turn (in) | tok/turn (out)"
         " | cache hit % | $/query | $/month @ 915K |"
     )
-    lines.append("|---|---|---|---|---:|---:|---:|---:|---:|---:|")
+    lines.append("|---|---|---|---|---|---:|---:|---:|---:|---:|---:|")
     for r in rows:
         forced_label = "Y" if r["forced"] else "N"
+        map_label = "Y" if r["with_map"] else "N"
         lines.append(
-            f"| {r['id']} | {r['pattern']} | {r['mode']} | {forced_label} | {r['turns']} | "
+            f"| {r['id']} | {r['pattern']} | {r['mode']} | {forced_label} | {map_label} | {r['turns']} | "
             f"{r['in_per_turn']:.0f} | {r['out_per_turn']:.0f} | "
             f"{r['cache_hit_pct']:.1f}% | ${r['cost_per_q']:.4f} | ${r['monthly']:,.0f} |"
         )
 
     lines.append("\n## Ratio rows\n")
+    # Ratio rows use only the base (no-map) runs to preserve comparability.
     for pattern in ("paper", "eie"):
         for forced in (False, True):
             variant_label = "forced" if forced else "natural"
             a = next(
                 (r for r in rows
                  if r["pattern"] == pattern and r["mode"] == "status_only"
-                 and r["forced"] == forced),
+                 and r["forced"] == forced and not r["with_map"]),
                 None,
             )
             b = next(
                 (r for r in rows
                  if r["pattern"] == pattern and r["mode"] == "key_fields"
-                 and r["forced"] == forced),
+                 and r["forced"] == forced and not r["with_map"]),
                 None,
             )
             c = next(
                 (r for r in rows
                  if r["pattern"] == pattern and r["mode"] == "freeform"
-                 and r["forced"] == forced),
+                 and r["forced"] == forced and not r["with_map"]),
                 None,
             )
             if a and b and c and a["cost_per_q"] > 0 and b["cost_per_q"] > 0:

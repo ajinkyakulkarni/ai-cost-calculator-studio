@@ -30,6 +30,7 @@ from .schemas import (
     ComputeStatsReturn,
     GeocodeReturn,
     ParseDatetimeReturn,
+    RenderMapReturn,
     SearchCollectionsReturn,
     SearchItemsReturn,
     StatusReturn,
@@ -79,6 +80,8 @@ class StatusOnlyHandler:
                 f"mean={raw.mean:.2f}, median={raw.median:.2f}, "
                 f"min={raw.min:.2f}, max={raw.max:.2f}"
             )
+        if isinstance(raw, RenderMapReturn):
+            return f"map ready: {raw.map_url}"
         return f"{tool_name} returned (untyped payload)"
 
 

@@ -75,7 +75,7 @@ def test_latest_traces_returns_six(reports_dir):
 
     assert len(traces) == 6
     for sid, _, _ in _SCENARIOS:
-        assert (sid, False) in traces
+        assert (sid, False, False) in traces
 
 
 def test_latest_traces_picks_newer_file(tmp_path):
@@ -97,7 +97,7 @@ def test_latest_traces_picks_newer_file(tmp_path):
     with patch.object(rmod, "REPORTS_DIR", tmp_path):
         traces = rmod._latest_traces()
 
-    assert traces[(sid, False)]["totals"]["input_tokens"] == 9_999
+    assert traces[(sid, False, False)]["totals"]["input_tokens"] == 9_999
 
 
 def test_latest_traces_skips_malformed(tmp_path):
@@ -267,8 +267,8 @@ def test_latest_traces_two_variants_produce_two_entries(tmp_path):
     # Must produce two distinct entries, not one
     assert len(traces) == 2
     keys = list(traces.keys())
-    assert (sid, False) in keys
-    assert (sid, True) in keys
+    assert (sid, False, False) in keys
+    assert (sid, True, False) in keys
 
 
 def test_emit_report_two_variants_produce_two_rows(tmp_path):
@@ -321,4 +321,4 @@ def test_latest_traces_backward_compat_no_field(tmp_path):
         traces = rmod._latest_traces()
 
     assert len(traces) == 1
-    assert (sid, False) in traces
+    assert (sid, False, False) in traces

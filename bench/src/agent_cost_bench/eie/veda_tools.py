@@ -27,6 +27,7 @@ from .schemas import (
     ComputeStatsReturn,
     GeocodeReturn,
     ParseDatetimeReturn,
+    RenderMapReturn,
     SearchCollectionsReturn,
     SearchItemsReturn,
     StacItemFields,
@@ -326,4 +327,43 @@ def compute_stats(
         min=float(min(all_mins)),
         max=float(max(all_maxs)),
         per_item=per_item,
+    )
+
+
+def render_map(
+    collection_id: str,
+    item_id: str,
+    bbox: tuple[float, float, float, float],
+    colormap: str = "viridis",
+) -> RenderMapReturn:
+    """Return a map layer URL for the given STAC item and bbox.
+
+    Deterministic, no network call — returns the VEDA raster /bbox PNG URL
+    that a map widget would load to render the layer. The agent emits this
+    URL verbatim in its final answer, mirroring real EIE behaviour.
+
+    Parameters
+    ----------
+    collection_id:
+        STAC collection identifier.
+    item_id:
+        STAC item identifier (use the first item from a prior search_items call).
+    bbox:
+        Bounding box as ``(minx, miny, maxx, maxy)`` in WGS-84 decimal degrees.
+    colormap:
+        TiTiler-compatible colormap name. Defaults to ``"viridis"``.
+
+    Returns
+    -------
+    RenderMapReturn
+        Typed return carrying the full map layer URL and the echo-back fields.
+    """
+    from .map_preview import build_preview_url  # local import avoids circular at module load
+
+    url = build_preview_url(collection_id, item_id, bbox, colormap=colormap)
+    return RenderMapReturn(
+        map_url=url,
+        item_id=item_id,
+        collection_id=collection_id,
+        colormap=colormap,
     )

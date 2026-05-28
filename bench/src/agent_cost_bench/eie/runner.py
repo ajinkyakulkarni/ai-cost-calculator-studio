@@ -49,6 +49,7 @@ def run_scenario(cfg: ScenarioCfg, max_turns: int = 30) -> Path:
             handler=handler,
             model=cfg.model,
             enforce_compute_stats=cfg.enforce_compute_stats,
+            emit_map=cfg.emit_map,
         )
     elif cfg.pattern == "eie":
         actor = UserActor.frozen_default()
@@ -58,6 +59,7 @@ def run_scenario(cfg: ScenarioCfg, max_turns: int = 30) -> Path:
             user_actor=actor,
             model=cfg.model,
             enforce_compute_stats=cfg.enforce_compute_stats,
+            emit_map=cfg.emit_map,
         )
     else:
         raise ValueError(f"unknown pattern: {cfg.pattern!r}")
@@ -125,6 +127,7 @@ def _build_trace(cfg: ScenarioCfg, final_state: dict[str, Any], elapsed_s: float
         "handler_mode": cfg.handler_mode,
         "model": cfg.model,
         "enforce_compute_stats": cfg.enforce_compute_stats,
+        "emit_map": cfg.emit_map,
         "turn_count": n_turns,
         "elapsed_s": elapsed_s,
         "totals": {

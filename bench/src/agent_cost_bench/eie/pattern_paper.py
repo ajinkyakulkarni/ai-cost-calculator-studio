@@ -20,7 +20,7 @@ from typing import Annotated, Any, TypedDict
 from langgraph.graph import END, START, StateGraph
 from langgraph.graph.message import add_messages
 
-from .dispatch import TOOL_SCHEMAS, dispatch_tool_call
+from .dispatch import get_tool_schemas, dispatch_tool_call
 from .provider_shim import call_llm
 
 
@@ -43,6 +43,12 @@ FORCE_COMPUTE_STATS_INSTRUCTION = (
     "aggregates. Do not produce the final answer without first invoking compute_stats."
 )
 
+RENDER_MAP_INSTRUCTION = (
+    "After compute_stats, call render_map with the same collection_id, item_id "
+    "(use the first item), and bbox to produce a map layer URL, then include that "
+    "URL verbatim in your final answer."
+)
+
 PAPER_USER_QUERY = (
     "Visualize gross primary production (GPP) from the NASA VEDA STAC collection "
     "'lis-global-da-gpp' over Mendocino County, California, June 2020 to November 2020. "
@@ -56,6 +62,7 @@ class State(TypedDict):
     handler_ref: Any  # the StatusOnly/KeyFields/Freeform handler instance
     model: str
     turn_count: int
+    emit_map: bool
 
 
 def _agent_step(state: State) -> dict[str, Any]:
@@ -63,7 +70,7 @@ def _agent_step(state: State) -> dict[str, Any]:
     msg = call_llm(
         model=state.get("model", "gpt-5.2"),
         messages=state["messages"],
-        tools=TOOL_SCHEMAS,
+        tools=get_tool_schemas(with_map=state.get("emit_map", False)),
         temperature=0.0,
     )
     return {"messages": [msg], "turn_count": state["turn_count"] + 1}
@@ -132,10 +139,13 @@ def initial_state(
     handler: Any,
     model: str = "gpt-5.2",
     enforce_compute_stats: bool = False,
+    emit_map: bool = False,
 ) -> State:
     system_prompt = PAPER_SYSTEM_PROMPT
     if enforce_compute_stats:
         system_prompt = system_prompt + "\n\n" + FORCE_COMPUTE_STATS_INSTRUCTION
+    if emit_map:
+        system_prompt = system_prompt + "\n\n" + RENDER_MAP_INSTRUCTION
     return {
         "messages": [
             {"role": "system", "content": system_prompt},
@@ -144,4 +154,5 @@ def initial_state(
         "handler_ref": handler,
         "model": model,
         "turn_count": 0,
+        "emit_map": emit_map,
     }

@@ -72,6 +72,13 @@ class ComputeStatsReturn(BaseModel):
     per_item: list[dict[str, Any]]
 
 
+class RenderMapReturn(BaseModel):
+    map_url: str
+    item_id: str
+    collection_id: str
+    colormap: str
+
+
 class StatusReturn(BaseModel):
     ok: bool
     summary: str

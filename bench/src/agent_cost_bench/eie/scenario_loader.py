@@ -16,6 +16,7 @@ class ScenarioCfg:
     model: str           # litellm model identifier
     description: str
     enforce_compute_stats: bool = False
+    emit_map: bool = False
 
 
 def load_scenario(path: Path) -> ScenarioCfg:
@@ -28,4 +29,5 @@ def load_scenario(path: Path) -> ScenarioCfg:
         model=data.get("model", "gpt-5.2"),
         description=data.get("description", ""),
         enforce_compute_stats=data.get("enforce_compute_stats", False),
+        emit_map=data.get("emit_map", False),
     )
