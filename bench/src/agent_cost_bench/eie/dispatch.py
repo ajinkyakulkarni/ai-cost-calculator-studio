@@ -206,17 +206,27 @@ def dispatch_tool_call(name: str, args: dict[str, Any], handler: Handler, tool_c
         # and must issue an additional search_items call — that extra turn's
         # cost IS part of mode A's true cost and must be counted in the trace.
         raw_refs = args.get("item_refs")
-        if not raw_refs:
-            raise ValueError(
-                "item_refs must be a non-empty list of STAC item objects from a "
-                "prior search_items call. Call search_items first to obtain them."
-            )
-        # Accept either StacItemFields instances or plain dicts (the LLM
-        # serialises tool results as JSON, so dicts are the normal case).
-        items = [
-            ref if isinstance(ref, StacItemFields) else StacItemFields(**ref)
-            for ref in raw_refs
-        ]
+        if raw_refs:
+            # Accept either StacItemFields instances or plain dicts (the LLM
+            # serialises tool results as JSON, so dicts are the normal case).
+            items = [
+                ref if isinstance(ref, StacItemFields) else StacItemFields(**ref)
+                for ref in raw_refs
+            ]
+        else:
+            # Empty item_refs. In status-only mode the agent only saw a count
+            # summary, so it cannot echo the items back — recover the ones it
+            # already fetched from the handler's server-side state. The agent
+            # still paid for the search_items turn; this just lets it use that
+            # result. If the handler has no stashed search_items (agent never
+            # searched), recover() returns None and we raise as before.
+            recover = getattr(handler, "recover_search_items", None)
+            items = recover() if callable(recover) else None
+            if not items:
+                raise ValueError(
+                    "item_refs must be a non-empty list of STAC item objects from a "
+                    "prior search_items call. Call search_items first to obtain them."
+                )
         raw = veda_tools.compute_stats(items, args["band"], args["geometry"])
     else:
         raise ValueError(f"unknown tool: {name!r}")

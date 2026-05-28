@@ -94,3 +94,41 @@ def test_compute_stats_missing_item_refs_raises():
 
     with pytest.raises((ValueError, KeyError)):
         dispatch_tool_call("compute_stats", args, h, "tc_cs_03")
+
+
+def test_compute_stats_status_mode_recovers_stashed_items():
+    """In status-only mode the agent passes empty item_refs (it never saw the
+    items), but it DID call search_items. Dispatch must recover those stashed
+    items from the handler's state and compute — not raise."""
+    from agent_cost_bench.eie.schemas import SearchItemsReturn, ComputeStatsReturn
+
+    h = StatusOnlyHandler()
+    items = [
+        StacItemFields(
+            id="LIS_GPP_202008010000.d01.cog",
+            datetime="2020-08-01T00:00:00Z",
+            bbox=(-123.89, 38.76, -122.82, 40.0),
+            primary_asset_url="https://example.org/x.tif",
+            collection_id="lis-global-da-gpp",
+        )
+    ]
+    # Agent called search_items earlier — stashed server-side, agent saw only a count.
+    h.wrap("search_items", "tc_si", SearchItemsReturn(items=items, total_matched=1))
+
+    fake = ComputeStatsReturn(
+        band="cog_default", n_items=1, mean=3e-05, median=3e-05, min=1e-06, max=2e-04, per_item=[]
+    )
+    with patch(
+        "agent_cost_bench.eie.dispatch.veda_tools.compute_stats", return_value=fake
+    ) as mock_compute:
+        out = dispatch_tool_call(
+            "compute_stats",
+            {"item_refs": [], "band": "gpp", "geometry": _GEOMETRY},
+            h, "tc_cs_recover",
+        )
+    # Used the recovered item, did not raise.
+    called_items = mock_compute.call_args[0][0]
+    assert len(called_items) == 1
+    assert called_items[0].id == "LIS_GPP_202008010000.d01.cog"
+    parsed = json.loads(out)
+    assert parsed["ok"] is True
