@@ -205,6 +205,66 @@ def test_render_preview_custom_asset(httpx_mock: HTTPXMock) -> None:
 
 
 # ---------------------------------------------------------------------------
+# CLI wiring — the preview must crop to the geocoded AOI, NOT the item's own
+# bbox. Every lis-global-da-gpp item carries the whole-globe extent as its
+# bbox; passing that to render_preview renders the entire world instead of
+# the county. This regression test pins the correct wiring.
+# ---------------------------------------------------------------------------
+
+def test_cli_preview_uses_aoi_bbox_not_item_bbox(monkeypatch) -> None:
+    from typer.testing import CliRunner
+
+    from agent_cost_bench import cli
+    from agent_cost_bench.eie.schemas import GeocodeReturn, SearchItemsReturn, StacItemFields
+
+    aoi_bbox = (-123.89, 38.756, -122.819, 40.005)
+    world_bbox = (-180.0, -90.0, 180.0, 90.0)  # what GPP items actually report
+
+    # The command imports geocode/search_items/render_preview INSIDE the
+    # function body from their source modules, so patch the source modules.
+    from agent_cost_bench.eie import veda_tools
+    monkeypatch.setattr(
+        veda_tools, "geocode",
+        lambda *a, **k: GeocodeReturn(admin_name="Mendocino County", admin_level="county", bbox=aoi_bbox),
+    )
+    monkeypatch.setattr(
+        veda_tools, "search_items",
+        lambda *a, **k: SearchItemsReturn(
+            items=[StacItemFields(
+                id="LIS_GPP_202008010000.d01.cog",
+                datetime="2020-08-01T00:00:00Z",
+                bbox=world_bbox,
+                primary_asset_url="https://example.org/x.tif",
+                collection_id="lis-global-da-gpp",
+            )],
+            total_matched=1,
+        ),
+    )
+
+    seen: list[tuple] = []
+
+    def _fake_render(collection_id, item_id, bbox, **kwargs):
+        seen.append(bbox)
+        return b"\x89PNG\r\n\x1a\n"
+
+    from agent_cost_bench.eie import map_preview
+    monkeypatch.setattr(map_preview, "render_preview", _fake_render)
+
+    result = CliRunner().invoke(
+        cli.app,
+        ["preview-eie-templating", "--max-items", "1"],
+    )
+    assert result.exit_code == 0, result.output
+    assert seen, "render_preview was never called"
+    # The bbox handed to render_preview must be the geocoded AOI, not the
+    # item's whole-globe bbox.
+    assert tuple(seen[0]) == aoi_bbox, (
+        f"preview cropped to {seen[0]!r}; expected AOI {aoi_bbox!r} "
+        "(regression: item.bbox is the whole globe)"
+    )
+
+
+# ---------------------------------------------------------------------------
 # Helpers — not tests
 # ---------------------------------------------------------------------------
 

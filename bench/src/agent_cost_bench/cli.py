@@ -252,7 +252,9 @@ def report_eie_templating() -> None:
     Console().print(f"[green]Report written:[/] {out}")
 
 
-_EIE_PREVIEWS_DIR = Path(__file__).resolve().parents[3] / "reports" / "eie-templating"
+# cli.py lives one level shallower than eie/runner.py, so parents[2] (not [3])
+# resolves to bench/, matching REPORTS_DIR where trace JSONs are written.
+_EIE_PREVIEWS_DIR = Path(__file__).resolve().parents[2] / "reports" / "eie-templating"
 
 
 @app.command(name="preview-eie-templating")
@@ -311,7 +313,8 @@ def preview_eie_templating(
             png_bytes = render_preview(
                 collection,
                 item.id,
-                tuple(item.bbox),  # type: ignore[arg-type]
+                bbox,  # the geocoded county AOI, NOT item.bbox (which is the
+                       # whole-globe extent of the GPP grid → renders the world)
                 colormap=colormap,
             )
             out_path.write_bytes(png_bytes)
