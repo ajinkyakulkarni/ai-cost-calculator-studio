@@ -33,4 +33,26 @@ Each run writes a trace JSON to `bench/reports/eie-templating/`. The report aggr
 | `scenario_loader.py` | YAML → `ScenarioCfg` |
 | `report.py` | Trace JSONs → markdown summary |
 
-Scenario YAMLs: `bench/scenarios/eie-templating/`. Design + rationale: `bench/docs/specs/2026-05-26-eie-templating-three-way-bench-design.md`. Tests: `bench/tests/eie/` (118 tests, all mocked HTTP via `pytest-httpx`).
+Scenario YAMLs: `bench/scenarios/eie-templating/`. Design + rationale: `bench/docs/specs/2026-05-26-eie-templating-three-way-bench-design.md`. Tests: `bench/tests/eie/` (128 tests, all mocked HTTP via `pytest-httpx`).
+
+## Map previews
+
+A standalone utility for eyeballing the geospatial layer an agent computed stats over. **Completely decoupled from the cost-measuring path** — it does not involve the LLM, does not affect token counts, and does not require an OpenAI key.
+
+```bash
+cd bench
+# Fetch PNG previews for the first 3 items in the default collection
+python -m agent_cost_bench.cli preview-eie-templating
+
+# Custom county, collection, and colormap
+python -m agent_cost_bench.cli preview-eie-templating \
+    --county "Sonoma County, California" \
+    --collection "lis-global-da-gpp" \
+    --datetime "2020-06-01/2020-09-01" \
+    --max-items 5 \
+    --colormap plasma
+```
+
+Each preview is saved to `bench/reports/eie-templating/preview-{item_id}.png` (400×400 PNG, viridis colormap by default). One bad item does not abort the rest — the command continues and prints a warning.
+
+The underlying function is `map_preview.render_preview()` in `map_preview.py`. It calls the VEDA raster `/bbox` endpoint directly and raises a clear `ValueError` (rather than silently writing HTML) when the collection or item id is wrong — the same defensive pattern used by `compute_stats`.
