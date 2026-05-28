@@ -75,11 +75,81 @@ def run_scenario(cfg: ScenarioCfg, max_turns: int = 30) -> Path:
     return out_path
 
 
+def _extract_text_content(msg: Any) -> str:
+    """Return the text content of a message (raw dict or LangChain object)."""
+    if isinstance(msg, dict):
+        content = msg.get("content") or ""
+    else:
+        content = getattr(msg, "content", "") or ""
+    if isinstance(content, str):
+        return content
+    # LangChain can store content as a list of content blocks
+    if isinstance(content, list):
+        parts = []
+        for block in content:
+            if isinstance(block, str):
+                parts.append(block)
+            elif isinstance(block, dict):
+                parts.append(block.get("text") or "")
+        return "".join(parts)
+    return ""
+
+
+def _extract_map_url_from_messages(messages: list[Any]) -> str | None:
+    """Scan tool result messages for a render_map result containing map_url.
+
+    Tool result messages have role 'tool'. Their content is the string returned
+    by the handler — for KeyFields/Freeform it is JSON with a ``map_url`` key;
+    for StatusOnly it is a JSON object with ``summary`` containing the URL.
+    """
+    for msg in messages:
+        role = msg.get("role") if isinstance(msg, dict) else getattr(msg, "type", None)
+        if role not in ("tool", "function"):
+            continue
+        content = _extract_text_content(msg)
+        if not content:
+            continue
+        # Try to parse as JSON and look for map_url
+        try:
+            parsed = json.loads(content)
+            if isinstance(parsed, dict):
+                if "map_url" in parsed:
+                    return str(parsed["map_url"])
+                # StatusOnly wraps map_url in summary: "map ready: <url>"
+                summary = parsed.get("summary") or ""
+                if summary.startswith("map ready: "):
+                    return summary[len("map ready: "):]
+        except (json.JSONDecodeError, ValueError):
+            pass
+    return None
+
+
 def _build_trace(cfg: ScenarioCfg, final_state: dict[str, Any], elapsed_s: float) -> dict[str, Any]:
     """Aggregate per-turn usage and build a trace dict."""
     messages = final_state.get("messages", [])
     turns: list[dict[str, Any]] = []
     total_input = total_output = total_cached = 0
+
+    # Extract top-level enrichment fields from messages
+    # LangGraph converts {"role": "user", ...} dicts to HumanMessage (type="human")
+    user_query: str = ""
+    for msg in messages:
+        role = msg.get("role") if isinstance(msg, dict) else getattr(msg, "type", None)
+        if role in ("user", "human"):
+            user_query = _extract_text_content(msg)
+            break
+
+    final_answer: str = ""
+    for msg in reversed(messages):
+        role = msg.get("role") if isinstance(msg, dict) else getattr(msg, "type", None)
+        if role in ("assistant", "ai"):
+            text = _extract_text_content(msg)
+            if text:
+                final_answer = text[:2000]
+                break
+
+    map_url: str | None = _extract_map_url_from_messages(messages)
+
     for msg in messages:
         # Support both raw dict messages and LangChain message objects
         role = msg.get("role") if isinstance(msg, dict) else getattr(msg, "type", None)
@@ -102,18 +172,31 @@ def _build_trace(cfg: ScenarioCfg, final_state: dict[str, Any], elapsed_s: float
         tool_calls_raw = (msg.get("tool_calls") if isinstance(msg, dict)
                           else getattr(msg, "tool_calls", None)) or []
         tool_names: list[str] = []
+        tool_calls_detail: list[dict[str, Any]] = []
         for tc in tool_calls_raw:
             if isinstance(tc, dict) and "function" in tc:
-                tool_names.append(tc["function"]["name"])
+                name = tc["function"]["name"]
+                raw_args = tc["function"].get("arguments") or "{}"
+                try:
+                    args = json.loads(raw_args) if isinstance(raw_args, str) else raw_args
+                except (json.JSONDecodeError, ValueError):
+                    args = {}
             elif isinstance(tc, dict):
-                tool_names.append(tc.get("name", "unknown"))
+                name = tc.get("name", "unknown")
+                args = tc.get("args") or {}
             else:
-                tool_names.append(getattr(tc, "name", "unknown"))
+                name = getattr(tc, "name", "unknown")
+                args = getattr(tc, "args", {}) or {}
+            tool_names.append(name)
+            tool_calls_detail.append({"name": name, "args": args})
+        assistant_text = _extract_text_content(msg)[:500]
         turns.append({
             "input_tokens": in_t,
             "output_tokens": out_t,
             "cached_tokens": cached,
             "tool_calls": tool_names,
+            "tool_calls_detail": tool_calls_detail,
+            "assistant_text": assistant_text,
         })
         total_input += in_t
         total_output += out_t
@@ -129,6 +212,9 @@ def _build_trace(cfg: ScenarioCfg, final_state: dict[str, Any], elapsed_s: float
         "emit_map": cfg.emit_map,
         "turn_count": n_turns,
         "elapsed_s": elapsed_s,
+        "user_query": user_query,
+        "final_answer": final_answer,
+        "map_url": map_url,
         "totals": {
             "input_tokens": total_input,
             "output_tokens": total_output,
