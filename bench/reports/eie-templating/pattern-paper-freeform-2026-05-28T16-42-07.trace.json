@@ -1,0 +1,638 @@
+{
+  "scenario_id": "pattern-paper-freeform",
+  "pattern": "paper",
+  "handler_mode": "freeform",
+  "model": "gpt-5.2",
+  "enforce_compute_stats": false,
+  "emit_map": true,
+  "turn_count": 6,
+  "elapsed_s": 78.04549074172974,
+  "user_query": "Visualize gross primary production (GPP) from the NASA VEDA STAC collection 'lis-global-da-gpp' over Mendocino County, California, June 2020 to November 2020. Use collection_id='lis-global-da-gpp' literally in tool calls. Report mean/median/min/max plus per-month values.",
+  "final_answer": "Mendocino County, CA (bbox [-123.89, 38.756, -122.819, 40.005]), lis-global-da-gpp, 2020-06-28/2020-11-28: item search returned only **Nov 2020 daily** items in this window (n=20; 2020-11-09..2020-11-28), so per-month values are **Nov only**. Over the AOI (band used for stats: `cog_default`): overall **mean=2.8617111462718237e-05**, **median=9.143825081991963e-06**, **min=8.819054861386455e-12**, **max=0.0001734418619889766**; daily means show a mild decline from ~3.08e-05 (Nov 20) toward ~2.83e-05 (Nov 16) with day-to-day variability. Per-month mean (from available items): **2020-11: 2.8617111462718237e-05**.\n\nPer-item (daily) AOI mean values:\n- 2020-11-09: 2.7074259603633338e-05\n- 2020-11-10: 2.6878021770463808e-05\n- 2020-11-11: 2.698701609576684e-05\n- 2020-11-12: 2.688650564718739e-05\n- 2020-11-13: 2.736293570656761e-05\n- 2020-11-14: 2.7719691933899673e-05\n- 2020-11-15: 2.8094471050419285e-05\n- 2020-11-16: 2.8299842812674934e-05\n- 2020-11-17: 2.8603409012548447e-05\n- 2020-11-18: 2.9584868487515313e-05\n- 2020-11-19: 3.038465513647839e-05\n- 2020-11-20: 3.078380453996731e-05\n- 2020-11-21: 2.975501177323983e-05\n- 2020-11-22: 2.8934193574775944e-05\n- 2020-11-23: 2.9338031043564054e-05\n- 2020-11-24: 2.934796016496144e-05\n- 2020-11-25: 2.8933348199708723e-05\n- 2020-11-26: 2.928877781918931e-05\n- 2020-11-27: 2.8808799357265068e-05\n- 2020-11-28: 2.9276625524537955e-05\n\nMap layer URL (first item): https://openveda.cloud/api/raster/collections/lis-global-da-gpp/items/LIS_GPP_202011280000.d01.cog/bbox/-123.8900,38.7560,-122.8190,40.0050.png?assets=cog_default&rescale=0.0%2C0.0002&colormap_name=viridis&width=400&height=400",
+  "map_url": "https://openveda.cloud/api/raster/collections/lis-global-da-gpp/items/LIS_GPP_202011280000.d01.cog/bbox/-123.8900,38.7560,-122.8190,40.0050.png?assets=cog_default&rescale=0.0%2C0.0002&colormap_name=viridis&width=400&height=400",
+  "totals": {
+    "input_tokens": 134658,
+    "output_tokens": 5491,
+    "cached_tokens": 101376,
+    "cache_hit_rate": 0.7528405293409972
+  },
+  "per_turn_avg": {
+    "input_tokens": 22443.0,
+    "output_tokens": 915.1666666666666
+  },
+  "turns": [
+    {
+      "input_tokens": 769,
+      "output_tokens": 65,
+      "cached_tokens": 0,
+      "tool_calls": [
+        "parse_datetime",
+        "geocode"
+      ],
+      "tool_calls_detail": [
+        {
+          "name": "parse_datetime",
+          "args": {
+            "value": "June 2020 to November 2020"
+          }
+        },
+        {
+          "name": "geocode",
+          "args": {
+            "query": "Mendocino County, California",
+            "level": "county"
+          }
+        }
+      ],
+      "assistant_text": ""
+    },
+    {
+      "input_tokens": 912,
+      "output_tokens": 63,
+      "cached_tokens": 0,
+      "tool_calls": [
+        "search_items"
+      ],
+      "tool_calls_detail": [
+        {
+          "name": "search_items",
+          "args": {
+            "collection_id": "lis-global-da-gpp",
+            "bbox": [
+              -123.89,
+              38.756,
+              -122.819,
+              40.005
+            ],
+            "datetime_range": "2020-06-28/2020-11-28",
+            "band": "gpp"
+          }
+        }
+      ],
+      "assistant_text": ""
+    },
+    {
+      "input_tokens": 29545,
+      "output_tokens": 2262,
+      "cached_tokens": 0,
+      "tool_calls": [
+        "compute_stats"
+      ],
+      "tool_calls_detail": [
+        {
+          "name": "compute_stats",
+          "args": {
+            "item_refs": [
+              {
+                "id": "LIS_GPP_202011280000.d01.cog",
+                "datetime": "2020-11-28T00:00:00+00:00",
+                "bbox": [
+                  -179.9500000157243,
+                  -59.98224871364589,
+                  179.9973980503783,
+                  89.9999999874719
+                ],
+                "primary_asset_url": "s3://veda-data-store/lis-global-da-gpp/LIS_GPP_202011280000.d01.cog.tif",
+                "collection_id": "lis-global-da-gpp"
+              },
+              {
+                "id": "LIS_GPP_202011270000.d01.cog",
+                "datetime": "2020-11-27T00:00:00+00:00",
+                "bbox": [
+                  -179.9500000157243,
+                  -59.98224871364589,
+                  179.9973980503783,
+                  89.9999999874719
+                ],
+                "primary_asset_url": "s3://veda-data-store/lis-global-da-gpp/LIS_GPP_202011270000.d01.cog.tif",
+                "collection_id": "lis-global-da-gpp"
+              },
+              {
+                "id": "LIS_GPP_202011260000.d01.cog",
+                "datetime": "2020-11-26T00:00:00+00:00",
+                "bbox": [
+                  -179.9500000157243,
+                  -59.98224871364589,
+                  179.9973980503783,
+                  89.9999999874719
+                ],
+                "primary_asset_url": "s3://veda-data-store/lis-global-da-gpp/LIS_GPP_202011260000.d01.cog.tif",
+                "collection_id": "lis-global-da-gpp"
+              },
+              {
+                "id": "LIS_GPP_202011250000.d01.cog",
+                "datetime": "2020-11-25T00:00:00+00:00",
+                "bbox": [
+                  -179.9500000157243,
+                  -59.98224871364589,
+                  179.9973980503783,
+                  89.9999999874719
+                ],
+                "primary_asset_url": "s3://veda-data-store/lis-global-da-gpp/LIS_GPP_202011250000.d01.cog.tif",
+                "collection_id": "lis-global-da-gpp"
+              },
+              {
+                "id": "LIS_GPP_202011240000.d01.cog",
+                "datetime": "2020-11-24T00:00:00+00:00",
+                "bbox": [
+                  -179.9500000157243,
+                  -59.98224871364589,
+                  179.9973980503783,
+                  89.9999999874719
+                ],
+                "primary_asset_url": "s3://veda-data-store/lis-global-da-gpp/LIS_GPP_202011240000.d01.cog.tif",
+                "collection_id": "lis-global-da-gpp"
+              },
+              {
+                "id": "LIS_GPP_202011230000.d01.cog",
+                "datetime": "2020-11-23T00:00:00+00:00",
+                "bbox": [
+                  -179.9500000157243,
+                  -59.98224871364589,
+                  179.9973980503783,
+                  89.9999999874719
+                ],
+                "primary_asset_url": "s3://veda-data-store/lis-global-da-gpp/LIS_GPP_202011230000.d01.cog.tif",
+                "collection_id": "lis-global-da-gpp"
+              },
+              {
+                "id": "LIS_GPP_202011220000.d01.cog",
+                "datetime": "2020-11-22T00:00:00+00:00",
+                "bbox": [
+                  -179.9500000157243,
+                  -59.98224871364589,
+                  179.9973980503783,
+                  89.9999999874719
+                ],
+                "primary_asset_url": "s3://veda-data-store/lis-global-da-gpp/LIS_GPP_202011220000.d01.cog.tif",
+                "collection_id": "lis-global-da-gpp"
+              },
+              {
+                "id": "LIS_GPP_202011210000.d01.cog",
+                "datetime": "2020-11-21T00:00:00+00:00",
+                "bbox": [
+                  -179.9500000157243,
+                  -59.98224871364589,
+                  179.9973980503783,
+                  89.9999999874719
+                ],
+                "primary_asset_url": "s3://veda-data-store/lis-global-da-gpp/LIS_GPP_202011210000.d01.cog.tif",
+                "collection_id": "lis-global-da-gpp"
+              },
+              {
+                "id": "LIS_GPP_202011200000.d01.cog",
+                "datetime": "2020-11-20T00:00:00+00:00",
+                "bbox": [
+                  -179.9500000157243,
+                  -59.98224871364589,
+                  179.9973980503783,
+                  89.9999999874719
+                ],
+                "primary_asset_url": "s3://veda-data-store/lis-global-da-gpp/LIS_GPP_202011200000.d01.cog.tif",
+                "collection_id": "lis-global-da-gpp"
+              },
+              {
+                "id": "LIS_GPP_202011190000.d01.cog",
+                "datetime": "2020-11-19T00:00:00+00:00",
+                "bbox": [
+                  -179.9500000157243,
+                  -59.98224871364589,
+                  179.9973980503783,
+                  89.9999999874719
+                ],
+                "primary_asset_url": "s3://veda-data-store/lis-global-da-gpp/LIS_GPP_202011190000.d01.cog.tif",
+                "collection_id": "lis-global-da-gpp"
+              },
+              {
+                "id": "LIS_GPP_202011180000.d01.cog",
+                "datetime": "2020-11-18T00:00:00+00:00",
+                "bbox": [
+                  -179.9500000157243,
+                  -59.98224871364589,
+                  179.9973980503783,
+                  89.9999999874719
+                ],
+                "primary_asset_url": "s3://veda-data-store/lis-global-da-gpp/LIS_GPP_202011180000.d01.cog.tif",
+                "collection_id": "lis-global-da-gpp"
+              },
+              {
+                "id": "LIS_GPP_202011170000.d01.cog",
+                "datetime": "2020-11-17T00:00:00+00:00",
+                "bbox": [
+                  -179.9500000157243,
+                  -59.98224871364589,
+                  179.9973980503783,
+                  89.9999999874719
+                ],
+                "primary_asset_url": "s3://veda-data-store/lis-global-da-gpp/LIS_GPP_202011170000.d01.cog.tif",
+                "collection_id": "lis-global-da-gpp"
+              },
+              {
+                "id": "LIS_GPP_202011160000.d01.cog",
+                "datetime": "2020-11-16T00:00:00+00:00",
+                "bbox": [
+                  -179.9500000157243,
+                  -59.98224871364589,
+                  179.9973980503783,
+                  89.9999999874719
+                ],
+                "primary_asset_url": "s3://veda-data-store/lis-global-da-gpp/LIS_GPP_202011160000.d01.cog.tif",
+                "collection_id": "lis-global-da-gpp"
+              },
+              {
+                "id": "LIS_GPP_202011150000.d01.cog",
+                "datetime": "2020-11-15T00:00:00+00:00",
+                "bbox": [
+                  -179.9500000157243,
+                  -59.98224871364589,
+                  179.9973980503783,
+                  89.9999999874719
+                ],
+                "primary_asset_url": "s3://veda-data-store/lis-global-da-gpp/LIS_GPP_202011150000.d01.cog.tif",
+                "collection_id": "lis-global-da-gpp"
+              },
+              {
+                "id": "LIS_GPP_202011140000.d01.cog",
+                "datetime": "2020-11-14T00:00:00+00:00",
+                "bbox": [
+                  -179.9500000157243,
+                  -59.98224871364589,
+                  179.9973980503783,
+                  89.9999999874719
+                ],
+                "primary_asset_url": "s3://veda-data-store/lis-global-da-gpp/LIS_GPP_202011140000.d01.cog.tif",
+                "collection_id": "lis-global-da-gpp"
+              },
+              {
+                "id": "LIS_GPP_202011130000.d01.cog",
+                "datetime": "2020-11-13T00:00:00+00:00",
+                "bbox": [
+                  -179.9500000157243,
+                  -59.98224871364589,
+                  179.9973980503783,
+                  89.9999999874719
+                ],
+                "primary_asset_url": "s3://veda-data-store/lis-global-da-gpp/LIS_GPP_202011130000.d01.cog.tif",
+                "collection_id": "lis-global-da-gpp"
+              },
+              {
+                "id": "LIS_GPP_202011120000.d01.cog",
+                "datetime": "2020-11-12T00:00:00+00:00",
+                "bbox": [
+                  -179.9500000157243,
+                  -59.98224871364589,
+                  179.9973980503783,
+                  89.9999999874719
+                ],
+                "primary_asset_url": "s3://veda-data-store/lis-global-da-gpp/LIS_GPP_202011120000.d01.cog.tif",
+                "collection_id": "lis-global-da-gpp"
+              },
+              {
+                "id": "LIS_GPP_202011110000.d01.cog",
+                "datetime": "2020-11-11T00:00:00+00:00",
+                "bbox": [
+                  -179.9500000157243,
+                  -59.98224871364589,
+                  179.9973980503783,
+                  89.9999999874719
+                ],
+                "primary_asset_url": "s3://veda-data-store/lis-global-da-gpp/LIS_GPP_202011110000.d01.cog.tif",
+                "collection_id": "lis-global-da-gpp"
+              },
+              {
+                "id": "LIS_GPP_202011100000.d01.cog",
+                "datetime": "2020-11-10T00:00:00+00:00",
+                "bbox": [
+                  -179.9500000157243,
+                  -59.98224871364589,
+                  179.9973980503783,
+                  89.9999999874719
+                ],
+                "primary_asset_url": "s3://veda-data-store/lis-global-da-gpp/LIS_GPP_202011100000.d01.cog.tif",
+                "collection_id": "lis-global-da-gpp"
+              },
+              {
+                "id": "LIS_GPP_202011090000.d01.cog",
+                "datetime": "2020-11-09T00:00:00+00:00",
+                "bbox": [
+                  -179.9500000157243,
+                  -59.98224871364589,
+                  179.9973980503783,
+                  89.9999999874719
+                ],
+                "primary_asset_url": "s3://veda-data-store/lis-global-da-gpp/LIS_GPP_202011090000.d01.cog.tif",
+                "collection_id": "lis-global-da-gpp"
+              }
+            ],
+            "band": "gpp",
+            "geometry": [
+              -123.89,
+              38.756,
+              -122.819,
+              40.005
+            ]
+          }
+        }
+      ],
+      "assistant_text": ""
+    },
+    {
+      "input_tokens": 31955,
+      "output_tokens": 2263,
+      "cached_tokens": 31744,
+      "tool_calls": [
+        "compute_stats"
+      ],
+      "tool_calls_detail": [
+        {
+          "name": "compute_stats",
+          "args": {
+            "item_refs": [
+              {
+                "id": "LIS_GPP_202011280000.d01.cog",
+                "datetime": "2020-11-28T00:00:00+00:00",
+                "bbox": [
+                  -179.9500000157243,
+                  -59.98224871364589,
+                  179.9973980503783,
+                  89.9999999874719
+                ],
+                "primary_asset_url": "s3://veda-data-store/lis-global-da-gpp/LIS_GPP_202011280000.d01.cog.tif",
+                "collection_id": "lis-global-da-gpp"
+              },
+              {
+                "id": "LIS_GPP_202011270000.d01.cog",
+                "datetime": "2020-11-27T00:00:00+00:00",
+                "bbox": [
+                  -179.9500000157243,
+                  -59.98224871364589,
+                  179.9973980503783,
+                  89.9999999874719
+                ],
+                "primary_asset_url": "s3://veda-data-store/lis-global-da-gpp/LIS_GPP_202011270000.d01.cog.tif",
+                "collection_id": "lis-global-da-gpp"
+              },
+              {
+                "id": "LIS_GPP_202011260000.d01.cog",
+                "datetime": "2020-11-26T00:00:00+00:00",
+                "bbox": [
+                  -179.9500000157243,
+                  -59.98224871364589,
+                  179.9973980503783,
+                  89.9999999874719
+                ],
+                "primary_asset_url": "s3://veda-data-store/lis-global-da-gpp/LIS_GPP_202011260000.d01.cog.tif",
+                "collection_id": "lis-global-da-gpp"
+              },
+              {
+                "id": "LIS_GPP_202011250000.d01.cog",
+                "datetime": "2020-11-25T00:00:00+00:00",
+                "bbox": [
+                  -179.9500000157243,
+                  -59.98224871364589,
+                  179.9973980503783,
+                  89.9999999874719
+                ],
+                "primary_asset_url": "s3://veda-data-store/lis-global-da-gpp/LIS_GPP_202011250000.d01.cog.tif",
+                "collection_id": "lis-global-da-gpp"
+              },
+              {
+                "id": "LIS_GPP_202011240000.d01.cog",
+                "datetime": "2020-11-24T00:00:00+00:00",
+                "bbox": [
+                  -179.9500000157243,
+                  -59.98224871364589,
+                  179.9973980503783,
+                  89.9999999874719
+                ],
+                "primary_asset_url": "s3://veda-data-store/lis-global-da-gpp/LIS_GPP_202011240000.d01.cog.tif",
+                "collection_id": "lis-global-da-gpp"
+              },
+              {
+                "id": "LIS_GPP_202011230000.d01.cog",
+                "datetime": "2020-11-23T00:00:00+00:00",
+                "bbox": [
+                  -179.9500000157243,
+                  -59.98224871364589,
+                  179.9973980503783,
+                  89.9999999874719
+                ],
+                "primary_asset_url": "s3://veda-data-store/lis-global-da-gpp/LIS_GPP_202011230000.d01.cog.tif",
+                "collection_id": "lis-global-da-gpp"
+              },
+              {
+                "id": "LIS_GPP_202011220000.d01.cog",
+                "datetime": "2020-11-22T00:00:00+00:00",
+                "bbox": [
+                  -179.9500000157243,
+                  -59.98224871364589,
+                  179.9973980503783,
+                  89.9999999874719
+                ],
+                "primary_asset_url": "s3://veda-data-store/lis-global-da-gpp/LIS_GPP_202011220000.d01.cog.tif",
+                "collection_id": "lis-global-da-gpp"
+              },
+              {
+                "id": "LIS_GPP_202011210000.d01.cog",
+                "datetime": "2020-11-21T00:00:00+00:00",
+                "bbox": [
+                  -179.9500000157243,
+                  -59.98224871364589,
+                  179.9973980503783,
+                  89.9999999874719
+                ],
+                "primary_asset_url": "s3://veda-data-store/lis-global-da-gpp/LIS_GPP_202011210000.d01.cog.tif",
+                "collection_id": "lis-global-da-gpp"
+              },
+              {
+                "id": "LIS_GPP_202011200000.d01.cog",
+                "datetime": "2020-11-20T00:00:00+00:00",
+                "bbox": [
+                  -179.9500000157243,
+                  -59.98224871364589,
+                  179.9973980503783,
+                  89.9999999874719
+                ],
+                "primary_asset_url": "s3://veda-data-store/lis-global-da-gpp/LIS_GPP_202011200000.d01.cog.tif",
+                "collection_id": "lis-global-da-gpp"
+              },
+              {
+                "id": "LIS_GPP_202011190000.d01.cog",
+                "datetime": "2020-11-19T00:00:00+00:00",
+                "bbox": [
+                  -179.9500000157243,
+                  -59.98224871364589,
+                  179.9973980503783,
+                  89.9999999874719
+                ],
+                "primary_asset_url": "s3://veda-data-store/lis-global-da-gpp/LIS_GPP_202011190000.d01.cog.tif",
+                "collection_id": "lis-global-da-gpp"
+              },
+              {
+                "id": "LIS_GPP_202011180000.d01.cog",
+                "datetime": "2020-11-18T00:00:00+00:00",
+                "bbox": [
+                  -179.9500000157243,
+                  -59.98224871364589,
+                  179.9973980503783,
+                  89.9999999874719
+                ],
+                "primary_asset_url": "s3://veda-data-store/lis-global-da-gpp/LIS_GPP_202011180000.d01.cog.tif",
+                "collection_id": "lis-global-da-gpp"
+              },
+              {
+                "id": "LIS_GPP_202011170000.d01.cog",
+                "datetime": "2020-11-17T00:00:00+00:00",
+                "bbox": [
+                  -179.9500000157243,
+                  -59.98224871364589,
+                  179.9973980503783,
+                  89.9999999874719
+                ],
+                "primary_asset_url": "s3://veda-data-store/lis-global-da-gpp/LIS_GPP_202011170000.d01.cog.tif",
+                "collection_id": "lis-global-da-gpp"
+              },
+              {
+                "id": "LIS_GPP_202011160000.d01.cog",
+                "datetime": "2020-11-16T00:00:00+00:00",
+                "bbox": [
+                  -179.9500000157243,
+                  -59.98224871364589,
+                  179.9973980503783,
+                  89.9999999874719
+                ],
+                "primary_asset_url": "s3://veda-data-store/lis-global-da-gpp/LIS_GPP_202011160000.d01.cog.tif",
+                "collection_id": "lis-global-da-gpp"
+              },
+              {
+                "id": "LIS_GPP_202011150000.d01.cog",
+                "datetime": "2020-11-15T00:00:00+00:00",
+                "bbox": [
+                  -179.9500000157243,
+                  -59.98224871364589,
+                  179.9973980503783,
+                  89.9999999874719
+                ],
+                "primary_asset_url": "s3://veda-data-store/lis-global-da-gpp/LIS_GPP_202011150000.d01.cog.tif",
+                "collection_id": "lis-global-da-gpp"
+              },
+              {
+                "id": "LIS_GPP_202011140000.d01.cog",
+                "datetime": "2020-11-14T00:00:00+00:00",
+                "bbox": [
+                  -179.9500000157243,
+                  -59.98224871364589,
+                  179.9973980503783,
+                  89.9999999874719
+                ],
+                "primary_asset_url": "s3://veda-data-store/lis-global-da-gpp/LIS_GPP_202011140000.d01.cog.tif",
+                "collection_id": "lis-global-da-gpp"
+              },
+              {
+                "id": "LIS_GPP_202011130000.d01.cog",
+                "datetime": "2020-11-13T00:00:00+00:00",
+                "bbox": [
+                  -179.9500000157243,
+                  -59.98224871364589,
+                  179.9973980503783,
+                  89.9999999874719
+                ],
+                "primary_asset_url": "s3://veda-data-store/lis-global-da-gpp/LIS_GPP_202011130000.d01.cog.tif",
+                "collection_id": "lis-global-da-gpp"
+              },
+              {
+                "id": "LIS_GPP_202011120000.d01.cog",
+                "datetime": "2020-11-12T00:00:00+00:00",
+                "bbox": [
+                  -179.9500000157243,
+                  -59.98224871364589,
+                  179.9973980503783,
+                  89.9999999874719
+                ],
+                "primary_asset_url": "s3://veda-data-store/lis-global-da-gpp/LIS_GPP_202011120000.d01.cog.tif",
+                "collection_id": "lis-global-da-gpp"
+              },
+              {
+                "id": "LIS_GPP_202011110000.d01.cog",
+                "datetime": "2020-11-11T00:00:00+00:00",
+                "bbox": [
+                  -179.9500000157243,
+                  -59.98224871364589,
+                  179.9973980503783,
+                  89.9999999874719
+                ],
+                "primary_asset_url": "s3://veda-data-store/lis-global-da-gpp/LIS_GPP_202011110000.d01.cog.tif",
+                "collection_id": "lis-global-da-gpp"
+              },
+              {
+                "id": "LIS_GPP_202011100000.d01.cog",
+                "datetime": "2020-11-10T00:00:00+00:00",
+                "bbox": [
+                  -179.9500000157243,
+                  -59.98224871364589,
+                  179.9973980503783,
+                  89.9999999874719
+                ],
+                "primary_asset_url": "s3://veda-data-store/lis-global-da-gpp/LIS_GPP_202011100000.d01.cog.tif",
+                "collection_id": "lis-global-da-gpp"
+              },
+              {
+                "id": "LIS_GPP_202011090000.d01.cog",
+                "datetime": "2020-11-09T00:00:00+00:00",
+                "bbox": [
+                  -179.9500000157243,
+                  -59.98224871364589,
+                  179.9973980503783,
+                  89.9999999874719
+                ],
+                "primary_asset_url": "s3://veda-data-store/lis-global-da-gpp/LIS_GPP_202011090000.d01.cog.tif",
+                "collection_id": "lis-global-da-gpp"
+              }
+            ],
+            "band": "cog_default",
+            "geometry": [
+              -123.89,
+              38.756,
+              -122.819,
+              40.005
+            ]
+          }
+        }
+      ],
+      "assistant_text": ""
+    },
+    {
+      "input_tokens": 35639,
+      "output_tokens": 64,
+      "cached_tokens": 34048,
+      "tool_calls": [
+        "render_map"
+      ],
+      "tool_calls_detail": [
+        {
+          "name": "render_map",
+          "args": {
+            "collection_id": "lis-global-da-gpp",
+            "item_id": "LIS_GPP_202011280000.d01.cog",
+            "bbox": [
+              -123.89,
+              38.756,
+              -122.819,
+              40.005
+            ],
+            "colormap": "viridis"
+          }
+        }
+      ],
+      "assistant_text": ""
+    },
+    {
+      "input_tokens": 35838,
+      "output_tokens": 774,
+      "cached_tokens": 35584,
+      "tool_calls": [],
+      "tool_calls_detail": [],
+      "assistant_text": "Mendocino County, CA (bbox [-123.89, 38.756, -122.819, 40.005]), lis-global-da-gpp, 2020-06-28/2020-11-28: item search returned only **Nov 2020 daily** items in this window (n=20; 2020-11-09..2020-11-28), so per-month values are **Nov only**. Over the AOI (band used for stats: `cog_default`): overall **mean=2.8617111462718237e-05**, **median=9.143825081991963e-06**, **min=8.819054861386455e-12**, **max=0.0001734418619889766**; daily means show a mild decline from ~3.08e-05 (Nov 20) toward ~2.83e"
+    }
+  ]
+}

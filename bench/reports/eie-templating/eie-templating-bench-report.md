@@ -5,22 +5,22 @@
 | scenario | pattern | mode | forced | map | turns | tok/turn (in) | tok/turn (out) | cache hit % | $/query | $/month @ 915K |
 |---|---|---|---|---|---:|---:|---:|---:|---:|---:|
 | pattern-eie-freeform | eie | freeform | N | N | 12 | 9096 | 241 | 59.7% | $0.1289 | $117,913 |
-| pattern-eie-freeform | eie | freeform | N | Y | 12 | 12563 | 254 | 71.6% | $0.1366 | $125,018 |
+| pattern-eie-freeform | eie | freeform | N | Y | 14 | 11519 | 219 | 73.1% | $0.1395 | $127,672 |
 | pattern-eie-freeform | eie | freeform | Y | N | 13 | 11228 | 158 | 65.4% | $0.1339 | $122,505 |
 | pattern-eie-key-fields | eie | key_fields | N | N | 12 | 1410 | 150 | 48.4% | $0.0419 | $38,341 |
-| pattern-eie-key-fields | eie | key_fields | N | Y | 15 | 1809 | 134 | 69.4% | $0.0459 | $41,994 |
+| pattern-eie-key-fields | eie | key_fields | N | Y | 13 | 1776 | 143 | 66.5% | $0.0422 | $38,629 |
 | pattern-eie-key-fields | eie | key_fields | Y | N | 15 | 1471 | 126 | 62.1% | $0.0435 | $39,771 |
 | pattern-eie-status-only | eie | status_only | N | N | 14 | 1243 | 48 | 44.1% | $0.0277 | $25,353 |
-| pattern-eie-status-only | eie | status_only | N | Y | 15 | 1548 | 66 | 75.0% | $0.0272 | $24,873 |
+| pattern-eie-status-only | eie | status_only | N | Y | 12 | 1308 | 51 | 61.1% | $0.0209 | $19,132 |
 | pattern-eie-status-only | eie | status_only | Y | N | 11 | 1187 | 70 | 58.8% | $0.0216 | $19,735 |
 | pattern-paper-freeform | paper | freeform | N | N | 4 | 15644 | 626 | 50.3% | $0.0950 | $86,909 |
-| pattern-paper-freeform | paper | freeform | N | Y | 6 | 22440 | 890 | 75.3% | $0.1507 | $137,886 |
+| pattern-paper-freeform | paper | freeform | N | Y | 6 | 22443 | 915 | 75.3% | $0.1529 | $139,865 |
 | pattern-paper-freeform | paper | freeform | Y | N | 5 | 19641 | 1135 | 66.9% | $0.1479 | $135,305 |
 | pattern-paper-key-fields | paper | key_fields | N | N | 4 | 1649 | 353 | 67.9% | $0.0243 | $22,192 |
-| pattern-paper-key-fields | paper | key_fields | N | Y | 5 | 2160 | 311 | 60.4% | $0.0304 | $27,781 |
+| pattern-paper-key-fields | paper | key_fields | N | Y | 5 | 2157 | 307 | 60.5% | $0.0301 | $27,501 |
 | pattern-paper-key-fields | paper | key_fields | Y | N | 4 | 1678 | 361 | 68.7% | $0.0247 | $22,616 |
 | pattern-paper-status-only | paper | status_only | N | N | 4 | 1330 | 540 | 50.5% | $0.0353 | $32,290 |
-| pattern-paper-status-only | paper | status_only | N | Y | 5 | 1828 | 443 | 64.4% | $0.0377 | $34,524 |
+| pattern-paper-status-only | paper | status_only | N | Y | 5 | 1843 | 452 | 30.6% | $0.0433 | $39,619 |
 | pattern-paper-status-only | paper | status_only | Y | N | 7 | 2410 | 582 | 80.4% | $0.0652 | $59,653 |
 
 ## Ratio rows
