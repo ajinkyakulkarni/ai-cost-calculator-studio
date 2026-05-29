@@ -1,0 +1,115 @@
+{
+  "scenario_id": "pattern-gated-freeform",
+  "pattern": "gated",
+  "handler_mode": "freeform",
+  "model": "gpt-5.2",
+  "enforce_compute_stats": false,
+  "turn_count": 12,
+  "elapsed_s": 53.217408657073975,
+  "totals": {
+    "input_tokens": 109155,
+    "output_tokens": 2890,
+    "cached_tokens": 65152,
+    "cache_hit_rate": 0.5968760020154825
+  },
+  "per_turn_avg": {
+    "input_tokens": 9096.25,
+    "output_tokens": 240.83333333333334
+  },
+  "turns": [
+    {
+      "input_tokens": 702,
+      "output_tokens": 30,
+      "cached_tokens": 0,
+      "tool_calls": [
+        "parse_datetime"
+      ]
+    },
+    {
+      "input_tokens": 762,
+      "output_tokens": 69,
+      "cached_tokens": 0,
+      "tool_calls": [
+        "ask_user"
+      ]
+    },
+    {
+      "input_tokens": 846,
+      "output_tokens": 33,
+      "cached_tokens": 0,
+      "tool_calls": [
+        "ask_user"
+      ]
+    },
+    {
+      "input_tokens": 891,
+      "output_tokens": 23,
+      "cached_tokens": 0,
+      "tool_calls": [
+        "geocode"
+      ]
+    },
+    {
+      "input_tokens": 957,
+      "output_tokens": 54,
+      "cached_tokens": 0,
+      "tool_calls": [
+        "ask_user"
+      ]
+    },
+    {
+      "input_tokens": 1027,
+      "output_tokens": 29,
+      "cached_tokens": 0,
+      "tool_calls": [
+        "geocode"
+      ]
+    },
+    {
+      "input_tokens": 1101,
+      "output_tokens": 22,
+      "cached_tokens": 0,
+      "tool_calls": [
+        "search_collections"
+      ]
+    },
+    {
+      "input_tokens": 8266,
+      "output_tokens": 91,
+      "cached_tokens": 1024,
+      "tool_calls": [
+        "ask_user"
+      ]
+    },
+    {
+      "input_tokens": 8373,
+      "output_tokens": 56,
+      "cached_tokens": 8192,
+      "tool_calls": [
+        "ask_user"
+      ]
+    },
+    {
+      "input_tokens": 8443,
+      "output_tokens": 64,
+      "cached_tokens": 8320,
+      "tool_calls": [
+        "search_items"
+      ]
+    },
+    {
+      "input_tokens": 37061,
+      "output_tokens": 2263,
+      "cached_tokens": 8448,
+      "tool_calls": [
+        "compute_stats"
+      ]
+    },
+    {
+      "input_tokens": 40726,
+      "output_tokens": 156,
+      "cached_tokens": 39168,
+      "tool_calls": []
+    }
+  ]
+}
