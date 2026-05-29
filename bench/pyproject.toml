@@ -40,7 +40,7 @@ dependencies = [
     # httpx is also a transitive of openai>=1.40 so this just pins it.
     "httpx>=0.27.0",
     # Reading Cloud Optimized GeoTIFF assets from STAC items, computing
-    # per-band aggregates over a polygon AOI. Used by veda_tools.compute_stats.
+    # per-band aggregates over a polygon AOI. Used by stac_tools.compute_stats.
     "rio-tiler>=6.7.0",
     # Natural-language datetime parsing for parse_datetime tool.
     "dateparser>=1.2.0",

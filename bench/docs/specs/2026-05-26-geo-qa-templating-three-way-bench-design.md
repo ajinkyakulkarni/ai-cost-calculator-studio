@@ -133,7 +133,7 @@ Sized example (real MiCASA item from VEDA): a single item serialized JSON is ~2.
 
 ### Implementation note
 
-All three handlers are pure transformations of the same real STAC response from NASA VEDA. The only thing that varies between scenario runs is which handler is wrapping the tool call. The same `veda_tools.search_items(…)` function is invoked in all three; the response is then either status-summarized (A), field-extracted (B), or passed through (C) before reaching the LLM.
+All three handlers are pure transformations of the same real STAC response from NASA VEDA. The only thing that varies between scenario runs is which handler is wrapping the tool call. The same `stac_tools.search_items(…)` function is invoked in all three; the response is then either status-summarized (A), field-extracted (B), or passed through (C) before reaching the LLM.
 
 This is the empirically clean isolation. Same tools, same data, same model, same agent system prompt, same conversation pattern within a row — the only variable is the response middleware.
 
@@ -241,7 +241,7 @@ bench/
       pattern-gated-key-fields.yml
       pattern-gated-freeform.yml
   src/agent_cost_bench/
-    veda_tools.py              # 5 real tools against NASA VEDA STAC
+    stac_tools.py              # 5 real tools against NASA VEDA STAC
     response_handlers.py       # StatusOnlyHandler, KeyFieldsHandler, FreeformHandler
     geo_qa_user_actor.py       # deterministic gate-answerer for pattern E
     geo_qa_patterns.py         # LangGraph state machines for patterns P and E

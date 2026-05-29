@@ -320,7 +320,7 @@ def preview_geo_qa_templating(
     Safe to run without an OpenAI key — uses only unauthenticated VEDA APIs.
     Each preview is saved as bench/reports/geo-qa-templating/preview-{item_id}.png.
     """
-    from .geo_qa.veda_tools import geocode, search_items
+    from .geo_qa.stac_tools import geocode, search_items
     from .geo_qa.map_preview import render_preview
 
     # Geocode the county to a bbox

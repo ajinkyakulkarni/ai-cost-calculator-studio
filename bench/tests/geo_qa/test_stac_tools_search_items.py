@@ -3,7 +3,7 @@
 import re
 
 from pytest_httpx import HTTPXMock
-from agent_cost_bench.geo_qa.veda_tools import search_items
+from agent_cost_bench.geo_qa.stac_tools import search_items
 from agent_cost_bench.geo_qa.schemas import SearchItemsReturn
 
 

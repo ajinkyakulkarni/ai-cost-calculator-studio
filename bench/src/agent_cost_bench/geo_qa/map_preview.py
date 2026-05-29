@@ -23,7 +23,7 @@ import urllib.parse
 
 import httpx
 
-from .veda_tools import RASTER_ROOT
+from .stac_tools import RASTER_ROOT
 
 
 def build_preview_url(

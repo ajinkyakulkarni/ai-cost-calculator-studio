@@ -46,7 +46,7 @@ Open `bench/pyproject.toml`. Find the existing `dependencies = [...]` block (aro
     # httpx is also a transitive of openai>=1.40 so this just pins it.
     "httpx>=0.27.0",
     # Reading Cloud Optimized GeoTIFF assets from STAC items, computing
-    # per-band aggregates over a polygon AOI. Used by veda_tools.compute_stats.
+    # per-band aggregates over a polygon AOI. Used by stac_tools.compute_stats.
     "rio-tiler>=6.7.0",
     # Natural-language datetime parsing for parse_datetime tool.
     "dateparser>=1.2.0",
@@ -144,7 +144,7 @@ git add bench/data/us_county_bboxes.json
 git commit -m "bench(geo-qa): ship county-bbox lookup table
 
 5 California counties (Mendocino + 4 neighbours) sourced from
-US Census TIGER/Line 2023, public domain. Used by veda_tools.geocode
+US Census TIGER/Line 2023, public domain. Used by stac_tools.geocode
 as a deterministic offline fallback so the bench has no external
 geocode dependency."
 ```
@@ -785,20 +785,20 @@ without output structuring."
 
 ---
 
-### Task 7: `veda_tools.parse_datetime`
+### Task 7: `stac_tools.parse_datetime`
 
 **Files:**
-- Create: `bench/src/agent_cost_bench/geo_qa/veda_tools.py` (parse_datetime only in this task)
-- Test: `bench/tests/geo_qa/test_veda_tools_parse_datetime.py`
+- Create: `bench/src/agent_cost_bench/geo_qa/stac_tools.py` (parse_datetime only in this task)
+- Test: `bench/tests/geo_qa/test_stac_tools_parse_datetime.py`
 
 - [ ] **Step 1: Write the failing test**
 
-`bench/tests/geo_qa/test_veda_tools_parse_datetime.py`:
+`bench/tests/geo_qa/test_stac_tools_parse_datetime.py`:
 
 ```python
 """parse_datetime — local NLP, no API call."""
 
-from agent_cost_bench.geo_qa.veda_tools import parse_datetime
+from agent_cost_bench.geo_qa.stac_tools import parse_datetime
 from agent_cost_bench.geo_qa.schemas import ParseDatetimeReturn
 
 
@@ -826,14 +826,14 @@ def test_parse_single_date_returns_same_start_end():
 
 ```bash
 cd ~/Desktop/Code/Ajinkya/websites/ai-cost-calculator-studio/bench
-pytest tests/geo_qa/test_veda_tools_parse_datetime.py -v
+pytest tests/geo_qa/test_stac_tools_parse_datetime.py -v
 ```
 
 Expected: ImportError.
 
 - [ ] **Step 3: Implement parse_datetime**
 
-`bench/src/agent_cost_bench/geo_qa/veda_tools.py`:
+`bench/src/agent_cost_bench/geo_qa/stac_tools.py`:
 
 ```python
 """Real NASA VEDA STAC tools — 5 functions, all calling real APIs.
@@ -908,7 +908,7 @@ def parse_datetime(value: str) -> ParseDatetimeReturn:
 
 ```bash
 cd ~/Desktop/Code/Ajinkya/websites/ai-cost-calculator-studio/bench
-pytest tests/geo_qa/test_veda_tools_parse_datetime.py -v
+pytest tests/geo_qa/test_stac_tools_parse_datetime.py -v
 ```
 
 Expected: 3 passed.
@@ -917,7 +917,7 @@ Expected: 3 passed.
 
 ```bash
 cd ~/Desktop/Code/Ajinkya/websites/ai-cost-calculator-studio
-git add bench/src/agent_cost_bench/geo_qa/veda_tools.py bench/tests/geo_qa/test_veda_tools_parse_datetime.py
+git add bench/src/agent_cost_bench/geo_qa/stac_tools.py bench/tests/geo_qa/test_stac_tools_parse_datetime.py
 git commit -m "bench(geo-qa): parse_datetime tool (no API)
 
 dateparser-based NLP. Handles explicit 'X to Y' ranges, natural-
@@ -928,21 +928,21 @@ templating bench's real-VEDA tool set."
 
 ---
 
-### Task 8: `veda_tools.geocode` (county-bbox lookup)
+### Task 8: `stac_tools.geocode` (county-bbox lookup)
 
 **Files:**
-- Modify: `bench/src/agent_cost_bench/geo_qa/veda_tools.py` (append `geocode` function)
-- Test: `bench/tests/geo_qa/test_veda_tools_geocode.py`
+- Modify: `bench/src/agent_cost_bench/geo_qa/stac_tools.py` (append `geocode` function)
+- Test: `bench/tests/geo_qa/test_stac_tools_geocode.py`
 
 - [ ] **Step 1: Write the failing test**
 
-`bench/tests/geo_qa/test_veda_tools_geocode.py`:
+`bench/tests/geo_qa/test_stac_tools_geocode.py`:
 
 ```python
 """geocode — county-bbox lookup, no API."""
 
 import pytest
-from agent_cost_bench.geo_qa.veda_tools import geocode
+from agent_cost_bench.geo_qa.stac_tools import geocode
 from agent_cost_bench.geo_qa.schemas import GeocodeReturn
 
 
@@ -969,14 +969,14 @@ def test_geocode_unknown_county_raises():
 
 ```bash
 cd ~/Desktop/Code/Ajinkya/websites/ai-cost-calculator-studio/bench
-pytest tests/geo_qa/test_veda_tools_geocode.py -v
+pytest tests/geo_qa/test_stac_tools_geocode.py -v
 ```
 
 Expected: ImportError on `geocode`.
 
 - [ ] **Step 3: Implement geocode**
 
-Append to `bench/src/agent_cost_bench/geo_qa/veda_tools.py`:
+Append to `bench/src/agent_cost_bench/geo_qa/stac_tools.py`:
 
 ```python
 def geocode(query: str, level: str = "county") -> GeocodeReturn:
@@ -1021,7 +1021,7 @@ def geocode(query: str, level: str = "county") -> GeocodeReturn:
 
 ```bash
 cd ~/Desktop/Code/Ajinkya/websites/ai-cost-calculator-studio/bench
-pytest tests/geo_qa/test_veda_tools_geocode.py -v
+pytest tests/geo_qa/test_stac_tools_geocode.py -v
 ```
 
 Expected: 3 passed.
@@ -1030,7 +1030,7 @@ Expected: 3 passed.
 
 ```bash
 cd ~/Desktop/Code/Ajinkya/websites/ai-cost-calculator-studio
-git add bench/src/agent_cost_bench/geo_qa/veda_tools.py bench/tests/geo_qa/test_veda_tools_geocode.py
+git add bench/src/agent_cost_bench/geo_qa/stac_tools.py bench/tests/geo_qa/test_stac_tools_geocode.py
 git commit -m "bench(geo-qa): geocode tool — county-bbox lookup, no external API
 
 Deterministic lookup against the shipped us_county_bboxes.json.
@@ -1040,15 +1040,15 @@ state-gate can complete without an external geocode dep."
 
 ---
 
-### Task 9: `veda_tools.search_collections` (real VEDA HTTP)
+### Task 9: `stac_tools.search_collections` (real VEDA HTTP)
 
 **Files:**
-- Modify: `bench/src/agent_cost_bench/geo_qa/veda_tools.py`
-- Test: `bench/tests/geo_qa/test_veda_tools_search_collections.py`
+- Modify: `bench/src/agent_cost_bench/geo_qa/stac_tools.py`
+- Test: `bench/tests/geo_qa/test_stac_tools_search_collections.py`
 
 - [ ] **Step 1: Write the failing test (with httpx mock)**
 
-`bench/tests/geo_qa/test_veda_tools_search_collections.py`:
+`bench/tests/geo_qa/test_stac_tools_search_collections.py`:
 
 ```python
 """search_collections — real NASA VEDA STAC call (mocked HTTP in tests)."""
@@ -1056,7 +1056,7 @@ state-gate can complete without an external geocode dep."
 import json
 import pytest
 from pytest_httpx import HTTPXMock
-from agent_cost_bench.geo_qa.veda_tools import search_collections
+from agent_cost_bench.geo_qa.stac_tools import search_collections
 from agent_cost_bench.geo_qa.schemas import SearchCollectionsReturn
 
 
@@ -1083,14 +1083,14 @@ def test_search_collections_matches_keyword(httpx_mock: HTTPXMock):
 
 ```bash
 cd ~/Desktop/Code/Ajinkya/websites/ai-cost-calculator-studio/bench
-pytest tests/geo_qa/test_veda_tools_search_collections.py -v
+pytest tests/geo_qa/test_stac_tools_search_collections.py -v
 ```
 
 Expected: ImportError on `search_collections`.
 
 - [ ] **Step 3: Implement search_collections**
 
-Append to `bench/src/agent_cost_bench/geo_qa/veda_tools.py`:
+Append to `bench/src/agent_cost_bench/geo_qa/stac_tools.py`:
 
 ```python
 def search_collections(query: str, top_k: int = 5) -> SearchCollectionsReturn:
@@ -1123,7 +1123,7 @@ def search_collections(query: str, top_k: int = 5) -> SearchCollectionsReturn:
 
 ```bash
 cd ~/Desktop/Code/Ajinkya/websites/ai-cost-calculator-studio/bench
-pytest tests/geo_qa/test_veda_tools_search_collections.py -v
+pytest tests/geo_qa/test_stac_tools_search_collections.py -v
 ```
 
 Expected: 1 passed.
@@ -1132,7 +1132,7 @@ Expected: 1 passed.
 
 ```bash
 cd ~/Desktop/Code/Ajinkya/websites/ai-cost-calculator-studio
-git add bench/src/agent_cost_bench/geo_qa/veda_tools.py bench/tests/geo_qa/test_veda_tools_search_collections.py
+git add bench/src/agent_cost_bench/geo_qa/stac_tools.py bench/tests/geo_qa/test_stac_tools_search_collections.py
 git commit -m "bench(geo-qa): search_collections — real NASA VEDA STAC call
 
 Lists VEDA collections, filters by keyword client-side. Tests use
@@ -1141,22 +1141,22 @@ pytest-httpx mocks; live calls happen during actual bench runs."
 
 ---
 
-### Task 10: `veda_tools.search_items` (real VEDA HTTP)
+### Task 10: `stac_tools.search_items` (real VEDA HTTP)
 
 **Files:**
-- Modify: `bench/src/agent_cost_bench/geo_qa/veda_tools.py`
-- Test: `bench/tests/geo_qa/test_veda_tools_search_items.py`
+- Modify: `bench/src/agent_cost_bench/geo_qa/stac_tools.py`
+- Test: `bench/tests/geo_qa/test_stac_tools_search_items.py`
 
 - [ ] **Step 1: Write the failing test**
 
-`bench/tests/geo_qa/test_veda_tools_search_items.py`:
+`bench/tests/geo_qa/test_stac_tools_search_items.py`:
 
 ```python
 """search_items — real NASA VEDA STAC items endpoint (mocked HTTP)."""
 
 import pytest
 from pytest_httpx import HTTPXMock
-from agent_cost_bench.geo_qa.veda_tools import search_items
+from agent_cost_bench.geo_qa.stac_tools import search_items
 from agent_cost_bench.geo_qa.schemas import SearchItemsReturn
 
 
@@ -1192,14 +1192,14 @@ def test_search_items_typed_return(httpx_mock: HTTPXMock):
 
 ```bash
 cd ~/Desktop/Code/Ajinkya/websites/ai-cost-calculator-studio/bench
-pytest tests/geo_qa/test_veda_tools_search_items.py -v
+pytest tests/geo_qa/test_stac_tools_search_items.py -v
 ```
 
 Expected: ImportError on `search_items`.
 
 - [ ] **Step 3: Implement search_items**
 
-Append to `bench/src/agent_cost_bench/geo_qa/veda_tools.py`:
+Append to `bench/src/agent_cost_bench/geo_qa/stac_tools.py`:
 
 ```python
 def search_items(
@@ -1245,7 +1245,7 @@ def search_items(
 
 ```bash
 cd ~/Desktop/Code/Ajinkya/websites/ai-cost-calculator-studio/bench
-pytest tests/geo_qa/test_veda_tools_search_items.py -v
+pytest tests/geo_qa/test_stac_tools_search_items.py -v
 ```
 
 Expected: 1 passed.
@@ -1254,7 +1254,7 @@ Expected: 1 passed.
 
 ```bash
 cd ~/Desktop/Code/Ajinkya/websites/ai-cost-calculator-studio
-git add bench/src/agent_cost_bench/geo_qa/veda_tools.py bench/tests/geo_qa/test_veda_tools_search_items.py
+git add bench/src/agent_cost_bench/geo_qa/stac_tools.py bench/tests/geo_qa/test_stac_tools_search_items.py
 git commit -m "bench(geo-qa): search_items — real NASA VEDA STAC items call
 
 GET /collections/{id}/items with bbox + datetime filter. Returns
@@ -1264,15 +1264,15 @@ requested band."
 
 ---
 
-### Task 11: `veda_tools.compute_stats` (rio-tiler over COG)
+### Task 11: `stac_tools.compute_stats` (rio-tiler over COG)
 
 **Files:**
-- Modify: `bench/src/agent_cost_bench/geo_qa/veda_tools.py`
-- Test: `bench/tests/geo_qa/test_veda_tools_compute_stats.py`
+- Modify: `bench/src/agent_cost_bench/geo_qa/stac_tools.py`
+- Test: `bench/tests/geo_qa/test_stac_tools_compute_stats.py`
 
 - [ ] **Step 1: Write the failing test (with rio-tiler mocked)**
 
-`bench/tests/geo_qa/test_veda_tools_compute_stats.py`:
+`bench/tests/geo_qa/test_stac_tools_compute_stats.py`:
 
 ```python
 """compute_stats — rio-tiler reads COG band over polygon AOI.
@@ -1285,7 +1285,7 @@ numpy arrays with known statistics.
 from unittest.mock import patch, MagicMock
 import numpy as np
 import pytest
-from agent_cost_bench.geo_qa.veda_tools import compute_stats
+from agent_cost_bench.geo_qa.stac_tools import compute_stats
 from agent_cost_bench.geo_qa.schemas import StacItemFields, ComputeStatsReturn
 
 
@@ -1310,7 +1310,7 @@ def test_compute_stats_aggregates_across_items():
     mock_reader = MagicMock()
     mock_reader.__enter__ = MagicMock(return_value=mock_reader)
     mock_reader.__exit__ = MagicMock(return_value=None)
-    with patch("agent_cost_bench.geo_qa.veda_tools.Reader") as reader_cls:
+    with patch("agent_cost_bench.geo_qa.stac_tools.Reader") as reader_cls:
         reader_cls.return_value = mock_reader
         mock_reader.feature.side_effect = [
             MagicMock(data=np.expand_dims(arr, axis=0), mask=np.ones_like(arr, dtype=bool))
@@ -1331,14 +1331,14 @@ def test_compute_stats_aggregates_across_items():
 
 ```bash
 cd ~/Desktop/Code/Ajinkya/websites/ai-cost-calculator-studio/bench
-pytest tests/geo_qa/test_veda_tools_compute_stats.py -v
+pytest tests/geo_qa/test_stac_tools_compute_stats.py -v
 ```
 
 Expected: ImportError on `compute_stats`.
 
 - [ ] **Step 3: Implement compute_stats**
 
-Append to `bench/src/agent_cost_bench/geo_qa/veda_tools.py`:
+Append to `bench/src/agent_cost_bench/geo_qa/stac_tools.py`:
 
 ```python
 from rio_tiler.io import Reader
@@ -1392,7 +1392,7 @@ def compute_stats(
 
 ```bash
 cd ~/Desktop/Code/Ajinkya/websites/ai-cost-calculator-studio/bench
-pytest tests/geo_qa/test_veda_tools_compute_stats.py -v
+pytest tests/geo_qa/test_stac_tools_compute_stats.py -v
 ```
 
 Expected: 1 passed.
@@ -1401,7 +1401,7 @@ Expected: 1 passed.
 
 ```bash
 cd ~/Desktop/Code/Ajinkya/websites/ai-cost-calculator-studio
-git add bench/src/agent_cost_bench/geo_qa/veda_tools.py bench/tests/geo_qa/test_veda_tools_compute_stats.py
+git add bench/src/agent_cost_bench/geo_qa/stac_tools.py bench/tests/geo_qa/test_stac_tools_compute_stats.py
 git commit -m "bench(geo-qa): compute_stats — rio-tiler COG band stats over polygon
 
 Per-item: Reader(href).feature(geometry) → masked array. Per-band:
@@ -1548,7 +1548,7 @@ a measurement instrument, not an LLM."
 
 ```python
 """Tool dispatch — given (tool_name, args, handler), route to the
-right veda_tools function and wrap the return through the handler.
+right stac_tools function and wrap the return through the handler.
 """
 
 import json
@@ -1587,9 +1587,9 @@ Expected: ImportError.
 `bench/src/agent_cost_bench/geo_qa/dispatch.py`:
 
 ```python
-"""Route OpenAI-shape tool calls into veda_tools + wrap via handler.
+"""Route OpenAI-shape tool calls into stac_tools + wrap via handler.
 
-This is the only file that knows which veda_tools function corresponds
+This is the only file that knows which stac_tools function corresponds
 to which tool name in the LLM's tool schema. The runner and patterns
 talk to this module; nothing else.
 """
@@ -1598,7 +1598,7 @@ from __future__ import annotations
 
 from typing import Any, Protocol
 
-from . import veda_tools
+from . import stac_tools
 
 
 # Centralized JSON schemas the LLM sees for each tool. These names
@@ -1686,13 +1686,13 @@ class Handler(Protocol):
 def dispatch_tool_call(name: str, args: dict[str, Any], handler: Handler, tool_call_id: str) -> str:
     """Run the named tool with `args`, wrap return via handler, return string for the LLM."""
     if name == "parse_datetime":
-        raw = veda_tools.parse_datetime(args["value"])
+        raw = stac_tools.parse_datetime(args["value"])
     elif name == "geocode":
-        raw = veda_tools.geocode(args["query"], args.get("level", "county"))
+        raw = stac_tools.geocode(args["query"], args.get("level", "county"))
     elif name == "search_collections":
-        raw = veda_tools.search_collections(args["query"])
+        raw = stac_tools.search_collections(args["query"])
     elif name == "search_items":
-        raw = veda_tools.search_items(
+        raw = stac_tools.search_items(
             args["collection_id"],
             tuple(args["bbox"]),
             args["datetime_range"],
@@ -1707,13 +1707,13 @@ def dispatch_tool_call(name: str, args: dict[str, Any], handler: Handler, tool_c
         # Simplest cross-handler contract: always re-search if compute_stats
         # is called without resolved items. For the bench's fixed workload
         # this is one extra STAC call, acceptable.
-        items = veda_tools.search_items(
+        items = stac_tools.search_items(
             args.get("collection_id", "micasa-carbonflux-monthgrid-v1"),
             tuple(args.get("bbox", (-123.89, 38.76, -122.82, 40.0))),
             args.get("datetime_range", "2020-06-01/2020-11-01"),
             args.get("band", "FIRE"),
         ).items
-        raw = veda_tools.compute_stats(items, args["band"], args["geometry"])
+        raw = stac_tools.compute_stats(items, args["band"], args["geometry"])
     else:
         raise ValueError(f"unknown tool: {name!r}")
     return handler.wrap(name, tool_call_id, raw)
@@ -1735,7 +1735,7 @@ cd ~/Desktop/Code/Ajinkya/websites/ai-cost-calculator-studio
 git add bench/src/agent_cost_bench/geo_qa/dispatch.py bench/tests/geo_qa/test_dispatch.py
 git commit -m "bench(geo-qa): dispatch table — single source of truth for tool routing
 
-Maps OpenAI-shape tool calls to veda_tools functions, wraps returns
+Maps OpenAI-shape tool calls to stac_tools functions, wraps returns
 through whichever handler the scenario uses. Single place the runner
 talks to."
 ```
@@ -2806,7 +2806,7 @@ def test_e2e_paper_status_only(httpx_mock: HTTPXMock, monkeypatch, tmp_path):
     mock_reader.__enter__ = MagicMock(return_value=mock_reader)
     mock_reader.__exit__ = MagicMock(return_value=None)
     mock_reader.feature.return_value = MagicMock(data=np.array([[[1.0, 2.0], [3.0, 4.0]]]), mask=np.ones((2, 2), dtype=bool))
-    monkeypatch.setattr("agent_cost_bench.geo_qa.veda_tools.Reader", lambda *a, **k: mock_reader)
+    monkeypatch.setattr("agent_cost_bench.geo_qa.stac_tools.Reader", lambda *a, **k: mock_reader)
     cfg = load_scenario(SCENARIO_DIR / "pattern-paper-status-only.yml")
     out_path = run_scenario(cfg, max_turns=10)
     assert out_path.exists()
