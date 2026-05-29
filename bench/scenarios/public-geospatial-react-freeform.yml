@@ -63,7 +63,7 @@ max_cost_usd: 10.00
 # lists, per-item stats). The structured data flows into the LLM
 # context across turns, inflating input tokens. This is the UPPER
 # bound on cost for this agent topology. Switch to 'templated' to
-# measure the lower bound (current production EIE behavior).
+# measure the lower bound (current production behavior).
 tool_response_mode: freeform
 
 meta:
@@ -76,10 +76,10 @@ meta:
     - cache_hit_rate
     - per_query_cost_usd
   notes: |
-    Heavy input shape (~84K tokens) is the cost-dominant feature of EIE-
-    class deployments: the system prompt + retrieved geospatial context
-    + multi-tool schemas account for the bulk. Output is small because
-    EIE answers in plain language ("NO2 over NYC declined 12% from Oct
+    Heavy input shape (~84K tokens) is the cost-dominant feature of
+    geospatial Q&A deployments: the system prompt + retrieved geospatial
+    context + multi-tool schemas account for the bulk. Output is small
+    because the agent answers in plain language ("NO2 over NYC declined 12% from Oct
     to Dec 2021"). If real API runs produce a markedly different shape,
     the preset's anchor_query needs recalibration.
 

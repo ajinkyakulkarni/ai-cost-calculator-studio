@@ -165,7 +165,7 @@ Agent runs 5 confirmation gates, in order:
 
 Between gates, the agent runs the corresponding tool (`parse_datetime`, `geocode`, `search_collections`, etc.). After the 5th gate the agent runs `search_items` + `compute_stats` autonomously and composes the answer. Total ~9-10 turns including 5 gate-response round-trips.
 
-The "user actor" is a deterministic Python function in `eie_user_actor.py`, not another LLM. It reads from a fixed answer list keyed by gate type. Re-runs are bit-for-bit reproducible.
+The "user actor" is a deterministic Python function in `geo_qa_user_actor.py`, not another LLM. It reads from a fixed answer list keyed by gate type. Re-runs are bit-for-bit reproducible.
 
 Pattern E models the cumulative-input growth of a gated multi-turn conversation that the paper's single-shot pattern does not exercise. If templating savings depend on conversation shape (more turns = more cumulative payload across turns = bigger savings from templating), pattern E will surface that.
 
@@ -218,9 +218,9 @@ Across the 6 scenarios:
 | P-A | paper | status-only | 6 | … | … | … | … | … |
 | P-B | paper | key-fields  | 6 | … | … | … | … | … |
 | P-C | paper | freeform    | 6 | … | … | … | … | … |
-| E-A | eie   | status-only | ~10 | … | … | … | … | … |
-| E-B | eie   | key-fields  | ~10 | … | … | … | … | … |
-| E-C | eie   | freeform    | ~10 | … | … | … | … | … |
+| E-A | gated | status-only | ~10 | … | … | … | … | … |
+| E-B | gated | key-fields  | ~10 | … | … | … | … | … |
+| E-C | gated | freeform    | ~10 | … | … | … | … | … |
 
 Plus two ratio rows:
 - `C/A ratio`: directly tests the paper's 7.5× claim
@@ -243,8 +243,8 @@ bench/
   src/agent_cost_bench/
     veda_tools.py              # 5 real tools against NASA VEDA STAC
     response_handlers.py       # StatusOnlyHandler, KeyFieldsHandler, FreeformHandler
-    eie_user_actor.py          # deterministic gate-answerer for pattern E
-    eie_patterns.py            # LangGraph state machines for patterns P and E
+    geo_qa_user_actor.py       # deterministic gate-answerer for pattern E
+    geo_qa_patterns.py         # LangGraph state machines for patterns P and E
   data/
     us_county_bboxes.json      # shipped fallback for geocode tool
   reports/geo-qa-templating/

@@ -4,7 +4,7 @@
 
 **Goal:** Build a parallel, self-contained 3-way templating bench (6 scenarios = 2 conversation patterns × 3 response-handler modes) that runs against real NASA VEDA STAC + real GPT-5.2 and empirically settles whether the paper's 7.5× tool-response cost lever holds against realistic production templating.
 
-**Architecture:** New isolated modules under `bench/src/agent_cost_bench/` with `eie_*.py` / `veda_*.py` namespacing — existing `tools.py` and existing scenarios remain untouched. Three response-handler middleware classes wrap a common set of 5 real-API tools against `openveda.cloud/api/stac/`. Two LangGraph state machines (Pattern P = paper's 6-turn ReAct, Pattern E = gated drill-down ~9-10 turns). A new CLI subcommand orchestrates the 6-run matrix and a report generator emits the comparison Markdown.
+**Architecture:** New isolated modules under `bench/src/agent_cost_bench/` with `geo_qa_*.py` / `veda_*.py` namespacing — existing `tools.py` and existing scenarios remain untouched. Three response-handler middleware classes wrap a common set of 5 real-API tools against `openveda.cloud/api/stac/`. Two LangGraph state machines (Pattern P = paper's 6-turn ReAct, Pattern E = gated drill-down ~9-10 turns). A new CLI subcommand orchestrates the 6-run matrix and a report generator emits the comparison Markdown.
 
 **Tech Stack:** Python 3.11+, LangGraph (state machines), LiteLLM (provider), Pydantic (handler schemas), httpx (STAC HTTP), rio-tiler (COG band stats), dateparser (datetime parsing), pytest + httpx mock for unit tests, pyyaml for scenario manifests, OpenTelemetry for traces.
 
@@ -20,7 +20,7 @@ Before Task 1, confirm the working directory and existing state:
 cd ~/Desktop/Code/Ajinkya/websites/ai-cost-calculator-studio/bench
 ls src/agent_cost_bench/                      # confirms tools.py exists (untouched by this plan)
 ls scenarios/                                  # confirms 12 existing scenarios; none will be modified
-test -d src/agent_cost_bench/eie || echo "fresh"
+test -d src/agent_cost_bench/geo_qa || echo "fresh"
 ```
 
 All work in this plan happens in new files. Where an existing file is modified (`cli.py`, `pyproject.toml`), the modification is purely additive — a new subcommand registration or new dep, never a behaviour change to existing scenarios. `npm run bench:validate` in the calc repo root must continue passing 6/6 ±0.00% after every commit.
@@ -68,11 +68,11 @@ dev = [
 
 ```bash
 cd ~/Desktop/Code/Ajinkya/websites/ai-cost-calculator-studio/bench
-mkdir -p src/agent_cost_bench/eie
+mkdir -p src/agent_cost_bench/geo_qa
 mkdir -p data
 mkdir -p scenarios/geo-qa-templating
 mkdir -p reports/geo-qa-templating
-mkdir -p tests/eie
+mkdir -p tests/geo_qa
 touch src/agent_cost_bench/geo_qa/__init__.py
 touch tests/geo_qa/__init__.py
 touch data/.gitkeep
@@ -102,8 +102,8 @@ Expected: `ok`
 
 ```bash
 cd ~/Desktop/Code/Ajinkya/websites/ai-cost-calculator-studio
-git add bench/pyproject.toml bench/src/agent_cost_bench/eie bench/data bench/scenarios/geo-qa-templating bench/reports/geo-qa-templating bench/tests/eie
-git commit -m "bench(eie): scaffold three-way templating bench dirs + deps
+git add bench/pyproject.toml bench/src/agent_cost_bench/geo_qa bench/data bench/scenarios/geo-qa-templating bench/reports/geo-qa-templating bench/tests/geo_qa
+git commit -m "bench(geo-qa): scaffold three-way templating bench dirs + deps
 
 Adds httpx/rio-tiler/dateparser/pytest-httpx for the new bench. New
 empty namespaces under bench/src/agent_cost_bench/geo_qa/, bench/data/,
@@ -141,7 +141,7 @@ bench/tests/geo_qa/. Existing tools.py and scenarios untouched."
 ```bash
 cd ~/Desktop/Code/Ajinkya/websites/ai-cost-calculator-studio
 git add bench/data/us_county_bboxes.json
-git commit -m "bench(eie): ship county-bbox lookup table
+git commit -m "bench(geo-qa): ship county-bbox lookup table
 
 5 California counties (Mendocino + 4 neighbours) sourced from
 US Census TIGER/Line 2023, public domain. Used by veda_tools.geocode
@@ -328,7 +328,7 @@ Expected: 5 passed.
 ```bash
 cd ~/Desktop/Code/Ajinkya/websites/ai-cost-calculator-studio
 git add bench/src/agent_cost_bench/geo_qa/schemas.py bench/tests/geo_qa/test_schemas.py
-git commit -m "bench(eie): typed response schemas for templating bench
+git commit -m "bench(geo-qa): typed response schemas for templating bench
 
 Pydantic models for the 5 tool-return shapes (parse_datetime, geocode,
 search_collections, search_items, compute_stats) plus the
@@ -534,7 +534,7 @@ Expected: 3 passed.
 ```bash
 cd ~/Desktop/Code/Ajinkya/websites/ai-cost-calculator-studio
 git add bench/src/agent_cost_bench/geo_qa/handlers.py bench/tests/geo_qa/test_handlers_status_only.py
-git commit -m "bench(eie): StatusOnlyHandler (mode A)
+git commit -m "bench(geo-qa): StatusOnlyHandler (mode A)
 
 Each tool return becomes a ≤60-token status string. Structured
 payload held in handler.state keyed by tool_call_id, never reaches
@@ -667,7 +667,7 @@ Expected: 2 passed.
 ```bash
 cd ~/Desktop/Code/Ajinkya/websites/ai-cost-calculator-studio
 git add bench/src/agent_cost_bench/geo_qa/handlers.py bench/tests/geo_qa/test_handlers_key_fields.py
-git commit -m "bench(eie): KeyFieldsHandler (mode B) — production middle ground
+git commit -m "bench(geo-qa): KeyFieldsHandler (mode B) — production middle ground
 
 Emits the typed Pydantic schema directly. Caps list-returning tools
 at 10 entries. Stateless. This is the contract most LangChain/
@@ -776,7 +776,7 @@ Expected: 10 passed (3 schemas + 3 status + 2 key-fields + 2 freeform).
 ```bash
 cd ~/Desktop/Code/Ajinkya/websites/ai-cost-calculator-studio
 git add bench/src/agent_cost_bench/geo_qa/handlers.py bench/tests/geo_qa/test_handlers_freeform.py
-git commit -m "bench(eie): FreeformHandler (mode C) — identity passthrough
+git commit -m "bench(geo-qa): FreeformHandler (mode C) — identity passthrough
 
 Raw STAC response serialized verbatim. Full geometry/properties/
 all asset URLs reach the LLM. This is what naive ReAct loops do
@@ -918,11 +918,11 @@ Expected: 3 passed.
 ```bash
 cd ~/Desktop/Code/Ajinkya/websites/ai-cost-calculator-studio
 git add bench/src/agent_cost_bench/geo_qa/veda_tools.py bench/tests/geo_qa/test_veda_tools_parse_datetime.py
-git commit -m "bench(eie): parse_datetime tool (no API)
+git commit -m "bench(geo-qa): parse_datetime tool (no API)
 
 dateparser-based NLP. Handles explicit 'X to Y' ranges, natural-
 language month-year ranges, and single-date inputs. Returns
-ParseDatetimeReturn (start, end). First of 5 tools in the eie
+ParseDatetimeReturn (start, end). First of 5 tools in the geo-qa
 templating bench's real-VEDA tool set."
 ```
 
@@ -1031,7 +1031,7 @@ Expected: 3 passed.
 ```bash
 cd ~/Desktop/Code/Ajinkya/websites/ai-cost-calculator-studio
 git add bench/src/agent_cost_bench/geo_qa/veda_tools.py bench/tests/geo_qa/test_veda_tools_geocode.py
-git commit -m "bench(eie): geocode tool — county-bbox lookup, no external API
+git commit -m "bench(geo-qa): geocode tool — county-bbox lookup, no external API
 
 Deterministic lookup against the shipped us_county_bboxes.json.
 State-level geocode returns a fixed California envelope so Pattern E's
@@ -1133,7 +1133,7 @@ Expected: 1 passed.
 ```bash
 cd ~/Desktop/Code/Ajinkya/websites/ai-cost-calculator-studio
 git add bench/src/agent_cost_bench/geo_qa/veda_tools.py bench/tests/geo_qa/test_veda_tools_search_collections.py
-git commit -m "bench(eie): search_collections — real NASA VEDA STAC call
+git commit -m "bench(geo-qa): search_collections — real NASA VEDA STAC call
 
 Lists VEDA collections, filters by keyword client-side. Tests use
 pytest-httpx mocks; live calls happen during actual bench runs."
@@ -1255,7 +1255,7 @@ Expected: 1 passed.
 ```bash
 cd ~/Desktop/Code/Ajinkya/websites/ai-cost-calculator-studio
 git add bench/src/agent_cost_bench/geo_qa/veda_tools.py bench/tests/geo_qa/test_veda_tools_search_items.py
-git commit -m "bench(eie): search_items — real NASA VEDA STAC items call
+git commit -m "bench(geo-qa): search_items — real NASA VEDA STAC items call
 
 GET /collections/{id}/items with bbox + datetime filter. Returns
 typed SearchItemsReturn with primary_asset_url selected from the
@@ -1402,7 +1402,7 @@ Expected: 1 passed.
 ```bash
 cd ~/Desktop/Code/Ajinkya/websites/ai-cost-calculator-studio
 git add bench/src/agent_cost_bench/geo_qa/veda_tools.py bench/tests/geo_qa/test_veda_tools_compute_stats.py
-git commit -m "bench(eie): compute_stats — rio-tiler COG band stats over polygon
+git commit -m "bench(geo-qa): compute_stats — rio-tiler COG band stats over polygon
 
 Per-item: Reader(href).feature(geometry) → masked array. Per-band:
 mean/median/min/max across valid pixels from all items, plus
@@ -1411,7 +1411,7 @@ per-item mean for timeseries display."
 
 ---
 
-### Task 12: `eie_user_actor` — deterministic gate responder
+### Task 12: `geo_qa_user_actor` — deterministic gate responder
 
 **Files:**
 - Create: `bench/src/agent_cost_bench/geo_qa/user_actor.py`
@@ -1422,7 +1422,7 @@ per-item mean for timeseries display."
 `bench/tests/geo_qa/test_user_actor.py`:
 
 ```python
-"""eie_user_actor — deterministic gate-response actor for Pattern E.
+"""geo_qa_user_actor — deterministic gate-response actor for Pattern E.
 
 The bench's "user" in Pattern E is a script, not an LLM. It reads
 from a fixed answer list keyed by gate-type. Re-runs are bit-for-bit
@@ -1527,7 +1527,7 @@ Expected: 2 passed.
 ```bash
 cd ~/Desktop/Code/Ajinkya/websites/ai-cost-calculator-studio
 git add bench/src/agent_cost_bench/geo_qa/user_actor.py bench/tests/geo_qa/test_user_actor.py
-git commit -m "bench(eie): UserActor — deterministic gate responder for Pattern E
+git commit -m "bench(geo-qa): UserActor — deterministic gate responder for Pattern E
 
 Frozen answer table keyed by gate-type. Mendocino × MiCASA × FIRE ×
 2020-06/11 fixture. Re-runs are bit-for-bit reproducible — this is
@@ -1733,7 +1733,7 @@ Expected: 2 passed.
 ```bash
 cd ~/Desktop/Code/Ajinkya/websites/ai-cost-calculator-studio
 git add bench/src/agent_cost_bench/geo_qa/dispatch.py bench/tests/geo_qa/test_dispatch.py
-git commit -m "bench(eie): dispatch table — single source of truth for tool routing
+git commit -m "bench(geo-qa): dispatch table — single source of truth for tool routing
 
 Maps OpenAI-shape tool calls to veda_tools functions, wraps returns
 through whichever handler the scenario uses. Single place the runner
@@ -1944,7 +1944,7 @@ Expected: 1 passed.
 ```bash
 cd ~/Desktop/Code/Ajinkya/websites/ai-cost-calculator-studio
 git add bench/src/agent_cost_bench/geo_qa/pattern_paper.py bench/src/agent_cost_bench/geo_qa/provider_shim.py bench/tests/geo_qa/test_pattern_paper.py
-git commit -m "bench(eie): Pattern P — paper's 6-turn single-shot ReAct
+git commit -m "bench(geo-qa): Pattern P — paper's 6-turn single-shot ReAct
 
 LangGraph state machine with agent_step + tool_step nodes, terminates
 when the LLM stops calling tools. Provider shim wraps LiteLLM so tests
@@ -2166,7 +2166,7 @@ Expected: 1 passed.
 ```bash
 cd ~/Desktop/Code/Ajinkya/websites/ai-cost-calculator-studio
 git add bench/src/agent_cost_bench/geo_qa/pattern_gated.py bench/tests/geo_qa/test_pattern_gated.py
-git commit -m "bench(eie): Pattern E — 5-gate drill-down state machine
+git commit -m "bench(geo-qa): Pattern E — 5-gate drill-down state machine
 
 agent_step / tool_step / gate_step nodes. Agent emits an ask_user
 tool call to request a gate response; runner intercepts and routes
@@ -2353,7 +2353,7 @@ Expected: 1 passed.
 ```bash
 cd ~/Desktop/Code/Ajinkya/websites/ai-cost-calculator-studio
 git add bench/src/agent_cost_bench/geo_qa/scenario_loader.py bench/scenarios/geo-qa-templating/ bench/tests/geo_qa/test_scenario_loader.py
-git commit -m "bench(eie): 6 scenario YAML manifests + loader
+git commit -m "bench(geo-qa): 6 scenario YAML manifests + loader
 
 The 2×3 matrix: 2 conversation patterns × 3 response modes. Each
 YAML pins the pattern, handler_mode, and model. Frozen workload
@@ -2398,7 +2398,7 @@ from typing import Any
 
 from .handlers import FreeformHandler, KeyFieldsHandler, StatusOnlyHandler
 from .pattern_paper import build_pattern_p_graph, initial_state as paper_initial
-from .pattern_gated import build_pattern_gated_graph, initial_state as eie_initial
+from .pattern_gated import build_pattern_gated_graph, initial_state as geo_qa_initial
 from .scenario_loader import ScenarioCfg
 from .user_actor import UserActor
 
@@ -2425,7 +2425,7 @@ def run_scenario(cfg: ScenarioCfg, max_turns: int = 30) -> Path:
     elif cfg.pattern == "gated":
         actor = UserActor.frozen_default()
         graph = build_pattern_gated_graph(handler=handler, user_actor=actor, model=cfg.model)
-        state = eie_initial(handler=handler, user_actor=actor, model=cfg.model)
+        state = geo_qa_initial(handler=handler, user_actor=actor, model=cfg.model)
     else:
         raise ValueError(f"unknown pattern: {cfg.pattern!r}")
     state["model"] = cfg.model
@@ -2503,7 +2503,7 @@ Expected: `ok`
 ```bash
 cd ~/Desktop/Code/Ajinkya/websites/ai-cost-calculator-studio
 git add bench/src/agent_cost_bench/geo_qa/runner.py
-git commit -m "bench(eie): scenario runner — glue between pattern + handler + tracing
+git commit -m "bench(geo-qa): scenario runner — glue between pattern + handler + tracing
 
 Loads a ScenarioCfg, instantiates the right handler + pattern graph,
 runs to completion (recursion_limit=30), aggregates per-turn usage
@@ -2524,7 +2524,7 @@ Open `bench/src/agent_cost_bench/cli.py`. Find the bottom of the file where `app
 
 ```python
 @app.command(name="run-geo-qa-templating")
-def run_eie_templating(
+def run_geo_qa_templating(
     scenario: str = typer.Option("all", help="scenario id (e.g. pattern-paper-status-only), 'all' to run all 6"),
     model: str = typer.Option("", help="override the model in every scenario (e.g. gpt-5.2, claude-sonnet-4.6)"),
 ):
@@ -2535,8 +2535,8 @@ def run_eie_templating(
     the comparison Markdown summary.
     """
     from pathlib import Path
-    from .eie.runner import run_scenario
-    from .eie.scenario_loader import load_scenario, ScenarioCfg
+    from .geo_qa.runner import run_scenario
+    from .geo_qa.scenario_loader import load_scenario, ScenarioCfg
     from dataclasses import replace
     SCENARIO_DIR = Path(__file__).resolve().parent.parent.parent / "scenarios" / "geo-qa-templating"
     if scenario == "all":
@@ -2568,7 +2568,7 @@ Expected: lists `run-geo-qa-templating` alongside the existing subcommands.
 ```bash
 cd ~/Desktop/Code/Ajinkya/websites/ai-cost-calculator-studio
 git add bench/src/agent_cost_bench/cli.py
-git commit -m "bench(eie): CLI subcommand 'run-geo-qa-templating'
+git commit -m "bench(geo-qa): CLI subcommand 'run-geo-qa-templating'
 
 Runs all 6 scenarios (or a single one with --scenario <id>). Writes
 one trace JSON per scenario under bench/reports/geo-qa-templating/.
@@ -2686,13 +2686,13 @@ def emit_report() -> Path:
 
 - [ ] **Step 2: Add CLI subcommand**
 
-Open `bench/src/agent_cost_bench/cli.py`. Append below the `run_eie_templating` subcommand:
+Open `bench/src/agent_cost_bench/cli.py`. Append below the `run_geo_qa_templating` subcommand:
 
 ```python
 @app.command(name="report-geo-qa-templating")
-def report_eie_templating():
+def report_geo_qa_templating():
     """Emit the comparison Markdown report from the latest 6 traces."""
-    from .eie.report import emit_report
+    from .geo_qa.report import emit_report
     out = emit_report()
     Console().print(f"[green]Report written:[/] {out}")
 ```
@@ -2701,7 +2701,7 @@ def report_eie_templating():
 
 ```bash
 cd ~/Desktop/Code/Ajinkya/websites/ai-cost-calculator-studio/bench
-agent-cost-bench --help | grep eie
+agent-cost-bench --help | grep geo-qa
 ```
 
 Expected: shows both `run-geo-qa-templating` and `report-geo-qa-templating`.
@@ -2711,7 +2711,7 @@ Expected: shows both `run-geo-qa-templating` and `report-geo-qa-templating`.
 ```bash
 cd ~/Desktop/Code/Ajinkya/websites/ai-cost-calculator-studio
 git add bench/src/agent_cost_bench/geo_qa/report.py bench/src/agent_cost_bench/cli.py
-git commit -m "bench(eie): report generator + 'report-geo-qa-templating' CLI
+git commit -m "bench(geo-qa): report generator + 'report-geo-qa-templating' CLI
 
 Reads the latest trace per scenario from bench/reports/geo-qa-templating/,
 builds the 6-row comparison table with cost projections at 915K
@@ -2833,7 +2833,7 @@ cd ~/Desktop/Code/Ajinkya/websites/ai-cost-calculator-studio/bench
 pytest tests/ -v
 ```
 
-Expected: all eie tests pass; pre-existing bench tests (if any) also pass.
+Expected: all geo_qa tests pass; pre-existing bench tests (if any) also pass.
 
 - [ ] **Step 4: Run the calc repo's bench-validate to confirm engine is untouched**
 
@@ -2849,7 +2849,7 @@ Expected: `All 6 bench-validated presets within ±5.00% of expected.`
 ```bash
 cd ~/Desktop/Code/Ajinkya/websites/ai-cost-calculator-studio
 git add bench/tests/geo_qa/test_e2e_mocked.py
-git commit -m "bench(eie): end-to-end smoke test with mocked LLM + HTTP
+git commit -m "bench(geo-qa): end-to-end smoke test with mocked LLM + HTTP
 
 Patches provider_shim.call_llm with a hard-coded 6-turn tool-call
 sequence and httpx + rio-tiler for STAC and COG reads. Confirms the
@@ -2916,7 +2916,7 @@ Save the file.
 ```bash
 cd ~/Desktop/Code/Ajinkya/websites/ai-cost-calculator-studio
 git add bench/reports/geo-qa-templating/*.trace.json bench/reports/geo-qa-templating/*-summary.md
-git commit -m "bench(eie): live measurement — all 6 scenarios + findings
+git commit -m "bench(geo-qa): live measurement — all 6 scenarios + findings
 
 Real OpenAI GPT-5.2 calls against real NASA VEDA STAC + MiCASA
 Land Carbon Flux v1. 6 trace JSONs (2 patterns × 3 handler modes)
