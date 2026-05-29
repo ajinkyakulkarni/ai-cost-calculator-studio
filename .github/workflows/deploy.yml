@@ -17,10 +17,10 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
         with:
-          node-version: "22"
+          node-version: "24"
       # CLOUDFLARE_ACCOUNT_ID is set so wrangler can skip the /memberships
       # lookup, which requires `User -> User Details -> Read` on the token
       # (our deploy-scoped token doesn't include that). Account IDs are
