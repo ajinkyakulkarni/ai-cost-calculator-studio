@@ -178,14 +178,14 @@ def _print_session_summary(trace_path: Path) -> None:
 
 from dataclasses import replace as _dataclass_replace
 
-from .eie.runner import run_scenario as run_eie_scenario  # noqa: F401  (module-level for patching)
-from .eie.scenario_loader import load_scenario as _load_eie_scenario
+from .geo_qa.runner import run_scenario as run_geo_qa_scenario  # noqa: F401  (module-level for patching)
+from .geo_qa.scenario_loader import load_scenario as _load_geo_qa_scenario
 
-_EIE_SCENARIO_DIR = Path(__file__).resolve().parent.parent.parent / "scenarios" / "eie-templating"
+_GEO_QA_SCENARIO_DIR = Path(__file__).resolve().parent.parent.parent / "scenarios" / "geo-qa-templating"
 
 
-@app.command(name="run-eie-templating")
-def run_eie_templating(
+@app.command(name="run-geo-qa-templating")
+def run_geo_qa_templating(
     scenario: str = typer.Option(
         "all",
         help="Scenario id (e.g. pattern-paper-status-only), or 'all' to run all 6.",
@@ -222,21 +222,21 @@ def run_eie_templating(
         ),
     ),
 ) -> None:
-    """Run the eie-templating bench: 6 scenarios = 2 patterns × 3 handler modes.
+    """Run the geo-qa-templating bench: 6 scenarios = 2 patterns × 3 handler modes.
 
-    Each run writes a trace JSON under bench/reports/eie-templating/.
-    Use `agent-cost-bench report-eie-templating` afterwards to emit
+    Each run writes a trace JSON under bench/reports/geo-qa-templating/.
+    Use `agent-cost-bench report-geo-qa-templating` afterwards to emit
     the comparison Markdown summary.
     """
     if scenario == "all":
-        ids = [p.stem for p in sorted(_EIE_SCENARIO_DIR.glob("*.yml"))]
+        ids = [p.stem for p in sorted(_GEO_QA_SCENARIO_DIR.glob("*.yml"))]
     else:
         ids = [scenario]
 
     succeeded: list[str] = []
     failed: list[tuple[str, str]] = []
     for sid in ids:
-        cfg = _load_eie_scenario(_EIE_SCENARIO_DIR / f"{sid}.yml")
+        cfg = _load_geo_qa_scenario(_GEO_QA_SCENARIO_DIR / f"{sid}.yml")
         if model:
             cfg = _dataclass_replace(cfg, model=model)
         if force_compute_stats:
@@ -245,7 +245,7 @@ def run_eie_templating(
             cfg = _dataclass_replace(cfg, emit_map=True)
         console.print(f"[cyan]Running:[/] {sid}  ({cfg.pattern} × {cfg.handler_mode} on {cfg.model})")
         try:
-            out_path = run_eie_scenario(cfg, max_turns=recursion_limit)
+            out_path = run_geo_qa_scenario(cfg, max_turns=recursion_limit)
             console.print(f"[green]Wrote:[/] {out_path}")
             succeeded.append(sid)
         except Exception as exc:  # noqa: BLE001
@@ -254,7 +254,7 @@ def run_eie_templating(
 
     console.print(
         f"\n[bold]{len(succeeded)}/{len(ids)} scenario(s) succeeded.[/] "
-        "Run `agent-cost-bench report-eie-templating` for the summary."
+        "Run `agent-cost-bench report-geo-qa-templating` for the summary."
     )
     if failed:
         console.print(f"[red]{len(failed)} failed:[/]")
@@ -263,17 +263,17 @@ def run_eie_templating(
         raise typer.Exit(code=1)
 
 
-@app.command(name="report-eie-templating")
-def report_eie_templating() -> None:
+@app.command(name="report-geo-qa-templating")
+def report_geo_qa_templating() -> None:
     """Emit the comparison Markdown report from the latest 6 traces."""
-    from .eie.report import emit_report
+    from .geo_qa.report import emit_report
     out = emit_report()
     Console().print(f"[green]Report written:[/] {out}")
 
 
-@app.command(name="view-eie-templating")
-def view_eie_templating() -> None:
-    """Generate a self-contained HTML viewer for the eie-templating bench traces.
+@app.command(name="view-geo-qa-templating")
+def view_geo_qa_templating() -> None:
+    """Generate a self-contained HTML viewer for the geo-qa-templating bench traces.
 
     Reads the latest trace per (scenario_id, enforce_compute_stats, emit_map),
     bakes all trace data and per-turn costs into a single HTML file, and prints
@@ -281,18 +281,18 @@ def view_eie_templating() -> None:
 
     This command does not make any API calls or modify any cost measurements.
     """
-    from .eie.viewer import build_viewer
+    from .geo_qa.viewer import build_viewer
     out = build_viewer()
     Console().print(f"[green]Viewer written:[/] {out}")
 
 
-# cli.py lives one level shallower than eie/runner.py, so parents[2] (not [3])
+# cli.py lives one level shallower than geo_qa/runner.py, so parents[2] (not [3])
 # resolves to bench/, matching REPORTS_DIR where trace JSONs are written.
-_EIE_PREVIEWS_DIR = Path(__file__).resolve().parents[2] / "reports" / "eie-templating"
+_GEO_QA_PREVIEWS_DIR = Path(__file__).resolve().parents[2] / "reports" / "geo-qa-templating"
 
 
-@app.command(name="preview-eie-templating")
-def preview_eie_templating(
+@app.command(name="preview-geo-qa-templating")
+def preview_geo_qa_templating(
     county: str = typer.Option(
         "Mendocino County, California",
         help="County name to geocode as the area of interest.",
@@ -318,10 +318,10 @@ def preview_eie_templating(
 
     Decoupled from the cost-measuring path: no LLM, no token cost, no trace.
     Safe to run without an OpenAI key — uses only unauthenticated VEDA APIs.
-    Each preview is saved as bench/reports/eie-templating/preview-{item_id}.png.
+    Each preview is saved as bench/reports/geo-qa-templating/preview-{item_id}.png.
     """
-    from .eie.veda_tools import geocode, search_items
-    from .eie.map_preview import render_preview
+    from .geo_qa.veda_tools import geocode, search_items
+    from .geo_qa.map_preview import render_preview
 
     # Geocode the county to a bbox
     console.print(f"[cyan]Geocoding:[/] {county!r}")
@@ -339,10 +339,10 @@ def preview_eie_templating(
         console.print("[yellow]No items found — nothing to preview.[/]")
         raise typer.Exit(code=0)
 
-    _EIE_PREVIEWS_DIR.mkdir(parents=True, exist_ok=True)
+    _GEO_QA_PREVIEWS_DIR.mkdir(parents=True, exist_ok=True)
 
     for item in items:
-        out_path = _EIE_PREVIEWS_DIR / f"preview-{item.id}.png"
+        out_path = _GEO_QA_PREVIEWS_DIR / f"preview-{item.id}.png"
         try:
             png_bytes = render_preview(
                 collection,
