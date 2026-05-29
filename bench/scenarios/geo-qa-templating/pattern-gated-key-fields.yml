@@ -1,0 +1,9 @@
+id: pattern-gated-key-fields
+pattern: gated
+handler_mode: key_fields
+model: gpt-5.2
+description: |
+  Gated drill-down × KeyFieldsHandler (mode B).
+  Most-realistic combination: gated conversation + production templating.
+  Frozen workload: Mendocino County, LIS Global GPP (lis-global-da-gpp), cog_default asset,
+  2020-06-01 to 2020-11-01.

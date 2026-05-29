@@ -106,7 +106,7 @@ TOOL_SCHEMAS: list[dict[str, Any]] = [
             },
         },
     },
-    # ---- EIE-shape tools — used by the data-discovery scenario.
+    # ---- geospatial-Q&A data-discovery tools — used by the data-discovery scenario.
     # These mirror the canonical 6-tool flow used in production
     # domain-data-discovery agents (parse_datetime → geocode →
     # search_collections → select_collection → search_items →
@@ -311,7 +311,7 @@ def query_db(sql: str) -> dict:
     }
 
 
-# --- EIE-shape tools (data-discovery scenario) -------------------
+# --- geospatial-Q&A data-discovery tools (data-discovery scenario) ---
 
 # Tool-response-shape mode. Two settings:
 #   - 'freeform' (default): tool `message` fields carry descriptive
@@ -332,7 +332,7 @@ def query_db(sql: str) -> dict:
 # scenario's `tool_response_mode` field is honored. Default is
 # 'freeform' to preserve historical bench behavior for existing
 # scenarios that don't declare the field.
-# THREAD-SAFETY: _RESPONSE_MODE and _eie_state below are plain
+# THREAD-SAFETY: _RESPONSE_MODE and _geo_qa_state below are plain
 # module-level globals. The bench runs scenarios sequentially in a
 # single process, so this is fine today. If two scenarios are ever
 # evaluated concurrently in-process (e.g. a future async harness),
@@ -369,11 +369,11 @@ def _msg(freeform: str, templated: str) -> str:
     return templated if _RESPONSE_MODE == "templated" else freeform
 
 
-# Module-level shared "tool state" — mirrors the EIE pattern where
+# Module-level shared "tool state" — mirrors the gated drill-down pattern where
 # large payloads (geometry, item lists, collection metadata) are
 # kept out of LLM context and only summaries are returned. The LLM
 # never sees the raw geometry; just the bbox + name.
-_eie_state: dict[str, Any] = {
+_geo_qa_state: dict[str, Any] = {
     "datetime_range": None,
     "place": None,
     "bbox": None,
@@ -394,7 +394,7 @@ def parse_datetime(value: str) -> dict:
     parts = value.split("/")
     if len(parts) != 2:
         return {"status": "error", "error": f"Invalid format '{value}', expected YYYY-MM-DD/YYYY-MM-DD"}
-    _eie_state["datetime_range"] = value
+    _geo_qa_state["datetime_range"] = value
     return {
         "status": "pending_confirmation",
         "datetime": value,
@@ -413,7 +413,7 @@ def geocode(query: str) -> dict:
 
     Freeform mode: the LLM sees the FULL administrative polygon —
     we synthesize a realistic county/city boundary with ~80 vertices
-    around the bbox center (the actual EIE deployment routes admin
+    around the bbox center (the actual deployment routes admin
     boundaries through Geodini, which returns multi-hundred-vertex
     GeoJSON for any non-trivial polity). This is what makes
     place-resolution one of the dominant token sources in heavy-payload
@@ -457,9 +457,9 @@ def geocode(query: str) -> dict:
         "coordinates": [admin_ring],
         "crs": {"type": "name", "properties": {"name": "urn:ogc:def:crs:OGC:1.3:CRS84"}},
     }
-    _eie_state["place"] = query
-    _eie_state["bbox"] = bbox
-    _eie_state["admin_polygon"] = admin_polygon
+    _geo_qa_state["place"] = query
+    _geo_qa_state["bbox"] = bbox
+    _geo_qa_state["admin_polygon"] = admin_polygon
     if _RESPONSE_MODE == "templated":
         return {
             "status": "pending_confirmation",
@@ -507,7 +507,7 @@ def search_collections(query: str, top_k: int = 5) -> dict:
     # Persist matches so select_collection can look up CMR-flag and
     # variable lists later (needed to model the variable-selection
     # gate). The LLM never sees this — it's bench-internal state.
-    _eie_state["last_matches"] = options
+    _geo_qa_state["last_matches"] = options
     # Templated mode: only minimal options reach the LLM (id, label,
     # cmr flag — ~15 tokens per option). Freeform mode includes the
     # full match metadata (cosine, overlap flags, available variables)
@@ -554,7 +554,7 @@ def select_collection(collection_id: str, variable: str | None = None) -> dict:
     # arbitrary id), treat it as a VEDA COG collection with no
     # variable list — the safer default.
     match = next(
-        (m for m in _eie_state.get("last_matches", []) if m.get("id") == collection_id),
+        (m for m in _geo_qa_state.get("last_matches", []) if m.get("id") == collection_id),
         None,
     )
     is_cmr = bool(match and match.get("is_cmr_backed"))
@@ -562,7 +562,7 @@ def select_collection(collection_id: str, variable: str | None = None) -> dict:
 
     # Gate: CMR + multiple variables + no variable picked yet.
     if is_cmr and len(available_vars) > 1 and not variable:
-        _eie_state["selected_collection"] = collection_id  # half-selected
+        _geo_qa_state["selected_collection"] = collection_id  # half-selected
         if _RESPONSE_MODE == "templated":
             return {
                 "status": "pending_confirmation",
@@ -587,9 +587,9 @@ def select_collection(collection_id: str, variable: str | None = None) -> dict:
     if is_cmr and len(available_vars) == 1 and not variable:
         variable = available_vars[0]
 
-    _eie_state["selected_collection"] = collection_id
+    _geo_qa_state["selected_collection"] = collection_id
     if variable:
-        _eie_state["selected_variable"] = variable
+        _geo_qa_state["selected_variable"] = variable
     return {
         "status": "complete",
         "selected_collection_id": collection_id,
@@ -617,14 +617,14 @@ def search_items(limit: int = 15) -> dict:
     8-15 items add 25-50K tokens to the conversation per turn that
     calls this tool.
     """
-    if not _eie_state.get("selected_collection"):
+    if not _geo_qa_state.get("selected_collection"):
         return {"status": "error", "error": "No collection selected — call select_collection first"}
-    if not _eie_state.get("bbox"):
+    if not _geo_qa_state.get("bbox"):
         return {"status": "error", "error": "No bbox — call geocode first"}
-    rng = random.Random(_stable_seed(_eie_state["selected_collection"]))
+    rng = random.Random(_stable_seed(_geo_qa_state["selected_collection"]))
     n = rng.randint(8, max(8, min(15, limit)))
-    coll = _eie_state["selected_collection"]
-    bbox = _eie_state["bbox"]
+    coll = _geo_qa_state["selected_collection"]
+    bbox = _geo_qa_state["bbox"]
     items_full = []
     items_minimal = []
     for i in range(n):
@@ -726,7 +726,7 @@ def search_items(limit: int = 15) -> dict:
         })
         items_minimal.append({"id": iid, "datetime": dt,
                               "asset_url": f"s3://veda-data-store/{coll}/{iid}/cog.tif"})
-    _eie_state["items"] = items_full
+    _geo_qa_state["items"] = items_full
     if _RESPONSE_MODE == "templated":
         return {
             "status": "complete",
@@ -758,16 +758,16 @@ def compute_stats() -> dict:
     levels, valid-pixel mask metadata, optional per-class counts. Each
     item × 3 bands ≈ 1.5K tokens; 8-15 items × 3 bands adds 35-70K
     tokens to the conversation per turn that calls this. This is what
-    a real EIE-class deployment receives back from its raster
+    a real geospatial Q&A deployment receives back from its raster
     statistics service when the agent doesn't trim the response.
     """
-    items = _eie_state.get("items")
+    items = _geo_qa_state.get("items")
     if not items:
         return {"status": "error", "error": "No items — call search_items first"}
     # Seed from the collection ID so the values vary by deployment but
     # are reproducible per (collection, item) — matches the audit
     # finding #6 fix.
-    coll = _eie_state.get("selected_collection") or "default"
+    coll = _geo_qa_state.get("selected_collection") or "default"
     rng = random.Random(_stable_seed(coll))
     results = []
     PCT_LEVELS = [1, 5, 10, 25, 50, 75, 90, 95, 99]
@@ -858,10 +858,10 @@ def build_viz_tiles() -> dict:
     only the count, since the renderer downstream reads the URLs out
     of state, not out of the conversation.
     """
-    items = _eie_state.get("items")
+    items = _geo_qa_state.get("items")
     if not items:
         return {"status": "error", "error": "No items — call search_items first"}
-    coll = _eie_state.get("selected_collection") or "COLL-XXX"
+    coll = _geo_qa_state.get("selected_collection") or "COLL-XXX"
     def _cog_url(it: dict) -> str:
         # After search_items was beefed up, items are full STAC features
         # (with `assets.cog.href`). Fall back to the legacy flat
@@ -923,10 +923,10 @@ def execute_tool_call(name: str, arguments: dict[str, Any]) -> str:
     return json.dumps(result)
 
 
-def reset_eie_state() -> None:
-    """Clear the EIE-shape tool state — call between scenario runs."""
-    _eie_state.clear()
-    _eie_state.update({
+def reset_geo_qa_state() -> None:
+    """Clear the geospatial-Q&A tool state — call between scenario runs."""
+    _geo_qa_state.clear()
+    _geo_qa_state.update({
         "datetime_range": None, "place": None, "bbox": None,
         "selected_collection": None, "selected_variable": None, "items": None,
         "last_matches": [],

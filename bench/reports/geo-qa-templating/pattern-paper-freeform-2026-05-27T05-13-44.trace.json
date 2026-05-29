@@ -1,0 +1,52 @@
+{
+  "scenario_id": "pattern-paper-freeform",
+  "pattern": "paper",
+  "handler_mode": "freeform",
+  "model": "gpt-5.2",
+  "enforce_compute_stats": false,
+  "turn_count": 4,
+  "elapsed_s": 29.938443899154663,
+  "totals": {
+    "input_tokens": 62575,
+    "output_tokens": 2505,
+    "cached_tokens": 31488,
+    "cache_hit_rate": 0.5032041550139832
+  },
+  "per_turn_avg": {
+    "input_tokens": 15643.75,
+    "output_tokens": 626.25
+  },
+  "turns": [
+    {
+      "input_tokens": 619,
+      "output_tokens": 65,
+      "cached_tokens": 0,
+      "tool_calls": [
+        "parse_datetime",
+        "geocode"
+      ]
+    },
+    {
+      "input_tokens": 762,
+      "output_tokens": 63,
+      "cached_tokens": 0,
+      "tool_calls": [
+        "search_items"
+      ]
+    },
+    {
+      "input_tokens": 29392,
+      "output_tokens": 2262,
+      "cached_tokens": 0,
+      "tool_calls": [
+        "compute_stats"
+      ]
+    },
+    {
+      "input_tokens": 31802,
+      "output_tokens": 115,
+      "cached_tokens": 31488,
+      "tool_calls": []
+    }
+  ]
+}

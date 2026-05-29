@@ -1,0 +1,9 @@
+id: pattern-paper-key-fields
+pattern: paper
+handler_mode: key_fields
+model: gpt-5.2
+description: |
+  Pattern P × KeyFieldsHandler (mode B).
+  Production-realistic middle ground. The paper does NOT test this point.
+  Frozen workload: Mendocino County, LIS Global GPP (lis-global-da-gpp), cog_default asset,
+  2020-06-01 to 2020-11-01.

@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import json
-import os
 from pathlib import Path
 
 import typer
@@ -175,6 +174,190 @@ def _print_session_summary(trace_path: Path) -> None:
         table.add_row("cache_hit_rate", f"{cache_rate:.2%}")
     console.print()
     console.print(table)
+
+
+from dataclasses import replace as _dataclass_replace
+
+from .geo_qa.runner import run_scenario as run_geo_qa_scenario  # noqa: F401  (module-level for patching)
+from .geo_qa.scenario_loader import load_scenario as _load_geo_qa_scenario
+
+_GEO_QA_SCENARIO_DIR = Path(__file__).resolve().parent.parent.parent / "scenarios" / "geo-qa-templating"
+
+
+@app.command(name="run-geo-qa-templating")
+def run_geo_qa_templating(
+    scenario: str = typer.Option(
+        "all",
+        help="Scenario id (e.g. pattern-paper-status-only), or 'all' to run all 6.",
+    ),
+    model: str = typer.Option(
+        "",
+        help="Override the model in every scenario (e.g. gpt-5.2, claude-sonnet-4-6).",
+    ),
+    force_compute_stats: bool = typer.Option(
+        False,
+        "--force-compute-stats",
+        help=(
+            "Append a hard instruction to each scenario's system prompt requiring "
+            "the agent to call compute_stats before producing its final answer. "
+            "Use this to isolate templating cost from information-bottleneck cost."
+        ),
+    ),
+    with_map: bool = typer.Option(
+        False,
+        "--with-map",
+        help=(
+            "Opt-in to the render_map tool: adds it to the tool schema list and "
+            "instructs the agent to call it after compute_stats and include the "
+            "map layer URL verbatim in its final answer."
+        ),
+    ),
+    recursion_limit: int = typer.Option(
+        30,
+        "--recursion-limit",
+        help=(
+            "Max LangGraph node transitions before the run aborts. Raise it for "
+            "status-only or with-map runs where the agent needs more turns to "
+            "reconstruct context from terse responses."
+        ),
+    ),
+) -> None:
+    """Run the geo-qa-templating bench: 6 scenarios = 2 patterns × 3 handler modes.
+
+    Each run writes a trace JSON under bench/reports/geo-qa-templating/.
+    Use `agent-cost-bench report-geo-qa-templating` afterwards to emit
+    the comparison Markdown summary.
+    """
+    if scenario == "all":
+        ids = [p.stem for p in sorted(_GEO_QA_SCENARIO_DIR.glob("*.yml"))]
+    else:
+        ids = [scenario]
+
+    succeeded: list[str] = []
+    failed: list[tuple[str, str]] = []
+    for sid in ids:
+        cfg = _load_geo_qa_scenario(_GEO_QA_SCENARIO_DIR / f"{sid}.yml")
+        if model:
+            cfg = _dataclass_replace(cfg, model=model)
+        if force_compute_stats:
+            cfg = _dataclass_replace(cfg, enforce_compute_stats=True)
+        if with_map:
+            cfg = _dataclass_replace(cfg, emit_map=True)
+        console.print(f"[cyan]Running:[/] {sid}  ({cfg.pattern} × {cfg.handler_mode} on {cfg.model})")
+        try:
+            out_path = run_geo_qa_scenario(cfg, max_turns=recursion_limit)
+            console.print(f"[green]Wrote:[/] {out_path}")
+            succeeded.append(sid)
+        except Exception as exc:  # noqa: BLE001
+            console.print(f"[red]FAILED:[/] {sid} — {type(exc).__name__}: {exc}")
+            failed.append((sid, f"{type(exc).__name__}: {exc}"))
+
+    console.print(
+        f"\n[bold]{len(succeeded)}/{len(ids)} scenario(s) succeeded.[/] "
+        "Run `agent-cost-bench report-geo-qa-templating` for the summary."
+    )
+    if failed:
+        console.print(f"[red]{len(failed)} failed:[/]")
+        for sid, msg in failed:
+            console.print(f"  - {sid}: {msg}")
+        raise typer.Exit(code=1)
+
+
+@app.command(name="report-geo-qa-templating")
+def report_geo_qa_templating() -> None:
+    """Emit the comparison Markdown report from the latest 6 traces."""
+    from .geo_qa.report import emit_report
+    out = emit_report()
+    Console().print(f"[green]Report written:[/] {out}")
+
+
+@app.command(name="view-geo-qa-templating")
+def view_geo_qa_templating() -> None:
+    """Generate a self-contained HTML viewer for the geo-qa-templating bench traces.
+
+    Reads the latest trace per (scenario_id, enforce_compute_stats, emit_map),
+    bakes all trace data and per-turn costs into a single HTML file, and prints
+    the output path. Open the file in any browser — no server required.
+
+    This command does not make any API calls or modify any cost measurements.
+    """
+    from .geo_qa.viewer import build_viewer
+    out = build_viewer()
+    Console().print(f"[green]Viewer written:[/] {out}")
+
+
+# cli.py lives one level shallower than geo_qa/runner.py, so parents[2] (not [3])
+# resolves to bench/, matching REPORTS_DIR where trace JSONs are written.
+_GEO_QA_PREVIEWS_DIR = Path(__file__).resolve().parents[2] / "reports" / "geo-qa-templating"
+
+
+@app.command(name="preview-geo-qa-templating")
+def preview_geo_qa_templating(
+    county: str = typer.Option(
+        "Mendocino County, California",
+        help="County name to geocode as the area of interest.",
+    ),
+    datetime: str = typer.Option(
+        "2020-06-01/2020-08-01",
+        help="STAC datetime range (YYYY-MM-DD/YYYY-MM-DD or natural language).",
+    ),
+    collection: str = typer.Option(
+        "lis-global-da-gpp",
+        help="STAC collection id to preview.",
+    ),
+    max_items: int = typer.Option(
+        3,
+        help="Maximum number of items to preview.",
+    ),
+    colormap: str = typer.Option(
+        "viridis",
+        help="TiTiler-compatible colormap name (e.g. viridis, plasma, rdylgn).",
+    ),
+) -> None:
+    """Fetch PNG previews for the first N items in a VEDA collection.
+
+    Decoupled from the cost-measuring path: no LLM, no token cost, no trace.
+    Safe to run without an OpenAI key — uses only unauthenticated VEDA APIs.
+    Each preview is saved as bench/reports/geo-qa-templating/preview-{item_id}.png.
+    """
+    from .geo_qa.veda_tools import geocode, search_items
+    from .geo_qa.map_preview import render_preview
+
+    # Geocode the county to a bbox
+    console.print(f"[cyan]Geocoding:[/] {county!r}")
+    geo = geocode(county)
+    bbox = geo.bbox
+    console.print(f"  bbox = {bbox}")
+
+    # Search for items
+    console.print(f"[cyan]Searching:[/] collection={collection!r}  datetime={datetime!r}")
+    result = search_items(collection, bbox, datetime, limit=max_items)
+    items = result.items[:max_items]
+    console.print(f"  found {len(items)} item(s)")
+
+    if not items:
+        console.print("[yellow]No items found — nothing to preview.[/]")
+        raise typer.Exit(code=0)
+
+    _GEO_QA_PREVIEWS_DIR.mkdir(parents=True, exist_ok=True)
+
+    for item in items:
+        out_path = _GEO_QA_PREVIEWS_DIR / f"preview-{item.id}.png"
+        try:
+            png_bytes = render_preview(
+                collection,
+                item.id,
+                bbox,  # the geocoded county AOI, NOT item.bbox (which is the
+                       # whole-globe extent of the GPP grid → renders the world)
+                colormap=colormap,
+            )
+            out_path.write_bytes(png_bytes)
+            console.print(f"[green]Saved:[/] {out_path}  ({len(png_bytes):,} bytes)")
+        except Exception as exc:  # noqa: BLE001
+            console.print(
+                f"[yellow]Warning:[/] skipping {item.id!r} — "
+                f"{type(exc).__name__}: {exc}"
+            )
 
 
 def main() -> None:

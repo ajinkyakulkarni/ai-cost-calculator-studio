@@ -1,0 +1,9 @@
+id: pattern-paper-freeform
+pattern: paper
+handler_mode: freeform
+model: gpt-5.2
+description: |
+  Pattern P × FreeformHandler (mode C).
+  Naive ReAct loop with no output structuring. Paper's claimed cost ceiling.
+  Frozen workload: Mendocino County, LIS Global GPP (lis-global-da-gpp), cog_default asset,
+  2020-06-01 to 2020-11-01.

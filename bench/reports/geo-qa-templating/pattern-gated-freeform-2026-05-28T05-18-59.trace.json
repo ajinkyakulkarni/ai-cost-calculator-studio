@@ -1,0 +1,117 @@
+{
+  "scenario_id": "pattern-gated-freeform",
+  "pattern": "gated",
+  "handler_mode": "freeform",
+  "model": "gpt-5.2",
+  "enforce_compute_stats": false,
+  "emit_map": true,
+  "turn_count": 12,
+  "elapsed_s": 63.426928997039795,
+  "totals": {
+    "input_tokens": 150757,
+    "output_tokens": 3054,
+    "cached_tokens": 107904,
+    "cache_hit_rate": 0.7157478591375525
+  },
+  "per_turn_avg": {
+    "input_tokens": 12563.083333333334,
+    "output_tokens": 254.5
+  },
+  "turns": [
+    {
+      "input_tokens": 852,
+      "output_tokens": 30,
+      "cached_tokens": 0,
+      "tool_calls": [
+        "parse_datetime"
+      ]
+    },
+    {
+      "input_tokens": 912,
+      "output_tokens": 69,
+      "cached_tokens": 0,
+      "tool_calls": [
+        "ask_user"
+      ]
+    },
+    {
+      "input_tokens": 996,
+      "output_tokens": 33,
+      "cached_tokens": 0,
+      "tool_calls": [
+        "ask_user"
+      ]
+    },
+    {
+      "input_tokens": 1041,
+      "output_tokens": 23,
+      "cached_tokens": 0,
+      "tool_calls": [
+        "geocode"
+      ]
+    },
+    {
+      "input_tokens": 1107,
+      "output_tokens": 55,
+      "cached_tokens": 0,
+      "tool_calls": [
+        "ask_user"
+      ]
+    },
+    {
+      "input_tokens": 1178,
+      "output_tokens": 64,
+      "cached_tokens": 1024,
+      "tool_calls": [
+        "geocode",
+        "search_collections"
+      ]
+    },
+    {
+      "input_tokens": 8414,
+      "output_tokens": 84,
+      "cached_tokens": 1152,
+      "tool_calls": [
+        "ask_user"
+      ]
+    },
+    {
+      "input_tokens": 8514,
+      "output_tokens": 62,
+      "cached_tokens": 8448,
+      "tool_calls": [
+        "ask_user"
+      ]
+    },
+    {
+      "input_tokens": 8590,
+      "output_tokens": 64,
+      "cached_tokens": 8448,
+      "tool_calls": [
+        "search_items"
+      ]
+    },
+    {
+      "input_tokens": 37208,
+      "output_tokens": 2263,
+      "cached_tokens": 8576,
+      "tool_calls": [
+        "compute_stats"
+      ]
+    },
+    {
+      "input_tokens": 40873,
+      "output_tokens": 64,
+      "cached_tokens": 39424,
+      "tool_calls": [
+        "render_map"
+      ]
+    },
+    {
+      "input_tokens": 41072,
+      "output_tokens": 243,
+      "cached_tokens": 40832,
+      "tool_calls": []
+    }
+  ]
+}

@@ -1,0 +1,9 @@
+id: pattern-gated-status-only
+pattern: gated
+handler_mode: status_only
+model: gpt-5.2
+description: |
+  Gated drill-down (~9-10 turn) × StatusOnlyHandler (mode A).
+  Tests whether the gated conversation pattern changes the templating lever.
+  Frozen workload: Mendocino County, LIS Global GPP (lis-global-da-gpp), cog_default asset,
+  2020-06-01 to 2020-11-01.
