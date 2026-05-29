@@ -30,7 +30,7 @@ from langgraph.graph.message import add_messages
 
 from .provider import call_llm
 from .scenario import AgentSpec, Scenario, config_hash
-from .tools import TOOL_SCHEMAS, execute_tool_call, reset_eie_state, set_response_mode
+from .tools import TOOL_SCHEMAS, execute_tool_call, reset_geo_qa_state, set_response_mode
 from .tracing import init_tracing, reset_collected_spans, write_trace_artifact
 
 
@@ -377,9 +377,9 @@ def run_scenario(scenario: Scenario, *, output_dir: Path) -> Path:
         for a in scenario.agents:
             base = original_sysprompts[a.id] or ""
             a.system_prompt = marker + base
-        # Reset stateful tools (e.g. EIE-shape geocode/select pipeline)
+        # Reset stateful tools (e.g. geospatial-Q&A geocode/select pipeline)
         # so each repeat starts from a clean slate.
-        reset_eie_state()
+        reset_geo_qa_state()
         state: RunState = {"messages": [], "turn_idx": 0, "total_cost_usd": 0.0}
         for i, turn in enumerate(scenario.turns):
             # Live-projected cost: cumulative across prior repeats

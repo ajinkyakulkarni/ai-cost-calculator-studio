@@ -65,15 +65,15 @@ meta:
     - cache_hit_rate
     - per_query_cost_usd
   notes: |
-    Heavy input shape (~84K tokens) is the cost-dominant feature of EIE-
-    class deployments: the system prompt + retrieved geospatial context
-    + multi-tool schemas account for the bulk. Output is small because
-    EIE answers in plain language ("NO2 over NYC declined 12% from Oct
+    Heavy input shape (~84K tokens) is the cost-dominant feature of
+    geospatial Q&A deployments: the system prompt + retrieved geospatial
+    context + multi-tool schemas account for the bulk. Output is small
+    because the agent answers in plain language ("NO2 over NYC declined 12% from Oct
     to Dec 2021"). If real API runs produce a markedly different shape,
     the preset's anchor_query needs recalibration.
 
 agents:
-  - id: eie-agent
+  - id: geo-qa-agent
     role: data-discovery
     # gpt-5.2 mirrors the preset's `defaults.model`. Switch to gpt-4.1
     # or gpt-4o-mini for a cheaper smoke run; the bench tracks model

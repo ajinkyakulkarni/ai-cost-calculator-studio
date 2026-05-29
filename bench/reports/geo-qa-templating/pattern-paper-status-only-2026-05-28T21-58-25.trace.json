@@ -1,0 +1,214 @@
+{
+  "scenario_id": "pattern-paper-status-only",
+  "pattern": "paper",
+  "handler_mode": "status_only",
+  "model": "gpt-5.2",
+  "enforce_compute_stats": false,
+  "emit_map": true,
+  "turn_count": 6,
+  "elapsed_s": 19.584031105041504,
+  "user_query": "Visualize gross primary production (GPP) from the NASA VEDA STAC collection 'lis-global-da-gpp' over Mendocino County, California, June 2020 to November 2020. Use collection_id='lis-global-da-gpp' literally in tool calls. Report mean/median/min/max plus per-month values.",
+  "final_answer": "Mendocino County, CA (bbox [-124.439, 38.668, -122.785, 40.488]) GPP from `lis-global-da-gpp` for 2020-06-28 to 2020-11-28 (6 monthly items) over the AOI returned all-zero stats: overall mean=0.0, median=0.0, min=0.0, max=0.0, with no month-to-month variation. Per-month (mean/median/min/max): 2020-06=0/0/0/0; 2020-07=0/0/0/0; 2020-08=0/0/0/0; 2020-09=0/0/0/0; 2020-10=0/0/0/0; 2020-11=0/0/0/0. Map layer URL (first item): https://openveda.cloud/api/raster/collections/lis-global-da-gpp/items/LIS_GPP_202011280000.d01.cog/bbox/-124.4390,38.6680,-122.7850,40.4880.png?assets=cog_default&rescale=0.0%2C0.0002&colormap_name=viridis&width=400&height=400",
+  "map_url": "https://openveda.cloud/api/raster/collections/lis-global-da-gpp/items/LIS_GPP_202011280000.d01.cog/bbox/-124.4390,38.6680,-122.7850,40.4880.png?assets=cog_default&rescale=0.0%2C0.0002&colormap_name=viridis&width=400&height=400",
+  "totals": {
+    "input_tokens": 7079,
+    "output_tokens": 933,
+    "cached_tokens": 2944,
+    "cache_hit_rate": 0.41587794886283375
+  },
+  "per_turn_avg": {
+    "input_tokens": 1179.8333333333333,
+    "output_tokens": 155.5
+  },
+  "turns": [
+    {
+      "input_tokens": 769,
+      "output_tokens": 25,
+      "cached_tokens": 0,
+      "tool_calls": [
+        "parse_datetime"
+      ],
+      "tool_calls_detail": [
+        {
+          "name": "parse_datetime",
+          "args": {
+            "value": "June 2020 to November 2020"
+          }
+        }
+      ],
+      "assistant_text": ""
+    },
+    {
+      "input_tokens": 858,
+      "output_tokens": 27,
+      "cached_tokens": 0,
+      "tool_calls": [
+        "geocode"
+      ],
+      "tool_calls_detail": [
+        {
+          "name": "geocode",
+          "args": {
+            "query": "Mendocino County, California",
+            "level": "county"
+          }
+        }
+      ],
+      "assistant_text": ""
+    },
+    {
+      "input_tokens": 942,
+      "output_tokens": 58,
+      "cached_tokens": 0,
+      "tool_calls": [
+        "search_items"
+      ],
+      "tool_calls_detail": [
+        {
+          "name": "search_items",
+          "args": {
+            "collection_id": "lis-global-da-gpp",
+            "bbox": [
+              -124.439,
+              38.668,
+              -122.785,
+              40.488
+            ],
+            "datetime_range": "2020-06-28/2020-11-28"
+          }
+        }
+      ],
+      "assistant_text": ""
+    },
+    {
+      "input_tokens": 1072,
+      "output_tokens": 468,
+      "cached_tokens": 0,
+      "tool_calls": [
+        "compute_stats"
+      ],
+      "tool_calls_detail": [
+        {
+          "name": "compute_stats",
+          "args": {
+            "item_refs": [
+              {
+                "id": "LIS_GPP_202011280000.d01.cog",
+                "datetime": "2020-11-28T00:00:00Z",
+                "bbox": [
+                  -180,
+                  -60,
+                  180,
+                  90
+                ],
+                "primary_asset_url": "https://example.com/lis-gpp/20201128.tif",
+                "collection_id": "lis-global-da-gpp"
+              },
+              {
+                "id": "LIS_GPP_202010280000.d01.cog",
+                "datetime": "2020-10-28T00:00:00Z",
+                "bbox": [
+                  -180,
+                  -60,
+                  180,
+                  90
+                ],
+                "primary_asset_url": "https://example.com/lis-gpp/20201028.tif",
+                "collection_id": "lis-global-da-gpp"
+              },
+              {
+                "id": "LIS_GPP_202009280000.d01.cog",
+                "datetime": "2020-09-28T00:00:00Z",
+                "bbox": [
+                  -180,
+                  -60,
+                  180,
+                  90
+                ],
+                "primary_asset_url": "https://example.com/lis-gpp/20200928.tif",
+                "collection_id": "lis-global-da-gpp"
+              },
+              {
+                "id": "LIS_GPP_202008280000.d01.cog",
+                "datetime": "2020-08-28T00:00:00Z",
+                "bbox": [
+                  -180,
+                  -60,
+                  180,
+                  90
+                ],
+                "primary_asset_url": "https://example.com/lis-gpp/20200828.tif",
+                "collection_id": "lis-global-da-gpp"
+              },
+              {
+                "id": "LIS_GPP_202007280000.d01.cog",
+                "datetime": "2020-07-28T00:00:00Z",
+                "bbox": [
+                  -180,
+                  -60,
+                  180,
+                  90
+                ],
+                "primary_asset_url": "https://example.com/lis-gpp/20200728.tif",
+                "collection_id": "lis-global-da-gpp"
+              },
+              {
+                "id": "LIS_GPP_202006280000.d01.cog",
+                "datetime": "2020-06-28T00:00:00Z",
+                "bbox": [
+                  -180,
+                  -60,
+                  180,
+                  90
+                ],
+                "primary_asset_url": "https://example.com/lis-gpp/20200628.tif",
+                "collection_id": "lis-global-da-gpp"
+              }
+            ],
+            "band": "GPP",
+            "geometry": [
+              -124.439,
+              38.668,
+              -122.785,
+              40.488
+            ]
+          }
+        }
+      ],
+      "assistant_text": ""
+    },
+    {
+      "input_tokens": 1619,
+      "output_tokens": 64,
+      "cached_tokens": 1408,
+      "tool_calls": [
+        "render_map"
+      ],
+      "tool_calls_detail": [
+        {
+          "name": "render_map",
+          "args": {
+            "collection_id": "lis-global-da-gpp",
+            "item_id": "LIS_GPP_202011280000.d01.cog",
+            "bbox": [
+              -124.439,
+              38.668,
+              -122.785,
+              40.488
+            ],
+            "colormap": "viridis"
+          }
+        }
+      ],
+      "assistant_text": ""
+    },
+    {
+      "input_tokens": 1819,
+      "output_tokens": 291,
+      "cached_tokens": 1536,
+      "tool_calls": [],
+      "tool_calls_detail": [],
+      "assistant_text": "Mendocino County, CA (bbox [-124.439, 38.668, -122.785, 40.488]) GPP from `lis-global-da-gpp` for 2020-06-28 to 2020-11-28 (6 monthly items) over the AOI returned all-zero stats: overall mean=0.0, median=0.0, min=0.0, max=0.0, with no month-to-month variation. Per-month (mean/median/min/max): 2020-06=0/0/0/0; 2020-07=0/0/0/0; 2020-08=0/0/0/0; 2020-09=0/0/0/0; 2020-10=0/0/0/0; 2020-11=0/0/0/0. Map layer URL (first item): https://openveda.cloud/api/raster/collections/lis-global-da-gpp/items/LIS_GP"
+    }
+  ]
+}

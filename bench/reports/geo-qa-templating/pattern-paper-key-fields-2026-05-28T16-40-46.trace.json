@@ -1,0 +1,252 @@
+{
+  "scenario_id": "pattern-paper-key-fields",
+  "pattern": "paper",
+  "handler_mode": "key_fields",
+  "model": "gpt-5.2",
+  "enforce_compute_stats": false,
+  "emit_map": true,
+  "turn_count": 5,
+  "elapsed_s": 20.176681995391846,
+  "user_query": "Visualize gross primary production (GPP) from the NASA VEDA STAC collection 'lis-global-da-gpp' over Mendocino County, California, June 2020 to November 2020. Use collection_id='lis-global-da-gpp' literally in tool calls. Report mean/median/min/max plus per-month values.",
+  "final_answer": "GPP stats over Mendocino County (bbox [-123.89, 38.756, -122.819, 40.005]) for June\u2013Nov 2020 could not be computed: the VEDA raster `/statistics` endpoint for `collection_id='lis-global-da-gpp'` returned HTML (non-JSON) for the requested band `gpp`, so mean/median/min/max and per-month values are unavailable from this tool run. Map layer URL (first item returned in-window): https://openveda.cloud/api/raster/collections/lis-global-da-gpp/items/LIS_GPP_202011280000.d01.cog/bbox/-123.8900,38.7560,-122.8190,40.0050.png?assets=cog_default&rescale=0.0%2C0.0002&colormap_name=viridis&width=400&height=400",
+  "map_url": "https://openveda.cloud/api/raster/collections/lis-global-da-gpp/items/LIS_GPP_202011280000.d01.cog/bbox/-123.8900,38.7560,-122.8190,40.0050.png?assets=cog_default&rescale=0.0%2C0.0002&colormap_name=viridis&width=400&height=400",
+  "totals": {
+    "input_tokens": 10786,
+    "output_tokens": 1533,
+    "cached_tokens": 6528,
+    "cache_hit_rate": 0.6052290005562767
+  },
+  "per_turn_avg": {
+    "input_tokens": 2157.2,
+    "output_tokens": 306.6
+  },
+  "turns": [
+    {
+      "input_tokens": 769,
+      "output_tokens": 65,
+      "cached_tokens": 0,
+      "tool_calls": [
+        "parse_datetime",
+        "geocode"
+      ],
+      "tool_calls_detail": [
+        {
+          "name": "parse_datetime",
+          "args": {
+            "value": "June 2020 to November 2020"
+          }
+        },
+        {
+          "name": "geocode",
+          "args": {
+            "query": "Mendocino County, California",
+            "level": "county"
+          }
+        }
+      ],
+      "assistant_text": ""
+    },
+    {
+      "input_tokens": 912,
+      "output_tokens": 58,
+      "cached_tokens": 0,
+      "tool_calls": [
+        "search_items"
+      ],
+      "tool_calls_detail": [
+        {
+          "name": "search_items",
+          "args": {
+            "collection_id": "lis-global-da-gpp",
+            "bbox": [
+              -123.89,
+              38.756,
+              -122.819,
+              40.005
+            ],
+            "datetime_range": "2020-06-28/2020-11-28"
+          }
+        }
+      ],
+      "assistant_text": ""
+    },
+    {
+      "input_tokens": 2102,
+      "output_tokens": 1152,
+      "cached_tokens": 0,
+      "tool_calls": [
+        "compute_stats"
+      ],
+      "tool_calls_detail": [
+        {
+          "name": "compute_stats",
+          "args": {
+            "item_refs": [
+              {
+                "id": "LIS_GPP_202011280000.d01.cog",
+                "datetime": "2020-11-28T00:00:00+00:00",
+                "bbox": [
+                  -179.9500000157243,
+                  -59.98224871364589,
+                  179.9973980503783,
+                  89.9999999874719
+                ],
+                "primary_asset_url": "s3://veda-data-store/lis-global-da-gpp/LIS_GPP_202011280000.d01.cog.tif",
+                "collection_id": "lis-global-da-gpp"
+              },
+              {
+                "id": "LIS_GPP_202011270000.d01.cog",
+                "datetime": "2020-11-27T00:00:00+00:00",
+                "bbox": [
+                  -179.9500000157243,
+                  -59.98224871364589,
+                  179.9973980503783,
+                  89.9999999874719
+                ],
+                "primary_asset_url": "s3://veda-data-store/lis-global-da-gpp/LIS_GPP_202011270000.d01.cog.tif",
+                "collection_id": "lis-global-da-gpp"
+              },
+              {
+                "id": "LIS_GPP_202011260000.d01.cog",
+                "datetime": "2020-11-26T00:00:00+00:00",
+                "bbox": [
+                  -179.9500000157243,
+                  -59.98224871364589,
+                  179.9973980503783,
+                  89.9999999874719
+                ],
+                "primary_asset_url": "s3://veda-data-store/lis-global-da-gpp/LIS_GPP_202011260000.d01.cog.tif",
+                "collection_id": "lis-global-da-gpp"
+              },
+              {
+                "id": "LIS_GPP_202011250000.d01.cog",
+                "datetime": "2020-11-25T00:00:00+00:00",
+                "bbox": [
+                  -179.9500000157243,
+                  -59.98224871364589,
+                  179.9973980503783,
+                  89.9999999874719
+                ],
+                "primary_asset_url": "s3://veda-data-store/lis-global-da-gpp/LIS_GPP_202011250000.d01.cog.tif",
+                "collection_id": "lis-global-da-gpp"
+              },
+              {
+                "id": "LIS_GPP_202011240000.d01.cog",
+                "datetime": "2020-11-24T00:00:00+00:00",
+                "bbox": [
+                  -179.9500000157243,
+                  -59.98224871364589,
+                  179.9973980503783,
+                  89.9999999874719
+                ],
+                "primary_asset_url": "s3://veda-data-store/lis-global-da-gpp/LIS_GPP_202011240000.d01.cog.tif",
+                "collection_id": "lis-global-da-gpp"
+              },
+              {
+                "id": "LIS_GPP_202011230000.d01.cog",
+                "datetime": "2020-11-23T00:00:00+00:00",
+                "bbox": [
+                  -179.9500000157243,
+                  -59.98224871364589,
+                  179.9973980503783,
+                  89.9999999874719
+                ],
+                "primary_asset_url": "s3://veda-data-store/lis-global-da-gpp/LIS_GPP_202011230000.d01.cog.tif",
+                "collection_id": "lis-global-da-gpp"
+              },
+              {
+                "id": "LIS_GPP_202011220000.d01.cog",
+                "datetime": "2020-11-22T00:00:00+00:00",
+                "bbox": [
+                  -179.9500000157243,
+                  -59.98224871364589,
+                  179.9973980503783,
+                  89.9999999874719
+                ],
+                "primary_asset_url": "s3://veda-data-store/lis-global-da-gpp/LIS_GPP_202011220000.d01.cog.tif",
+                "collection_id": "lis-global-da-gpp"
+              },
+              {
+                "id": "LIS_GPP_202011210000.d01.cog",
+                "datetime": "2020-11-21T00:00:00+00:00",
+                "bbox": [
+                  -179.9500000157243,
+                  -59.98224871364589,
+                  179.9973980503783,
+                  89.9999999874719
+                ],
+                "primary_asset_url": "s3://veda-data-store/lis-global-da-gpp/LIS_GPP_202011210000.d01.cog.tif",
+                "collection_id": "lis-global-da-gpp"
+              },
+              {
+                "id": "LIS_GPP_202011200000.d01.cog",
+                "datetime": "2020-11-20T00:00:00+00:00",
+                "bbox": [
+                  -179.9500000157243,
+                  -59.98224871364589,
+                  179.9973980503783,
+                  89.9999999874719
+                ],
+                "primary_asset_url": "s3://veda-data-store/lis-global-da-gpp/LIS_GPP_202011200000.d01.cog.tif",
+                "collection_id": "lis-global-da-gpp"
+              },
+              {
+                "id": "LIS_GPP_202011190000.d01.cog",
+                "datetime": "2020-11-19T00:00:00+00:00",
+                "bbox": [
+                  -179.9500000157243,
+                  -59.98224871364589,
+                  179.9973980503783,
+                  89.9999999874719
+                ],
+                "primary_asset_url": "s3://veda-data-store/lis-global-da-gpp/LIS_GPP_202011190000.d01.cog.tif",
+                "collection_id": "lis-global-da-gpp"
+              }
+            ],
+            "band": "gpp",
+            "geometry": [
+              -123.89,
+              38.756,
+              -122.819,
+              40.005
+            ]
+          }
+        }
+      ],
+      "assistant_text": ""
+    },
+    {
+      "input_tokens": 3402,
+      "output_tokens": 64,
+      "cached_tokens": 3200,
+      "tool_calls": [
+        "render_map"
+      ],
+      "tool_calls_detail": [
+        {
+          "name": "render_map",
+          "args": {
+            "collection_id": "lis-global-da-gpp",
+            "item_id": "LIS_GPP_202011280000.d01.cog",
+            "bbox": [
+              -123.89,
+              38.756,
+              -122.819,
+              40.005
+            ],
+            "colormap": "viridis"
+          }
+        }
+      ],
+      "assistant_text": ""
+    },
+    {
+      "input_tokens": 3601,
+      "output_tokens": 194,
+      "cached_tokens": 3328,
+      "tool_calls": [],
+      "tool_calls_detail": [],
+      "assistant_text": "GPP stats over Mendocino County (bbox [-123.89, 38.756, -122.819, 40.005]) for June\u2013Nov 2020 could not be computed: the VEDA raster `/statistics` endpoint for `collection_id='lis-global-da-gpp'` returned HTML (non-JSON) for the requested band `gpp`, so mean/median/min/max and per-month values are unavailable from this tool run. Map layer URL (first item returned in-window): https://openveda.cloud/api/raster/collections/lis-global-da-gpp/items/LIS_GPP_202011280000.d01.cog/bbox/-123.8900,38.7560,-"
+    }
+  ]
+}

@@ -4,11 +4,11 @@
 
 **Goal:** Build a parallel, self-contained 3-way templating bench (6 scenarios = 2 conversation patterns × 3 response-handler modes) that runs against real NASA VEDA STAC + real GPT-5.2 and empirically settles whether the paper's 7.5× tool-response cost lever holds against realistic production templating.
 
-**Architecture:** New isolated modules under `bench/src/agent_cost_bench/` with `eie_*.py` / `veda_*.py` namespacing — existing `tools.py` and existing scenarios remain untouched. Three response-handler middleware classes wrap a common set of 5 real-API tools against `openveda.cloud/api/stac/`. Two LangGraph state machines (Pattern P = paper's 6-turn ReAct, Pattern E = gated drill-down ~9-10 turns). A new CLI subcommand orchestrates the 6-run matrix and a report generator emits the comparison Markdown.
+**Architecture:** New isolated modules under `bench/src/agent_cost_bench/` with `geo_qa_*.py` / `veda_*.py` namespacing — existing `tools.py` and existing scenarios remain untouched. Three response-handler middleware classes wrap a common set of 5 real-API tools against `openveda.cloud/api/stac/`. Two LangGraph state machines (Pattern P = paper's 6-turn ReAct, Pattern E = gated drill-down ~9-10 turns). A new CLI subcommand orchestrates the 6-run matrix and a report generator emits the comparison Markdown.
 
 **Tech Stack:** Python 3.11+, LangGraph (state machines), LiteLLM (provider), Pydantic (handler schemas), httpx (STAC HTTP), rio-tiler (COG band stats), dateparser (datetime parsing), pytest + httpx mock for unit tests, pyyaml for scenario manifests, OpenTelemetry for traces.
 
-**Reference:** [`bench/docs/specs/2026-05-26-eie-templating-three-way-bench-design.md`](../specs/2026-05-26-eie-templating-three-way-bench-design.md)
+**Reference:** [`bench/docs/specs/2026-05-26-geo-qa-templating-three-way-bench-design.md`](../specs/2026-05-26-geo-qa-templating-three-way-bench-design.md)
 
 ---
 
@@ -20,7 +20,7 @@ Before Task 1, confirm the working directory and existing state:
 cd ~/Desktop/Code/Ajinkya/websites/ai-cost-calculator-studio/bench
 ls src/agent_cost_bench/                      # confirms tools.py exists (untouched by this plan)
 ls scenarios/                                  # confirms 12 existing scenarios; none will be modified
-test -d src/agent_cost_bench/eie || echo "fresh"
+test -d src/agent_cost_bench/geo_qa || echo "fresh"
 ```
 
 All work in this plan happens in new files. Where an existing file is modified (`cli.py`, `pyproject.toml`), the modification is purely additive — a new subcommand registration or new dep, never a behaviour change to existing scenarios. `npm run bench:validate` in the calc repo root must continue passing 6/6 ±0.00% after every commit.
@@ -31,11 +31,11 @@ All work in this plan happens in new files. Where an existing file is modified (
 
 **Files:**
 - Modify: `bench/pyproject.toml` (add httpx, rio-tiler, dateparser, pytest-httpx to deps lists)
-- Create: `bench/src/agent_cost_bench/eie/__init__.py`
+- Create: `bench/src/agent_cost_bench/geo_qa/__init__.py`
 - Create: `bench/data/.gitkeep`
-- Create: `bench/scenarios/eie-templating/.gitkeep`
-- Create: `bench/reports/eie-templating/.gitkeep`
-- Create: `bench/tests/eie/__init__.py`
+- Create: `bench/scenarios/geo-qa-templating/.gitkeep`
+- Create: `bench/reports/geo-qa-templating/.gitkeep`
+- Create: `bench/tests/geo_qa/__init__.py`
 
 - [ ] **Step 1: Add the new runtime deps to `bench/pyproject.toml`**
 
@@ -68,16 +68,16 @@ dev = [
 
 ```bash
 cd ~/Desktop/Code/Ajinkya/websites/ai-cost-calculator-studio/bench
-mkdir -p src/agent_cost_bench/eie
+mkdir -p src/agent_cost_bench/geo_qa
 mkdir -p data
-mkdir -p scenarios/eie-templating
-mkdir -p reports/eie-templating
-mkdir -p tests/eie
-touch src/agent_cost_bench/eie/__init__.py
-touch tests/eie/__init__.py
+mkdir -p scenarios/geo-qa-templating
+mkdir -p reports/geo-qa-templating
+mkdir -p tests/geo_qa
+touch src/agent_cost_bench/geo_qa/__init__.py
+touch tests/geo_qa/__init__.py
 touch data/.gitkeep
-touch scenarios/eie-templating/.gitkeep
-touch reports/eie-templating/.gitkeep
+touch scenarios/geo-qa-templating/.gitkeep
+touch reports/geo-qa-templating/.gitkeep
 ```
 
 - [ ] **Step 3: Install the new deps**
@@ -102,13 +102,13 @@ Expected: `ok`
 
 ```bash
 cd ~/Desktop/Code/Ajinkya/websites/ai-cost-calculator-studio
-git add bench/pyproject.toml bench/src/agent_cost_bench/eie bench/data bench/scenarios/eie-templating bench/reports/eie-templating bench/tests/eie
-git commit -m "bench(eie): scaffold three-way templating bench dirs + deps
+git add bench/pyproject.toml bench/src/agent_cost_bench/geo_qa bench/data bench/scenarios/geo-qa-templating bench/reports/geo-qa-templating bench/tests/geo_qa
+git commit -m "bench(geo-qa): scaffold three-way templating bench dirs + deps
 
 Adds httpx/rio-tiler/dateparser/pytest-httpx for the new bench. New
-empty namespaces under bench/src/agent_cost_bench/eie/, bench/data/,
-bench/scenarios/eie-templating/, bench/reports/eie-templating/,
-bench/tests/eie/. Existing tools.py and scenarios untouched."
+empty namespaces under bench/src/agent_cost_bench/geo_qa/, bench/data/,
+bench/scenarios/geo-qa-templating/, bench/reports/geo-qa-templating/,
+bench/tests/geo_qa/. Existing tools.py and scenarios untouched."
 ```
 
 ---
@@ -141,7 +141,7 @@ bench/tests/eie/. Existing tools.py and scenarios untouched."
 ```bash
 cd ~/Desktop/Code/Ajinkya/websites/ai-cost-calculator-studio
 git add bench/data/us_county_bboxes.json
-git commit -m "bench(eie): ship county-bbox lookup table
+git commit -m "bench(geo-qa): ship county-bbox lookup table
 
 5 California counties (Mendocino + 4 neighbours) sourced from
 US Census TIGER/Line 2023, public domain. Used by veda_tools.geocode
@@ -154,18 +154,18 @@ geocode dependency."
 ### Task 3: Define the Pydantic response schemas
 
 **Files:**
-- Create: `bench/src/agent_cost_bench/eie/schemas.py`
-- Test: `bench/tests/eie/test_schemas.py`
+- Create: `bench/src/agent_cost_bench/geo_qa/schemas.py`
+- Test: `bench/tests/geo_qa/test_schemas.py`
 
 - [ ] **Step 1: Write the failing test**
 
-`bench/tests/eie/test_schemas.py`:
+`bench/tests/geo_qa/test_schemas.py`:
 
 ```python
 """Validate the typed schemas the response handlers consume + emit."""
 
 import pytest
-from agent_cost_bench.eie.schemas import (
+from agent_cost_bench.geo_qa.schemas import (
     ParseDatetimeReturn,
     GeocodeReturn,
     SearchCollectionsReturn,
@@ -230,14 +230,14 @@ def test_status_return_caps_summary():
 
 ```bash
 cd ~/Desktop/Code/Ajinkya/websites/ai-cost-calculator-studio/bench
-pytest tests/eie/test_schemas.py -v
+pytest tests/geo_qa/test_schemas.py -v
 ```
 
-Expected: `ModuleNotFoundError: No module named 'agent_cost_bench.eie.schemas'`
+Expected: `ModuleNotFoundError: No module named 'agent_cost_bench.geo_qa.schemas'`
 
 - [ ] **Step 3: Write the schemas**
 
-`bench/src/agent_cost_bench/eie/schemas.py`:
+`bench/src/agent_cost_bench/geo_qa/schemas.py`:
 
 ```python
 """Typed schemas for the three-way templating bench.
@@ -318,7 +318,7 @@ class StatusReturn(BaseModel):
 
 ```bash
 cd ~/Desktop/Code/Ajinkya/websites/ai-cost-calculator-studio/bench
-pytest tests/eie/test_schemas.py -v
+pytest tests/geo_qa/test_schemas.py -v
 ```
 
 Expected: 5 passed.
@@ -327,8 +327,8 @@ Expected: 5 passed.
 
 ```bash
 cd ~/Desktop/Code/Ajinkya/websites/ai-cost-calculator-studio
-git add bench/src/agent_cost_bench/eie/schemas.py bench/tests/eie/test_schemas.py
-git commit -m "bench(eie): typed response schemas for templating bench
+git add bench/src/agent_cost_bench/geo_qa/schemas.py bench/tests/geo_qa/test_schemas.py
+git commit -m "bench(geo-qa): typed response schemas for templating bench
 
 Pydantic models for the 5 tool-return shapes (parse_datetime, geocode,
 search_collections, search_items, compute_stats) plus the
@@ -342,12 +342,12 @@ serialize them into the LLM's context."
 ### Task 4: StatusOnlyHandler (mode A)
 
 **Files:**
-- Create: `bench/src/agent_cost_bench/eie/handlers.py` (just the StatusOnlyHandler in this task)
-- Test: `bench/tests/eie/test_handlers_status_only.py`
+- Create: `bench/src/agent_cost_bench/geo_qa/handlers.py` (just the StatusOnlyHandler in this task)
+- Test: `bench/tests/geo_qa/test_handlers_status_only.py`
 
 - [ ] **Step 1: Write the failing test**
 
-`bench/tests/eie/test_handlers_status_only.py`:
+`bench/tests/geo_qa/test_handlers_status_only.py`:
 
 ```python
 """StatusOnlyHandler — every tool return becomes ≤ 60 tokens.
@@ -359,8 +359,8 @@ asset URLs — only deterministic short summary strings.
 
 import json
 import pytest
-from agent_cost_bench.eie.handlers import StatusOnlyHandler
-from agent_cost_bench.eie.schemas import (
+from agent_cost_bench.geo_qa.handlers import StatusOnlyHandler
+from agent_cost_bench.geo_qa.schemas import (
     GeocodeReturn,
     SearchItemsReturn,
     StacItemFields,
@@ -426,14 +426,14 @@ def test_status_handler_compute_stats_summary_includes_numbers():
 
 ```bash
 cd ~/Desktop/Code/Ajinkya/websites/ai-cost-calculator-studio/bench
-pytest tests/eie/test_handlers_status_only.py -v
+pytest tests/geo_qa/test_handlers_status_only.py -v
 ```
 
 Expected: ImportError on `StatusOnlyHandler`.
 
 - [ ] **Step 3: Implement the handler**
 
-`bench/src/agent_cost_bench/eie/handlers.py`:
+`bench/src/agent_cost_bench/geo_qa/handlers.py`:
 
 ```python
 """Response handlers — the keystone of the templating bench.
@@ -454,7 +454,7 @@ FreeformHandler    (mode C) — passthrough of the raw tool response
                               with full geometry/properties/assets
                               serialized verbatim.
 
-Tests in tests/eie/ confirm per-handler token discipline.
+Tests in tests/geo_qa/ confirm per-handler token discipline.
 """
 
 from __future__ import annotations
@@ -524,7 +524,7 @@ class StatusOnlyHandler:
 
 ```bash
 cd ~/Desktop/Code/Ajinkya/websites/ai-cost-calculator-studio/bench
-pytest tests/eie/test_handlers_status_only.py -v
+pytest tests/geo_qa/test_handlers_status_only.py -v
 ```
 
 Expected: 3 passed.
@@ -533,8 +533,8 @@ Expected: 3 passed.
 
 ```bash
 cd ~/Desktop/Code/Ajinkya/websites/ai-cost-calculator-studio
-git add bench/src/agent_cost_bench/eie/handlers.py bench/tests/eie/test_handlers_status_only.py
-git commit -m "bench(eie): StatusOnlyHandler (mode A)
+git add bench/src/agent_cost_bench/geo_qa/handlers.py bench/tests/geo_qa/test_handlers_status_only.py
+git commit -m "bench(geo-qa): StatusOnlyHandler (mode A)
 
 Each tool return becomes a ≤60-token status string. Structured
 payload held in handler.state keyed by tool_call_id, never reaches
@@ -548,12 +548,12 @@ stay server-side."
 ### Task 5: KeyFieldsHandler (mode B) — the production-realistic middle ground
 
 **Files:**
-- Modify: `bench/src/agent_cost_bench/eie/handlers.py` (append `KeyFieldsHandler` class)
-- Test: `bench/tests/eie/test_handlers_key_fields.py`
+- Modify: `bench/src/agent_cost_bench/geo_qa/handlers.py` (append `KeyFieldsHandler` class)
+- Test: `bench/tests/geo_qa/test_handlers_key_fields.py`
 
 - [ ] **Step 1: Write the failing test**
 
-`bench/tests/eie/test_handlers_key_fields.py`:
+`bench/tests/geo_qa/test_handlers_key_fields.py`:
 
 ```python
 """KeyFieldsHandler — the production middle ground the paper omits.
@@ -565,8 +565,8 @@ LangGraph agents actually do via structured_output + Pydantic.
 """
 
 import json
-from agent_cost_bench.eie.handlers import KeyFieldsHandler
-from agent_cost_bench.eie.schemas import (
+from agent_cost_bench.geo_qa.handlers import KeyFieldsHandler
+from agent_cost_bench.geo_qa.schemas import (
     GeocodeReturn,
     SearchItemsReturn,
     StacItemFields,
@@ -612,14 +612,14 @@ def test_key_fields_search_items_caps_at_10_entries():
 
 ```bash
 cd ~/Desktop/Code/Ajinkya/websites/ai-cost-calculator-studio/bench
-pytest tests/eie/test_handlers_key_fields.py -v
+pytest tests/geo_qa/test_handlers_key_fields.py -v
 ```
 
 Expected: ImportError on `KeyFieldsHandler`.
 
 - [ ] **Step 3: Append the handler to `handlers.py`**
 
-Append to `bench/src/agent_cost_bench/eie/handlers.py`:
+Append to `bench/src/agent_cost_bench/geo_qa/handlers.py`:
 
 ```python
 class KeyFieldsHandler:
@@ -657,7 +657,7 @@ class KeyFieldsHandler:
 
 ```bash
 cd ~/Desktop/Code/Ajinkya/websites/ai-cost-calculator-studio/bench
-pytest tests/eie/test_handlers_key_fields.py -v
+pytest tests/geo_qa/test_handlers_key_fields.py -v
 ```
 
 Expected: 2 passed.
@@ -666,8 +666,8 @@ Expected: 2 passed.
 
 ```bash
 cd ~/Desktop/Code/Ajinkya/websites/ai-cost-calculator-studio
-git add bench/src/agent_cost_bench/eie/handlers.py bench/tests/eie/test_handlers_key_fields.py
-git commit -m "bench(eie): KeyFieldsHandler (mode B) — production middle ground
+git add bench/src/agent_cost_bench/geo_qa/handlers.py bench/tests/geo_qa/test_handlers_key_fields.py
+git commit -m "bench(geo-qa): KeyFieldsHandler (mode B) — production middle ground
 
 Emits the typed Pydantic schema directly. Caps list-returning tools
 at 10 entries. Stateless. This is the contract most LangChain/
@@ -680,12 +680,12 @@ the test the paper does not include."
 ### Task 6: FreeformHandler (mode C) — passthrough of raw tool response
 
 **Files:**
-- Modify: `bench/src/agent_cost_bench/eie/handlers.py` (append `FreeformHandler` class)
-- Test: `bench/tests/eie/test_handlers_freeform.py`
+- Modify: `bench/src/agent_cost_bench/geo_qa/handlers.py` (append `FreeformHandler` class)
+- Test: `bench/tests/geo_qa/test_handlers_freeform.py`
 
 - [ ] **Step 1: Write the failing test**
 
-`bench/tests/eie/test_handlers_freeform.py`:
+`bench/tests/geo_qa/test_handlers_freeform.py`:
 
 ```python
 """FreeformHandler — identity passthrough of the raw upstream response.
@@ -696,7 +696,7 @@ output structuring.
 """
 
 import json
-from agent_cost_bench.eie.handlers import FreeformHandler
+from agent_cost_bench.geo_qa.handlers import FreeformHandler
 
 
 def test_freeform_passes_through_dict():
@@ -734,14 +734,14 @@ def test_freeform_passes_through_list_of_dicts():
 
 ```bash
 cd ~/Desktop/Code/Ajinkya/websites/ai-cost-calculator-studio/bench
-pytest tests/eie/test_handlers_freeform.py -v
+pytest tests/geo_qa/test_handlers_freeform.py -v
 ```
 
 Expected: ImportError on `FreeformHandler`.
 
 - [ ] **Step 3: Append the handler to `handlers.py`**
 
-Append to `bench/src/agent_cost_bench/eie/handlers.py`:
+Append to `bench/src/agent_cost_bench/geo_qa/handlers.py`:
 
 ```python
 class FreeformHandler:
@@ -766,7 +766,7 @@ class FreeformHandler:
 
 ```bash
 cd ~/Desktop/Code/Ajinkya/websites/ai-cost-calculator-studio/bench
-pytest tests/eie/ -v
+pytest tests/geo_qa/ -v
 ```
 
 Expected: 10 passed (3 schemas + 3 status + 2 key-fields + 2 freeform).
@@ -775,8 +775,8 @@ Expected: 10 passed (3 schemas + 3 status + 2 key-fields + 2 freeform).
 
 ```bash
 cd ~/Desktop/Code/Ajinkya/websites/ai-cost-calculator-studio
-git add bench/src/agent_cost_bench/eie/handlers.py bench/tests/eie/test_handlers_freeform.py
-git commit -m "bench(eie): FreeformHandler (mode C) — identity passthrough
+git add bench/src/agent_cost_bench/geo_qa/handlers.py bench/tests/geo_qa/test_handlers_freeform.py
+git commit -m "bench(geo-qa): FreeformHandler (mode C) — identity passthrough
 
 Raw STAC response serialized verbatim. Full geometry/properties/
 all asset URLs reach the LLM. This is what naive ReAct loops do
@@ -788,18 +788,18 @@ without output structuring."
 ### Task 7: `veda_tools.parse_datetime`
 
 **Files:**
-- Create: `bench/src/agent_cost_bench/eie/veda_tools.py` (parse_datetime only in this task)
-- Test: `bench/tests/eie/test_veda_tools_parse_datetime.py`
+- Create: `bench/src/agent_cost_bench/geo_qa/veda_tools.py` (parse_datetime only in this task)
+- Test: `bench/tests/geo_qa/test_veda_tools_parse_datetime.py`
 
 - [ ] **Step 1: Write the failing test**
 
-`bench/tests/eie/test_veda_tools_parse_datetime.py`:
+`bench/tests/geo_qa/test_veda_tools_parse_datetime.py`:
 
 ```python
 """parse_datetime — local NLP, no API call."""
 
-from agent_cost_bench.eie.veda_tools import parse_datetime
-from agent_cost_bench.eie.schemas import ParseDatetimeReturn
+from agent_cost_bench.geo_qa.veda_tools import parse_datetime
+from agent_cost_bench.geo_qa.schemas import ParseDatetimeReturn
 
 
 def test_parse_explicit_range():
@@ -826,20 +826,20 @@ def test_parse_single_date_returns_same_start_end():
 
 ```bash
 cd ~/Desktop/Code/Ajinkya/websites/ai-cost-calculator-studio/bench
-pytest tests/eie/test_veda_tools_parse_datetime.py -v
+pytest tests/geo_qa/test_veda_tools_parse_datetime.py -v
 ```
 
 Expected: ImportError.
 
 - [ ] **Step 3: Implement parse_datetime**
 
-`bench/src/agent_cost_bench/eie/veda_tools.py`:
+`bench/src/agent_cost_bench/geo_qa/veda_tools.py`:
 
 ```python
 """Real NASA VEDA STAC tools — 5 functions, all calling real APIs.
 
 Drop-in replacement for the simulated tools in tools.py, used only
-by the eie-templating bench. The existing tools.py is untouched so
+by the geo-qa-templating bench. The existing tools.py is untouched so
 the paper-baseline scenarios keep their deterministic-pseudorandom
 payloads.
 
@@ -908,7 +908,7 @@ def parse_datetime(value: str) -> ParseDatetimeReturn:
 
 ```bash
 cd ~/Desktop/Code/Ajinkya/websites/ai-cost-calculator-studio/bench
-pytest tests/eie/test_veda_tools_parse_datetime.py -v
+pytest tests/geo_qa/test_veda_tools_parse_datetime.py -v
 ```
 
 Expected: 3 passed.
@@ -917,12 +917,12 @@ Expected: 3 passed.
 
 ```bash
 cd ~/Desktop/Code/Ajinkya/websites/ai-cost-calculator-studio
-git add bench/src/agent_cost_bench/eie/veda_tools.py bench/tests/eie/test_veda_tools_parse_datetime.py
-git commit -m "bench(eie): parse_datetime tool (no API)
+git add bench/src/agent_cost_bench/geo_qa/veda_tools.py bench/tests/geo_qa/test_veda_tools_parse_datetime.py
+git commit -m "bench(geo-qa): parse_datetime tool (no API)
 
 dateparser-based NLP. Handles explicit 'X to Y' ranges, natural-
 language month-year ranges, and single-date inputs. Returns
-ParseDatetimeReturn (start, end). First of 5 tools in the eie
+ParseDatetimeReturn (start, end). First of 5 tools in the geo-qa
 templating bench's real-VEDA tool set."
 ```
 
@@ -931,19 +931,19 @@ templating bench's real-VEDA tool set."
 ### Task 8: `veda_tools.geocode` (county-bbox lookup)
 
 **Files:**
-- Modify: `bench/src/agent_cost_bench/eie/veda_tools.py` (append `geocode` function)
-- Test: `bench/tests/eie/test_veda_tools_geocode.py`
+- Modify: `bench/src/agent_cost_bench/geo_qa/veda_tools.py` (append `geocode` function)
+- Test: `bench/tests/geo_qa/test_veda_tools_geocode.py`
 
 - [ ] **Step 1: Write the failing test**
 
-`bench/tests/eie/test_veda_tools_geocode.py`:
+`bench/tests/geo_qa/test_veda_tools_geocode.py`:
 
 ```python
 """geocode — county-bbox lookup, no API."""
 
 import pytest
-from agent_cost_bench.eie.veda_tools import geocode
-from agent_cost_bench.eie.schemas import GeocodeReturn
+from agent_cost_bench.geo_qa.veda_tools import geocode
+from agent_cost_bench.geo_qa.schemas import GeocodeReturn
 
 
 def test_geocode_known_county():
@@ -969,14 +969,14 @@ def test_geocode_unknown_county_raises():
 
 ```bash
 cd ~/Desktop/Code/Ajinkya/websites/ai-cost-calculator-studio/bench
-pytest tests/eie/test_veda_tools_geocode.py -v
+pytest tests/geo_qa/test_veda_tools_geocode.py -v
 ```
 
 Expected: ImportError on `geocode`.
 
 - [ ] **Step 3: Implement geocode**
 
-Append to `bench/src/agent_cost_bench/eie/veda_tools.py`:
+Append to `bench/src/agent_cost_bench/geo_qa/veda_tools.py`:
 
 ```python
 def geocode(query: str, level: str = "county") -> GeocodeReturn:
@@ -1021,7 +1021,7 @@ def geocode(query: str, level: str = "county") -> GeocodeReturn:
 
 ```bash
 cd ~/Desktop/Code/Ajinkya/websites/ai-cost-calculator-studio/bench
-pytest tests/eie/test_veda_tools_geocode.py -v
+pytest tests/geo_qa/test_veda_tools_geocode.py -v
 ```
 
 Expected: 3 passed.
@@ -1030,8 +1030,8 @@ Expected: 3 passed.
 
 ```bash
 cd ~/Desktop/Code/Ajinkya/websites/ai-cost-calculator-studio
-git add bench/src/agent_cost_bench/eie/veda_tools.py bench/tests/eie/test_veda_tools_geocode.py
-git commit -m "bench(eie): geocode tool — county-bbox lookup, no external API
+git add bench/src/agent_cost_bench/geo_qa/veda_tools.py bench/tests/geo_qa/test_veda_tools_geocode.py
+git commit -m "bench(geo-qa): geocode tool — county-bbox lookup, no external API
 
 Deterministic lookup against the shipped us_county_bboxes.json.
 State-level geocode returns a fixed California envelope so Pattern E's
@@ -1043,12 +1043,12 @@ state-gate can complete without an external geocode dep."
 ### Task 9: `veda_tools.search_collections` (real VEDA HTTP)
 
 **Files:**
-- Modify: `bench/src/agent_cost_bench/eie/veda_tools.py`
-- Test: `bench/tests/eie/test_veda_tools_search_collections.py`
+- Modify: `bench/src/agent_cost_bench/geo_qa/veda_tools.py`
+- Test: `bench/tests/geo_qa/test_veda_tools_search_collections.py`
 
 - [ ] **Step 1: Write the failing test (with httpx mock)**
 
-`bench/tests/eie/test_veda_tools_search_collections.py`:
+`bench/tests/geo_qa/test_veda_tools_search_collections.py`:
 
 ```python
 """search_collections — real NASA VEDA STAC call (mocked HTTP in tests)."""
@@ -1056,8 +1056,8 @@ state-gate can complete without an external geocode dep."
 import json
 import pytest
 from pytest_httpx import HTTPXMock
-from agent_cost_bench.eie.veda_tools import search_collections
-from agent_cost_bench.eie.schemas import SearchCollectionsReturn
+from agent_cost_bench.geo_qa.veda_tools import search_collections
+from agent_cost_bench.geo_qa.schemas import SearchCollectionsReturn
 
 
 def test_search_collections_matches_keyword(httpx_mock: HTTPXMock):
@@ -1083,14 +1083,14 @@ def test_search_collections_matches_keyword(httpx_mock: HTTPXMock):
 
 ```bash
 cd ~/Desktop/Code/Ajinkya/websites/ai-cost-calculator-studio/bench
-pytest tests/eie/test_veda_tools_search_collections.py -v
+pytest tests/geo_qa/test_veda_tools_search_collections.py -v
 ```
 
 Expected: ImportError on `search_collections`.
 
 - [ ] **Step 3: Implement search_collections**
 
-Append to `bench/src/agent_cost_bench/eie/veda_tools.py`:
+Append to `bench/src/agent_cost_bench/geo_qa/veda_tools.py`:
 
 ```python
 def search_collections(query: str, top_k: int = 5) -> SearchCollectionsReturn:
@@ -1123,7 +1123,7 @@ def search_collections(query: str, top_k: int = 5) -> SearchCollectionsReturn:
 
 ```bash
 cd ~/Desktop/Code/Ajinkya/websites/ai-cost-calculator-studio/bench
-pytest tests/eie/test_veda_tools_search_collections.py -v
+pytest tests/geo_qa/test_veda_tools_search_collections.py -v
 ```
 
 Expected: 1 passed.
@@ -1132,8 +1132,8 @@ Expected: 1 passed.
 
 ```bash
 cd ~/Desktop/Code/Ajinkya/websites/ai-cost-calculator-studio
-git add bench/src/agent_cost_bench/eie/veda_tools.py bench/tests/eie/test_veda_tools_search_collections.py
-git commit -m "bench(eie): search_collections — real NASA VEDA STAC call
+git add bench/src/agent_cost_bench/geo_qa/veda_tools.py bench/tests/geo_qa/test_veda_tools_search_collections.py
+git commit -m "bench(geo-qa): search_collections — real NASA VEDA STAC call
 
 Lists VEDA collections, filters by keyword client-side. Tests use
 pytest-httpx mocks; live calls happen during actual bench runs."
@@ -1144,20 +1144,20 @@ pytest-httpx mocks; live calls happen during actual bench runs."
 ### Task 10: `veda_tools.search_items` (real VEDA HTTP)
 
 **Files:**
-- Modify: `bench/src/agent_cost_bench/eie/veda_tools.py`
-- Test: `bench/tests/eie/test_veda_tools_search_items.py`
+- Modify: `bench/src/agent_cost_bench/geo_qa/veda_tools.py`
+- Test: `bench/tests/geo_qa/test_veda_tools_search_items.py`
 
 - [ ] **Step 1: Write the failing test**
 
-`bench/tests/eie/test_veda_tools_search_items.py`:
+`bench/tests/geo_qa/test_veda_tools_search_items.py`:
 
 ```python
 """search_items — real NASA VEDA STAC items endpoint (mocked HTTP)."""
 
 import pytest
 from pytest_httpx import HTTPXMock
-from agent_cost_bench.eie.veda_tools import search_items
-from agent_cost_bench.eie.schemas import SearchItemsReturn
+from agent_cost_bench.geo_qa.veda_tools import search_items
+from agent_cost_bench.geo_qa.schemas import SearchItemsReturn
 
 
 def test_search_items_typed_return(httpx_mock: HTTPXMock):
@@ -1192,14 +1192,14 @@ def test_search_items_typed_return(httpx_mock: HTTPXMock):
 
 ```bash
 cd ~/Desktop/Code/Ajinkya/websites/ai-cost-calculator-studio/bench
-pytest tests/eie/test_veda_tools_search_items.py -v
+pytest tests/geo_qa/test_veda_tools_search_items.py -v
 ```
 
 Expected: ImportError on `search_items`.
 
 - [ ] **Step 3: Implement search_items**
 
-Append to `bench/src/agent_cost_bench/eie/veda_tools.py`:
+Append to `bench/src/agent_cost_bench/geo_qa/veda_tools.py`:
 
 ```python
 def search_items(
@@ -1245,7 +1245,7 @@ def search_items(
 
 ```bash
 cd ~/Desktop/Code/Ajinkya/websites/ai-cost-calculator-studio/bench
-pytest tests/eie/test_veda_tools_search_items.py -v
+pytest tests/geo_qa/test_veda_tools_search_items.py -v
 ```
 
 Expected: 1 passed.
@@ -1254,8 +1254,8 @@ Expected: 1 passed.
 
 ```bash
 cd ~/Desktop/Code/Ajinkya/websites/ai-cost-calculator-studio
-git add bench/src/agent_cost_bench/eie/veda_tools.py bench/tests/eie/test_veda_tools_search_items.py
-git commit -m "bench(eie): search_items — real NASA VEDA STAC items call
+git add bench/src/agent_cost_bench/geo_qa/veda_tools.py bench/tests/geo_qa/test_veda_tools_search_items.py
+git commit -m "bench(geo-qa): search_items — real NASA VEDA STAC items call
 
 GET /collections/{id}/items with bbox + datetime filter. Returns
 typed SearchItemsReturn with primary_asset_url selected from the
@@ -1267,12 +1267,12 @@ requested band."
 ### Task 11: `veda_tools.compute_stats` (rio-tiler over COG)
 
 **Files:**
-- Modify: `bench/src/agent_cost_bench/eie/veda_tools.py`
-- Test: `bench/tests/eie/test_veda_tools_compute_stats.py`
+- Modify: `bench/src/agent_cost_bench/geo_qa/veda_tools.py`
+- Test: `bench/tests/geo_qa/test_veda_tools_compute_stats.py`
 
 - [ ] **Step 1: Write the failing test (with rio-tiler mocked)**
 
-`bench/tests/eie/test_veda_tools_compute_stats.py`:
+`bench/tests/geo_qa/test_veda_tools_compute_stats.py`:
 
 ```python
 """compute_stats — rio-tiler reads COG band over polygon AOI.
@@ -1285,8 +1285,8 @@ numpy arrays with known statistics.
 from unittest.mock import patch, MagicMock
 import numpy as np
 import pytest
-from agent_cost_bench.eie.veda_tools import compute_stats
-from agent_cost_bench.eie.schemas import StacItemFields, ComputeStatsReturn
+from agent_cost_bench.geo_qa.veda_tools import compute_stats
+from agent_cost_bench.geo_qa.schemas import StacItemFields, ComputeStatsReturn
 
 
 def test_compute_stats_aggregates_across_items():
@@ -1310,7 +1310,7 @@ def test_compute_stats_aggregates_across_items():
     mock_reader = MagicMock()
     mock_reader.__enter__ = MagicMock(return_value=mock_reader)
     mock_reader.__exit__ = MagicMock(return_value=None)
-    with patch("agent_cost_bench.eie.veda_tools.Reader") as reader_cls:
+    with patch("agent_cost_bench.geo_qa.veda_tools.Reader") as reader_cls:
         reader_cls.return_value = mock_reader
         mock_reader.feature.side_effect = [
             MagicMock(data=np.expand_dims(arr, axis=0), mask=np.ones_like(arr, dtype=bool))
@@ -1331,14 +1331,14 @@ def test_compute_stats_aggregates_across_items():
 
 ```bash
 cd ~/Desktop/Code/Ajinkya/websites/ai-cost-calculator-studio/bench
-pytest tests/eie/test_veda_tools_compute_stats.py -v
+pytest tests/geo_qa/test_veda_tools_compute_stats.py -v
 ```
 
 Expected: ImportError on `compute_stats`.
 
 - [ ] **Step 3: Implement compute_stats**
 
-Append to `bench/src/agent_cost_bench/eie/veda_tools.py`:
+Append to `bench/src/agent_cost_bench/geo_qa/veda_tools.py`:
 
 ```python
 from rio_tiler.io import Reader
@@ -1392,7 +1392,7 @@ def compute_stats(
 
 ```bash
 cd ~/Desktop/Code/Ajinkya/websites/ai-cost-calculator-studio/bench
-pytest tests/eie/test_veda_tools_compute_stats.py -v
+pytest tests/geo_qa/test_veda_tools_compute_stats.py -v
 ```
 
 Expected: 1 passed.
@@ -1401,8 +1401,8 @@ Expected: 1 passed.
 
 ```bash
 cd ~/Desktop/Code/Ajinkya/websites/ai-cost-calculator-studio
-git add bench/src/agent_cost_bench/eie/veda_tools.py bench/tests/eie/test_veda_tools_compute_stats.py
-git commit -m "bench(eie): compute_stats — rio-tiler COG band stats over polygon
+git add bench/src/agent_cost_bench/geo_qa/veda_tools.py bench/tests/geo_qa/test_veda_tools_compute_stats.py
+git commit -m "bench(geo-qa): compute_stats — rio-tiler COG band stats over polygon
 
 Per-item: Reader(href).feature(geometry) → masked array. Per-band:
 mean/median/min/max across valid pixels from all items, plus
@@ -1411,25 +1411,25 @@ per-item mean for timeseries display."
 
 ---
 
-### Task 12: `eie_user_actor` — deterministic gate responder
+### Task 12: `geo_qa_user_actor` — deterministic gate responder
 
 **Files:**
-- Create: `bench/src/agent_cost_bench/eie/user_actor.py`
-- Test: `bench/tests/eie/test_user_actor.py`
+- Create: `bench/src/agent_cost_bench/geo_qa/user_actor.py`
+- Test: `bench/tests/geo_qa/test_user_actor.py`
 
 - [ ] **Step 1: Write the failing test**
 
-`bench/tests/eie/test_user_actor.py`:
+`bench/tests/geo_qa/test_user_actor.py`:
 
 ```python
-"""eie_user_actor — deterministic gate-response actor for Pattern E.
+"""geo_qa_user_actor — deterministic gate-response actor for Pattern E.
 
 The bench's "user" in Pattern E is a script, not an LLM. It reads
 from a fixed answer list keyed by gate-type. Re-runs are bit-for-bit
 reproducible.
 """
 
-from agent_cost_bench.eie.user_actor import UserActor
+from agent_cost_bench.geo_qa.user_actor import UserActor
 
 
 def test_actor_yields_each_gate_answer_in_order():
@@ -1464,14 +1464,14 @@ def test_actor_raises_on_unknown_gate():
 
 ```bash
 cd ~/Desktop/Code/Ajinkya/websites/ai-cost-calculator-studio/bench
-pytest tests/eie/test_user_actor.py -v
+pytest tests/geo_qa/test_user_actor.py -v
 ```
 
 Expected: ImportError.
 
 - [ ] **Step 3: Implement UserActor**
 
-`bench/src/agent_cost_bench/eie/user_actor.py`:
+`bench/src/agent_cost_bench/geo_qa/user_actor.py`:
 
 ```python
 """Deterministic user-actor for Pattern E (gated drill-down).
@@ -1517,7 +1517,7 @@ class UserActor:
 
 ```bash
 cd ~/Desktop/Code/Ajinkya/websites/ai-cost-calculator-studio/bench
-pytest tests/eie/test_user_actor.py -v
+pytest tests/geo_qa/test_user_actor.py -v
 ```
 
 Expected: 2 passed.
@@ -1526,8 +1526,8 @@ Expected: 2 passed.
 
 ```bash
 cd ~/Desktop/Code/Ajinkya/websites/ai-cost-calculator-studio
-git add bench/src/agent_cost_bench/eie/user_actor.py bench/tests/eie/test_user_actor.py
-git commit -m "bench(eie): UserActor — deterministic gate responder for Pattern E
+git add bench/src/agent_cost_bench/geo_qa/user_actor.py bench/tests/geo_qa/test_user_actor.py
+git commit -m "bench(geo-qa): UserActor — deterministic gate responder for Pattern E
 
 Frozen answer table keyed by gate-type. Mendocino × MiCASA × FIRE ×
 2020-06/11 fixture. Re-runs are bit-for-bit reproducible — this is
@@ -1539,12 +1539,12 @@ a measurement instrument, not an LLM."
 ### Task 13: Tool dispatch table — single source of truth wiring tools to handlers
 
 **Files:**
-- Create: `bench/src/agent_cost_bench/eie/dispatch.py`
-- Test: `bench/tests/eie/test_dispatch.py`
+- Create: `bench/src/agent_cost_bench/geo_qa/dispatch.py`
+- Test: `bench/tests/geo_qa/test_dispatch.py`
 
 - [ ] **Step 1: Write the failing test**
 
-`bench/tests/eie/test_dispatch.py`:
+`bench/tests/geo_qa/test_dispatch.py`:
 
 ```python
 """Tool dispatch — given (tool_name, args, handler), route to the
@@ -1552,8 +1552,8 @@ right veda_tools function and wrap the return through the handler.
 """
 
 import json
-from agent_cost_bench.eie.dispatch import dispatch_tool_call
-from agent_cost_bench.eie.handlers import StatusOnlyHandler, KeyFieldsHandler, FreeformHandler
+from agent_cost_bench.geo_qa.dispatch import dispatch_tool_call
+from agent_cost_bench.geo_qa.handlers import StatusOnlyHandler, KeyFieldsHandler, FreeformHandler
 
 
 def test_dispatch_parse_datetime_status_mode():
@@ -1577,14 +1577,14 @@ def test_dispatch_geocode_key_fields_mode():
 
 ```bash
 cd ~/Desktop/Code/Ajinkya/websites/ai-cost-calculator-studio/bench
-pytest tests/eie/test_dispatch.py -v
+pytest tests/geo_qa/test_dispatch.py -v
 ```
 
 Expected: ImportError.
 
 - [ ] **Step 3: Implement dispatch**
 
-`bench/src/agent_cost_bench/eie/dispatch.py`:
+`bench/src/agent_cost_bench/geo_qa/dispatch.py`:
 
 ```python
 """Route OpenAI-shape tool calls into veda_tools + wrap via handler.
@@ -1723,7 +1723,7 @@ def dispatch_tool_call(name: str, args: dict[str, Any], handler: Handler, tool_c
 
 ```bash
 cd ~/Desktop/Code/Ajinkya/websites/ai-cost-calculator-studio/bench
-pytest tests/eie/test_dispatch.py -v
+pytest tests/geo_qa/test_dispatch.py -v
 ```
 
 Expected: 2 passed.
@@ -1732,8 +1732,8 @@ Expected: 2 passed.
 
 ```bash
 cd ~/Desktop/Code/Ajinkya/websites/ai-cost-calculator-studio
-git add bench/src/agent_cost_bench/eie/dispatch.py bench/tests/eie/test_dispatch.py
-git commit -m "bench(eie): dispatch table — single source of truth for tool routing
+git add bench/src/agent_cost_bench/geo_qa/dispatch.py bench/tests/geo_qa/test_dispatch.py
+git commit -m "bench(geo-qa): dispatch table — single source of truth for tool routing
 
 Maps OpenAI-shape tool calls to veda_tools functions, wraps returns
 through whichever handler the scenario uses. Single place the runner
@@ -1745,12 +1745,12 @@ talks to."
 ### Task 14: Pattern P state machine (paper's 6-turn ReAct)
 
 **Files:**
-- Create: `bench/src/agent_cost_bench/eie/pattern_paper.py`
-- Test: `bench/tests/eie/test_pattern_paper.py`
+- Create: `bench/src/agent_cost_bench/geo_qa/pattern_paper.py`
+- Test: `bench/tests/geo_qa/test_pattern_paper.py`
 
 - [ ] **Step 1: Write the failing test**
 
-`bench/tests/eie/test_pattern_paper.py`:
+`bench/tests/geo_qa/test_pattern_paper.py`:
 
 ```python
 """Pattern P — 6-turn ReAct loop, no gates, single user query.
@@ -1761,8 +1761,8 @@ the expected turn count and the agent ends in 'final_answer' state.
 """
 
 from unittest.mock import patch, MagicMock
-from agent_cost_bench.eie.pattern_paper import build_pattern_p_graph
-from agent_cost_bench.eie.handlers import StatusOnlyHandler
+from agent_cost_bench.geo_qa.pattern_paper import build_pattern_p_graph
+from agent_cost_bench.geo_qa.handlers import StatusOnlyHandler
 
 
 def test_pattern_p_compiles_and_runs_to_end():
@@ -1781,14 +1781,14 @@ def test_pattern_p_compiles_and_runs_to_end():
 
 ```bash
 cd ~/Desktop/Code/Ajinkya/websites/ai-cost-calculator-studio/bench
-pytest tests/eie/test_pattern_paper.py -v
+pytest tests/geo_qa/test_pattern_paper.py -v
 ```
 
 Expected: ImportError.
 
 - [ ] **Step 3: Implement Pattern P**
 
-`bench/src/agent_cost_bench/eie/pattern_paper.py`:
+`bench/src/agent_cost_bench/geo_qa/pattern_paper.py`:
 
 ```python
 """Pattern P — paper's 6-turn single-shot ReAct.
@@ -1894,7 +1894,7 @@ def initial_state(handler, model: str = "gpt-5.2") -> State:
 
 - [ ] **Step 4: Provider shim (called by `_agent_step`)**
 
-`bench/src/agent_cost_bench/eie/provider_shim.py`:
+`bench/src/agent_cost_bench/geo_qa/provider_shim.py`:
 
 ```python
 """Thin shim — wraps LiteLLM in a uniform shape for the bench's needs.
@@ -1934,7 +1934,7 @@ def call_llm(model: str, messages: list[dict[str, Any]], tools: list[dict[str, A
 
 ```bash
 cd ~/Desktop/Code/Ajinkya/websites/ai-cost-calculator-studio/bench
-pytest tests/eie/test_pattern_paper.py -v
+pytest tests/geo_qa/test_pattern_paper.py -v
 ```
 
 Expected: 1 passed.
@@ -1943,13 +1943,13 @@ Expected: 1 passed.
 
 ```bash
 cd ~/Desktop/Code/Ajinkya/websites/ai-cost-calculator-studio
-git add bench/src/agent_cost_bench/eie/pattern_paper.py bench/src/agent_cost_bench/eie/provider_shim.py bench/tests/eie/test_pattern_paper.py
-git commit -m "bench(eie): Pattern P — paper's 6-turn single-shot ReAct
+git add bench/src/agent_cost_bench/geo_qa/pattern_paper.py bench/src/agent_cost_bench/geo_qa/provider_shim.py bench/tests/geo_qa/test_pattern_paper.py
+git commit -m "bench(geo-qa): Pattern P — paper's 6-turn single-shot ReAct
 
 LangGraph state machine with agent_step + tool_step nodes, terminates
 when the LLM stops calling tools. Provider shim wraps LiteLLM so tests
 can patch one module. System prompt + user query are neutral terse,
-written from scratch (no EIE prose paraphrase)."
+written from scratch (no gated prose paraphrase)."
 ```
 
 ---
@@ -1957,12 +1957,12 @@ written from scratch (no EIE prose paraphrase)."
 ### Task 15: Pattern E state machine (gated drill-down)
 
 **Files:**
-- Create: `bench/src/agent_cost_bench/eie/pattern_eie.py`
-- Test: `bench/tests/eie/test_pattern_eie.py`
+- Create: `bench/src/agent_cost_bench/geo_qa/pattern_gated.py`
+- Test: `bench/tests/geo_qa/test_pattern_gated.py`
 
 - [ ] **Step 1: Write the failing test**
 
-`bench/tests/eie/test_pattern_eie.py`:
+`bench/tests/geo_qa/test_pattern_gated.py`:
 
 ```python
 """Pattern E — 5 gates between tool calls. 9-10 turns total.
@@ -1971,15 +1971,15 @@ Test verifies the state machine wires gate_node + agent_step + tool_step
 and that the UserActor is consulted at each gate.
 """
 
-from agent_cost_bench.eie.pattern_eie import build_pattern_e_graph
-from agent_cost_bench.eie.handlers import KeyFieldsHandler
-from agent_cost_bench.eie.user_actor import UserActor
+from agent_cost_bench.geo_qa.pattern_gated import build_pattern_gated_graph
+from agent_cost_bench.geo_qa.handlers import KeyFieldsHandler
+from agent_cost_bench.geo_qa.user_actor import UserActor
 
 
 def test_pattern_e_compiles():
     handler = KeyFieldsHandler()
     actor = UserActor.frozen_default()
-    graph = build_pattern_e_graph(handler=handler, user_actor=actor, model="gpt-5.2-mock")
+    graph = build_pattern_gated_graph(handler=handler, user_actor=actor, model="gpt-5.2-mock")
     node_names = {n for n in graph.get_graph().nodes}
     assert "agent_step" in node_names
     assert "tool_step" in node_names
@@ -1990,14 +1990,14 @@ def test_pattern_e_compiles():
 
 ```bash
 cd ~/Desktop/Code/Ajinkya/websites/ai-cost-calculator-studio/bench
-pytest tests/eie/test_pattern_eie.py -v
+pytest tests/geo_qa/test_pattern_gated.py -v
 ```
 
 Expected: ImportError.
 
 - [ ] **Step 3: Implement Pattern E**
 
-`bench/src/agent_cost_bench/eie/pattern_eie.py`:
+`bench/src/agent_cost_bench/geo_qa/pattern_gated.py`:
 
 ```python
 """Pattern E — gated drill-down with 5 confirmation gates.
@@ -2046,7 +2046,7 @@ ASK_USER_TOOL = {
     },
 }
 
-EIE_SYSTEM_PROMPT = """You are a measurement instrument running a geospatial analysis workflow.
+gated_SYSTEM_PROMPT = """You are a measurement instrument running a geospatial analysis workflow.
 The user has asked an under-specified query about Earth-data analysis. Your job is to:
 
 1. Call `parse_datetime` with a reasonable default window, then call `ask_user(gate='datetime', prompt='...')` to confirm.
@@ -2060,7 +2060,7 @@ Do NOT chain multiple ask_user calls in one turn — one gate per turn.
 Be terse. No emoji. No follow-up offers. This is a measurement run.
 """
 
-EIE_USER_QUERY = """Analyze the contribution of the 2020 California wildfires to total CO2 flux using model-estimated carbon flux data."""
+gated_USER_QUERY = """Analyze the contribution of the 2020 California wildfires to total CO2 flux using model-estimated carbon flux data."""
 
 
 class State(TypedDict):
@@ -2125,7 +2125,7 @@ def _gate_step(state: State) -> dict[str, Any]:
     return {"messages": new_messages}
 
 
-def build_pattern_e_graph(handler, user_actor: UserActor, model: str = "gpt-5.2"):
+def build_pattern_gated_graph(handler, user_actor: UserActor, model: str = "gpt-5.2"):
     g = StateGraph(State)
     g.add_node("agent_step", _agent_step)
     g.add_node("tool_step", _tool_step)
@@ -2143,8 +2143,8 @@ def build_pattern_e_graph(handler, user_actor: UserActor, model: str = "gpt-5.2"
 def initial_state(handler, user_actor: UserActor, model: str = "gpt-5.2") -> State:
     return {
         "messages": [
-            {"role": "system", "content": EIE_SYSTEM_PROMPT},
-            {"role": "user", "content": EIE_USER_QUERY},
+            {"role": "system", "content": gated_SYSTEM_PROMPT},
+            {"role": "user", "content": gated_USER_QUERY},
         ],
         "handler_ref": handler,
         "user_actor": user_actor,
@@ -2156,7 +2156,7 @@ def initial_state(handler, user_actor: UserActor, model: str = "gpt-5.2") -> Sta
 
 ```bash
 cd ~/Desktop/Code/Ajinkya/websites/ai-cost-calculator-studio/bench
-pytest tests/eie/test_pattern_eie.py -v
+pytest tests/geo_qa/test_pattern_gated.py -v
 ```
 
 Expected: 1 passed.
@@ -2165,8 +2165,8 @@ Expected: 1 passed.
 
 ```bash
 cd ~/Desktop/Code/Ajinkya/websites/ai-cost-calculator-studio
-git add bench/src/agent_cost_bench/eie/pattern_eie.py bench/tests/eie/test_pattern_eie.py
-git commit -m "bench(eie): Pattern E — 5-gate drill-down state machine
+git add bench/src/agent_cost_bench/geo_qa/pattern_gated.py bench/tests/geo_qa/test_pattern_gated.py
+git commit -m "bench(geo-qa): Pattern E — 5-gate drill-down state machine
 
 agent_step / tool_step / gate_step nodes. Agent emits an ask_user
 tool call to request a gate response; runner intercepts and routes
@@ -2174,7 +2174,7 @@ to the UserActor's frozen answer table. 5 gates between tool calls:
 datetime → state → county → dataset → variable.
 
 All agent strings (system prompt, gate routing instructions, user
-query template) written from scratch — neutral, terse, no EIE prose
+query template) written from scratch — neutral, terse, no gated prose
 paraphrase, no emoji."
 ```
 
@@ -2183,22 +2183,22 @@ paraphrase, no emoji."
 ### Task 16: Scenario YAMLs (six manifests) + the scenario loader
 
 **Files:**
-- Create: `bench/src/agent_cost_bench/eie/scenario_loader.py`
-- Create: 6 files in `bench/scenarios/eie-templating/`
-- Test: `bench/tests/eie/test_scenario_loader.py`
+- Create: `bench/src/agent_cost_bench/geo_qa/scenario_loader.py`
+- Create: 6 files in `bench/scenarios/geo-qa-templating/`
+- Test: `bench/tests/geo_qa/test_scenario_loader.py`
 
 - [ ] **Step 1: Write the failing test**
 
-`bench/tests/eie/test_scenario_loader.py`:
+`bench/tests/geo_qa/test_scenario_loader.py`:
 
 ```python
 """Scenario YAMLs round-trip through the loader to typed config."""
 
 from pathlib import Path
 import pytest
-from agent_cost_bench.eie.scenario_loader import load_scenario, ScenarioCfg
+from agent_cost_bench.geo_qa.scenario_loader import load_scenario, ScenarioCfg
 
-SCENARIO_DIR = Path(__file__).resolve().parents[2] / "scenarios" / "eie-templating"
+SCENARIO_DIR = Path(__file__).resolve().parents[2] / "scenarios" / "geo-qa-templating"
 
 
 def test_all_six_scenarios_load():
@@ -2206,16 +2206,16 @@ def test_all_six_scenarios_load():
         "pattern-paper-status-only",
         "pattern-paper-key-fields",
         "pattern-paper-freeform",
-        "pattern-eie-status-only",
-        "pattern-eie-key-fields",
-        "pattern-eie-freeform",
+        "pattern-gated-status-only",
+        "pattern-gated-key-fields",
+        "pattern-gated-freeform",
     ]
     for sid in expected_ids:
         s = load_scenario(SCENARIO_DIR / f"{sid}.yml")
         assert isinstance(s, ScenarioCfg)
         assert s.id == sid
         assert s.handler_mode in ("status_only", "key_fields", "freeform")
-        assert s.pattern in ("paper", "eie")
+        assert s.pattern in ("paper", "gated")
         assert s.model.startswith("gpt-")
 ```
 
@@ -2223,17 +2223,17 @@ def test_all_six_scenarios_load():
 
 ```bash
 cd ~/Desktop/Code/Ajinkya/websites/ai-cost-calculator-studio/bench
-pytest tests/eie/test_scenario_loader.py -v
+pytest tests/geo_qa/test_scenario_loader.py -v
 ```
 
 Expected: ImportError (or "no scenario files found" once loader exists).
 
 - [ ] **Step 3: Write the loader**
 
-`bench/src/agent_cost_bench/eie/scenario_loader.py`:
+`bench/src/agent_cost_bench/geo_qa/scenario_loader.py`:
 
 ```python
-"""Typed loader for eie-templating scenario YAMLs."""
+"""Typed loader for geo-qa-templating scenario YAMLs."""
 
 from __future__ import annotations
 
@@ -2246,7 +2246,7 @@ import yaml
 @dataclass(frozen=True)
 class ScenarioCfg:
     id: str
-    pattern: str         # 'paper' | 'eie'
+    pattern: str         # 'paper' | 'gated'
     handler_mode: str    # 'status_only' | 'key_fields' | 'freeform'
     model: str           # litellm model identifier
     description: str
@@ -2266,7 +2266,7 @@ def load_scenario(path: Path) -> ScenarioCfg:
 
 - [ ] **Step 4: Write the 6 scenario manifests**
 
-`bench/scenarios/eie-templating/pattern-paper-status-only.yml`:
+`bench/scenarios/geo-qa-templating/pattern-paper-status-only.yml`:
 
 ```yaml
 id: pattern-paper-status-only
@@ -2278,7 +2278,7 @@ description: |
   Tests the paper's claimed cost floor.
 ```
 
-`bench/scenarios/eie-templating/pattern-paper-key-fields.yml`:
+`bench/scenarios/geo-qa-templating/pattern-paper-key-fields.yml`:
 
 ```yaml
 id: pattern-paper-key-fields
@@ -2290,7 +2290,7 @@ description: |
   Production-realistic middle ground. The paper does NOT test this point.
 ```
 
-`bench/scenarios/eie-templating/pattern-paper-freeform.yml`:
+`bench/scenarios/geo-qa-templating/pattern-paper-freeform.yml`:
 
 ```yaml
 id: pattern-paper-freeform
@@ -2302,11 +2302,11 @@ description: |
   Naive ReAct loop with no output structuring. Paper's claimed cost ceiling.
 ```
 
-`bench/scenarios/eie-templating/pattern-eie-status-only.yml`:
+`bench/scenarios/geo-qa-templating/pattern-gated-status-only.yml`:
 
 ```yaml
-id: pattern-eie-status-only
-pattern: eie
+id: pattern-gated-status-only
+pattern: gated
 handler_mode: status_only
 model: gpt-5.2
 description: |
@@ -2314,11 +2314,11 @@ description: |
   Tests whether the gated conversation pattern changes the templating lever.
 ```
 
-`bench/scenarios/eie-templating/pattern-eie-key-fields.yml`:
+`bench/scenarios/geo-qa-templating/pattern-gated-key-fields.yml`:
 
 ```yaml
-id: pattern-eie-key-fields
-pattern: eie
+id: pattern-gated-key-fields
+pattern: gated
 handler_mode: key_fields
 model: gpt-5.2
 description: |
@@ -2326,11 +2326,11 @@ description: |
   Most-realistic combination: gated conversation + production templating.
 ```
 
-`bench/scenarios/eie-templating/pattern-eie-freeform.yml`:
+`bench/scenarios/geo-qa-templating/pattern-gated-freeform.yml`:
 
 ```yaml
-id: pattern-eie-freeform
-pattern: eie
+id: pattern-gated-freeform
+pattern: gated
 handler_mode: freeform
 model: gpt-5.2
 description: |
@@ -2343,7 +2343,7 @@ description: |
 
 ```bash
 cd ~/Desktop/Code/Ajinkya/websites/ai-cost-calculator-studio/bench
-pytest tests/eie/test_scenario_loader.py -v
+pytest tests/geo_qa/test_scenario_loader.py -v
 ```
 
 Expected: 1 passed.
@@ -2352,8 +2352,8 @@ Expected: 1 passed.
 
 ```bash
 cd ~/Desktop/Code/Ajinkya/websites/ai-cost-calculator-studio
-git add bench/src/agent_cost_bench/eie/scenario_loader.py bench/scenarios/eie-templating/ bench/tests/eie/test_scenario_loader.py
-git commit -m "bench(eie): 6 scenario YAML manifests + loader
+git add bench/src/agent_cost_bench/geo_qa/scenario_loader.py bench/scenarios/geo-qa-templating/ bench/tests/geo_qa/test_scenario_loader.py
+git commit -m "bench(geo-qa): 6 scenario YAML manifests + loader
 
 The 2×3 matrix: 2 conversation patterns × 3 response modes. Each
 YAML pins the pattern, handler_mode, and model. Frozen workload
@@ -2367,19 +2367,19 @@ handler type."
 ### Task 17: Scenario runner — glues pattern + handler + tracing
 
 **Files:**
-- Create: `bench/src/agent_cost_bench/eie/runner.py`
+- Create: `bench/src/agent_cost_bench/geo_qa/runner.py`
 
 - [ ] **Step 1: Implement the runner**
 
-`bench/src/agent_cost_bench/eie/runner.py`:
+`bench/src/agent_cost_bench/geo_qa/runner.py`:
 
 ```python
-"""Run one eie-templating scenario end-to-end and write a trace JSON.
+"""Run one geo-qa-templating scenario end-to-end and write a trace JSON.
 
 The runner is the thinnest possible glue between:
   - scenario_loader (which scenario YAML to run)
   - handlers (which middleware to wrap tool returns with)
-  - pattern_paper / pattern_eie (which state machine to drive)
+  - pattern_paper / pattern_gated (which state machine to drive)
   - the LLM provider (real calls through provider_shim.call_llm)
 
 Trace artifact captures per-turn input/output/cached tokens, every
@@ -2398,12 +2398,12 @@ from typing import Any
 
 from .handlers import FreeformHandler, KeyFieldsHandler, StatusOnlyHandler
 from .pattern_paper import build_pattern_p_graph, initial_state as paper_initial
-from .pattern_eie import build_pattern_e_graph, initial_state as eie_initial
+from .pattern_gated import build_pattern_gated_graph, initial_state as geo_qa_initial
 from .scenario_loader import ScenarioCfg
 from .user_actor import UserActor
 
 
-REPORTS_DIR = Path(__file__).resolve().parents[3] / "reports" / "eie-templating"
+REPORTS_DIR = Path(__file__).resolve().parents[3] / "reports" / "geo-qa-templating"
 
 
 def _make_handler(mode: str):
@@ -2422,10 +2422,10 @@ def run_scenario(cfg: ScenarioCfg, max_turns: int = 30) -> Path:
     if cfg.pattern == "paper":
         graph = build_pattern_p_graph(handler=handler, model=cfg.model)
         state = paper_initial(handler=handler, model=cfg.model)
-    elif cfg.pattern == "eie":
+    elif cfg.pattern == "gated":
         actor = UserActor.frozen_default()
-        graph = build_pattern_e_graph(handler=handler, user_actor=actor, model=cfg.model)
-        state = eie_initial(handler=handler, user_actor=actor, model=cfg.model)
+        graph = build_pattern_gated_graph(handler=handler, user_actor=actor, model=cfg.model)
+        state = geo_qa_initial(handler=handler, user_actor=actor, model=cfg.model)
     else:
         raise ValueError(f"unknown pattern: {cfg.pattern!r}")
     state["model"] = cfg.model
@@ -2493,7 +2493,7 @@ def _build_trace(cfg: ScenarioCfg, final_state: dict[str, Any], elapsed_s: float
 
 ```bash
 cd ~/Desktop/Code/Ajinkya/websites/ai-cost-calculator-studio/bench
-python -c "from agent_cost_bench.eie.runner import run_scenario; print('ok')"
+python -c "from agent_cost_bench.geo_qa.runner import run_scenario; print('ok')"
 ```
 
 Expected: `ok`
@@ -2502,8 +2502,8 @@ Expected: `ok`
 
 ```bash
 cd ~/Desktop/Code/Ajinkya/websites/ai-cost-calculator-studio
-git add bench/src/agent_cost_bench/eie/runner.py
-git commit -m "bench(eie): scenario runner — glue between pattern + handler + tracing
+git add bench/src/agent_cost_bench/geo_qa/runner.py
+git commit -m "bench(geo-qa): scenario runner — glue between pattern + handler + tracing
 
 Loads a ScenarioCfg, instantiates the right handler + pattern graph,
 runs to completion (recursion_limit=30), aggregates per-turn usage
@@ -2513,7 +2513,7 @@ prompt_tokens_details for the cache-hit-rate column in the report."
 
 ---
 
-### Task 18: CLI subcommand — `agent-cost-bench run-eie-templating`
+### Task 18: CLI subcommand — `agent-cost-bench run-geo-qa-templating`
 
 **Files:**
 - Modify: `bench/src/agent_cost_bench/cli.py` (add new subcommand)
@@ -2523,22 +2523,22 @@ prompt_tokens_details for the cache-hit-rate column in the report."
 Open `bench/src/agent_cost_bench/cli.py`. Find the bottom of the file where `app.command()` decorators register subcommands. Append this new subcommand registration:
 
 ```python
-@app.command(name="run-eie-templating")
-def run_eie_templating(
+@app.command(name="run-geo-qa-templating")
+def run_geo_qa_templating(
     scenario: str = typer.Option("all", help="scenario id (e.g. pattern-paper-status-only), 'all' to run all 6"),
     model: str = typer.Option("", help="override the model in every scenario (e.g. gpt-5.2, claude-sonnet-4.6)"),
 ):
-    """Run the eie-templating bench: 6 scenarios = 2 patterns × 3 handler modes.
+    """Run the geo-qa-templating bench: 6 scenarios = 2 patterns × 3 handler modes.
 
-    Each run writes a trace JSON under bench/reports/eie-templating/.
-    Use `agent-cost-bench report-eie-templating` afterwards to emit
+    Each run writes a trace JSON under bench/reports/geo-qa-templating/.
+    Use `agent-cost-bench report-geo-qa-templating` afterwards to emit
     the comparison Markdown summary.
     """
     from pathlib import Path
-    from .eie.runner import run_scenario
-    from .eie.scenario_loader import load_scenario, ScenarioCfg
+    from .geo_qa.runner import run_scenario
+    from .geo_qa.scenario_loader import load_scenario, ScenarioCfg
     from dataclasses import replace
-    SCENARIO_DIR = Path(__file__).resolve().parent.parent.parent / "scenarios" / "eie-templating"
+    SCENARIO_DIR = Path(__file__).resolve().parent.parent.parent / "scenarios" / "geo-qa-templating"
     if scenario == "all":
         ids = [p.stem for p in sorted(SCENARIO_DIR.glob("*.yml"))]
     else:
@@ -2551,7 +2551,7 @@ def run_eie_templating(
         console.print(f"[cyan]Running:[/] {sid}  ({cfg.pattern} × {cfg.handler_mode} on {cfg.model})")
         out_path = run_scenario(cfg)
         console.print(f"[green]Wrote:[/] {out_path}")
-    console.print(f"\n[bold]{len(ids)} scenarios complete.[/] Now run `agent-cost-bench report-eie-templating` to emit the summary.")
+    console.print(f"\n[bold]{len(ids)} scenarios complete.[/] Now run `agent-cost-bench report-geo-qa-templating` to emit the summary.")
 ```
 
 - [ ] **Step 2: Verify CLI sees the new subcommand**
@@ -2561,17 +2561,17 @@ cd ~/Desktop/Code/Ajinkya/websites/ai-cost-calculator-studio/bench
 agent-cost-bench --help
 ```
 
-Expected: lists `run-eie-templating` alongside the existing subcommands.
+Expected: lists `run-geo-qa-templating` alongside the existing subcommands.
 
 - [ ] **Step 3: Commit**
 
 ```bash
 cd ~/Desktop/Code/Ajinkya/websites/ai-cost-calculator-studio
 git add bench/src/agent_cost_bench/cli.py
-git commit -m "bench(eie): CLI subcommand 'run-eie-templating'
+git commit -m "bench(geo-qa): CLI subcommand 'run-geo-qa-templating'
 
 Runs all 6 scenarios (or a single one with --scenario <id>). Writes
-one trace JSON per scenario under bench/reports/eie-templating/.
+one trace JSON per scenario under bench/reports/geo-qa-templating/.
 Existing CLI subcommands unchanged."
 ```
 
@@ -2580,17 +2580,17 @@ Existing CLI subcommands unchanged."
 ### Task 19: Report generator — emit the comparison Markdown
 
 **Files:**
-- Create: `bench/src/agent_cost_bench/eie/report.py`
-- Modify: `bench/src/agent_cost_bench/cli.py` (add `report-eie-templating` subcommand)
+- Create: `bench/src/agent_cost_bench/geo_qa/report.py`
+- Modify: `bench/src/agent_cost_bench/cli.py` (add `report-geo-qa-templating` subcommand)
 
 - [ ] **Step 1: Implement the report generator**
 
-`bench/src/agent_cost_bench/eie/report.py`:
+`bench/src/agent_cost_bench/geo_qa/report.py`:
 
 ```python
 """Emit the 1-page Markdown comparison report from 6 trace JSONs.
 
-Reads all *.trace.json files from bench/reports/eie-templating/,
+Reads all *.trace.json files from bench/reports/geo-qa-templating/,
 groups by scenario_id, picks the latest trace per scenario, builds
 a comparison table, and computes the two key ratio rows (C/A, C/B)
 for each conversation pattern.
@@ -2602,7 +2602,7 @@ import json
 from datetime import datetime, timezone
 from pathlib import Path
 
-REPORTS_DIR = Path(__file__).resolve().parents[3] / "reports" / "eie-templating"
+REPORTS_DIR = Path(__file__).resolve().parents[3] / "reports" / "geo-qa-templating"
 
 # GPT-5.2 pricing (USD per million tokens)
 GPT52_INPUT_PER_M = 1.75
@@ -2660,7 +2660,7 @@ def emit_report() -> Path:
         })
     rows.sort(key=lambda r: (r["pattern"], r["mode"]))
     lines: list[str] = []
-    lines.append(f"# eie-templating bench summary — {ts}\n")
+    lines.append(f"# geo-qa-templating bench summary — {ts}\n")
     lines.append("## Per-scenario results\n")
     lines.append("| scenario | pattern | mode | turns | tok/turn (in) | tok/turn (out) | cache hit % | $/query | $/month @ 915K |")
     lines.append("|---|---|---|---:|---:|---:|---:|---:|---:|")
@@ -2671,7 +2671,7 @@ def emit_report() -> Path:
             f"{r['cache_hit_pct']:.1f}% | ${r['cost_per_q']:.4f} | ${r['monthly']:,.0f} |"
         )
     lines.append("\n## Ratio rows\n")
-    for pattern in ("paper", "eie"):
+    for pattern in ("paper", "gated"):
         a = next((r for r in rows if r["pattern"] == pattern and r["mode"] == "status_only"), None)
         b = next((r for r in rows if r["pattern"] == pattern and r["mode"] == "key_fields"), None)
         c = next((r for r in rows if r["pattern"] == pattern and r["mode"] == "freeform"), None)
@@ -2686,13 +2686,13 @@ def emit_report() -> Path:
 
 - [ ] **Step 2: Add CLI subcommand**
 
-Open `bench/src/agent_cost_bench/cli.py`. Append below the `run_eie_templating` subcommand:
+Open `bench/src/agent_cost_bench/cli.py`. Append below the `run_geo_qa_templating` subcommand:
 
 ```python
-@app.command(name="report-eie-templating")
-def report_eie_templating():
+@app.command(name="report-geo-qa-templating")
+def report_geo_qa_templating():
     """Emit the comparison Markdown report from the latest 6 traces."""
-    from .eie.report import emit_report
+    from .geo_qa.report import emit_report
     out = emit_report()
     Console().print(f"[green]Report written:[/] {out}")
 ```
@@ -2701,19 +2701,19 @@ def report_eie_templating():
 
 ```bash
 cd ~/Desktop/Code/Ajinkya/websites/ai-cost-calculator-studio/bench
-agent-cost-bench --help | grep eie
+agent-cost-bench --help | grep geo-qa
 ```
 
-Expected: shows both `run-eie-templating` and `report-eie-templating`.
+Expected: shows both `run-geo-qa-templating` and `report-geo-qa-templating`.
 
 - [ ] **Step 4: Commit**
 
 ```bash
 cd ~/Desktop/Code/Ajinkya/websites/ai-cost-calculator-studio
-git add bench/src/agent_cost_bench/eie/report.py bench/src/agent_cost_bench/cli.py
-git commit -m "bench(eie): report generator + 'report-eie-templating' CLI
+git add bench/src/agent_cost_bench/geo_qa/report.py bench/src/agent_cost_bench/cli.py
+git commit -m "bench(geo-qa): report generator + 'report-geo-qa-templating' CLI
 
-Reads the latest trace per scenario from bench/reports/eie-templating/,
+Reads the latest trace per scenario from bench/reports/geo-qa-templating/,
 builds the 6-row comparison table with cost projections at 915K
 queries/mo, and computes C/A + C/B ratios per pattern. The findings
 section is left empty for the analyst to fill in after eyeballing the
@@ -2725,11 +2725,11 @@ numbers."
 ### Task 20: End-to-end smoke test with mocked LLM
 
 **Files:**
-- Create: `bench/tests/eie/test_e2e_mocked.py`
+- Create: `bench/tests/geo_qa/test_e2e_mocked.py`
 
 - [ ] **Step 1: Write the e2e smoke test**
 
-`bench/tests/eie/test_e2e_mocked.py`:
+`bench/tests/geo_qa/test_e2e_mocked.py`:
 
 ```python
 """End-to-end smoke test: run one scenario with a mocked LLM + mocked HTTP.
@@ -2745,11 +2745,11 @@ from pathlib import Path
 from unittest.mock import patch
 import pytest
 from pytest_httpx import HTTPXMock
-from agent_cost_bench.eie.scenario_loader import load_scenario
-from agent_cost_bench.eie.runner import run_scenario
+from agent_cost_bench.geo_qa.scenario_loader import load_scenario
+from agent_cost_bench.geo_qa.runner import run_scenario
 
 
-SCENARIO_DIR = Path(__file__).resolve().parents[2] / "scenarios" / "eie-templating"
+SCENARIO_DIR = Path(__file__).resolve().parents[2] / "scenarios" / "geo-qa-templating"
 
 
 def _mock_llm_sequence():
@@ -2798,7 +2798,7 @@ def test_e2e_paper_status_only(httpx_mock: HTTPXMock, monkeypatch, tmp_path):
         is_reusable=True,
     )
     seq = _mock_llm_sequence()
-    monkeypatch.setattr("agent_cost_bench.eie.pattern_paper.call_llm", lambda **kw: next(seq))
+    monkeypatch.setattr("agent_cost_bench.geo_qa.pattern_paper.call_llm", lambda **kw: next(seq))
     # Mock rio-tiler so compute_stats doesn't try to fetch a real COG
     from unittest.mock import MagicMock
     import numpy as np
@@ -2806,7 +2806,7 @@ def test_e2e_paper_status_only(httpx_mock: HTTPXMock, monkeypatch, tmp_path):
     mock_reader.__enter__ = MagicMock(return_value=mock_reader)
     mock_reader.__exit__ = MagicMock(return_value=None)
     mock_reader.feature.return_value = MagicMock(data=np.array([[[1.0, 2.0], [3.0, 4.0]]]), mask=np.ones((2, 2), dtype=bool))
-    monkeypatch.setattr("agent_cost_bench.eie.veda_tools.Reader", lambda *a, **k: mock_reader)
+    monkeypatch.setattr("agent_cost_bench.geo_qa.veda_tools.Reader", lambda *a, **k: mock_reader)
     cfg = load_scenario(SCENARIO_DIR / "pattern-paper-status-only.yml")
     out_path = run_scenario(cfg, max_turns=10)
     assert out_path.exists()
@@ -2821,7 +2821,7 @@ def test_e2e_paper_status_only(httpx_mock: HTTPXMock, monkeypatch, tmp_path):
 
 ```bash
 cd ~/Desktop/Code/Ajinkya/websites/ai-cost-calculator-studio/bench
-pytest tests/eie/test_e2e_mocked.py -v
+pytest tests/geo_qa/test_e2e_mocked.py -v
 ```
 
 Expected: 1 passed. If failures, debug by running with `-s` to see runner output.
@@ -2833,7 +2833,7 @@ cd ~/Desktop/Code/Ajinkya/websites/ai-cost-calculator-studio/bench
 pytest tests/ -v
 ```
 
-Expected: all eie tests pass; pre-existing bench tests (if any) also pass.
+Expected: all geo_qa tests pass; pre-existing bench tests (if any) also pass.
 
 - [ ] **Step 4: Run the calc repo's bench-validate to confirm engine is untouched**
 
@@ -2848,8 +2848,8 @@ Expected: `All 6 bench-validated presets within ±5.00% of expected.`
 
 ```bash
 cd ~/Desktop/Code/Ajinkya/websites/ai-cost-calculator-studio
-git add bench/tests/eie/test_e2e_mocked.py
-git commit -m "bench(eie): end-to-end smoke test with mocked LLM + HTTP
+git add bench/tests/geo_qa/test_e2e_mocked.py
+git commit -m "bench(geo-qa): end-to-end smoke test with mocked LLM + HTTP
 
 Patches provider_shim.call_llm with a hard-coded 6-turn tool-call
 sequence and httpx + rio-tiler for STAC and COG reads. Confirms the
@@ -2863,7 +2863,7 @@ Calc-repo bench-validate still passes 6/6."
 
 **Files:**
 - No code changes. This is an operator step.
-- Output: 6 trace JSONs in `bench/reports/eie-templating/*.trace.json`
+- Output: 6 trace JSONs in `bench/reports/geo-qa-templating/*.trace.json`
 
 - [ ] **Step 1: Confirm `OPENAI_API_KEY` is set in the bench's .env**
 
@@ -2878,15 +2878,15 @@ Expected: `key present`. If missing, add `OPENAI_API_KEY=sk-...` to `bench/.env`
 
 ```bash
 cd ~/Desktop/Code/Ajinkya/websites/ai-cost-calculator-studio/bench
-agent-cost-bench run-eie-templating --scenario all
+agent-cost-bench run-geo-qa-templating --scenario all
 ```
 
-Expected: 6 lines of "Running: ... Wrote: bench/reports/eie-templating/<id>-<timestamp>.trace.json". Total OpenAI spend: ~$5. Total wall-clock: ~5-10 minutes (real STAC calls + real LLM round-trips).
+Expected: 6 lines of "Running: ... Wrote: bench/reports/geo-qa-templating/<id>-<timestamp>.trace.json". Total OpenAI spend: ~$5. Total wall-clock: ~5-10 minutes (real STAC calls + real LLM round-trips).
 
 - [ ] **Step 3: Inspect one trace to confirm it captured real OpenAI usage**
 
 ```bash
-ls -t bench/reports/eie-templating/*.trace.json | head -1 | xargs jq '.totals'
+ls -t bench/reports/geo-qa-templating/*.trace.json | head -1 | xargs jq '.totals'
 ```
 
 Expected: non-zero `input_tokens`, non-zero `output_tokens`, `cached_tokens` ≥ 0 (will be > 0 by turn 2+ thanks to OpenAI's prompt cache).
@@ -2895,18 +2895,18 @@ Expected: non-zero `input_tokens`, non-zero `output_tokens`, `cached_tokens` ≥
 
 ```bash
 cd ~/Desktop/Code/Ajinkya/websites/ai-cost-calculator-studio/bench
-agent-cost-bench report-eie-templating
+agent-cost-bench report-geo-qa-templating
 ```
 
-Expected: writes `bench/reports/eie-templating/<today>-summary.md` and prints its path.
+Expected: writes `bench/reports/geo-qa-templating/<today>-summary.md` and prints its path.
 
 - [ ] **Step 5: Read the summary; write the Findings paragraph by hand**
 
-Open the generated `bench/reports/eie-templating/<today>-summary.md` in your editor. Fill in the `## Findings` section with a few sentences answering:
+Open the generated `bench/reports/geo-qa-templating/<today>-summary.md` in your editor. Fill in the `## Findings` section with a few sentences answering:
 
 1. What is the measured `C/A` ratio per pattern? Does it match the paper's claimed 7.5× lever?
 2. What is the measured `C/B` ratio per pattern? Is the realistic production lever meaningfully smaller?
-3. Does the EIE-shaped conversation pattern (E rows) change the lever vs the paper's pattern (P rows)?
+3. Does the gated drill-down conversation pattern (E rows) change the lever vs the paper's pattern (P rows)?
 4. Brief verdict: "paper is roughly right" / "paper's lever holds against status-only but key-fields halves it" / "coworker was right, lever is overstated" — whichever the numbers support.
 
 Save the file.
@@ -2915,8 +2915,8 @@ Save the file.
 
 ```bash
 cd ~/Desktop/Code/Ajinkya/websites/ai-cost-calculator-studio
-git add bench/reports/eie-templating/*.trace.json bench/reports/eie-templating/*-summary.md
-git commit -m "bench(eie): live measurement — all 6 scenarios + findings
+git add bench/reports/geo-qa-templating/*.trace.json bench/reports/geo-qa-templating/*-summary.md
+git commit -m "bench(geo-qa): live measurement — all 6 scenarios + findings
 
 Real OpenAI GPT-5.2 calls against real NASA VEDA STAC + MiCASA
 Land Carbon Flux v1. 6 trace JSONs (2 patterns × 3 handler modes)
@@ -2948,11 +2948,11 @@ After reading the spec section-by-section against the plan:
 - ✓ Repo layout — matches spec
 - ✓ CLI — Task 18 (run) + 19 (report)
 - ✓ Output: trace JSON per run + Markdown summary — Tasks 17 + 19
-- ✓ Constraints (no EIE prose paraphrase, no Co-Authored-By, engine untouched) — written from scratch system prompts in Tasks 14/15; commits omit the trailer; `npm run bench:validate` checked in Task 20
+- ✓ Constraints (no gated prose paraphrase, no Co-Authored-By, engine untouched) — written from scratch system prompts in Tasks 14/15; commits omit the trailer; `npm run bench:validate` checked in Task 20
 
 **2. Placeholder scan:** Search complete — no TBD/TODO/FIXME/"add appropriate error handling"/"similar to Task N" in the plan. Every step has actual code or actual commands.
 
-**3. Type consistency:** Function names match across tasks. `dispatch_tool_call`, `wrap`, `respond`, `build_pattern_p_graph`, `build_pattern_e_graph`, `run_scenario`, `emit_report` — all used consistently.
+**3. Type consistency:** Function names match across tasks. `dispatch_tool_call`, `wrap`, `respond`, `build_pattern_p_graph`, `build_pattern_gated_graph`, `run_scenario`, `emit_report` — all used consistently.
 
 **4. Ambiguity:** The plan defines exact file paths, exact code, exact tests, and exact commands. The `compute_stats` "resolve item_refs" behaviour is deferred to dispatch.py with an explicit comment on why a re-search is acceptable for the bench (Task 13, Step 3). The `LIST_CAP = 10` value in `KeyFieldsHandler` is concrete.
 

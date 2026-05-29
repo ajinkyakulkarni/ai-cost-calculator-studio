@@ -34,7 +34,7 @@ The current bench (`bench/scenarios/public-geospatial-react.yml` and `…-freefo
 - Not building a production application. The agent in this bench is a measurement instrument, not a product.
 - Not testing model-quality differences. All six scenarios use the same model (GPT-5.2 by default) with the same temperature.
 - Not validating the calc's other cost lines (verification, fixed costs, federal additive). Those have their own bench scenarios.
-- Not testing the EIE deployment directly. The "EIE-shaped" conversation pattern *models* the gated-drill-down workload shape; it does not import, paraphrase, or reuse any EIE code or prose. (See "Constraints" below.)
+- Not testing the gated deployment directly. The "gated drill-down" conversation pattern *models* the gated-drill-down workload shape; it does not import, paraphrase, or reuse any gated code or prose. (See "Constraints" below.)
 
 ## Architecture
 
@@ -43,9 +43,9 @@ Six scenarios arranged as a 2 × 3 matrix:
 |  | A: status-only | B: key-fields | C: freeform |
 |---|---|---|---|
 | **Pattern P** (paper's 6-turn ReAct) | P-A | P-B | P-C |
-| **Pattern E** (EIE-shaped, 5 gates, ~9-10 turns) | E-A | E-B | E-C |
+| **Pattern E** (gated drill-down, 5 gates, ~9-10 turns) | E-A | E-B | E-C |
 
-Each cell is a runnable scenario YAML in `bench/scenarios/eie-templating/`. The orchestrator (`agent-cost-bench run eie-templating --all`) executes all 6 against:
+Each cell is a runnable scenario YAML in `bench/scenarios/geo-qa-templating/`. The orchestrator (`agent-cost-bench run geo-qa-templating --all`) executes all 6 against:
 - **Model:** OpenAI `gpt-5.2`, temperature 0
 - **STAC catalog:** NASA VEDA STAC at `https://openveda.cloud/api/stac/`
 - **Collection:** `micasa-carbonflux-monthgrid-v1` (MiCASA Land Carbon Flux v1, MERRA-2 driven, hosted by NASA GHG Center)
@@ -165,7 +165,7 @@ Agent runs 5 confirmation gates, in order:
 
 Between gates, the agent runs the corresponding tool (`parse_datetime`, `geocode`, `search_collections`, etc.). After the 5th gate the agent runs `search_items` + `compute_stats` autonomously and composes the answer. Total ~9-10 turns including 5 gate-response round-trips.
 
-The "user actor" is a deterministic Python function in `eie_user_actor.py`, not another LLM. It reads from a fixed answer list keyed by gate type. Re-runs are bit-for-bit reproducible.
+The "user actor" is a deterministic Python function in `geo_qa_user_actor.py`, not another LLM. It reads from a fixed answer list keyed by gate type. Re-runs are bit-for-bit reproducible.
 
 Pattern E models the cumulative-input growth of a gated multi-turn conversation that the paper's single-shot pattern does not exercise. If templating savings depend on conversation shape (more turns = more cumulative payload across turns = bigger savings from templating), pattern E will surface that.
 
@@ -208,19 +208,19 @@ A single run per scenario keeps total spend at ~$5. If variance is suspected aft
 ## Output / reporting
 
 Per scenario:
-- One trace JSON in `bench/reports/eie-templating/{scenario}-{timestamp}.trace.json` with per-turn input/output tokens, cache hit rate, tool calls, raw LLM messages.
+- One trace JSON in `bench/reports/geo-qa-templating/{scenario}-{timestamp}.trace.json` with per-turn input/output tokens, cache hit rate, tool calls, raw LLM messages.
 
 Across the 6 scenarios:
-- One Markdown summary at `bench/reports/eie-templating/2026-05-26-summary.md` with a 6-row comparison table:
+- One Markdown summary at `bench/reports/geo-qa-templating/2026-05-26-summary.md` with a 6-row comparison table:
 
 | scenario | pattern | mode | turns | tokens/turn (in) | tokens/turn (out) | cache hit % | $/query | $/month @ 915K |
 |---|---|---|---|---|---|---|---|---|
 | P-A | paper | status-only | 6 | … | … | … | … | … |
 | P-B | paper | key-fields  | 6 | … | … | … | … | … |
 | P-C | paper | freeform    | 6 | … | … | … | … | … |
-| E-A | eie   | status-only | ~10 | … | … | … | … | … |
-| E-B | eie   | key-fields  | ~10 | … | … | … | … | … |
-| E-C | eie   | freeform    | ~10 | … | … | … | … | … |
+| E-A | gated | status-only | ~10 | … | … | … | … | … |
+| E-B | gated | key-fields  | ~10 | … | … | … | … | … |
+| E-C | gated | freeform    | ~10 | … | … | … | … | … |
 
 Plus two ratio rows:
 - `C/A ratio`: directly tests the paper's 7.5× claim
@@ -233,43 +233,43 @@ Plus a short paragraph of findings: which mode the paper anchored on, where real
 ```
 bench/
   scenarios/
-    eie-templating/
+    geo-qa-templating/
       pattern-paper-status-only.yml
       pattern-paper-key-fields.yml
       pattern-paper-freeform.yml
-      pattern-eie-status-only.yml
-      pattern-eie-key-fields.yml
-      pattern-eie-freeform.yml
+      pattern-gated-status-only.yml
+      pattern-gated-key-fields.yml
+      pattern-gated-freeform.yml
   src/agent_cost_bench/
     veda_tools.py              # 5 real tools against NASA VEDA STAC
     response_handlers.py       # StatusOnlyHandler, KeyFieldsHandler, FreeformHandler
-    eie_user_actor.py          # deterministic gate-answerer for pattern E
-    eie_patterns.py            # LangGraph state machines for patterns P and E
+    geo_qa_user_actor.py       # deterministic gate-answerer for pattern E
+    geo_qa_patterns.py         # LangGraph state machines for patterns P and E
   data/
     us_county_bboxes.json      # shipped fallback for geocode tool
-  reports/eie-templating/
+  reports/geo-qa-templating/
     {scenario}-{timestamp}.trace.json    # one per run
     2026-05-26-summary.md                # the comparison report
 docs/specs/
-  2026-05-26-eie-templating-three-way-bench-design.md  # this file
+  2026-05-26-geo-qa-templating-three-way-bench-design.md  # this file
 ```
 
 ## CLI
 
 ```
 # Run all six scenarios end-to-end + emit summary
-agent-cost-bench run eie-templating --all --model gpt-5.2 --emit-summary
+agent-cost-bench run geo-qa-templating --all --model gpt-5.2 --emit-summary
 
 # Run a single scenario (debug / re-run a flaky one)
-agent-cost-bench run eie-templating/pattern-eie-key-fields --model gpt-5.2
+agent-cost-bench run geo-qa-templating/pattern-gated-key-fields --model gpt-5.2
 
 # Re-emit the summary from existing traces without re-running
-agent-cost-bench report eie-templating --since 2026-05-26
+agent-cost-bench report geo-qa-templating --since 2026-05-26
 ```
 
 ## Constraints
 
-- **No EIE prose paraphrase.** Pattern E models the gated-drill-down *workload shape* (number of gates, when the agent waits for user input, what gets confirmed). All agent system prompts, gate prompt wording, response strings, emoji conventions, and final-answer phrasing are written from scratch in neutral terse style. Do not import, paraphrase, or stylistically mirror any EIE code or chat content. (Durable user preference.)
+- **No gated prose paraphrase.** Pattern E models the gated-drill-down *workload shape* (number of gates, when the agent waits for user input, what gets confirmed). All agent system prompts, gate prompt wording, response strings, emoji conventions, and final-answer phrasing are written from scratch in neutral terse style. Do not import, paraphrase, or stylistically mirror any gated code or chat content. (Durable user preference.)
 - **No `Co-Authored-By: Claude` trailer** on commits for this work. (Durable user preference.)
 - **Engine is untouched.** This bench measures; it does not modify `public/lib/cost-engine.js`. `bench-validate` must remain 6/6 at ±0.00% after every commit in this work.
 - **Tools call real APIs.** No mocked responses anywhere in the tool layer. The `repeats: 1` setting is for cost control; bumping it is a follow-up.
@@ -286,7 +286,7 @@ agent-cost-bench report eie-templating --since 2026-05-26
 The bench is "done" when:
 
 1. All six scenario YAMLs exist and are individually runnable.
-2. `agent-cost-bench run eie-templating --all` produces 6 trace JSONs + 1 Markdown summary.
+2. `agent-cost-bench run geo-qa-templating --all` produces 6 trace JSONs + 1 Markdown summary.
 3. The summary's `C/A ratio` column has a credibly-measured value (≥ 1 successful run per scenario, OpenAI-reported cached_tokens included in the trace).
 4. `npm run bench:validate` in the calc repo still passes 6/6 at ±0.00%.
 5. The findings paragraph in the summary explicitly addresses: "is the paper's 7.5× claim correct against real data, and is the realistic production lever (C/B) meaningfully smaller?"

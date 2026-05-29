@@ -1,0 +1,11 @@
+{
+  "_source": "US Census TIGER/Line 2023, public domain. Bboxes rounded to 4 decimals.",
+  "_format": "lookup keyed by lowercase '<county> county, <state-abbrev>'; value is [west, south, east, north] in EPSG:4326.",
+  "counties": {
+    "mendocino county, ca": [-123.890, 38.756, -122.819, 40.005],
+    "fresno county, ca":    [-120.918, 35.913, -118.361, 37.585],
+    "sonoma county, ca":    [-123.534, 38.075, -122.341, 38.844],
+    "humboldt county, ca":  [-124.408, 40.001, -123.534, 41.464],
+    "lake county, ca":      [-123.090, 38.696, -122.330, 39.610]
+  }
+}
