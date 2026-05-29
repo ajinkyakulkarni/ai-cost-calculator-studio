@@ -1,7 +1,7 @@
 # data-discovery — single agent with confirmation-gated tool pipeline.
 #
 # Mirrors the canonical pattern used by production domain-data-
-# discovery agents (e.g., NASA-IMPACT/eie-agent for VEDA STAC, but
+# discovery agents (e.g., the public-facing geospatial Q&A agent for VEDA STAC, but
 # the same shape applies to any catalog-search-with-human-in-the-loop
 # system: medical literature search, legal e-discovery, financial
 # regulatory data, etc.).
@@ -20,7 +20,7 @@
 #   - tool_schema_overhead_tokens (6 tool schemas in the prompt)
 #   - tool_result_tokens (varies wildly: 100 for bbox, 500 for
 #     collection list, 2000 for items, 1000 for stats)
-#   - tools_per_query (the EIE flow does ~5 tool calls per session)
+#   - tools_per_query (the gated drill-down flow does ~5 tool calls per session)
 #   - per-turn token growth as confirmation history accumulates
 #   - cost effect of tool-state-bypass for big payloads
 #
@@ -33,7 +33,7 @@ repeat: 1
 max_cost_usd: 1.50
 
 meta:
-  inspired_by: "Confirmation-gated tool pipeline (NASA-IMPACT/eie-agent shape)"
+  inspired_by: "Confirmation-gated tool pipeline (gated drill-down pattern)"
   validates_axiom_coefficients:
     - tool_schema_overhead_tokens
     - tool_result_tokens
@@ -53,7 +53,7 @@ agents:
       - select_collection
       - search_items
       - compute_stats
-    # ~700 token system prompt — mirrors EIE's structure (ROLE /
+    # ~700 token system prompt — mirrors the production agent's structure (ROLE /
     # OBJECTIVE / TOOLS / PROCESS) generically. Long prompts are
     # the realistic shape for production agents — short test
     # prompts undersell the per-call input cost.
