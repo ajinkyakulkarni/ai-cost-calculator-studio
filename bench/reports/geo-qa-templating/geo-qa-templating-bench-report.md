@@ -36,14 +36,14 @@
 
 ## Findings
 
-**Setup.** Live runs against GPT-5.2 over NASA VEDA STAC (`lis-global-da-gpp`, Mendocino County CA, June–November 2020). 2 conversation patterns × 3 response-handler modes × 3 prompt variants (natural, forced `compute_stats`, `--with-map`). This is a single consistent 12/12 sweep — **all six scenarios now complete the full tool chain and compute real GPP stats**, including status-only (after the fix below). Numbers carry run-to-run variance because GPT-5.2 tool-calling isn't fully deterministic even at temperature 0.
+**Setup.** Live runs against GPT-5.2 over a public geospatial STAC catalog (a global gross-primary-production raster dataset, Mendocino County CA, June–November 2020). 2 conversation patterns × 3 response-handler modes × 3 prompt variants (natural, forced `compute_stats`, `--with-map`). This is a single consistent 12/12 sweep — **all six scenarios now complete the full tool chain and compute real GPP stats**, including status-only (after the fix below). Numbers carry run-to-run variance because GPT-5.2 tool-calling isn't fully deterministic even at temperature 0.
 
 ### Templating lever (the paper's claim)
 
 The paper's ~7.5× tool-response lever is **directionally real but overstated for realistic comparisons.** Headline C/A (raw STAC → status-only summary) varies sharply by conversation shape:
 
 - Paper pattern (parallel ReAct, 4–7 turns): **2.27–2.34×**
-- Gated drill-down pattern (gated conversation, 11–15 turns): **5.09–6.21×**
+- Gated drill-down pattern (gated conversation, 11–15 turns): **4.65–6.21×**
 
 The realistic production lever — C/B (raw → typed key-fields, what teams actually template to) — lands at **2.74–5.98×**, not 7.5×. A team already doing key-fields templating won't find another 7.5× by going to status-only; mode A ($0.021–$0.035/query) is only marginally cheaper than mode B ($0.025–$0.040). The 7.5× anchor is the extreme upper bound (raw passthrough vs the most aggressive summary on the longest conversation), not the typical case.
 
@@ -78,4 +78,4 @@ Two stable observations plus one caveat:
 
 Quote the templating lever as **~3–6× for realistic choices** (raw → key-fields), with **7.5× as the extreme upper bound** (raw → aggressive summary on a long gated conversation), not the typical case. Status-only is viable *if* the handler keeps identifiers; stripping them is a failure mode, not a saving. A map-layer output is cheap in templated modes and a volatility risk in freeform. Response templating dominates cost; the visualization step does not.
 
-**Limitations.** Single dataset (`lis-global-da-gpp`, substituted for the paper's MiCASA which isn't in VEDA's catalog), single AOI, single model, single sweep. GPT-5.2 tool-calling variance moves per-cell numbers ±tens of percent between sweeps — treat ratios as ranges, not point estimates. Cache hit rates (41–80%) depend on back-to-back execution and heavily dampen absolute costs; an isolated cold start would push them higher.
+**Limitations.** Single dataset (a public global gross-primary-production raster, substituted for a higher-resolution product not present in the catalog), single AOI, single model, single sweep. GPT-5.2 tool-calling variance moves per-cell numbers ±tens of percent between sweeps — treat ratios as ranges, not point estimates. Cache hit rates (41–80%) depend on back-to-back execution and heavily dampen absolute costs; an isolated cold start would push them higher.

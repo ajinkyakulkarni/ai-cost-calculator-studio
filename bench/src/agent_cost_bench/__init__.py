@@ -4,4 +4,4 @@ Validates cost simulator predictions (calc.ajinkya.ai) against real provider
 usage data captured via OpenTelemetry GenAI semantic conventions.
 """
 
-__version__ = "0.1.0"
+__version__ = "0.2.0"

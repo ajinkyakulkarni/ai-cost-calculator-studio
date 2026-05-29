@@ -4051,7 +4051,7 @@ Peak-hour traffic divided by average traffic. 1× = perfectly flat. 3-5× = typi
 
 **Templated**: the deployment routes every tool return through a centralized response-template layer. The LLM only sees a short status string (e.g. *'search returned 8 items, top result: lakefront_2024.tif'*); the structured payload stays server-side and is fetched on demand. Effective per-tool tokens collapse to the Cap value (default 40).
 
-**Why this knob matters:** on this workload the templated→freeform choice is a **~3–4.5× monthly cost lever** — $5.2K/mo templated → $11.7K/mo key-fields → $23.5K/mo freeform at the same traffic (empirically replicated against real GPT-5.2 + NASA VEDA STAC). Most production agents leave this on freeform by default; routing returns through a templated layer is a ~1-week investment that pays for itself in weeks.
+**Why this knob matters:** on this workload the templated→freeform choice is a **~3–4.5× monthly cost lever** — $5.2K/mo templated → $11.7K/mo key-fields → $23.5K/mo freeform at the same traffic (empirically replicated against real GPT-5.2 over a public geospatial STAC catalog). Most production agents leave this on freeform by default; routing returns through a templated layer is a ~1-week investment that pays for itself in weeks.
 
 Set Cap above to match your template's actual emission size (40 for status-only, ~120 for error+hint, ~250 for small structured summaries).">Tool return shape</label>
             <select id="s-tool-response-mode" data-bind="tool_response_mode" onchange="onSlider()" style="font-size:11px;border:1px solid var(--b);border-radius:4px;padding:2px 6px">
