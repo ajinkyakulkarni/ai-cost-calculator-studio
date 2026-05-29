@@ -1,5 +1,5 @@
 """Tool dispatch — given (tool_name, args, handler), route to the
-right veda_tools function and wrap the return through the handler.
+right stac_tools function and wrap the return through the handler.
 """
 
 import json
@@ -50,7 +50,7 @@ _GEOMETRY = {
 
 
 def test_compute_stats_uses_passed_items_not_refetch():
-    """compute_stats must call veda_tools.compute_stats with the items
+    """compute_stats must call stac_tools.compute_stats with the items
     the LLM passed via item_refs, and must NOT call search_items internally."""
     fake_items = _make_fake_items()
     fake_result = MagicMock()
@@ -58,8 +58,8 @@ def test_compute_stats_uses_passed_items_not_refetch():
         '{"band":"cog_default","n_items":1,"mean":1.0,"median":1.0,"min":1.0,"max":1.0,"per_item":[]}'
     )
 
-    with patch("agent_cost_bench.geo_qa.dispatch.veda_tools.compute_stats", return_value=fake_result) as mock_compute, \
-         patch("agent_cost_bench.geo_qa.dispatch.veda_tools.search_items") as mock_search:
+    with patch("agent_cost_bench.geo_qa.dispatch.stac_tools.compute_stats", return_value=fake_result) as mock_compute, \
+         patch("agent_cost_bench.geo_qa.dispatch.stac_tools.search_items") as mock_search:
 
         items_as_dicts = [item.model_dump() for item in fake_items]
         args = {"item_refs": items_as_dicts, "band": "cog_default", "geometry": _GEOMETRY}
@@ -119,7 +119,7 @@ def test_compute_stats_status_mode_recovers_stashed_items():
         band="cog_default", n_items=1, mean=3e-05, median=3e-05, min=1e-06, max=2e-04, per_item=[]
     )
     with patch(
-        "agent_cost_bench.geo_qa.dispatch.veda_tools.compute_stats", return_value=fake
+        "agent_cost_bench.geo_qa.dispatch.stac_tools.compute_stats", return_value=fake
     ) as mock_compute:
         out = dispatch_tool_call(
             "compute_stats",

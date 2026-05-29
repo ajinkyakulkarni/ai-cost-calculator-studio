@@ -131,17 +131,17 @@ def test_render_preview_uses_build_preview_url(httpx_mock):
 
 
 # ---------------------------------------------------------------------------
-# 4. veda_tools.render_map — returns RenderMapReturn, no HTTP
+# 4. stac_tools.render_map — returns RenderMapReturn, no HTTP
 # ---------------------------------------------------------------------------
 
 def test_render_map_returns_render_map_return():
-    from agent_cost_bench.geo_qa.veda_tools import render_map
+    from agent_cost_bench.geo_qa.stac_tools import render_map
     result = render_map(_COLLECTION, _ITEM, _BBOX)
     assert isinstance(result, RenderMapReturn)
 
 
 def test_render_map_url_is_well_formed():
-    from agent_cost_bench.geo_qa.veda_tools import render_map
+    from agent_cost_bench.geo_qa.stac_tools import render_map
     r = render_map(_COLLECTION, _ITEM, _BBOX)
     # URL must contain the bbox path segment
     minx, miny, maxx, maxy = _BBOX
@@ -150,13 +150,13 @@ def test_render_map_url_is_well_formed():
 
 
 def test_render_map_url_contains_colormap():
-    from agent_cost_bench.geo_qa.veda_tools import render_map
+    from agent_cost_bench.geo_qa.stac_tools import render_map
     r = render_map(_COLLECTION, _ITEM, _BBOX, colormap="rdylgn")
     assert "colormap_name=rdylgn" in r.map_url
 
 
 def test_render_map_fields_roundtrip():
-    from agent_cost_bench.geo_qa.veda_tools import render_map
+    from agent_cost_bench.geo_qa.stac_tools import render_map
     r = render_map(_COLLECTION, _ITEM, _BBOX, colormap="plasma")
     assert r.item_id == _ITEM
     assert r.collection_id == _COLLECTION
@@ -164,7 +164,7 @@ def test_render_map_fields_roundtrip():
 
 
 def test_render_map_default_colormap_viridis():
-    from agent_cost_bench.geo_qa.veda_tools import render_map
+    from agent_cost_bench.geo_qa.stac_tools import render_map
     r = render_map(_COLLECTION, _ITEM, _BBOX)
     assert r.colormap == "viridis"
     assert "colormap_name=viridis" in r.map_url
@@ -178,7 +178,7 @@ def test_render_map_makes_no_http_call(monkeypatch):
         raise RuntimeError("render_map must not make HTTP calls")
 
     monkeypatch.setattr(httpx, "Client", fail_if_used)
-    from agent_cost_bench.geo_qa.veda_tools import render_map
+    from agent_cost_bench.geo_qa.stac_tools import render_map
     # Should not raise
     result = render_map(_COLLECTION, _ITEM, _BBOX)
     assert isinstance(result, RenderMapReturn)

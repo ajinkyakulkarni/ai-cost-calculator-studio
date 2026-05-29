@@ -23,7 +23,7 @@ Each run writes a trace JSON to `bench/reports/geo-qa-templating/`. The report a
 |---|---|
 | `schemas.py` | Pydantic shapes for all 5 tool returns + `StatusReturn` |
 | `handlers.py` | `StatusOnlyHandler`, `KeyFieldsHandler`, `FreeformHandler` |
-| `veda_tools.py` | 5 real tools: `parse_datetime`, `geocode`, `search_collections`, `search_items`, `compute_stats` (hits VEDA STAC + raster API) |
+| `stac_tools.py` | 5 real tools: `parse_datetime`, `geocode`, `search_collections`, `search_items`, `compute_stats` (hits VEDA STAC + raster API) |
 | `dispatch.py` | `TOOL_SCHEMAS` (OpenAI tool format) + `dispatch_tool_call` |
 | `user_actor.py` | Deterministic gate-answer fixture for the gated drill-down pattern |
 | `pattern_paper.py` | LangGraph state machine — parallel ReAct |

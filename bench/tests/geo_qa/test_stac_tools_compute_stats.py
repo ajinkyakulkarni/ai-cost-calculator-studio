@@ -9,7 +9,7 @@ import re
 import pytest
 from pytest_httpx import HTTPXMock
 
-from agent_cost_bench.geo_qa.veda_tools import compute_stats
+from agent_cost_bench.geo_qa.stac_tools import compute_stats
 from agent_cost_bench.geo_qa.schemas import StacItemFields, ComputeStatsReturn
 
 

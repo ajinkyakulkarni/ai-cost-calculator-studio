@@ -1,7 +1,7 @@
 """geocode — county-bbox lookup, no API."""
 
 import pytest
-from agent_cost_bench.geo_qa.veda_tools import geocode
+from agent_cost_bench.geo_qa.stac_tools import geocode
 from agent_cost_bench.geo_qa.schemas import GeocodeReturn
 
 

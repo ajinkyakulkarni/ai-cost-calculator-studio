@@ -222,13 +222,13 @@ def test_cli_preview_uses_aoi_bbox_not_item_bbox(monkeypatch) -> None:
 
     # The command imports geocode/search_items/render_preview INSIDE the
     # function body from their source modules, so patch the source modules.
-    from agent_cost_bench.geo_qa import veda_tools
+    from agent_cost_bench.geo_qa import stac_tools
     monkeypatch.setattr(
-        veda_tools, "geocode",
+        stac_tools, "geocode",
         lambda *a, **k: GeocodeReturn(admin_name="Mendocino County", admin_level="county", bbox=aoi_bbox),
     )
     monkeypatch.setattr(
-        veda_tools, "search_items",
+        stac_tools, "search_items",
         lambda *a, **k: SearchItemsReturn(
             items=[StacItemFields(
                 id="LIS_GPP_202008010000.d01.cog",

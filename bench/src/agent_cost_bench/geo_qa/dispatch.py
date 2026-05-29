@@ -1,6 +1,6 @@
-"""Route OpenAI-shape tool calls into veda_tools + wrap via handler.
+"""Route OpenAI-shape tool calls into stac_tools + wrap via handler.
 
-This is the only file that knows which veda_tools function corresponds
+This is the only file that knows which stac_tools function corresponds
 to which tool name in the LLM's tool schema. The runner and patterns
 talk to this module; nothing else.
 """
@@ -9,7 +9,7 @@ from __future__ import annotations
 
 from typing import Any, Protocol
 
-from . import veda_tools
+from . import stac_tools
 from .schemas import StacItemFields
 
 
@@ -177,20 +177,20 @@ class Handler(Protocol):
 def dispatch_tool_call(name: str, args: dict[str, Any], handler: Handler, tool_call_id: str) -> str:
     """Run the named tool with `args`, wrap return via handler, return string for the LLM."""
     if name == "parse_datetime":
-        raw = veda_tools.parse_datetime(args["value"])
+        raw = stac_tools.parse_datetime(args["value"])
     elif name == "geocode":
-        raw = veda_tools.geocode(args["query"], args.get("level", "county"))
+        raw = stac_tools.geocode(args["query"], args.get("level", "county"))
     elif name == "search_collections":
-        raw = veda_tools.search_collections(args["query"])
+        raw = stac_tools.search_collections(args["query"])
     elif name == "search_items":
-        raw = veda_tools.search_items(
+        raw = stac_tools.search_items(
             args["collection_id"],
             tuple(args["bbox"]),
             args["datetime_range"],
             args.get("band", "cog_default"),
         )
     elif name == "render_map":
-        raw = veda_tools.render_map(
+        raw = stac_tools.render_map(
             args["collection_id"],
             args["item_id"],
             tuple(args["bbox"]),
@@ -227,7 +227,7 @@ def dispatch_tool_call(name: str, args: dict[str, Any], handler: Handler, tool_c
                     "item_refs must be a non-empty list of STAC item objects from a "
                     "prior search_items call. Call search_items first to obtain them."
                 )
-        raw = veda_tools.compute_stats(items, args["band"], args["geometry"])
+        raw = stac_tools.compute_stats(items, args["band"], args["geometry"])
     else:
         raise ValueError(f"unknown tool: {name!r}")
     return handler.wrap(name, tool_call_id, raw)

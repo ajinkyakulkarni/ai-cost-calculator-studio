@@ -1,6 +1,6 @@
 """parse_datetime — local NLP, no API call."""
 
-from agent_cost_bench.geo_qa.veda_tools import parse_datetime
+from agent_cost_bench.geo_qa.stac_tools import parse_datetime
 from agent_cost_bench.geo_qa.schemas import ParseDatetimeReturn
 
 
