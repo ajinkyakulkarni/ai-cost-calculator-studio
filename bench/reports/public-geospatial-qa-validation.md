@@ -39,6 +39,29 @@ Every measured coefficient is within ±5%; the previous N=3 numbers
 (3,376 / 42 / 0.86) were already a good estimate. The N=20 run
 provides the calibration rigor the reviewer asked for.
 
+## Cross-check: bench prompt size vs. the production agent
+
+The measured `per_turn_input_tokens` of **3,342** sits within **0.8%**
+of the production agent's fixed/cacheable prefix — system prompt prose
++ canned agent-level response strings inlined into it + the 7
+tool-schema docstrings — measured with `tiktoken` `o200k_base`:
+
+| Component | Tokens |
+|---|---:|
+| System prompt prose | 2,814 |
+| Canned response strings injected into the prompt | 246 |
+| 7 tool-schema docstrings | 309 |
+| **Production-agent fixed prefix** | **3,369** |
+| **Bench `per_turn_input_tokens` (measured, N=20)** | **3,342** |
+| Δ | −0.8% |
+
+In templated mode the per-turn input is essentially the cacheable
+prefix (short tool returns + user messages contribute little), so the
+production agent and the bench should — and do — agree at the prefix
+level. This is the strongest piece of evidence that the bench
+faithfully sizes the workload the calculator's worked example and the
+paper's `tab:lever` anchor to.
+
 ## Per-session distribution (cache hit rate)
 
 Across 13 cleanly-detected cold-cache session boundaries within the
