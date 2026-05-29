@@ -84,7 +84,7 @@ meta:
     the preset's anchor_query needs recalibration.
 
 agents:
-  - id: eie-agent
+  - id: geo-qa-agent
     role: data-discovery
     # gpt-5.2 mirrors the preset's `defaults.model`. Switch to gpt-4.1
     # or gpt-4o-mini for a cheaper smoke run; the bench tracks model
