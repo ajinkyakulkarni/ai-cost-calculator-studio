@@ -15,13 +15,13 @@ the published numbers. To reproduce the paper **exactly**, check out the
 release it was written against:
 
 ```bash
-git checkout v0.3.3
+git checkout v0.4.0
 ```
 
 | Pin | Value |
 |---|---|
-| Release tag | `v0.3.3` |
-| Git commit | `ee54b438d0b0ac3116498d90572407e0271665dc` |
+| Release tag | `v0.4.0` |
+| Git commit | `b0e3c09897668fcb3ace7b77c7971a569dfe6e97` |
 | Harness version | `agent-cost-bench` 0.2.0 |
 | `public/coefficients.json` sha256 | `f4703c6278fab2cc69f6c6aeca25a3f06225044a0c296ded408f041b51c26a96` |
 | Rate-card date | 2026-05-11 (GPT-5.2, Sonnet-4-5 prices captured) |
@@ -30,14 +30,15 @@ On `main` you will get numbers priced at the *current* rate card instead —
 useful, but not the paper's figures. That is expected and is exactly why
 the paper calls dollar figures "timestamps, not constants."
 
-`main` also applies the Eq. 3 clamp differently from the paper: the
-[0.50, 0.94] bound is restricted to the session-length adjustment term
-`0.01·(q−6)` so the "Cache hit rate" slider stays honest across its
-full 0–95% range (a deployment with no prompt caching at all genuinely
-has cache <50%, and Eq. 3 as printed silently bumps it to 0.50). Within
-the paper's own use of Eq. 3 — fixed measured `r_baseline ≈ 0.84`, `q`
-varying over realistic session lengths — neither bound binds and the
-result is identical. `v0.3.3` remains the paper-faithful version.
+The shipped calculator (including `v0.4.0`) applies the Eq. 3 clamp
+differently from the paper's printed form: the [0.50, 0.94] bound is
+restricted to the session-length adjustment term `0.01·(q−6)` so the
+"Cache hit rate" slider stays honest across its full 0–95% range (a
+deployment with no prompt caching at all genuinely has cache <50%, and
+Eq. 3 as printed silently bumps it to 0.50). Within the paper's own use
+of Eq. 3 — fixed measured `r_baseline ≈ 0.84`, `q` varying over
+realistic session lengths — neither bound binds and the result is
+identical, so `v0.4.0` reproduces the paper's numbers exactly.
 
 ## What needs API keys
 

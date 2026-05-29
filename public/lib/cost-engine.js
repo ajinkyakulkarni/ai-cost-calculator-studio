@@ -517,12 +517,13 @@
   const CACHE_RATE_PER_TURN_ADJ = 0.01;
   // Bound only the session-length adjustment term so an extreme `q` can't
   // run away; the user-supplied baseline passes through unmodified and is
-  // only constrained by the physical [0, 0.99] range. Paper Eq.3 (v0.3.3)
-  // applied the full [0.50, 0.94] clamp to r_eff — which, when the
+  // only constrained by the physical [0, 0.99] range. The paper's printed
+  // Eq.3 applied the full [0.50, 0.94] clamp to r_eff — which, when the
   // calculator repurposed r_baseline as a free 0–95% slider, produced a
-  // dead zone across the entire 0–~48% slider range. v0.3.3 remains the
-  // paper-faithful reproduction target (see REPRODUCING.md); main lets the
-  // slider be honest.
+  // dead zone across the entire 0–~48% slider range, so the shipped
+  // calculator restricts the clamp to the turn-adjustment term. Within the
+  // paper's regime (fixed r_baseline ≈ 0.84) neither form binds, so the
+  // numbers are identical; reproduce from tag v0.4.0 (see REPRODUCING.md).
   const TURN_ADJ_BOUND = 0.15;
 
   function effectiveCacheRate(baseline, questions_per_session, baseline_turns) {
