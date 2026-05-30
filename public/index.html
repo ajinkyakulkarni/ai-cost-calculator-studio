@@ -1189,8 +1189,11 @@
     .estimator-panel,
     .benchmarks-panel { padding: 12px 14px 60px; }
 
-    /* Make the cost pill smaller on phone */
-    .appbar .cost-pill { padding: 4px 8px; }
+    /* Make the cost pill smaller on phone, and center it when the appbar
+       wraps it to its own row (desktop uses margin-left:auto to right-push
+       within the same row; once wrapped, that left-auto becomes a literal
+       offset that left-empties the row — symmetric auto margins center). */
+    .appbar .cost-pill { padding: 4px 8px; margin-left: auto; margin-right: auto; }
     .appbar .cost-pill .cb-num { font-size: 11px; }
     .appbar .cost-pill .cb-label { display: none; }
   }
