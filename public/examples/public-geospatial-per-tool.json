@@ -1,0 +1,221 @@
+{
+  "schemaVersion": "1.0",
+  "deployment": {
+    "name": "Geo Q&A — per-tool registry (advanced)",
+    "agency": "(advanced demo · per-tool templating)",
+    "description": "Per-tool detail version of the Public Geospatial Q&A preset: one server-side ReAct agent traverses a 7-stage discovery pipeline (parse_datetime → geocode → search_collections → select_collection → search_items → compute_stats → render_map). Each stage is modelled as a separate registry entry with realistic STAC-shape result payloads so per-tool RETURN SHAPE changes (templated ↔ freeform) move the headline cost the same way the paper's templating lever does. Default is fully templated — flip any tool to freeform to see its contribution.",
+    "publicFacing": true,
+    "fedrampTier": "moderate"
+  },
+
+  "anchor_query": {
+    "input_tokens": 3342,
+    "output_tokens": 41,
+    "cache_rate_baseline": 0.88,
+    "session_baseline_turns": 6,
+    "example": "Did monthly NO2 over New York City change from October to December 2021?",
+    "notes": "Anchor matches the bench-measured templated fixed prefix (system prompt + tool schemas, 3,369 tok via tiktoken o200k_base, within 0.8% of the measured 3,342). Output is small because the agent echoes templated tool-return messages verbatim rather than composing fresh prose."
+  },
+
+  "tools_registry": {
+    "parse_datetime": {
+      "label": "parse_datetime",
+      "description": "Validate and normalize a date range to ISO-8601 interval.",
+      "cost_shape": "free",
+      "rate_usd": 0,
+      "schema_tokens": 150,
+      "result_tokens_avg": 80,
+      "return_shape": "templated",
+      "cap_tokens": 60,
+      "provider": "self-hosted",
+      "builtin": false
+    },
+    "geocode": {
+      "label": "geocode",
+      "description": "Resolve a place name to a bounding box + admin geometry.",
+      "cost_shape": "free",
+      "rate_usd": 0,
+      "schema_tokens": 200,
+      "result_tokens_avg": 600,
+      "return_shape": "templated",
+      "cap_tokens": 80,
+      "provider": "self-hosted",
+      "builtin": false
+    },
+    "search_collections": {
+      "label": "search_collections",
+      "description": "Semantic search over catalog collections; returns Top-K with descriptions, summaries, providers, asset metadata.",
+      "cost_shape": "free",
+      "rate_usd": 0,
+      "schema_tokens": 250,
+      "result_tokens_avg": 12000,
+      "return_shape": "templated",
+      "cap_tokens": 150,
+      "provider": "self-hosted",
+      "builtin": false
+    },
+    "select_collection": {
+      "label": "select_collection",
+      "description": "Record the user's collection + variable selection.",
+      "cost_shape": "free",
+      "rate_usd": 0,
+      "schema_tokens": 150,
+      "result_tokens_avg": 60,
+      "return_shape": "templated",
+      "cap_tokens": 60,
+      "provider": "self-hosted",
+      "builtin": false
+    },
+    "search_items": {
+      "label": "search_items",
+      "description": "Enumerate catalog items inside the AOI and datetime window. Freeform shape returns full STAC item objects (geometry polygons, 15+ properties fields, assets, links).",
+      "cost_shape": "free",
+      "rate_usd": 0,
+      "schema_tokens": 150,
+      "result_tokens_avg": 22000,
+      "return_shape": "templated",
+      "cap_tokens": 80,
+      "provider": "self-hosted",
+      "builtin": false
+    },
+    "compute_stats": {
+      "label": "compute_stats",
+      "description": "Per-item raster zonal statistics (mean, median, min, max, percentiles, 16-bin histograms).",
+      "cost_shape": "free",
+      "rate_usd": 0,
+      "schema_tokens": 150,
+      "result_tokens_avg": 3000,
+      "return_shape": "templated",
+      "cap_tokens": 120,
+      "provider": "self-hosted",
+      "builtin": false
+    },
+    "render_map": {
+      "label": "render_map",
+      "description": "Build a raster tile URL for the selected items + AOI.",
+      "cost_shape": "free",
+      "rate_usd": 0,
+      "schema_tokens": 150,
+      "result_tokens_avg": 100,
+      "return_shape": "templated",
+      "cap_tokens": 100,
+      "provider": "self-hosted",
+      "builtin": false
+    }
+  },
+
+  "agents": [
+    {
+      "id": "geo-qa-agent",
+      "label": "Geo Q&A Agent (server-side ReAct)",
+      "input_tokens": 3342,
+      "output_tokens": 41,
+      "calls_per_query": 2,
+      "model": "gpt-5.2",
+      "cache_eligible": true,
+      "hosting": "api",
+      "description": "Single-agent ReAct tool loop. Reads the user query, traverses the 7-stage pipeline with confirmation gates, returns a templated answer. Output-suppressed: the LLM echoes each tool's short status message verbatim rather than composing fresh prose. The per-turn input cost is the (cached) fixed prefix; each tool's contribution flows through enabled_tools below.",
+      "enabled_tools": {
+        "parse_datetime":     { "calls_per_query": 1 },
+        "geocode":            { "calls_per_query": 1 },
+        "search_collections": { "calls_per_query": 1 },
+        "select_collection":  { "calls_per_query": 1 },
+        "search_items":       { "calls_per_query": 1 },
+        "compute_stats":      { "calls_per_query": 1 },
+        "render_map":         { "calls_per_query": 1 }
+      }
+    }
+  ],
+
+  "shapes": {
+    "full":    { "input_factor": 1.0,  "output_factor": 1.0,  "cache_eligible": true,  "description": "Full pipeline (one analysis query)" },
+    "rag":     { "input_factor": 0.19, "output_factor": 0.47, "cache_eligible": true,  "description": "Discovery-only (no stats/viz)" },
+    "partial": { "input_factor": 0.62, "output_factor": 0.47, "cache_eligible": true,  "description": "Pipeline terminates early" },
+    "refusal": { "input_factor": 0.06, "output_factor": 0.12, "cache_eligible": false, "description": "Out-of-scope rejection" },
+    "heavy":   { "input_factor": 1.20, "output_factor": 1.17, "cache_eligible": true,  "description": "Long-context multi-turn" }
+  },
+
+  "mix": {
+    "mixed": {
+      "label": "Mixed (40% full · 30% rag · 15% partial · 10% refusal · 5% heavy)",
+      "weights": { "full": 0.40, "rag": 0.30, "partial": 0.15, "refusal": 0.10, "heavy": 0.05 }
+    },
+    "worst": {
+      "label": "Worst-case (every query full pipeline)",
+      "weights": { "full": 1.0 }
+    }
+  },
+
+  "segments": [
+    {
+      "id": "auth",
+      "label": "Authenticated researchers",
+      "mau": 500,
+      "sessions_per_day": 0.2,
+      "questions_per_session": 5,
+      "applyBotFactor": false,
+      "description": "Authenticated researchers with multi-turn sessions."
+    },
+    {
+      "id": "public",
+      "label": "Public visitors (anonymous)",
+      "mau": 10000,
+      "sessions_per_day": 0.2,
+      "questions_per_session": 10,
+      "applyBotFactor": true,
+      "description": "Anonymous public users."
+    }
+  ],
+
+  "rate_limit": { "strategy": "edge", "monthly_cost": 15, "bot_ceiling": 2.5 },
+  "daily_cap":  { "enabled": true, "amount_usd": 1500, "burst_days": 7, "burst_factor": 1.0 },
+
+  "infrastructure": {
+    "Runtime · compute platform": 179,
+    "RAG service": 36,
+    "Geocoder": 90,
+    "Embeddings": 18,
+    "Ingest jobs": 8,
+    "RDS Postgres": 292,
+    "ElastiCache Redis": 47,
+    "S3 artifacts": 115,
+    "EBS storage": 12,
+    "ALB": 35,
+    "CloudFront": 40,
+    "NAT Gateway": 33,
+    "Route 53": 1,
+    "CloudWatch + X-Ray": 290,
+    "Secrets Manager + KMS": 13,
+    "AWS Config": 20,
+    "ECR + platform baseline": 184
+  },
+
+  "defaults": {
+    "model": "gpt-5.2",
+    "tier": "standard",
+    "mix": "mixed",
+    "rate_limit": "edge",
+    "hosting": "api",
+    "cost_mode": "optimistic"
+  },
+
+  "federal": {
+    "fedramp_tier": "moderate",
+    "multi_region": "single",
+    "ato_monthly": 0,
+    "egress_gb_per_query": 0.001,
+    "egress_cost_per_gb": 0.09,
+    "audit_log_kb_per_query": 5,
+    "audit_retention_years": 7,
+    "audit_storage_per_gb_month": 0.004,
+    "retrieval_infra_monthly": 0,
+    "pii_redaction_per_million_tokens": 0
+  },
+
+  "compliance": { "ato_tier": "none", "upfront_amortization_months": 36 },
+  "reservations": { "enabled": false, "type": "none", "units": 4 },
+  "embedding": { "enabled": false },
+  "personnel": { "enabled": false, "roles": [] },
+  "risk": { "enabled": false },
+  "agent_engineering": { "enabled": false, "roles": [] }
+}

@@ -384,7 +384,7 @@
             <label style="font-size:10px;color:var(--muted)"><span style="display:block;text-transform:uppercase;letter-spacing:0.04em;margin-bottom:2px">Result tok avg</span>
               <input type="number" min="0" step="50" data-field="result_tokens_avg" value="${t.result_tokens_avg || 0}" style="width:100%;font-size:12px;padding:3px 5px;font-family:var(--mono)" title="Average tokens of tool result fed back to context (freeform path)"></label>
             <label style="font-size:10px;color:var(--muted)"><span style="display:block;text-transform:uppercase;letter-spacing:0.04em;margin-bottom:2px">Return shape <span title="Highest-leverage cost knob in tool-heavy agents — measured ~3–6× cost difference (templated vs freeform) on production geospatial-Q&amp;A workloads, with ~7.8× as a single-run upper bound on the heaviest configuration. Templated pattern: an agent wrapper layer routes every tool return through a fixed-shape response template (json.dumps({status, message, key_fields})) — zero engineering cost, large bill reduction." style="color:#f59e00;cursor:help;font-size:10px;text-transform:none;letter-spacing:0">✨</span></span>
-              <select data-field="return_shape" style="width:100%;font-size:11px;padding:3px 5px" title="Freeform = full result tokens flow back; Templated = wrapper layer collapses result to Cap tok (status-only / id-only / summary).">
+              <select data-field="return_shape" style="width:100%;font-size:11px;padding:3px 5px" title="Freeform = full result tokens flow back into context. Templated = wrapper layer collapses result to Cap tok (status-only / id-only / summary). Note: per-tool changes only move the headline cost if an agent declares this tool in its enabled_tools — workload-mode presets without agents bill all tool work through the calibrated anchor_query (use the global Tool return shape dropdown in the topbar for those).">
                 <option value="freeform" ${(t.return_shape||'freeform')==='freeform'?'selected':''}>freeform</option>
                 <option value="templated" ${(t.return_shape||'freeform')==='templated'?'selected':''}>templated</option>
               </select></label>
@@ -3921,14 +3921,35 @@ Production teams measure their primary's confidence-score distribution; escalate
         // the user's actual selection so the ensuing onSlider render derives
         // the right anchor.
         shapeSel.addEventListener('change', () => {
-          const hasModes = !!(workload?.anchor_query?._calibration?.payload_modes);
-          if (!hasModes) return;
           const v = shapeSel.value;
-          // templated → minimal (lowest-token validated mode);
-          // freeform → heavy (highest-token validated mode). 'moderate'
-          // stays reachable only via the 3-way payload buttons.
-          if (v === 'templated') applyPayloadMode('minimal');
-          else if (v === 'freeform') applyPayloadMode('heavy');
+          // Calibrated path: the dropdown swaps the anchor between
+          // minimal (templated) and heavy (freeform) calibrated modes.
+          const hasModes = !!(workload?.anchor_query?._calibration?.payload_modes);
+          if (hasModes) {
+            if (v === 'templated') applyPayloadMode('minimal');
+            else if (v === 'freeform') applyPayloadMode('heavy');
+          }
+          // Per-tool path: bulk-apply the new value to every tool in the
+          // registry that has an explicit return_shape. Without this,
+          // the per-tool path diverges from the global — a user flipping
+          // the dropdown sees the calibrated lever move (when payload_modes
+          // exists) but per-tool fees stay frozen, and on agent-mode
+          // presets without payload_modes the dropdown moves nothing at
+          // all because the engine's "default for missing return_shape"
+          // never fires (presets set return_shape on every tool). One
+          // canonical knob, one lever direction.
+          const reg = workload?.tools_registry;
+          if (reg && typeof reg === 'object') {
+            for (const id of Object.keys(reg)) {
+              const t = reg[id];
+              if (t && typeof t === 'object' && t.return_shape) {
+                t.return_shape = v;
+              }
+            }
+            // Repaint the registry UI + recompute.
+            if (typeof renderToolRegistry === 'function') renderToolRegistry();
+            if (typeof renderPreview === 'function') renderPreview();
+          }
         }, true);
       }
     }
