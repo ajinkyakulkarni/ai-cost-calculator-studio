@@ -132,7 +132,7 @@ ai-cost-calculator-studio/
 │   │   ├── cost-simulator.js # per-agent fleet editor + simulator math
 │   │   └── prices.js        # model rate cards (last_verified dates)
 │   ├── coefficients.json    # bench-produced empirical coefficients
-│   └── examples/            # 15 preset workload JSONs incl. mcp-research-fleet
+│   └── examples/            # 16 preset workload JSONs incl. mcp-research-fleet + per-tool registry walkthrough
 ├── bench/                   # agent-cost-bench — Python harness
 │   ├── README.md            # full bench docs (LiteLLM + LangGraph + OTEL)
 │   ├── pyproject.toml
