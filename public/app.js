@@ -3944,10 +3944,14 @@ Production teams measure their primary's confidence-score distribution; escalate
               const t = reg[id];
               if (t && typeof t === 'object' && t.return_shape) {
                 t.return_shape = v;
+                // Also write to the visible select element so the user
+                // sees the per-tool row reflect the new value.
+                // renderPreview only updates the cost pill; there is no
+                // standalone renderToolRegistry to call here.
+                const sel = document.querySelector(`[data-tool-id="${id}"] [data-field="return_shape"]`);
+                if (sel) sel.value = v;
               }
             }
-            // Repaint the registry UI + recompute.
-            if (typeof renderToolRegistry === 'function') renderToolRegistry();
             if (typeof renderPreview === 'function') renderPreview();
           }
         }, true);
