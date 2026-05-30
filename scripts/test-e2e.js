@@ -562,35 +562,44 @@ async function geospatialPerToolPreset(page) {
   await waitForBoot(page);
   await page.selectOption('#example-loader', 'public-geospatial-per-tool');
   await sleep(1500);
-  const shape = await page.evaluate(() => {
+  // The 7 pipeline tools defined by the preset. loadExample merges these
+  // INTO the default registry rather than replacing, so the registry can
+  // legitimately have more entries — but these 7 must be present and
+  // default to templated, and the agent's enabled_tools must reference
+  // exactly these.
+  const NAMED = ['parse_datetime','geocode','search_collections','select_collection',
+                 'search_items','compute_stats','render_map'];
+  const shape = await page.evaluate((named) => {
     const reg = window.workload?.tools_registry || {};
     const ag = window.workload?.agents?.[0];
+    const enabled = ag ? Object.keys(ag.enabled_tools || {}) : [];
     return {
-      agentCount: (window.workload.agents || []).length,
-      registrySize: Object.keys(reg).length,
-      enabledOnAgent: ag ? Object.keys(ag.enabled_tools || {}).length : 0,
-      allTemplated: Object.values(reg).every(t => t.return_shape === 'templated'),
+      agentCount:      (window.workload.agents || []).length,
+      missingFromReg:  named.filter(id => !reg[id]),
+      namedTemplated:  named.every(id => reg[id]?.return_shape === 'templated'),
+      enabledEqualsNamed: enabled.length === named.length && named.every(id => enabled.includes(id)),
     };
-  });
-  assert(shape.agentCount === 1,    `expected 1 agent, got ${shape.agentCount}`);
-  assert(shape.registrySize === 7,  `expected 7 registry tools, got ${shape.registrySize}`);
-  assert(shape.enabledOnAgent === 7,`expected agent to have 7 enabled tools, got ${shape.enabledOnAgent}`);
-  assert(shape.allTemplated,        'expected every registry tool to default to templated');
+  }, NAMED);
+  assert(shape.agentCount === 1,            `expected 1 agent, got ${shape.agentCount}`);
+  assert(shape.missingFromReg.length === 0, `missing pipeline tools from registry: ${shape.missingFromReg.join(', ')}`);
+  assert(shape.namedTemplated,              'expected all 7 pipeline tools to default to templated');
+  assert(shape.enabledEqualsNamed,          'expected agent enabled_tools to match exactly the 7 pipeline tools');
   const baseline = await getHeadline(page);
   assert(baseline > 0, `expected positive headline on preset load, got ${fmt(baseline)}`);
-  // Flip global to freeform — should bulk-apply to all 7 registry rows
-  // via the s-tool-response-mode change handler in app.js:3913.
+  // Flip global to freeform — should bulk-apply to all registry rows
+  // (including the 7 named ones) via the s-tool-response-mode change
+  // handler in app.js:3913.
   await page.selectOption('#s-tool-response-mode', 'freeform');
   await sleep(800);
-  const after = await page.evaluate(() => {
+  const after = await page.evaluate((named) => {
     const reg = window.workload?.tools_registry || {};
     return {
-      allFreeform: Object.values(reg).every(t => t.return_shape === 'freeform'),
-      anyTemplated: Object.values(reg).some(t => t.return_shape === 'templated'),
+      namedAllFreeform:  named.every(id => reg[id]?.return_shape === 'freeform'),
+      anyNamedTemplated: named.some(id => reg[id]?.return_shape === 'templated'),
     };
-  });
-  assert(after.allFreeform,    'expected global freeform to bulk-apply to every registry row');
-  assert(!after.anyTemplated, 'expected no templated entries left after global freeform flip');
+  }, NAMED);
+  assert(after.namedAllFreeform,    'expected global freeform to bulk-apply to all 7 pipeline tools');
+  assert(!after.anyNamedTemplated,  'expected no templated entries among the 7 pipeline tools after global flip');
   const headlineFreeform = await getHeadline(page);
   assert(headlineFreeform > baseline,
     `expected headline to rise after global → freeform (uncaps STAC payloads), got ${fmt(baseline)} → ${fmt(headlineFreeform)}`);
