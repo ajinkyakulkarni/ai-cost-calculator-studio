@@ -2493,7 +2493,7 @@ function applyAKDFlow(){
   setVal('s-concurrent-quota', 20);
   setVal('s-rate-overage', 5);
   if(typeof setTopology==='function') setTopology('hybrid');
-  alert('AKD Flow preset applied. 5-stage research workflow with hybrid DAG topology, bulk PDF ingestion, fact-check sidecar, parallel search agents, and HITL pause states.');
+  alert('Multi-stage research workflow preset applied. 5-stage pipeline with hybrid DAG topology, bulk PDF ingestion, fact-check sidecar, parallel search agents, and HITL pause states.');
 }
 
 
@@ -2511,7 +2511,7 @@ function setTopology(topo){
   const hints = {
     sequential: 'Sequential: linear pipeline, no concurrency issues. Total wall-clock = sum of stage times.',
     parallel: 'Parallel: all stages run concurrently. Wall-clock = max stage time. Risk: hits rate limits if branches > concurrent quota.',
-    hybrid: 'Hybrid DAG: sequential trunk with parallel sub-branches at certain stages. Realistic for AKD-style workflows where some stages depend on prior stages but others can run independently.'
+    hybrid: 'Hybrid DAG: sequential trunk with parallel sub-branches at certain stages. Realistic for multi-stage research workflows where some stages depend on prior stages but others can run independently.'
   };
   const h = document.getElementById('topology-hint');
   if(h) h.textContent = hints[topo] || '';
