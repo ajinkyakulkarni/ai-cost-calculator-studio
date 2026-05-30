@@ -21,7 +21,6 @@ git checkout v0.4.0
 | Pin | Value |
 |---|---|
 | Release tag | `v0.4.0` |
-| Git commit | `6e711f64cc4a3f36a30425f0b06faf5c7eaa4409` |
 | Harness version | `agent-cost-bench` 0.2.0 |
 | `public/coefficients.json` sha256 | `6d12073cec675a7743b5ec21c74d838403c1da8ed14eb10c2b45d91d65d672d9` |
 | Rate-card date | 2026-05-11 (GPT-5.2, Sonnet-4-5 prices captured) |
