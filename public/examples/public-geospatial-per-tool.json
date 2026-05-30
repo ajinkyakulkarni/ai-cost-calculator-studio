@@ -111,10 +111,11 @@
       "input_tokens": 3342,
       "output_tokens": 41,
       "calls_per_query": 2,
+      "sysprompt_tokens": 2814,
       "model": "gpt-5.2",
       "cache_eligible": true,
       "hosting": "api",
-      "description": "Single-agent ReAct tool loop. Reads the user query, traverses the 7-stage pipeline with confirmation gates, returns a templated answer. Output-suppressed: the LLM echoes each tool's short status message verbatim rather than composing fresh prose. The per-turn input cost is the (cached) fixed prefix; each tool's contribution flows through enabled_tools below.",
+      "description": "Single-agent ReAct tool loop. Reads the user query, traverses the 7-stage pipeline with confirmation gates, returns a templated answer. Output-suppressed: the LLM echoes each tool's short status message verbatim rather than composing fresh prose. NOTE: the simulator bridge ignores per-agent input_tokens and recomputes from its own slider state, so the headline number is an approximation rather than the bench's measured ~$1K/mo; the lever (per-tool RETURN SHAPE) is what this preset demonstrates accurately.",
       "enabled_tools": {
         "parse_datetime":     { "calls_per_query": 1 },
         "geocode":            { "calls_per_query": 1 },

@@ -74,6 +74,7 @@ function headline(r, o, w) {
 
 const PRESETS = [
   'public-geospatial-qa',
+  'public-geospatial-per-tool',
   'doe-grid-modeling',
   'nih-clinical-trials',
   'noaa-storm-tracking',

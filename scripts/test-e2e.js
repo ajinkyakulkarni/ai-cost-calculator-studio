@@ -552,6 +552,50 @@ async function sectionHelpersPresent(page) {
     `expected zero .ix-num badges (A-G removed), got [${state.ixNums.join(',')}]`);
 }
 
+// Per-tool registry preset — loads the EIE-style geo Q&A preset with 7
+// pipeline tools, verifies the registry/agent shape, then flips the
+// global #s-tool-response-mode dropdown from 'templated' to 'freeform'
+// and verifies (a) all 7 registry rows have their return_shape mirrored
+// in workload state and (b) the headline rises (untemplated STAC
+// payloads send much more text into the LLM).
+async function geospatialPerToolPreset(page) {
+  await waitForBoot(page);
+  await page.selectOption('#example-loader', 'public-geospatial-per-tool');
+  await sleep(1500);
+  const shape = await page.evaluate(() => {
+    const reg = window.workload?.tools_registry || {};
+    const ag = window.workload?.agents?.[0];
+    return {
+      agentCount: (window.workload.agents || []).length,
+      registrySize: Object.keys(reg).length,
+      enabledOnAgent: ag ? Object.keys(ag.enabled_tools || {}).length : 0,
+      allTemplated: Object.values(reg).every(t => t.return_shape === 'templated'),
+    };
+  });
+  assert(shape.agentCount === 1,    `expected 1 agent, got ${shape.agentCount}`);
+  assert(shape.registrySize === 7,  `expected 7 registry tools, got ${shape.registrySize}`);
+  assert(shape.enabledOnAgent === 7,`expected agent to have 7 enabled tools, got ${shape.enabledOnAgent}`);
+  assert(shape.allTemplated,        'expected every registry tool to default to templated');
+  const baseline = await getHeadline(page);
+  assert(baseline > 0, `expected positive headline on preset load, got ${fmt(baseline)}`);
+  // Flip global to freeform — should bulk-apply to all 7 registry rows
+  // via the s-tool-response-mode change handler in app.js:3913.
+  await page.selectOption('#s-tool-response-mode', 'freeform');
+  await sleep(800);
+  const after = await page.evaluate(() => {
+    const reg = window.workload?.tools_registry || {};
+    return {
+      allFreeform: Object.values(reg).every(t => t.return_shape === 'freeform'),
+      anyTemplated: Object.values(reg).some(t => t.return_shape === 'templated'),
+    };
+  });
+  assert(after.allFreeform,    'expected global freeform to bulk-apply to every registry row');
+  assert(!after.anyTemplated, 'expected no templated entries left after global freeform flip');
+  const headlineFreeform = await getHeadline(page);
+  assert(headlineFreeform > baseline,
+    `expected headline to rise after global → freeform (uncaps STAC payloads), got ${fmt(baseline)} → ${fmt(headlineFreeform)}`);
+}
+
 // Validated calibration badge — when the user clicks Minimal/Moderate/
 // Heavy on a preset that has payload_modes, the active button's text
 // must be white #fff (not green-on-green from the old var(--card) bug).
@@ -596,6 +640,7 @@ async function validatedButtonContrast(page) {
   await scenario('selfhost-reverse',      selfHostReverseMirror);
   await scenario('task-bias-moves',       taskBiasMoves);
   await scenario('section-helpers',       sectionHelpersPresent);
+  await scenario('geo-per-tool-preset',   geospatialPerToolPreset);
   await scenario('validated-button',      validatedButtonContrast);
   const dt = ((Date.now() - t0) / 1000).toFixed(1);
   console.log(`\n${passed} passed · ${failed} failed · ${dt}s\n`);

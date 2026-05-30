@@ -389,16 +389,16 @@
                 <option value="templated" ${(t.return_shape||'freeform')==='templated'?'selected':''}>templated</option>
               </select></label>
             <label style="font-size:10px;color:var(--muted)"><span style="display:block;text-transform:uppercase;letter-spacing:0.04em;margin-bottom:2px">Cap tok</span>
-              <input type="number" min="0" step="5" data-field="cap_tokens" value="${Number.isFinite(t.cap_tokens) ? t.cap_tokens : 40}" style="width:100%;font-size:12px;padding:3px 5px;font-family:var(--mono)" title="Effective result tokens when return_shape='templated' (this tool's typical wrapper payload)."></label>
+              <input type="number" min="0" step="5" data-field="cap_tokens" value="${Number.isFinite(t.cap_tokens) ? t.cap_tokens : 40}" style="width:100%;font-size:12px;padding:3px 5px;font-family:var(--mono)" title="Effective result tokens when RETURN SHAPE is 'templated' (this tool's typical wrapper payload). Only affects cost while RETURN SHAPE = templated — changing this with shape=freeform is a no-op."></label>
             <label style="font-size:10px;color:var(--muted)"><span style="display:block;text-transform:uppercase;letter-spacing:0.04em;margin-bottom:2px">Memoize</span>
-              <select data-field="memoize" style="width:100%;font-size:11px;padding:3px 5px" title="Same-session result memoization. Enable when this tool is called repeatedly with the same args in one session (file_search, db_query, wikipedia). Disable for tools that rarely repeat (web_search of current events).">
+              <select data-field="memoize" style="width:100%;font-size:11px;padding:3px 5px" title="Same-session result memoization. Enable when this tool is called repeatedly with the same args in one session (file_search, db_query, wikipedia). Disable for tools that rarely repeat (web_search of current events). Needs HIT RATE > 0 to actually move cost — toggling Memoize on while HIT RATE = 0 is a no-op.">
                 <option value="false" ${!t.memoize?'selected':''}>off</option>
                 <option value="true" ${t.memoize?'selected':''}>on</option>
               </select></label>
             <label style="font-size:10px;color:var(--muted)"><span style="display:block;text-transform:uppercase;letter-spacing:0.04em;margin-bottom:2px">Hit rate</span>
-              <input type="number" min="0" max="0.95" step="0.05" data-field="memoize_hit_rate" value="${Number.isFinite(t.memoize_hit_rate) ? t.memoize_hit_rate : 0}" style="width:100%;font-size:12px;padding:3px 5px;font-family:var(--mono)" title="Fraction of calls served from the local result cache (0.0–0.95). Typical: file_search ~0.4, db_query ~0.6, web_search ~0.05."></label>
+              <input type="number" min="0" max="0.95" step="0.05" data-field="memoize_hit_rate" value="${Number.isFinite(t.memoize_hit_rate) ? t.memoize_hit_rate : 0}" style="width:100%;font-size:12px;padding:3px 5px;font-family:var(--mono)" title="Fraction of calls served from the local result cache (0.0–0.95). Typical: file_search ~0.4, db_query ~0.6, web_search ~0.05. Only affects cost while MEMOIZE = on — changing this with Memoize off is a no-op."></label>
             <label style="font-size:10px;color:var(--muted)"><span style="display:block;text-transform:uppercase;letter-spacing:0.04em;margin-bottom:2px">Provider</span>
-              <input type="text" data-field="provider" value="${(t.provider || 'managed').replace(/"/g,'&quot;')}" style="width:100%;font-size:11px;padding:3px 5px" title="Provider name (managed / self-hosted / bedrock / azure / etc.)"></label>
+              <input type="text" data-field="provider" value="${(t.provider || 'managed').replace(/"/g,'&quot;')}" readonly tabindex="-1" style="width:100%;font-size:11px;padding:3px 5px;color:var(--muted);background:rgba(0,0,0,0.03);cursor:not-allowed" title="Informational only. Provider routing happens at the AGENT level (each agent picks its own hosting/provider); changing this per-tool name does NOT move cost. Edit the agent's hosting/model instead."></label>
           </div>
         </div>
       </div>
