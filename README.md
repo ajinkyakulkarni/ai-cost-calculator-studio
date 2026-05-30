@@ -23,12 +23,13 @@ What makes this different from generic per-token calculators:
 
 ### What you get out of the box
 
-- **8 realistic preset scenarios** spanning federal (Public Geospatial
-  Q&A, NIH ClinicalTrials, NOAA Storm Tracking, DOE Grid Modeling) and
-  commercial (HIPAA patient portal, litigation discovery, bank
-  compliance Q&A, startup support chatbot), **plus a 9th demo preset**
-  (`mcp-research-fleet`) that walks through the per-agent tools-registry
-  end to end. Click "Load example…" in the top bar.
+- **~12 preset scenarios** spanning federal (Public Geospatial Q&A,
+  NIH ClinicalTrials, NOAA Storm Tracking, DOE Grid Modeling), health
+  (HIPAA patient portal), finance (bank compliance Q&A), legal
+  (litigation discovery), and commercial (SaaS website builder,
+  SWE-bench coder, startup support chatbot, …), **plus an
+  `mcp-research-fleet` demo** that walks through the per-agent
+  tools-registry end to end. Click "Load example…" in the top bar.
 - **MCP-style per-agent tools registry**: workload-level catalog of
   available tools (web search, file search, container, Wikipedia, plus
   custom MCP servers); each agent checks which tools it can call and
@@ -131,7 +132,7 @@ ai-cost-calculator-studio/
 │   │   ├── cost-simulator.js # per-agent fleet editor + simulator math
 │   │   └── prices.js        # model rate cards (last_verified dates)
 │   ├── coefficients.json    # bench-produced empirical coefficients
-│   └── examples/            # 9 preset workload JSONs incl. mcp-research-fleet
+│   └── examples/            # 15 preset workload JSONs incl. mcp-research-fleet
 ├── bench/                   # agent-cost-bench — Python harness
 │   ├── README.md            # full bench docs (LiteLLM + LangGraph + OTEL)
 │   ├── pyproject.toml
@@ -144,8 +145,12 @@ ai-cost-calculator-studio/
 │       ├── provider.py      # LiteLLM wrapper
 │       ├── tracing.py       # OTEL GenAI semconv spans
 │       ├── tools.py         # function-calling tool implementations
+│       ├── scenario.py      # YAML scenario loader
 │       ├── compare.py       # variance reports
-│       └── cli.py           # `agent-cost-bench run|compare|estimate`
+│       ├── cli.py           # `agent-cost-bench run|compare|estimate`
+│       └── geo_qa/          # replication bench: 6 scenarios (2 patterns
+│                            #  × 3 response-handler modes) — stac_tools,
+│                            #  handlers, dispatch, runner, schemas
 ├── docs/
 │   └── paper/
 │       └── validation-methodology.md   # paper section: empirical calibration
@@ -342,7 +347,7 @@ methodology is documented separately at
   — section-by-section walk-through of the paper's methodology: the
   naïve per-token formula and why it lies, the structural corrections
   that break it (caching, traffic shape, segments, daily caps), the
-  six equations that replace it, and the worked NASA-shape example.
+  six equations that replace it, and the worked public-geospatial example.
 - [How to cost an AI agent — a tutorial](https://ajinkya.ai/posts/how-to-cost-an-ai-agent-tutorial)
   — build-your-own-calculator walkthrough. Start with one slider; add
   caching, traffic mix, segments, and refusal accounting; end with a
@@ -362,7 +367,7 @@ methodology is documented separately at
 | State unification (auto-sync simulator ↔ Components) | ✅ Live |
 | Theme system (Tactical / Mission / Command) | ✅ Live |
 | `coefficients.json` calibration loop | ✅ Live, fetched at page load |
-| `agent-cost-bench` v0.2.0 | ✅ 12 scenarios validated (v0.1.0 pilot N=174, +N=238 templated re-cal May 13, +N=60 freeform anchor May 13, +N=18 Anthropic w=0.20 May 14) |
+| `agent-cost-bench` v0.2.0 | ✅ 12 scenarios validated (v0.1.0 pilot N=174, +N=238 templated re-cal May 13, +N=60 freeform anchor May 13, +N=18 Anthropic w=0.20 May 14) + `geo_qa` replication bench (second dataset, 2 patterns × 3 response-handler modes × 3 prompt variants = 18 paired rows) |
 | Anthropic provider in bench | ✅ Live (via LiteLLM) |
 | Playwright E2E suite (9 scenarios) | ✅ Live (`npm run test:e2e`) |
 | Repo public on GitHub | ✅ Live |

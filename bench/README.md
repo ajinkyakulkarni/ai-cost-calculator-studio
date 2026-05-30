@@ -103,7 +103,7 @@ Each scenario is a self-contained YAML spec. The current set (12 scenarios):
 | `data-discovery.yml` | discovery-style agent (gpt-4o-mini variant) | I/O ratio on tool-orchestration topology |
 | `data-discovery-gpt52.yml` | discovery-style agent (gpt-5.2 variant) | I/O ratio on a higher-tier model on the same topology |
 | `public-geospatial-react.yml` | production-shape geospatial Q&A agent, **templated tool returns** | templated-floor anchor (N=20, 238 calls, 3,342 tok/turn, $0.00178/q) |
-| `public-geospatial-react-freeform.yml` | same agent, **freeform tool returns** (full STAC items) | freeform anchor (N=5, 60 calls, 22,798 tok/turn, $0.01392/q); paired 7.8× cost lever vs templated |
+| `public-geospatial-react-freeform.yml` | same agent, **freeform tool returns** (full STAC items) | freeform anchor (N=5, 60 calls, 22,798 tok/turn, $0.01392/q); paired ~3–6× cost lever vs templated (with 7.8× as the heaviest-config single-run upper bound — replication on a second dataset measured 2.3–6.2×) |
 
 The v0.1.0 pilot calibration used 9 of these 12 scenarios (174 calls).
 The three production-shape scenarios — `public-geospatial-react` (templated),
