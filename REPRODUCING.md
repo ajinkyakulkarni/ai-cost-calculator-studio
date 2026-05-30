@@ -21,9 +21,9 @@ git checkout v0.4.0
 | Pin | Value |
 |---|---|
 | Release tag | `v0.4.0` |
-| Git commit | `b0e3c09897668fcb3ace7b77c7971a569dfe6e97` |
+| Git commit | `6e711f64cc4a3f36a30425f0b06faf5c7eaa4409` |
 | Harness version | `agent-cost-bench` 0.2.0 |
-| `public/coefficients.json` sha256 | `f4703c6278fab2cc69f6c6aeca25a3f06225044a0c296ded408f041b51c26a96` |
+| `public/coefficients.json` sha256 | `6d12073cec675a7743b5ec21c74d838403c1da8ed14eb10c2b45d91d65d672d9` |
 | Rate-card date | 2026-05-11 (GPT-5.2, Sonnet-4-5 prices captured) |
 
 On `main` you will get numbers priced at the *current* rate card instead —
