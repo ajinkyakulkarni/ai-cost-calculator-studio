@@ -2035,6 +2035,32 @@ Production teams measure their primary's confidence-score distribution; escalate
         cbTco.textContent = fmt$(threeYearTotal) + '/3yr';
       }
     }
+    // Daily-cap binding indicator. The engine clips API cost at the
+    // configured daily cap (Section §refusals). When binding, gross >
+    // capped and some queries are refused — without this badge, dragging
+    // s-agents or s-users above the cap-saturation point looks like a
+    // silent no-op on the headline. The badge surfaces refusal rate so
+    // procurement sees the "you're paying the cap, refusing N%" reality.
+    const cbCapWarn = document.getElementById('cb-cap-warn');
+    if (cbCapWarn) {
+      const apiGross   = result.api?.monthly_gross || 0;
+      const apiCapped  = result.api?.monthly_capped || 0;
+      const refused    = result.api?.monthly_refused_queries || 0;
+      const queries    = result.queries?.total || 0;
+      const isBinding  = apiGross > apiCapped + 1 && refused > 0;
+      if (isBinding) {
+        const refusedPct = queries > 0 ? (100 * refused / queries) : 0;
+        cbCapWarn.textContent = `Cap · ${refusedPct.toFixed(0)}% refused`;
+        cbCapWarn.style.display = '';
+        cbCapWarn.title =
+          `Daily spend cap is binding:\n` +
+          `  ${fmt$(apiGross)}/mo gross → ${fmt$(apiCapped)}/mo after cap (saved ${fmt$(apiGross - apiCapped)})\n` +
+          `  ${refused.toLocaleString()} queries/mo refused out of ${queries.toLocaleString()} (${refusedPct.toFixed(1)}%)\n\n` +
+          `Drag the daily cap up, drop MAU, or accept the refusal rate. Dragging s-agents while the cap is binding moves the gross cost up but not the headline (cap clips the difference) — that's why the headline looks unresponsive.`;
+      } else {
+        cbCapWarn.style.display = 'none';
+      }
+    }
     const llmLabel = opts.hosting === 'self' ? 'Self-host'
                    : opts.hosting === 'hybrid' ? 'Hybrid'
                    : opts.hosting === 'onprem' ? 'On-prem (amortized)'
