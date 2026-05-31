@@ -1107,6 +1107,11 @@
   .appbar .cost-pill .cb-suffix { font-size: 10px; color: rgba(255,255,255,0.55); }
   .appbar .cost-pill .cb-tco-sep { color: rgba(255,255,255,0.30); font-size: 10px; margin-left: 2px; }
   .appbar .cost-pill .cb-tco { font-size: 10.5px; color: rgba(255,255,255,0.78); font-weight: 600; }
+  .appbar .cost-pill .cb-cap-warn {
+    font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.04em;
+    color: #ffb454; background: rgba(255, 152, 0, 0.18); border: 1px solid rgba(255, 152, 0, 0.45);
+    border-radius: 3px; padding: 1px 6px; margin-left: 6px; cursor: help;
+  }
 
   @media (max-width: 720px) {
     /* Hard caps so flex children with min-content widths can't widen the
@@ -3581,6 +3586,7 @@ input[type=range]:disabled { cursor: not-allowed; }
     <span class="cb-suffix" id="cb-suffix"></span>
     <span class="cb-tco-sep" id="cb-tco-sep" aria-hidden="true">·</span>
     <span class="cb-tco" id="cb-tco" title="3-year cumulative TCO at the current growth rate. Useful for federal contract budgeting (typical 3-year envelope)."></span>
+    <span class="cb-cap-warn" id="cb-cap-warn" style="display:none" title="The daily spend cap is binding — the engine is refusing queries to stay under the cap. The headline reflects the capped cost, not the gross. Drag the cap up, drop MAU, or accept the refusal rate."></span>
   </div>
 </div>
 <div id="toast" style="position: fixed; bottom: 30px; left: 50%; transform: translateX(-50%); background: var(--ink); color: var(--paper); padding: 12px 20px; border-radius: 4px; font-family: var(--sans); font-size: 13px; opacity: 0; transition: opacity 0.3s; pointer-events: none; z-index: 1000;"></div>
