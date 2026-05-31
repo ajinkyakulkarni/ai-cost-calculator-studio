@@ -2758,18 +2758,28 @@ Production teams measure their primary's confidence-score distribution; escalate
       if (row) row.classList.toggle('slider-inert', false);
     });
 
-    // No-agents: s-agents and s-comm-pattern only affect cost in agent mode.
+    // s-agents and s-comm-pattern stay editable even when workload.agents
+    // is empty — they are PROMOTE_TRIGGERS (app.js:3858-3862): a real drag
+    // on either one mirrors the workload-mode rollup into N agent rows
+    // and switches the cost path to per-agent. Disabling them in noAgents
+    // mode (as a prior commit did) was contradictory — it removed the
+    // only mechanism to bootstrap into agent mode. A disabled <input
+    // type=range> also swallows keyboard arrow events, which broke the
+    // agent-promotion E2E scenario. Now a tooltip explains the
+    // promotion behaviour so users know what dragging will do.
     const noAgents = !Array.isArray(workload.agents) || workload.agents.length === 0;
     const noAgentsTip = noAgents
-      ? 'Add agents in the Agent fleet section to use this control.'
+      ? 'Drag to promote this workload-mode preset into a multi-agent fleet (mirrors current rollup into N agent rows; the ✓ MEASURED badge flies away to signal you’ve left the calibrated regime).'
       : '';
     ['s-agents', 's-comm-pattern'].forEach(function(id) {
       const el = document.getElementById(id);
       if (!el) return;
-      el.disabled = noAgents;
+      el.disabled = false;
       el.title = noAgentsTip;
+      // No .slider-inert visual: dragging promotes the workload, which
+      // is a meaningful action, not an inert one.
       const row = el.closest('div');
-      if (row) row.classList.toggle('slider-inert', noAgents);
+      if (row) row.classList.toggle('slider-inert', false);
     });
 
     // s-growth: always active (drives 3-yr TCO), but commonly misread as
