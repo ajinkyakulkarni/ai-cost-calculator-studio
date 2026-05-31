@@ -45,7 +45,8 @@
   },
 
   "segments": [
-    { "id": "all", "label": "Public visitors", "mau": 10000, "sessions_per_day": 0.2, "questions_per_session": 10, "applyBotFactor": true, "description": "Anonymous public visitors (single-segment simplified). Set MAU to 75,000 to reproduce the paper's Table 7 stress test. The paper's worked example adds a 500-user authenticated researchers segment that contributes ~1.6% of queries; load public-geospatial-qa-freeform-multi-segment.json for the paper-faithful split." }
+    { "id": "auth",   "label": "Authenticated researchers",       "mau":   500, "sessions_per_day": 0.2, "questions_per_session":  5, "applyBotFactor": false, "description": "Authenticated researchers with multi-turn sessions." },
+    { "id": "public", "label": "Public visitors (anonymous)",     "mau": 10000, "sessions_per_day": 0.2, "questions_per_session": 10, "applyBotFactor": true,  "description": "Anonymous public users on earth.gov. Set this to 75000 to reproduce the paper's Table 7 stress test." }
   ],
 
   "verification": {
