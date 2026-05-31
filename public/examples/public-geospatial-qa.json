@@ -32,7 +32,7 @@
   "tools_registry": {
     "set_datetime": {
       "label": "parse_datetime",
-      "description": "Validate and normalize a date range to an ISO-8601 interval. Templated response is the parsed interval + confirmation request.",
+      "description": "Validate and normalize a date range to an ISO-8601 interval. Templated response is the parsed interval + confirmation request. Cost: $0 (pure compute, infra-absorbed). If you have a metered date-parser service, enter your per-call rate.",
       "cost_shape": "free",
       "rate_usd": 0,
       "schema_tokens": 0,
@@ -44,7 +44,7 @@
     },
     "get_place": {
       "label": "geocode",
-      "description": "Resolve a place name to bbox + admin geometry. Templated returns a short confirmation; freeform returns the full GeoJSON polygon.",
+      "description": "Resolve a place name to bbox + admin geometry. Templated returns a short confirmation; freeform returns the full GeoJSON polygon. Cost: $0 self-hosted Nominatim/Geodini (infra in the Infrastructure block, e.g. $90/mo line). Managed alternatives: Mapbox ~$0.005/call, Google Geocoding ~$0.005/call. Enter your measured rate above if metered.",
       "cost_shape": "free",
       "rate_usd": 0,
       "schema_tokens": 0,
@@ -56,7 +56,7 @@
     },
     "collections_rag": {
       "label": "search_collections",
-      "description": "Semantic search over the STAC catalog. Templated returns just the count + selection prompt; freeform returns the Top-K collection metadata (descriptions, summaries, asset dictionaries) measured at ~300 tok/collection × 5 collections via openveda /collections.",
+      "description": "Semantic search over the STAC catalog. Templated returns just the count + selection prompt; freeform returns the Top-K collection metadata (descriptions, summaries, asset dictionaries) measured at ~300 tok/collection × 5 collections via openveda /collections. Cost: $0 self-hosted vector DB (infra-absorbed). Derived: monthly vector-DB infra $ / monthly queries = per-call rate (e.g., $36/mo RAG service / 900K queries ≈ $0.00004/call). Managed: OpenAI File Search $0.0025/call.",
       "cost_shape": "free",
       "rate_usd": 0,
       "schema_tokens": 0,
@@ -68,7 +68,7 @@
     },
     "select_collection": {
       "label": "select_collection",
-      "description": "Records the user's collection + variable selection (small either way).",
+      "description": "Records the user's collection + variable selection (small either way). Cost: $0 (pure server-side state mutation).",
       "cost_shape": "free",
       "rate_usd": 0,
       "schema_tokens": 0,
@@ -80,7 +80,7 @@
     },
     "stac_search": {
       "label": "search_items",
-      "description": "Enumerate catalog items inside the AOI and datetime window. Templated returns just the count; freeform returns the full STAC item array — measured at 15 items × 1,230 tok = 18,435 tok directly from openveda /search against lis-global-da-gpp over Mendocino County. This is the dominant freeform lever.",
+      "description": "Enumerate catalog items inside the AOI and datetime window. Templated returns just the count; freeform returns the full STAC item array — measured at 15 items × 1,230 tok = 18,435 tok directly from openveda /search against lis-global-da-gpp over Mendocino County. This is the dominant freeform lever. Cost: $0 self-hosted STAC API (infra-absorbed; openveda is community-hosted). Commercial STAC providers (Planet, Maxar, etc.) typically $0.001–$0.01/call.",
       "cost_shape": "free",
       "rate_usd": 0,
       "schema_tokens": 0,
@@ -92,7 +92,7 @@
     },
     "stats": {
       "label": "compute_stats",
-      "description": "Per-item zonal statistics (mean/median/min/max/percentiles). Templated returns just the count; freeform returns the per-item stats dictionaries (~40 tok/item × 15 items = 600 tok estimated).",
+      "description": "Per-item zonal statistics (mean/median/min/max/percentiles). Templated returns just the count; freeform returns the per-item stats dictionaries (~40 tok/item × 15 items = 600 tok estimated). Cost: $0 self-hosted raster compute (infra-absorbed, e.g., titiler / rio-tiler on your stack). Commercial: COG-stats services $0.0005–$0.002/call depending on resolution.",
       "cost_shape": "free",
       "rate_usd": 0,
       "schema_tokens": 0,
@@ -104,7 +104,7 @@
     },
     "viz": {
       "label": "render_map",
-      "description": "Build a raster tile URL for the selected items + AOI. Small either way — visualization metadata is bounded.",
+      "description": "Build a raster tile URL for the selected items + AOI. Small either way — visualization metadata is bounded. Cost: $0 self-hosted titiler / TiTiler-PgSTAC (infra-absorbed). Managed tile services (Mapbox, AWS Location): ~$0.50/1k tile-renders amortized.",
       "cost_shape": "free",
       "rate_usd": 0,
       "schema_tokens": 0,

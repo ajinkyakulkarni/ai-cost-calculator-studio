@@ -378,7 +378,14 @@
                 ${SHAPES.map(s => `<option value="${s}" ${(t.cost_shape||'per_call')===s?'selected':''}>${s}</option>`).join('')}
               </select></label>
             <label style="font-size:10px;color:var(--muted)"><span style="display:block;text-transform:uppercase;letter-spacing:0.04em;margin-bottom:2px">Rate (USD)</span>
-              <input type="number" min="0" step="0.001" data-field="rate_usd" value="${t.rate_usd || 0}" style="width:100%;font-size:12px;padding:3px 5px;font-family:var(--mono)" title="USD per call (per_call) / per session (per_session) / 0 (free)"></label>
+              <input type="number" min="0" step="0.001" data-field="rate_usd" value="${t.rate_usd || 0}" style="width:100%;font-size:12px;padding:3px 5px;font-family:var(--mono)" title="Your measured per-call cost in USD. Bills as cost_shape × rate × calls/query × queries/month (any rate > 0 bills, even if cost_shape='free'). Typical ranges:
+• Self-hosted parser (parse_datetime, select_collection): $0 — pure compute, infra-absorbed
+• Self-hosted geocode/STAC search: $0 (infra-absorbed) — $0.0001/call (derive: monthly infra $ / monthly queries)
+• Managed geocode (Mapbox/Google Geocoding): ~$0.005/call
+• Managed search (OpenAI File Search): $0.0025/call
+• Managed web search (OpenAI/Anthropic grounding): ~$0.01/call
+• Raster/stats compute (self-hosted): $0 (infra-absorbed) — $0.001/call (commercial COG service)
+Self-hosted tools with fixed infrastructure should normally stay at $0 here (the infra line in the Infrastructure block already accounts for them); only enter a per-call rate if your tool is metered (managed API, per-query GPU minutes, etc.)."></label>
             <label style="font-size:10px;color:var(--muted)"><span style="display:block;text-transform:uppercase;letter-spacing:0.04em;margin-bottom:2px">Schema tok</span>
               <input type="number" min="0" step="10" data-field="schema_tokens" value="${t.schema_tokens || 0}" style="width:100%;font-size:12px;padding:3px 5px;font-family:var(--mono)" title="Tokens added to system prompt for this tool's schema"></label>
             <label style="font-size:10px;color:var(--muted)"><span style="display:block;text-transform:uppercase;letter-spacing:0.04em;margin-bottom:2px">Result tok avg</span>

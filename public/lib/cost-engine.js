@@ -1243,7 +1243,14 @@
       const enabled = agent.enabled_tools || {};
       for (const [tid, spec] of Object.entries(enabled)) {
         const t = reg[tid];
-        if (!t || t.cost_shape === 'free' || !t.rate_usd) continue;
+        // Bill any tool with rate_usd > 0. 'free' is a default LABEL
+        // ("default rate is 0"), not a directive to skip billing — a
+        // user editing rate_usd from 0 to e.g. 0.005 on a self-hosted
+        // tool (matching their measured per-call infra cost) should
+        // see the headline move immediately. cost_shape determines
+        // per-call vs per-session aggregation; 'free' falls through
+        // to per_call as the default aggregation rule.
+        if (!t || !t.rate_usd) continue;
         const cpq = (spec && spec.calls_per_query) || 0;
         if (cpq <= 0) continue;
         const memo = t.memoize && Number.isFinite(t.memoize_hit_rate) ? t.memoize_hit_rate : 0;
@@ -1251,10 +1258,11 @@
         const trig = Number.isFinite(spec.trigger_rate) && spec.trigger_rate >= 0 && spec.trigger_rate <= 1
           ? spec.trigger_rate : 1.0;
         let fee = 0;
-        if (t.cost_shape === 'per_call') {
-          fee = cpq * t.rate_usd * qTotal * callMult * trig * agActive;
-        } else if (t.cost_shape === 'per_session') {
+        if (t.cost_shape === 'per_session') {
           fee = cpq * t.rate_usd * sessionsMonthly * callMult * trig * agActive;
+        } else {
+          // per_call or 'free' (default aggregation)
+          fee = cpq * t.rate_usd * qTotal * callMult * trig * agActive;
         }
         if (fee > 0) {
           monthly += fee;
