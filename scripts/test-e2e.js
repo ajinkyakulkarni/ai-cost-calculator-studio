@@ -225,18 +225,28 @@ async function cacheSlider(page) {
 
 async function agentPromotion(page) {
   await waitForBoot(page);
-  // Confirm MEASURED badge is initially present
-  const badgeBefore = await page.locator('#cb-calibrated').count();
-  assert(badgeBefore === 1, `expected ✓ MEASURED badge on initial load, got count=${badgeBefore}`);
-  // Trigger promotion via the trusted-event keyboard path (s-agents
-  // promotion is isTrusted-gated by design — synthetic events shouldn't
-  // promote, that's the regression fix from earlier).
+  // The default preset (public-geospatial-qa) is now 1-agent + 7-tool
+  // out of the box (since 2026-05-31), so the s-agents promotion path
+  // (workload-mode→agent-mode on first drag) wouldn't fire on it. Load
+  // a workload-mode preset so the original promotion scenario is
+  // still exercised. generic-startup-chatbot is workload-mode (no
+  // agents array).
+  await page.selectOption('#example-loader', 'generic-startup-chatbot');
+  await sleep(1500);
+  const stateBefore = await page.evaluate(() => ({
+    badgeCount: document.querySelectorAll('#cb-calibrated').length,
+    agentsLen:  (window.workload?.agents || []).length,
+  }));
+  assert(stateBefore.agentsLen === 0, `expected workload-mode preset to start with 0 agents, got ${stateBefore.agentsLen}`);
+  assert(stateBefore.badgeCount === 1, `expected MEASURED badge on workload-mode load, got count=${stateBefore.badgeCount}`);
   await setSliderTrusted(page, 's-agents', 3);
-  await sleep(1500); // 650ms badge animation + setTimeout(0)
-  const badgeAfter = await page.locator('#cb-calibrated').count();
-  assert(badgeAfter === 0, `expected badge to be removed after promotion, got count=${badgeAfter}`);
-  const agentCount = await page.evaluate(() => (window.workload?.agents || []).length);
-  assert(agentCount > 0, `expected workload.agents populated after promotion, got ${agentCount}`);
+  await sleep(1500); // 650ms badge fly-away animation + setTimeout(0)
+  const stateAfter = await page.evaluate(() => ({
+    badgeCount: document.querySelectorAll('#cb-calibrated').length,
+    agentsLen:  (window.workload?.agents || []).length,
+  }));
+  assert(stateAfter.badgeCount === 0, `expected badge removed after promotion, got count=${stateAfter.badgeCount}`);
+  assert(stateAfter.agentsLen > 0,    `expected workload.agents populated after promotion, got ${stateAfter.agentsLen}`);
 }
 
 async function verifierPreset(page) {
@@ -635,14 +645,17 @@ async function validatedButtonContrast(page) {
     const calBadge = document.querySelector('.calibration-badge');
     if (!calBadge) return { noBadge: true };
     const activeBtn = calBadge.querySelector('.cal-mode-btn.active');
-    const activeSpan = activeBtn?.querySelector('span');
+    if (!activeBtn) return { noModeButtons: true };
+    const activeSpan = activeBtn.querySelector('span');
     return {
-      btnText: activeBtn?.textContent?.trim(),
+      btnText: activeBtn.textContent?.trim(),
       spanColor: activeSpan ? getComputedStyle(activeSpan).color : null,
     };
   });
-  if (state.noBadge) {
-    // Preset has no calibration block — nothing to test
+  if (state.noBadge || state.noModeButtons) {
+    // Preset has no payload_modes (e.g., the new agent-mode default preset
+    // since 2026-05-31, where the per-tool RETURN SHAPE lever superseded
+    // the coarse Validated/Moderate/Heavy buttons). Nothing to test.
     return;
   }
   assert(state.spanColor === 'rgb(255, 255, 255)',
