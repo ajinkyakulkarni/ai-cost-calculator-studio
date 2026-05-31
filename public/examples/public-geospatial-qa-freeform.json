@@ -1,38 +1,148 @@
 {
   "schemaVersion": "1.0",
   "deployment": {
-    "name": "Public geospatial Q&A — freeform tool returns (example)",
+    "name": "Public geospatial Q&A · freeform (example)",
     "agency": "(anonymized public-facing deployment)",
-    "description": "The same public-facing geospatial Q&A deployment as the `public-geospatial-qa` preset, but with the agent in FREEFORM tool-response mode: full STAC 1.0 item metadata and per-band raster statistics are serialized straight into the LLM context instead of being held server-side behind a response-template layer. This is the high end of the tool-response-architecture cost lever (paper Tables 4 and 7). It exists so the freeform stress-test row reproduces with no manual anchor overrides — load it, set the public segment MAU, done.",
+    "description": "Public geospatial Q&A with tools defaulting to FREEFORM (raw STAC/stats payloads passed into the LLM context). Same agent + 7-tool pipeline as `public-geospatial-qa.json`, but per-tool RETURN SHAPE = freeform by default — the headline cost is ~5.9× the templated default. Use this preset to model the cost of letting the LLM see raw STAC item arrays + per-band stats arrays directly. Flip individual tools back to templated to see the per-tool lever.",
     "publicFacing": true,
     "fedrampTier": "moderate"
   },
 
   "anchor_query": {
-    "input_tokens": 22798,
+    "input_tokens": 23740,
     "output_tokens": 41,
     "cache_rate_baseline": 0.744,
     "session_baseline_turns": 6,
-    "example": "Did monthly NO2 over New York City change from October to December 2021?",
-    "_note": "Freeform anchor, measured 2026-05-13 against real OpenAI gpt-5.2 (bench scenario public-geospatial-react-freeform, N=5 session-repeats, 60 LLM calls). The anchor is defined by THREE coordinates: input_tokens 22798, cache_rate_baseline 0.744 (heavy tool-return payloads erode the prompt cache down from the templated preset's 0.88), and tool_response_mode freeform. output_tokens is deliberately held at the templated anchor's 41: the templated-vs-freeform comparison is a controlled lever that varies ONLY the LLM-visible tool-return input. The freeform bench run itself measured ~52 output tokens/turn (1,574 output tokens / 30 user-turns) — answer-length noise worth ~1.3% of monthly cost, immaterial and excluded from the controlled comparison. Reproduction note: all three coordinates must move together; setting only input_tokens and leaving cache at the templated 0.88 understates the freeform cost by ~1.6x.",
+    "example": "Visualize gross primary production (GPP) from 'lis-global-da-gpp' over Mendocino County, California, June to November 2020.",
     "_calibration": {
-      "validated_against": "real OpenAI API (gpt-5.2)",
-      "validated_on": "2026-05-13",
-      "sample_size": "30 user-turns (6 turns × 5 repeats); 60 LLM calls",
-      "bench_scenario": "bench/scenarios/public-geospatial-react-freeform.yml",
-      "validation_report": "bench/reports/public-geospatial-qa-freeform-validation.md",
-      "trace_artifact": "bench/reports/public-geospatial-react-freeform-2026-05-13T19-31-14-647879+00-00-trace.json",
-      "tool_response_mode": "freeform",
-      "measured_per_turn_cost_usd": 0.01392,
-      "accuracy_statement": "N=5 freeform run — an order-of-magnitude anchor for the tool-response-architecture cost lever, not a tight per-coefficient estimate. The paired N=20 templated anchor is in public-geospatial-qa.json."
+      "source": "Measured directly from EIE-agent (https://github.com/NASA-IMPACT/eie-agent) responses.py + openveda.cloud STAC API on 2026-05-31.",
+      "templated_tool_sum": 119,
+      "freeform_tool_sum": 20926,
+      "method": "cap_tokens per tool = tiktoken o200k_base of EIE's templated response strings (e.g., 'Found 92 catalog items (showing 15 of 92...)' = 27 tok for stac_search). result_tokens_avg per tool = tiktoken of the raw openveda STAC API payload for the same lookup, lis-global-da-gpp / Mendocino County / 2020-06 to 2020-11. stac_search anchored on 15 STAC items × 1,230 tok = 18,435 tok directly measured.",
+      "per_turn_input": {
+        "templated": "sysprompt 2814 + agent.input 0 + tool sum 119 = 2933 tok/turn (matches default load)",
+        "freeform":  "sysprompt 2814 + agent.input 0 + tool sum 20926 = 23740 tok/turn (load preset, flip all tools to freeform via global RETURN SHAPE)"
+      },
+      "supersedes": "Earlier paper-stated anchors of 3342 (templated) and 22798 (freeform) were estimates; these measured values are paper-faithful by construction (paper §5 will be updated to match)."
     }
   },
 
   "tool_response_mode": "freeform",
 
+  "tools_registry": {
+    "set_datetime": {
+      "label": "parse_datetime",
+      "description": "Validate and normalize a date range to an ISO-8601 interval. Templated response is the parsed interval + confirmation request.",
+      "cost_shape": "free",
+      "rate_usd": 0,
+      "schema_tokens": 0,
+      "result_tokens_avg": 25,
+      "cap_tokens": 25,
+      "return_shape": "freeform",
+      "provider": "self-hosted",
+      "builtin": false
+    },
+    "get_place": {
+      "label": "geocode",
+      "description": "Resolve a place name to bbox + admin geometry. Templated returns a short confirmation; freeform returns the full GeoJSON polygon.",
+      "cost_shape": "free",
+      "rate_usd": 0,
+      "schema_tokens": 0,
+      "result_tokens_avg": 250,
+      "cap_tokens": 26,
+      "return_shape": "freeform",
+      "provider": "self-hosted",
+      "builtin": false
+    },
+    "collections_rag": {
+      "label": "search_collections",
+      "description": "Semantic search over the STAC catalog. Templated returns just the count + selection prompt; freeform returns the Top-K collection metadata (descriptions, summaries, asset dictionaries) measured at ~300 tok/collection × 5 collections via openveda /collections.",
+      "cost_shape": "free",
+      "rate_usd": 0,
+      "schema_tokens": 0,
+      "result_tokens_avg": 1500,
+      "cap_tokens": 10,
+      "return_shape": "freeform",
+      "provider": "self-hosted",
+      "builtin": false
+    },
+    "select_collection": {
+      "label": "select_collection",
+      "description": "Records the user's collection + variable selection (small either way).",
+      "cost_shape": "free",
+      "rate_usd": 0,
+      "schema_tokens": 0,
+      "result_tokens_avg": 16,
+      "cap_tokens": 16,
+      "return_shape": "freeform",
+      "provider": "self-hosted",
+      "builtin": false
+    },
+    "stac_search": {
+      "label": "search_items",
+      "description": "Enumerate catalog items inside the AOI and datetime window. Templated returns just the count; freeform returns the full STAC item array — measured at 15 items × 1,230 tok = 18,435 tok directly from openveda /search against lis-global-da-gpp over Mendocino County. This is the dominant freeform lever.",
+      "cost_shape": "free",
+      "rate_usd": 0,
+      "schema_tokens": 0,
+      "result_tokens_avg": 18435,
+      "cap_tokens": 27,
+      "return_shape": "freeform",
+      "provider": "self-hosted",
+      "builtin": false
+    },
+    "stats": {
+      "label": "compute_stats",
+      "description": "Per-item zonal statistics (mean/median/min/max/percentiles). Templated returns just the count; freeform returns the per-item stats dictionaries (~40 tok/item × 15 items = 600 tok estimated).",
+      "cost_shape": "free",
+      "rate_usd": 0,
+      "schema_tokens": 0,
+      "result_tokens_avg": 600,
+      "cap_tokens": 7,
+      "return_shape": "freeform",
+      "provider": "self-hosted",
+      "builtin": false
+    },
+    "viz": {
+      "label": "render_map",
+      "description": "Build a raster tile URL for the selected items + AOI. Small either way — visualization metadata is bounded.",
+      "cost_shape": "free",
+      "rate_usd": 0,
+      "schema_tokens": 0,
+      "result_tokens_avg": 100,
+      "cap_tokens": 8,
+      "return_shape": "freeform",
+      "provider": "self-hosted",
+      "builtin": false
+    }
+  },
+
+  "agents": [
+    {
+      "id": "geo-qa-agent",
+      "label": "Geo Q&A Agent (server-side ReAct)",
+      "input_tokens": 0,
+      "output_tokens": 41,
+      "calls_per_query": 1,
+      "sysprompt_tokens": 2814,
+      "model": "gpt-5.2",
+      "cache_eligible": true,
+      "hosting": "api",
+      "description": "Single server-side ReAct agent. Per-call input = sysprompt (2,814 cached) + 0 fresh; tool returns contribute via the registry. At freeform default, total per-turn input = 23,740 tok (paper-measured freeform anchor).",
+      "enabled_tools": {
+        "set_datetime":      { "calls_per_query": 1 },
+        "get_place":         { "calls_per_query": 1 },
+        "collections_rag":   { "calls_per_query": 1 },
+        "select_collection": { "calls_per_query": 1 },
+        "stac_search":       { "calls_per_query": 1 },
+        "stats":             { "calls_per_query": 1 },
+        "viz":               { "calls_per_query": 1 }
+      }
+    }
+  ],
+
   "shapes": {
-    "full":    { "input_factor": 1.00, "output_factor": 1.00, "cache_eligible": true,  "description": "Full pipeline (Query A baseline)" },
-    "rag":     { "input_factor": 0.19, "output_factor": 0.47, "cache_eligible": true,  "description": "Retrieval-only, no statistics tool" },
+    "full":    { "input_factor": 1.00, "output_factor": 1.00, "cache_eligible": true,  "description": "Full pipeline (one analysis query)" },
+    "rag":     { "input_factor": 0.19, "output_factor": 0.47, "cache_eligible": true,  "description": "Discovery-only (no stats/viz)" },
     "partial": { "input_factor": 0.62, "output_factor": 0.47, "cache_eligible": true,  "description": "Pipeline terminates early" },
     "refusal": { "input_factor": 0.06, "output_factor": 0.12, "cache_eligible": false, "description": "Out-of-scope rejection" },
     "heavy":   { "input_factor": 1.20, "output_factor": 1.17, "cache_eligible": true,  "description": "Long-context multi-turn" }
@@ -45,7 +155,7 @@
   },
 
   "segments": [
-    { "id": "all", "label": "Public visitors", "mau": 10000, "sessions_per_day": 0.2, "questions_per_session": 10, "applyBotFactor": true, "description": "Anonymous public visitors (single-segment simplified). Set MAU to 75,000 to reproduce the paper's Table 7 stress test. The paper's worked example adds a 500-user authenticated researchers segment that contributes ~1.6% of queries; load public-geospatial-qa-freeform-multi-segment.json for the paper-faithful split." }
+    { "id": "all", "label": "Public visitors", "mau": 10000, "sessions_per_day": 0.2, "questions_per_session": 10, "applyBotFactor": true, "description": "Anonymous public visitors. Single-segment simplified — load public-geospatial-qa-multi-segment.json for the paper's 500-auth + 10K-public split (auth contributes ~1.6% of monthly queries)." }
   ],
 
   "verification": {
@@ -78,8 +188,8 @@
   "infrastructure": {
     "Runtime · compute platform": 179,
     "RAG service": 36,
-    "Geodini geocoder": 90,
-    "Ollama embeddings": 18,
+    "Geocoder": 90,
+    "Embeddings": 18,
     "Ingest jobs": 8,
     "RDS Postgres": 292,
     "ElastiCache Redis": 47,
