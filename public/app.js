@@ -1731,13 +1731,12 @@ Production teams measure their primary's confidence-score distribution; escalate
     const numVal = (id, fallback) => { const el = $(id); return el ? parseFloat(el.value) : fallback; };
 
     // Simulator-side sliders (MAU / sessions / turns) drive traffic for
-    // single-segment workloads. For multi-segment workloads (e.g. NASA
-    // EIE's auth + public split), we *preserve* the segments and let the
-    // user edit them in the per-segment editor below. The sliders then
+    // single-segment workloads. For multi-segment workloads, the sliders
     // display the rollup (sum of MAU, weighted-average sessions/day and
-    // questions/session) so the user can still see traffic-shape totals
-    // at a glance, but slider movement does not silently flatten the
-    // segments.
+    // questions/session) — renderPreview pushes those onto the sliders
+    // here, and slider drags route through scaleSegments (app.js:3787)
+    // which proportionally rescales each segment so the next render's
+    // rollup matches the user's drag. The two directions stay in sync.
     {
       const mau = numVal('s-users', 500);
       const sessionsPerUserPerDay = numVal('s-sessions', 0.3);
@@ -2737,20 +2736,26 @@ Production teams measure their primary's confidence-score distribution; escalate
   // the current configuration, and re-enables them when they become live.
   // Called at the end of every renderPreview() pass.
   function syncSliderModeState() {
-    // Multi-segment: s-users / s-sessions / s-turns are display-only
-    // (renderPreview pushes segment rollups onto them; dragging does nothing).
+    // s-users / s-sessions / s-turns stay editable in BOTH single- and
+    // multi-segment modes. In multi-segment, dragging routes through
+    // scaleSegments() (app.js:3787) which proportionally rescales each
+    // segment so the rollup matches the new slider value — segment
+    // ratios are preserved. (Prior to 2026-05-30 these sliders were
+    // greyed out in multi-segment, which violated the "presets are a
+    // starting point, not a cage" principle: the working scaleSegments
+    // path was always there.) A hover tooltip on multi-segment notes
+    // the proportional behaviour so users know what to expect.
     const multiSeg = Array.isArray(workload.segments) && workload.segments.length > 1;
     const multiSegTip = multiSeg
-      ? 'Showing segment totals — edit per-segment traffic below to change this. ' +
-        '(Single-segment workloads let you drag these directly.)'
+      ? 'Multi-segment preset — dragging this rescales all segments proportionally (segment ratios preserved). Edit individual segments in the per-segment editor below for fine control.'
       : '';
     ['s-users', 's-sessions', 's-turns'].forEach(function(id) {
       const el = document.getElementById(id);
       if (!el) return;
-      el.disabled = multiSeg;
+      el.disabled = false;
       el.title = multiSegTip;
       const row = el.closest('div');
-      if (row) row.classList.toggle('slider-inert', multiSeg);
+      if (row) row.classList.toggle('slider-inert', false);
     });
 
     // No-agents: s-agents and s-comm-pattern only affect cost in agent mode.
