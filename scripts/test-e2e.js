@@ -574,23 +574,23 @@ async function sectionHelpersPresent(page) {
     `expected zero .ix-num badges (A-G removed), got [${state.ixNums.join(',')}]`);
 }
 
-// Per-tool registry preset — loads the EIE-style geo Q&A preset with 7
-// pipeline tools, verifies the registry/agent shape, then flips the
-// global #s-tool-response-mode dropdown from 'templated' to 'freeform'
-// and verifies (a) all 7 registry rows have their return_shape mirrored
-// in workload state and (b) the headline rises (untemplated STAC
-// payloads send much more text into the LLM).
-async function geospatialPerToolPreset(page) {
+// Default preset (public-geospatial-qa) — now ships as 1-agent + 7-tool
+// EIE walkthrough by default (previously a separate -per-tool variant,
+// folded in on 2026-05-31 when the calibration was rebuilt from
+// EIE-agent responses.py + openveda STAC measurements). Verifies the
+// registry/agent shape after boot, then flips global RETURN SHAPE
+// templated→freeform and asserts (a) all 7 tools mirror the change
+// and (b) the headline rises (uncapped STAC payloads dominate).
+async function geospatialDefaultPreset(page) {
   await waitForBoot(page);
-  await page.selectOption('#example-loader', 'public-geospatial-per-tool');
-  await sleep(1500);
-  // The 7 pipeline tools defined by the preset. loadExample merges these
-  // INTO the default registry rather than replacing, so the registry can
-  // legitimately have more entries — but these 7 must be present and
-  // default to templated, and the agent's enabled_tools must reference
-  // exactly these.
-  const NAMED = ['parse_datetime','geocode','search_collections','select_collection',
-                 'search_items','compute_stats','render_map'];
+  // EIE-named tool IDs from eie-agent/eie_agent/tools/. loadExample
+  // merges these INTO the default DEFAULT_TOOLS_REGISTRY rather than
+  // replacing, so the registry can legitimately have extra entries
+  // (web_search, code_execution, etc.) — but these 7 EIE tools must
+  // be present, default to templated, and be referenced exactly by
+  // the agent's enabled_tools.
+  const NAMED = ['set_datetime','get_place','collections_rag','select_collection',
+                 'stac_search','stats','viz'];
   const shape = await page.evaluate((named) => {
     const reg = window.workload?.tools_registry || {};
     const ag = window.workload?.agents?.[0];
@@ -603,14 +603,11 @@ async function geospatialPerToolPreset(page) {
     };
   }, NAMED);
   assert(shape.agentCount === 1,            `expected 1 agent, got ${shape.agentCount}`);
-  assert(shape.missingFromReg.length === 0, `missing pipeline tools from registry: ${shape.missingFromReg.join(', ')}`);
-  assert(shape.namedTemplated,              'expected all 7 pipeline tools to default to templated');
-  assert(shape.enabledEqualsNamed,          'expected agent enabled_tools to match exactly the 7 pipeline tools');
+  assert(shape.missingFromReg.length === 0, `missing EIE pipeline tools from registry: ${shape.missingFromReg.join(', ')}`);
+  assert(shape.namedTemplated,              'expected all 7 EIE pipeline tools to default to templated');
+  assert(shape.enabledEqualsNamed,          'expected agent enabled_tools to match exactly the 7 EIE pipeline tools');
   const baseline = await getHeadline(page);
   assert(baseline > 0, `expected positive headline on preset load, got ${fmt(baseline)}`);
-  // Flip global to freeform — should bulk-apply to all registry rows
-  // (including the 7 named ones) via the s-tool-response-mode change
-  // handler in app.js:3913.
   await page.selectOption('#s-tool-response-mode', 'freeform');
   await sleep(800);
   const after = await page.evaluate((named) => {
@@ -620,8 +617,8 @@ async function geospatialPerToolPreset(page) {
       anyNamedTemplated: named.some(id => reg[id]?.return_shape === 'templated'),
     };
   }, NAMED);
-  assert(after.namedAllFreeform,    'expected global freeform to bulk-apply to all 7 pipeline tools');
-  assert(!after.anyNamedTemplated,  'expected no templated entries among the 7 pipeline tools after global flip');
+  assert(after.namedAllFreeform,    'expected global freeform to bulk-apply to all 7 EIE tools');
+  assert(!after.anyNamedTemplated,  'expected no templated entries among the 7 EIE tools after global flip');
   const headlineFreeform = await getHeadline(page);
   assert(headlineFreeform > baseline,
     `expected headline to rise after global → freeform (uncaps STAC payloads), got ${fmt(baseline)} → ${fmt(headlineFreeform)}`);
@@ -671,7 +668,7 @@ async function validatedButtonContrast(page) {
   await scenario('selfhost-reverse',      selfHostReverseMirror);
   await scenario('task-bias-moves',       taskBiasMoves);
   await scenario('section-helpers',       sectionHelpersPresent);
-  await scenario('geo-per-tool-preset',   geospatialPerToolPreset);
+  await scenario('geo-default-preset',    geospatialDefaultPreset);
   await scenario('validated-button',      validatedButtonContrast);
   const dt = ((Date.now() - t0) / 1000).toFixed(1);
   console.log(`\n${passed} passed · ${failed} failed · ${dt}s\n`);

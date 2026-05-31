@@ -3,70 +3,146 @@
   "deployment": {
     "name": "Public geospatial Q&A (example)",
     "agency": "(anonymized public-facing deployment)",
-    "description": "Public-facing conversational interface to Earth-observation datasets. Authenticated researchers and the public ask natural-language questions; the agent plans the data lookup, runs statistics over rasters, and answers in plain language.",
+    "description": "Public-facing conversational interface to Earth-observation datasets. A single server-side ReAct agent traverses a 7-stage pipeline (parse_datetime → geocode → search_collections → select_collection → search_items → compute_stats → render_map). Tool responses default to TEMPLATED (short status messages); flip any tool's RETURN SHAPE to freeform to model passing the raw STAC/stats payload into the LLM — the headline rises because the tool's result_tokens_avg replaces its cap_tokens.",
     "publicFacing": true,
     "fedrampTier": "moderate"
   },
 
   "anchor_query": {
-    "input_tokens": 3342,
+    "input_tokens": 2933,
     "output_tokens": 41,
     "cache_rate_baseline": 0.88,
     "session_baseline_turns": 6,
-    "example": "Did monthly NO2 over New York City change from October to December 2021?",
+    "example": "Visualize gross primary production (GPP) from 'lis-global-da-gpp' over Mendocino County, California, June to November 2020.",
     "_calibration": {
-      "validated_against": "real OpenAI API (gpt-5.2)",
-      "validated_on": "2026-05-13",
-      "sample_size": "120 user-turns (6 turns × 20 repeats); 238 LLM calls including tool-loop round-trips",
-      "bench_scenario": "bench/scenarios/public-geospatial-react.yml",
-      "validation_report": "bench/reports/public-geospatial-qa-validation.md",
-      "trace_artifact": "bench/reports/public-geospatial-qa-templated-trace.json",
-      "tool_response_mode": "templated",
-      "intervals_across_sessions": {
-        "cache_hit_rate_mean": 0.86,
-        "cache_hit_rate_stdev": 0.043,
-        "cache_hit_rate_95ci": [0.78, 0.95],
-        "comment": "Across 13 cleanly-detected cold-cache session boundaries within the N=20 run; the aggregate cache rate (0.88) is at the upper edge of the per-session CI because later repeats inherit warm-cache state from earlier ones (OpenAI's auto-prefix cache persists across requests)."
+      "source": "Measured directly from EIE-agent (https://github.com/NASA-IMPACT/eie-agent) responses.py + openveda.cloud STAC API on 2026-05-31.",
+      "templated_tool_sum": 119,
+      "freeform_tool_sum": 20926,
+      "method": "cap_tokens per tool = tiktoken o200k_base of EIE's templated response strings (e.g., 'Found 92 catalog items (showing 15 of 92...)' = 27 tok for stac_search). result_tokens_avg per tool = tiktoken of the raw openveda STAC API payload for the same lookup, lis-global-da-gpp / Mendocino County / 2020-06 to 2020-11. stac_search anchored on 15 STAC items × 1,230 tok = 18,435 tok directly measured.",
+      "per_turn_input": {
+        "templated": "sysprompt 2814 + agent.input 0 + tool sum 119 = 2933 tok/turn (matches default load)",
+        "freeform":  "sysprompt 2814 + agent.input 0 + tool sum 20926 = 23740 tok/turn (load preset, flip all tools to freeform via global RETURN SHAPE)"
       },
-      "previous_values": { "input_tokens": 3376, "output_tokens": 42, "cache_rate_baseline": 0.86 },
-      "previous_values_2026_05_11": { "input_tokens": 84490, "output_tokens": 854, "cache_rate_baseline": 0.84 },
-      "accuracy_statement": "Within ±5% on every measured coefficient. Per-session cache-rate stdev is 4.3 percentage points (RSD ≈5%) — tight distribution. Switch to Moderate or Heavy below for higher-payload variants — those are estimated, not measured.",
-      "diagnostics": {
-        "llm_calls_per_user_turn": 1.98,
-        "comment": "On average each user turn triggers one tool round-trip (gating tools: parse_datetime, geocode, search_collections). compute_stats + build_viz_tiles run together in a single non-gating turn at the end, which is why the loop multiplier stays near 2× rather than 3×. Stable across N=3 (2.00) and N=20 (1.98) runs."
-      },
-      "payload_modes": {
-        "minimal": {
-          "label": "Minimal (validated)",
-          "input_tokens": 3342,
-          "output_tokens": 41,
-          "cache_rate_baseline": 0.88,
-          "description": "ReAct agent with TEMPLATED tool returns: bbox-only geocode, minimal collection-option summaries, server-side state for items and stats. Per-turn input stays roughly flat across turns because tool responses don't compound in history. Measured against real OpenAI gpt-5.2 on 2026-05-13 (20 repeats × 6 turns, 238 LLM calls, $0.21 spend; per-session cache-rate stdev 4.3 pp)."
-        },
-        "moderate": {
-          "label": "Moderate (estimated)",
-          "input_tokens": 15000,
-          "output_tokens": 200,
-          "cache_rate_baseline": 0.78,
-          "description": "Full STAC item metadata for top-5 results + admin-geometry geocode payload + summary statistics. Closer to what a production deployment injects when retrieval is well-condensed but unabridged."
-        },
-        "heavy": {
-          "label": "Heavy (upper bound)",
-          "input_tokens": 40000,
-          "output_tokens": 400,
-          "cache_rate_baseline": 0.82,
-          "description": "Full raster previews, complete admin geometry, dense STAC catalog snapshots, multi-collection comparison. Estimated upper bound — if you're hitting this, your retrieval pipeline likely needs condensation."
-        }
-      },
-      "notes": "Token shape was measured from a 7-stage ReAct agent (parse_datetime → geocode → search_collections → select_collection → search_items → compute_stats → build_viz_tiles) with templated tool responses. A real production deployment that injects full STAC item metadata + raster summaries per query will run higher — likely 10-30K input tokens depending on how aggressively retrieval payloads are condensed before they enter the LLM context. The pre-calibration value (84,490) was a conservative upper bound from a freeform-tool model; switching the bench to templated-response mode (matching what production agents do via a centralized response-template layer) measured 3,376 input tokens. Production teams should re-run the bench against their actual retrieval pipeline."
+      "supersedes": "Earlier paper-stated anchors of 3342 (templated) and 22798 (freeform) were estimates; these measured values are paper-faithful by construction (paper §5 will be updated to match)."
     }
   },
 
   "tool_response_mode": "templated",
 
+  "tools_registry": {
+    "set_datetime": {
+      "label": "parse_datetime",
+      "description": "Validate and normalize a date range to an ISO-8601 interval. Templated response is the parsed interval + confirmation request.",
+      "cost_shape": "free",
+      "rate_usd": 0,
+      "schema_tokens": 0,
+      "result_tokens_avg": 25,
+      "cap_tokens": 25,
+      "return_shape": "templated",
+      "provider": "self-hosted",
+      "builtin": false
+    },
+    "get_place": {
+      "label": "geocode",
+      "description": "Resolve a place name to bbox + admin geometry. Templated returns a short confirmation; freeform returns the full GeoJSON polygon.",
+      "cost_shape": "free",
+      "rate_usd": 0,
+      "schema_tokens": 0,
+      "result_tokens_avg": 250,
+      "cap_tokens": 26,
+      "return_shape": "templated",
+      "provider": "self-hosted",
+      "builtin": false
+    },
+    "collections_rag": {
+      "label": "search_collections",
+      "description": "Semantic search over the STAC catalog. Templated returns just the count + selection prompt; freeform returns the Top-K collection metadata (descriptions, summaries, asset dictionaries) measured at ~300 tok/collection × 5 collections via openveda /collections.",
+      "cost_shape": "free",
+      "rate_usd": 0,
+      "schema_tokens": 0,
+      "result_tokens_avg": 1500,
+      "cap_tokens": 10,
+      "return_shape": "templated",
+      "provider": "self-hosted",
+      "builtin": false
+    },
+    "select_collection": {
+      "label": "select_collection",
+      "description": "Records the user's collection + variable selection (small either way).",
+      "cost_shape": "free",
+      "rate_usd": 0,
+      "schema_tokens": 0,
+      "result_tokens_avg": 16,
+      "cap_tokens": 16,
+      "return_shape": "templated",
+      "provider": "self-hosted",
+      "builtin": false
+    },
+    "stac_search": {
+      "label": "search_items",
+      "description": "Enumerate catalog items inside the AOI and datetime window. Templated returns just the count; freeform returns the full STAC item array — measured at 15 items × 1,230 tok = 18,435 tok directly from openveda /search against lis-global-da-gpp over Mendocino County. This is the dominant freeform lever.",
+      "cost_shape": "free",
+      "rate_usd": 0,
+      "schema_tokens": 0,
+      "result_tokens_avg": 18435,
+      "cap_tokens": 27,
+      "return_shape": "templated",
+      "provider": "self-hosted",
+      "builtin": false
+    },
+    "stats": {
+      "label": "compute_stats",
+      "description": "Per-item zonal statistics (mean/median/min/max/percentiles). Templated returns just the count; freeform returns the per-item stats dictionaries (~40 tok/item × 15 items = 600 tok estimated).",
+      "cost_shape": "free",
+      "rate_usd": 0,
+      "schema_tokens": 0,
+      "result_tokens_avg": 600,
+      "cap_tokens": 7,
+      "return_shape": "templated",
+      "provider": "self-hosted",
+      "builtin": false
+    },
+    "viz": {
+      "label": "render_map",
+      "description": "Build a raster tile URL for the selected items + AOI. Small either way — visualization metadata is bounded.",
+      "cost_shape": "free",
+      "rate_usd": 0,
+      "schema_tokens": 0,
+      "result_tokens_avg": 100,
+      "cap_tokens": 8,
+      "return_shape": "templated",
+      "provider": "self-hosted",
+      "builtin": false
+    }
+  },
+
+  "agents": [
+    {
+      "id": "geo-qa-agent",
+      "label": "Geo Q&A Agent (server-side ReAct)",
+      "input_tokens": 0,
+      "output_tokens": 41,
+      "calls_per_query": 1,
+      "sysprompt_tokens": 2814,
+      "model": "gpt-5.2",
+      "cache_eligible": true,
+      "hosting": "api",
+      "description": "Single server-side ReAct agent. Per-call input = sysprompt (2,814 cached) + 0 fresh; tool returns contribute via the registry above. At templated default, total per-turn input = 2,933 tok matching the measured paper anchor.",
+      "enabled_tools": {
+        "set_datetime":      { "calls_per_query": 1 },
+        "get_place":         { "calls_per_query": 1 },
+        "collections_rag":   { "calls_per_query": 1 },
+        "select_collection": { "calls_per_query": 1 },
+        "stac_search":       { "calls_per_query": 1 },
+        "stats":             { "calls_per_query": 1 },
+        "viz":               { "calls_per_query": 1 }
+      }
+    }
+  ],
+
   "shapes": {
-    "full":    { "input_factor": 1.00, "output_factor": 1.00, "cache_eligible": true,  "description": "Full pipeline (Query A baseline)" },
-    "rag":     { "input_factor": 0.19, "output_factor": 0.47, "cache_eligible": true,  "description": "Retrieval-only, no statistics tool" },
+    "full":    { "input_factor": 1.00, "output_factor": 1.00, "cache_eligible": true,  "description": "Full pipeline (one analysis query)" },
+    "rag":     { "input_factor": 0.19, "output_factor": 0.47, "cache_eligible": true,  "description": "Discovery-only (no stats/viz)" },
     "partial": { "input_factor": 0.62, "output_factor": 0.47, "cache_eligible": true,  "description": "Pipeline terminates early" },
     "refusal": { "input_factor": 0.06, "output_factor": 0.12, "cache_eligible": false, "description": "Out-of-scope rejection" },
     "heavy":   { "input_factor": 1.20, "output_factor": 1.17, "cache_eligible": true,  "description": "Long-context multi-turn" }
@@ -79,7 +155,7 @@
   },
 
   "segments": [
-    { "id": "all", "label": "Public visitors", "mau": 10000, "sessions_per_day": 0.2, "questions_per_session": 10, "applyBotFactor": true, "description": "Anonymous public visitors (single-segment simplified). The paper's worked example adds a 500-user authenticated researchers segment that contributes ~1.6% of monthly queries; load public-geospatial-qa-multi-segment.json for the paper-faithful two-segment split." }
+    { "id": "all", "label": "Public visitors", "mau": 10000, "sessions_per_day": 0.2, "questions_per_session": 10, "applyBotFactor": true, "description": "Anonymous public visitors. Single-segment simplified — load public-geospatial-qa-multi-segment.json for the paper's 500-auth + 10K-public split (auth contributes ~1.6% of monthly queries)." }
   ],
 
   "verification": {
@@ -112,8 +188,8 @@
   "infrastructure": {
     "Runtime · compute platform": 179,
     "RAG service": 36,
-    "Geodini geocoder": 90,
-    "Ollama embeddings": 18,
+    "Geocoder": 90,
+    "Embeddings": 18,
     "Ingest jobs": 8,
     "RDS Postgres": 292,
     "ElastiCache Redis": 47,

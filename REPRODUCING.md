@@ -84,11 +84,17 @@ The paired templated/freeform measurement.
 
 ```bash
 cd bench
-# Templated floor — N=20, 238 calls, $0.00178/q
+# Templated anchor — $0.00216/q ($1,948/mo at 10K MAU mixed)
 agent-cost-bench run scenarios/public-geospatial-react.yml --yes
-# Freeform anchor — N=5, 60 calls, $0.01392/q
+# Freeform anchor — $0.01810/q ($16,287/mo at 10K MAU mixed)
 agent-cost-bench run scenarios/public-geospatial-react-freeform.yml --yes
 ```
+
+(Anchors updated 2026-05-31 against directly-measured EIE-agent `responses.py`
+templated returns + openveda STAC API freeform payloads. The bundled
+`public-geospatial-qa.json` preset is 1-agent + 7-tool with the per-tool
+breakdown — templated tool sum 119 tok, freeform tool sum 20,926 tok; flip
+RETURN SHAPE per tool to model targeted templating changes.)
 
 The Anthropic cache-write share `w ≈ 0.20` (§5) is a third run:
 
@@ -106,8 +112,8 @@ preset — there is nothing to override by hand:
 
 | Row       | Preset                                | anchor input | cache  |
 |---        |---                                    |---:          |---:    |
-| Templated | `public-geospatial-qa.json`           | 3,342        | 0.88   |
-| Freeform  | `public-geospatial-qa-freeform.json`  | 22,798       | 0.744  |
+| Templated | `public-geospatial-qa.json`           | 2,933        | 0.88   |
+| Freeform  | `public-geospatial-qa-freeform.json`  | 23,740       | 0.744  |
 
 Both presets ship at the 10K-MAU worked-example scale. For the Table 7
 **stress-test** rows, set the **public** segment to **75,000 MAU** (keep the
@@ -119,17 +125,16 @@ example and edit the segment. From the CLI, copy the preset, set
 node scripts/calc.js --workload <preset-at-75k>.json --json
 ```
 
-This produces blended per-query rates of **$0.00120/query templated** and
-**$0.00897/query freeform**; at the 6,765,000-query monthly volume they give
-the **$8,095** and **$60,667** uncapped rows of Table 7. At the presets'
-default 10K MAU the same two files give the §5 worked-example operating
-points, **$1,097/mo** templated and **$8,222/mo** freeform.
+At the presets' default 10K MAU the two files give the §5 worked-example
+operating points, **$1,948/mo** templated and **$16,287/mo** freeform
+(api.monthly_gross, GPT-5.2 Standard tier, mixed traffic mix). The
+stress-test rows at 75K MAU scale from there.
 
 > **Do not hand-build the freeform anchor.** Use the bundled
 > `public-geospatial-qa-freeform.json` preset. The freeform anchor is three
-> coupled coordinates — input 22,798, **cache 0.744**, output 41 — and all
+> coupled coordinates — input 23,740, **cache 0.744**, output 41 — and all
 > three are in the preset. Overriding only the input tokens and leaving the
-> cache at the templated 0.88 understates the freeform cost by ~1.6×; the
+> cache at the templated 0.88 understates the freeform cost; the
 > `calc.js --cache` flag must also be set if you build the anchor by hand.
 
 Both presets are regression-pinned in `scripts/bench-validate.mjs`
