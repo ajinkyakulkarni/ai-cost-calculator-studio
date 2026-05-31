@@ -2646,6 +2646,14 @@ window.__setSimulatorFromWorkload = function(workload) {
       if (w.verifier_override) base.verifier_override = w.verifier_override;
       // activation_rate: engine stores 0-1, sim slider shows 0-100.
       if (Number.isFinite(w.activation_rate)) base.activation_rate = Math.round(w.activation_rate * 100);
+      // Mirror enabled_tools so the agent card's TOOLS checklist reflects
+      // what the engine is actually billing. Without this, presets that
+      // ship with enabled_tools (e.g., public-geospatial-qa with 7 EIE
+      // tools) load with every checkbox unticked, even though the engine
+      // is correctly billing them via workload.agents[i].enabled_tools.
+      if (w.enabled_tools && typeof w.enabled_tools === 'object') {
+        base.enabled_tools = JSON.parse(JSON.stringify(w.enabled_tools));
+      }
       return base;
     });
     const sAgents = document.getElementById('s-agents');
