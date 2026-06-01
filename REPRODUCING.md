@@ -84,14 +84,15 @@ The paired templated/freeform measurement.
 
 ```bash
 cd bench
-# Templated anchor — $0.00216/q ($1,948/mo at 10K MAU mixed)
+# Templated anchor — $0.00168/q ($1,508/mo at 10K MAU mixed)
 agent-cost-bench run scenarios/public-geospatial-react.yml --yes
-# Freeform anchor — $0.01810/q ($16,287/mo at 10K MAU mixed)
+# Freeform anchor — $0.01473/q ($13,253/mo at 10K MAU mixed)
 agent-cost-bench run scenarios/public-geospatial-react-freeform.yml --yes
 ```
 
-(Anchors updated 2026-05-31 against directly-measured EIE-agent `responses.py`
-templated returns + openveda STAC API freeform payloads. The bundled
+(Anchors updated 2026-06-01 against directly-measured EIE-agent `responses.py`
+templated returns + openveda STAC API freeform payloads, with
+`cache_write_share = 0` — OpenAI auto-prefix steady state. The bundled
 `public-geospatial-qa.json` preset is 1-agent + 7-tool with the per-tool
 breakdown — templated tool sum 119 tok, freeform tool sum 20,926 tok; flip
 RETURN SHAPE per tool to model targeted templating changes.)
@@ -126,9 +127,11 @@ node scripts/calc.js --workload <preset-at-75k>.json --json
 ```
 
 At the presets' default 10K MAU the two files give the §5 worked-example
-operating points, **$1,948/mo** templated and **$16,287/mo** freeform
-(api.monthly_gross, GPT-5.2 Standard tier, mixed traffic mix). The
-stress-test rows at 75K MAU scale from there.
+operating points, **$1,508/mo** templated and **$13,253/mo** freeform
+(api.monthly_gross, GPT-5.2 Standard tier, mixed traffic mix,
+cache_write_share = 0). The stress-test rows at 75K MAU scale to
+$11,309/mo templated and $99,398/mo freeform uncapped (capped at
+$45,000/mo refusing 54.7% of public traffic).
 
 > **Do not hand-build the freeform anchor.** Use the bundled
 > `public-geospatial-qa-freeform.json` preset. The freeform anchor is three
