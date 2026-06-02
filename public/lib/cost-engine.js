@@ -403,6 +403,33 @@
   function perQueryCostAgents(workload, mainModelId, tierId, cacheRate, options) {
     const w = workload;
     const mult = w.tier_multipliers[tierId] || 1.0;
+    // Resolve traffic-shape mix so agent-mode honors the same shape×mix
+    // blending as workload-mode. Before this, agent-mode summed each
+    // agent's per-call cost as if every query were the worst-case full
+    // pipeline, ignoring the workload's mix entirely — switching mix
+    // from "worst" to "mixed" gave the same headline. Now we blend
+    // per-agent cost across configured shapes the same way
+    // perQueryCost() does in workload-mode.
+    //
+    // Two scaling choices, documented for the auditor:
+    //   • agent.input_tokens and agent.output_tokens DO scale by the
+    //     shape's input_factor / output_factor — they represent
+    //     query-variable load (tool-return content, generated tokens).
+    //   • agent.sysprompt_tokens and agent.iamsg_tokens DO NOT scale
+    //     — they're the agent's identity / handoff overhead, loaded on
+    //     every call regardless of whether the query is a refusal
+    //     short-circuit or a full pipeline.
+    //   • Tool-registry input (agentToolInputTokens) scales by the
+    //     shape's input_factor — a refusal that exits before any tool
+    //     fires shouldn't be billed full tool-schema tokens.
+    //   • Cache eligibility is AND of agent.cache_eligible and the
+    //     shape's cache_eligible — refusals (shape.cache_eligible=false)
+    //     bypass the prompt cache even on a cache-eligible agent.
+    const mixId = (options && options.mix) || w.defaults.mix || 'worst';
+    const mix = w.mix && w.mix[mixId];
+    const mixWeights = (mix && mix.weights && Object.keys(mix.weights).length > 0)
+      ? mix.weights
+      : { full: 1.0 };  // safe fallback: worst-case
     let total = 0;
     const breakdown = [];
     for (const agent of (w.agents || [])) {
@@ -439,10 +466,6 @@
       // (cache-hot prefix), iamsg adds to every call (varies per turn).
       const sysAmortized = (agent.sysprompt_tokens || 0) / Math.max(1, calls);
       const iaPerCall = agent.iamsg_tokens || 0;
-      const effInT = inT + sysAmortized + iaPerCall;
-      const eff = agent.cache_eligible ? cacheRate : 0;
-      const cached = effInT * eff;
-      const uncached = effInT - cached;
       // Eq. 2 blend, per-agent (agent may override workload-wide write share).
       // Fallback chain: agent override → opts override → workload anchor →
       // per-model rate-card default (Anthropic explicit cache wants ~0.10
@@ -464,50 +487,76 @@
       // sliders move agent-mode bills the way the unit-cost path does.
       // See taskMixOutputMultiplierForAgent for the full precedence.
       const agentOutMult = taskMixOutputMultiplierForAgent(agent, w);
-      const effOutT = outT * agentOutMult;
-      const perCall = (
-        uncached * rates.input_per_million / 1e6 +
-        cached   * pCachedEff / 1e6 +
-        effOutT  * rates.output_per_million / 1e6
-      ) * mult;
       // ReAct / reflection multiplier — agents that internally loop
       // (think → act → observe → think) fire N LLM calls per logical
       // "call" the user sees. Defaults to 1.0 (one LLM call = one call
       // billed). Typical: simple chat 1.0×, ReAct 3–5×, deep
-      // reflection 5–8×. Multiplies the per-call bill; sysprompt
-      // amortization above used the OUTER `calls` so the cache
-      // accounting stays correct (each inner loop iteration still hits
-      // the same cached prefix).
+      // reflection 5–8×. Multiplies the per-call bill.
       const loopMult = Number(agent.calls_per_turn_multiplier);
       const llmCallMult = Number.isFinite(loopMult) && loopMult > 0 ? loopMult : 1.0;
       // Agent activation rate — fraction of queries this agent runs on.
       // Default 1.0 (always runs). Use for conditional agents that only
       // trigger on certain query types (e.g. an Image-Enhancer agent
       // that only fires on the 30% of requests mentioning images).
-      // Multiplies the monthly contribution so the bill reflects the
-      // expected average across queries, not the worst case.
       const activationRate = Number(agent.activation_rate);
       const activeRate = Number.isFinite(activationRate) && activationRate >= 0 && activationRate <= 1
         ? activationRate : 1.0;
-      const monthlyContrib = calls * perCall * llmCallMult * activeRate;
       // Itemized tool tokens (per query) — schema on every call + result
       // tokens modulated by return_shape. Billed once per query at the
-      // agent's model rate + cache rate (not multiplied by calls or the
-      // ReAct loop multiplier — enabled_tools.calls_per_query already
-      // expresses the per-query tool-call total).
+      // agent's model rate + cache rate.
       const toolInT = agentToolInputTokens(agent, w);
-      let toolCost = 0;
-      if (toolInT > 0) {
-        const toolCached = toolInT * eff;
-        toolCost = ((toolInT - toolCached) * rates.input_per_million / 1e6
-                    + toolCached * pCachedEff / 1e6) * mult * activeRate;
+
+      // Blend across shape mix: each shape contributes weight × per-shape
+      // monthly contribution. For mix="worst" with weights={full:1.0},
+      // the inner loop runs once with input_factor=output_factor=1 and
+      // produces the same result as the pre-fix single-shape compute.
+      let agentPerQuery = 0;
+      let blendedPerCall = 0;
+      let blendedToolCost = 0;
+      let weightSum = 0;
+      for (const [shapeName, weight] of Object.entries(mixWeights)) {
+        const shape = w.shapes && w.shapes[shapeName];
+        if (!shape || !(weight > 0)) continue;
+        const inFactor = shape.input_factor != null ? shape.input_factor : 1;
+        const outFactor = shape.output_factor != null ? shape.output_factor : 1;
+        const shapeCacheEligible = agent.cache_eligible && (shape.cache_eligible !== false);
+        const eff = shapeCacheEligible ? cacheRate : 0;
+
+        // Per-call input: variable input scales with shape, sysprompt + iamsg do not.
+        const effInT = inT * inFactor + sysAmortized + iaPerCall;
+        const cached = effInT * eff;
+        const uncached = effInT - cached;
+        const effOutT = outT * outFactor * agentOutMult;
+        const perCall = (
+          uncached * rates.input_per_million / 1e6 +
+          cached   * pCachedEff / 1e6 +
+          effOutT  * rates.output_per_million / 1e6
+        ) * mult;
+        const shapedToolInT = toolInT * inFactor;
+        let shapeToolCost = 0;
+        if (shapedToolInT > 0) {
+          const toolCached = shapedToolInT * eff;
+          shapeToolCost = ((shapedToolInT - toolCached) * rates.input_per_million / 1e6
+                          + toolCached * pCachedEff / 1e6) * mult * activeRate;
+        }
+        const shapeContrib = calls * perCall * llmCallMult * activeRate + shapeToolCost;
+        agentPerQuery += weight * shapeContrib;
+        blendedPerCall += weight * perCall;
+        blendedToolCost += weight * shapeToolCost;
+        weightSum += weight;
       }
-      total += monthlyContrib + toolCost;
+      if (weightSum > 0) {
+        agentPerQuery /= weightSum;
+        blendedPerCall /= weightSum;
+        blendedToolCost /= weightSum;
+      }
+
+      total += agentPerQuery;
       breakdown.push({
         id: agent.id, label: agent.label || agent.id,
         hosting, model: modelId, calls, input: inT, output: outT,
-        tool_input_tokens: toolInT, tool_cost: toolCost,
-        per_call_cost: perCall, per_query_cost: monthlyContrib + toolCost,
+        tool_input_tokens: toolInT, tool_cost: blendedToolCost,
+        per_call_cost: blendedPerCall, per_query_cost: agentPerQuery,
       });
     }
     return { per_query: total, breakdown };
