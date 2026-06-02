@@ -3,7 +3,7 @@
   "deployment": {
     "name": "EIE Cost Estimation (reproduction)",
     "agency": "NASA-IMPACT EIE-agent",
-    "description": "Reproduction of the EIE team's internal cost estimation document (2026-06-02). Maps their 'normal cycle' measurement (84,490 input / 70,656 cached / 854 output across 6 stages → $0.05/cycle) into the calc's agent model. Their headline math: 400 DAU × 50 cycles/user/day × 30 days × $0.05/cycle = $30K/mo unoptimized. This preset hits the same ~$30K headline (mix=worst, applyBotFactor=false, verification/FedRAMP/infra all off) so a procurement reviewer can pull on the same levers the paper exposes — switch mix to mixed (~$18K), enable FedRAMP (+15% on LLM line), turn on verification, or flip the tool-response architecture to see where the ~3-6× key-fields lever lands. The agent.input_tokens = 14,082 is between the public-geospatial-qa preset's templated anchor (2,933) and freeform anchor (23,740) — closer to a realistic key-fields midpoint, ~4.8× the templated floor.",
+    "description": "Reproduction. Maps the EIE team's 'normal cycle' measurement (84,490 input / 70,656 cached / 854 output across 6 stages → $0.05/cycle) into the calc's agent model. Their headline math: 400 DAU × 50 cycles/user/day × 30 days × $0.05/cycle = $30K/mo unoptimized — equivalent to MAU=10K, sessions/day=0.2, questions/session=10, no bot factor (10K × 0.2 × 10 × 30 = 600K cycles/mo). This preset hits the same ~$30K headline (mix=worst, applyBotFactor=false, verification/FedRAMP/infra all off) so a procurement reviewer can pull on the same levers the paper exposes — switch mix to mixed (~$18K), enable FedRAMP (+15% on LLM line), turn on verification, or flip the tool-response architecture to see where the ~3-6× key-fields lever lands. The agent.input_tokens = 14,062 sits between the public-geospatial-qa preset's templated anchor (2,933) and freeform anchor (23,740) — closer to a realistic key-fields midpoint, ~4.8× the templated floor.",
     "publicFacing": true,
     "fedrampTier": "none"
   },
@@ -16,7 +16,7 @@
     "cache_baseline_pre_averaged": true,
     "example": "Methane datasets over Alabama 2022 — dataset query → selection → location+year filter → datetime confirmation → location confirmation → run analysis (6 stages).",
     "_calibration": {
-      "source": "EIE Cost Estimation document (internal, 2026-06-02). Normal-cycle measurement on GPT-5.2.",
+      "source": "EIE Cost Estimation document. Normal-cycle measurement on GPT-5.2.",
       "method": "Per-stage average from EIE's table: 84,490 input / 6 stages = 14,082 input/turn; 70,656 cached / 84,490 input = 0.836 cache rate; 854 output / 6 stages = 142 output/turn. Per-call cost = 2,310 fresh × $1.75/M + 11,772 cached × $0.175/M + 142 × $14/M = $0.00809. Per-cycle (6 calls) ≈ $0.0485, EIE rounds to $0.05.",
       "supersedes": "Lower-anchor 'public-geospatial-qa' preset measured per-turn input at 2,933 (templated) / 23,740 (freeform). EIE's 14,082/turn sits ~4.8× the templated floor — between the paper's reproduced 'key-fields midpoint' (~3×) and full freeform (~8×). Useful for reasoning about EIE's $30K/mo claim against the paper's $1.5K/mo templated baseline.",
       "eie_cycle_variants": {
@@ -31,21 +31,73 @@
     }
   },
 
-  "tool_response_mode": "freeform",
-  "tools_registry": {},
+  "tool_response_mode": "templated",
+  "tools_registry": {
+    "set_datetime": {
+      "label": "parse_datetime",
+      "description": "Validate and normalize a date range (Stage 3 / Stage 4 of the EIE cycle). Templated returns the parsed interval + confirmation prompt.",
+      "cost_shape": "free", "rate_usd": 0, "schema_tokens": 0, "result_tokens_avg": 25, "cap_tokens": 25,
+      "provider": "self-hosted", "builtin": false
+    },
+    "get_place": {
+      "label": "geocode",
+      "description": "Resolve a place name to bbox + admin geometry (Stage 3 / Stage 5 of the EIE cycle). Templated returns confirmation; freeform returns the full GeoJSON polygon.",
+      "cost_shape": "free", "rate_usd": 0, "schema_tokens": 0, "result_tokens_avg": 250, "cap_tokens": 26,
+      "provider": "self-hosted", "builtin": false
+    },
+    "collections_rag": {
+      "label": "search_collections",
+      "description": "Semantic search over the STAC catalog (Stage 1 of the EIE cycle — 'I want methane datasets'). Templated returns just the count + selection prompt; freeform returns the Top-K collection metadata.",
+      "cost_shape": "free", "rate_usd": 0, "schema_tokens": 0, "result_tokens_avg": 1500, "cap_tokens": 10,
+      "provider": "self-hosted", "builtin": false
+    },
+    "select_collection": {
+      "label": "select_collection",
+      "description": "Records the user's collection + variable selection (Stage 2 of the EIE cycle — 'ct-ch4-monthgrid-v2025'). Small either way.",
+      "cost_shape": "free", "rate_usd": 0, "schema_tokens": 0, "result_tokens_avg": 16, "cap_tokens": 16,
+      "provider": "self-hosted", "builtin": false
+    },
+    "stac_search": {
+      "label": "search_items",
+      "description": "Enumerate catalog items inside the AOI and datetime window (Stage 6 of the EIE cycle — 'run analysis on items'). Templated returns just the count; freeform returns the full STAC item array.",
+      "cost_shape": "free", "rate_usd": 0, "schema_tokens": 0, "result_tokens_avg": 18435, "cap_tokens": 27,
+      "provider": "self-hosted", "builtin": false
+    },
+    "stats": {
+      "label": "compute_stats",
+      "description": "Per-item zonal statistics (Stage 6 of the EIE cycle). Templated returns just the count; freeform returns the per-item stats dictionaries.",
+      "cost_shape": "free", "rate_usd": 0, "schema_tokens": 0, "result_tokens_avg": 600, "cap_tokens": 7,
+      "provider": "self-hosted", "builtin": false
+    },
+    "viz": {
+      "label": "render_map",
+      "description": "Build a raster tile URL for the selected items + AOI (Stage 6 of the EIE cycle). Small either way — visualization metadata is bounded.",
+      "cost_shape": "free", "rate_usd": 0, "schema_tokens": 0, "result_tokens_avg": 100, "cap_tokens": 8,
+      "provider": "self-hosted", "builtin": false
+    }
+  },
 
   "agents": [
     {
       "id": "eie-agent",
       "label": "EIE Agent (NASA-IMPACT, 6-stage cycle)",
-      "input_tokens": 14082,
+      "input_tokens": 14062,
       "output_tokens": 142,
       "calls_per_query": 6,
       "sysprompt_tokens": 0,
       "model": "gpt-5.2",
       "cache_eligible": true,
       "hosting": "api",
-      "description": "EIE-agent's measured per-cycle behavior, mapped into the calc. Per call: 14,082 input tokens / 142 output tokens / 0.836 cache rate at GPT-5.2 pricing → $0.00809 per call. 6 calls per cycle → $0.0485 per cycle ≈ EIE's stated $0.05. All input/sysprompt/tool-return tokens are baked into the agent.input_tokens single value; the engine reads this as 'per-call total input' and applies cache_rate_baseline to it. To model the 'long with clarifications' scenario, raise calls_per_query to 10."
+      "description": "EIE-agent's measured per-cycle behavior. Per call: 14,062 fresh conversation-history input + 142 output at 0.836 cache rate, GPT-5.2 pricing. Tool returns add once per query (sum 119 tok templated, 20,926 tok freeform). Per query: 6 × 14,062 + 119 = 84,491 ≈ EIE's measured 84,490 input/cycle. Per cycle ≈ $0.0485 ≈ EIE's stated $0.05. Switch tool_response_mode to freeform (or flip individual tools' RETURN SHAPE) to see the heavy-payload variant — EIE's 'normal cycle' was measured under their typical templated/key-fields tool returns. To model the 'long with clarifications' scenario, raise calls_per_query to 10.",
+      "enabled_tools": {
+        "set_datetime":      { "calls_per_query": 1 },
+        "get_place":         { "calls_per_query": 1 },
+        "collections_rag":   { "calls_per_query": 1 },
+        "select_collection": { "calls_per_query": 1 },
+        "stac_search":       { "calls_per_query": 1 },
+        "stats":             { "calls_per_query": 1 },
+        "viz":               { "calls_per_query": 1 }
+      }
     }
   ],
 

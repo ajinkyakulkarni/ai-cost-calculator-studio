@@ -3543,8 +3543,10 @@ input[type=range]:disabled { cursor: not-allowed; }
        original buttons (id=share-btn etc.) live inside the dropdown so
        all existing event handlers in app.js still find them. -->
   <div class="appbar-menu" id="appbar-share-menu">
-    <button class="appbar-menu-trigger" type="button" id="appbar-share-trigger" aria-haspopup="menu" aria-expanded="false">
-      <span>Share / Export</span>
+    <button class="appbar-menu-trigger" type="button" id="appbar-share-trigger" aria-haspopup="menu" aria-expanded="false" aria-label="Share / Export" title="Share / Export">
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16" width="14" height="14" aria-hidden="true" focusable="false">
+        <path fill="currentColor" d="M8 1.5L4 5.5h2.5v5h3v-5H12L8 1.5zM3 12v2h10v-2h1.5v3.5h-13V12H3z"/>
+      </svg>
       <span class="caret">▾</span>
     </button>
     <div class="appbar-menu-panel" role="menu" hidden>
@@ -3575,12 +3577,16 @@ input[type=range]:disabled { cursor: not-allowed; }
   <button id="help-btn" class="appbar-menu-trigger" title="Open the welcome tour" aria-label="Help" style="margin-right:6px;padding:4px 10px;font-weight:600">?</button>
   <!-- Global theme switcher — themes apply to the whole app (calc + simulator).
        Mission is default (light, cool); Command is light/warm; Tactical is
-       dark. Buttons use the simulator's setTheme() defined in the inlined script. -->
-  <div class="theme-switcher app-theme-switcher" title="Switch app theme">
-    <button class="theme-btn" data-theme="tactical" onclick="setTheme('tactical')" title="Dark — high-contrast for low-light reviews">Dark</button>
-    <button class="theme-btn active" data-theme="mission" onclick="setTheme('mission')" title="Light cool — default">Light</button>
-    <button class="theme-btn" data-theme="command" onclick="setTheme('command')" title="Light warm — softer on the eyes">Warm</button>
-  </div>
+       dark. Dropdown calls the simulator's setTheme() defined in the inlined
+       script. Was a 3-button pill (~210px) — collapsed to a dropdown (~85px)
+       so the appbar fits in one row at typical viewport widths. -->
+  <select id="appbar-theme-select" title="Switch app theme" aria-label="App theme"
+          style="cursor:pointer;font:inherit;color:inherit;background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.18);border-radius:6px;padding:4px 8px;font-size:10.5px;font-weight:600;letter-spacing:0.04em;text-transform:uppercase"
+          onchange="try{setTheme(this.value);}catch(_){}">
+    <option value="mission" selected>Light</option>
+    <option value="tactical">Dark</option>
+    <option value="command">Warm</option>
+  </select>
   <!-- Live cost badge — always visible, click to jump to Report tab -->
   <div id="cost-pill" class="cost-pill" title="All-in monthly: API cost + infra + verification + reservations + personnel + ATO. Click to view full cost report.">
     <span class="cb-label" data-tip="Headline figure rolling up everything: API/self-host LLM cost + verification + federal additives + fixed infra + reservations + personnel + agent-engineering amortization. Updates live as you change inputs. Hover the number itself to see the line-by-line derivation, or jump to the Report section for the full breakdown.">Total / mo (all-in)</span>

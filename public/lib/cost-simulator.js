@@ -2163,6 +2163,10 @@ function setTheme(t){
   document.body.classList.add('theme-'+t);
   document.querySelectorAll('.simulator-pane').forEach(p=>p.classList.add('theme-'+t));
   document.querySelectorAll('.theme-btn').forEach(b=>b.classList.toggle('active',b.dataset.theme===t));
+  // Keep the appbar dropdown in sync — it replaced the 3-button pill but
+  // setTheme can still be called from restoreTheme() or programmatic paths.
+  const dd=document.getElementById('appbar-theme-select');
+  if(dd && dd.value!==t) dd.value=t;
   try{ localStorage.setItem('ccs-theme', t); }catch(_){}
   setTimeout(()=>{
     try{updateCostPanel();renderLedger();updateSensitivity();}catch(e){}
