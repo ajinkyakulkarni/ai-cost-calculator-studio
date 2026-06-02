@@ -1138,12 +1138,48 @@ function _agentEffectiveVal(a,k){
   const el=document.getElementById(sid);
   return el?(parseFloat(el.value)||0):0;
 }
+// Per-agent slider tooltips. The site-wide tooltip handler binds via
+// event delegation on [data-tip] and renders a markdown-aware popup
+// (see index.html .js-tooltip). Keyed by slider name (agentRangeCtl's
+// `k` arg) so call sites stay clean — adding a new agent slider gets
+// its tooltip by registering here, not by threading another arg through.
+const AGENT_SLIDER_TIPS = {
+  turnsShare:      "### Turn share ×\nRelative weight in this agent's turns vs. the global Turns/session slider. ×1 = matches global; ×0.5 = half (orchestrator that fires once while workers loop); ×2 = double (drafter that revises repeatedly). Multiplies this agent's per-query LLM call count, so a ×2 agent on a 6-turn workload bills 12 calls/query.",
+  cache_rate:      "### Per-agent cache hit rate\nOverrides the workload-wide Cache slider for this agent only. Useful when one agent has a stable cache-hot sysprompt (high rate) and another rewrites context every call (low rate). Leave at 0 to inherit the workload-wide rate — set explicitly when you've measured this agent's cache behavior.",
+  temp:            "### Sampling temperature\nCost-neutral (doesn't change token counts). Lower values produce more deterministic output, which marginally reduces retry rate when you have schema-strict responses. Raise for creative generation where output variance is wanted. Doesn't enter the cost engine directly.",
+  maxOut:          "### Max output tokens (per call)\nHard cap on this agent's output per call. Lower = lower per-call output bill — important for high-volume terse agents (router, classifier). Set generously for long-form agents (drafter, summarizer). Output tokens are typically 5–20× more expensive per million than input on major models.",
+  sysprompt:       "### System prompt size\nPer-agent system prompt in tokens. Bills at the cached input rate after the first call (~10% of fresh input), so a 3,000-tok sysprompt on a cache-eligible agent is cheap. But it still amortizes across calls_per_query — a one-shot agent eats it once per query, a 6-call agent splits it across calls so the per-call impact is smaller.",
+  iamsg:           "### Inter-agent message tokens\nStructured payload one agent passes to the next on every call (router → worker, planner → drafter). Added to input on every call, typically NOT cached (changes per query). Sums up fast in chatty fleets — a 500-tok handoff × 6 calls × 1M queries = 3B input tokens/month.",
+  fewshot:         "### Few-shot example tokens\nNumber of inline examples in the prompt. Each example is typically 100–500 input tokens; they're cached across calls but compete for context-window space. Drop to 0 if the agent is well-tuned by its system prompt alone; raise when you need consistent output formatting that schema alone won't enforce.",
+  jsonschema:      "### JSON schema tokens\nSchema specification injected on every call when using structured output (`response_format` / tool-use schema). Typically 100–800 tokens depending on schema depth. Most providers cache it; some (older Bedrock/Vertex SDKs) re-send fresh each call — check your provider's caching docs before assuming the cache saves you.",
+  memory:          "### Persistent memory tokens\nLong-term agent memory injected on every call (user preferences, project context, prior decisions). Distinct from RAG (query-triggered retrieval) — memory is always-on context. Eats cache budget but cheap in steady state since it changes slowly. Watch for memory bloat — most production systems summarize periodically.",
+  citations:       "### Citation output tokens\nExtra output tokens for citations / source references. Adds to output bill — at GPT-5.2 output prices ($14/M) and 500 citations × 30 tok = 15K tok/query, that's about $0.21/query of pure citation cost. Track this on RAG-heavy agents; consider compressing to footnote-style refs.",
+  activation_rate: "### Activation rate (% queries)\nWhat fraction of queries this agent fires on. 100 = runs on every query; 30 = only on 30% (e.g. a refusal-detection agent that triggers on flagged input). Lowers this agent's effective per-query cost proportionally — useful for modeling conditional fleets where some agents are rare.",
+  rag_chunks:      "### Retrieved chunks per call\nNumber of chunks the retriever returns and stuffs into the prompt. More chunks = better recall but linearly more input tokens. Production systems typically land at 5–10; >15 hits diminishing returns and starts to push the context window. Set to 0 if this agent doesn't do RAG.",
+  rag_size:        "### Tokens per chunk\nSize of each retrieved chunk. Smaller chunks (256–512 tok) = sharper relevance signal but more chunks needed for coverage; larger (1024–2048) = better continuity but more tokens per hit. 512 is a common default — tune based on your corpus's natural document granularity.",
+  rag_calls:       "### Retrieval calls per query\nHow many separate retrieval queries this agent makes per user query. 1 = single retrieval pass; 3+ = iterative / multi-hop (decompose query → retrieve per sub-question → synthesize). Each call multiplies the RAG token bill — watch this on agents with complex query plans.",
+  think_tok:       "### Thinking budget\nTokens for the model's internal reasoning trace (Claude extended thinking, OpenAI o-series reasoning, Gemini thinking). Billed at output-token rates even though invisible to the end user. Higher budget = more deliberation, slower latency, higher cost. 5,000 is a common 'medium' setting; high-stakes math/code goes to 32K+.",
+  think_pct:       "### Reasoning turns (%)\nFraction of this agent's turns that engage extended thinking. Not every turn needs deep reasoning — a router classifying intent doesn't; a planner deciding next 5 steps does. Set 100 if every turn reasons; 20 if only the planning turn does. Multiplies with Thinking budget for the total reasoning bill.",
+  cot:             "### CoT steps\nExplicit chain-of-thought steps prompted in the visible response (separate from Thinking budget's internal trace). Each step adds ~50–150 output tokens of visible reasoning before the final answer. Use 0 for terse responses; 3–5 for stepwise explanations users can verify.",
+  factcheck:       "### Fact-check passes\nExtra LLM passes that verify the response against source material (RAG context, tool returns). Each pass roughly doubles the per-query LLM bill — use sparingly on high-stakes outputs (medical, legal, financial). 0 = off; 1 = single check; 2+ = ensemble. Distinct from the workload-level verification block which uses cheap NLI models.",
+  guard_in:        "### Input guard tokens\nTokens spent screening input for prompt injection, jailbreaks, PII before it reaches the main model. Free with built-in moderation (OpenAI Moderation API, Anthropic safety); ~$0.20/M tokens via Llama Guard or similar self-hosted. Required for regulated workloads; skip for low-risk internal tooling.",
+  guard_out:       "### Output guard tokens\nTokens spent screening model output for policy violations, hallucinated PII, or unsafe content before returning to the user. Same models / prices as input guards. Sometimes skipped on cached / templated outputs that don't need re-checking; required when generating free-form responses to end users.",
+  guard_pii:       "### PII scan tokens\nTokens specifically scanning for personally identifiable information (names, SSNs, emails, addresses). Required for HIPAA, GDPR, FedRAMP workloads. Usually folded into a single Llama-Guard call — keep at 0 if your guard_in/guard_out model already covers PII. Don't double-count.",
+  guard_policy:    "### Policy enforcement tokens\nTokens enforcing org-specific policies — banned topics, regulated phrases, brand-voice rules. Custom-prompted, so cost varies widely. Tends to be higher than generic safety guards because the policy specification itself eats input tokens on every call. Tune by measuring real policy-prompt size in your stack.",
+};
+
 function agentRangeCtl(a,scope,k,label,min,max,step,color,type='int'){
   const v=_agentEffectiveVal(a,k);
   const lid=`a-${scope}-${a.id}-${k}`;            // visual value id (existing)
   const labelId=`alb-${scope}-${a.id}-${k}`;      // a11y label-id (new) — referenced by aria-labelledby on the input
   const cast=type==='float'?'parseFloat(this.value)':'parseInt(this.value)';
-  return `<div class="agent-mini-range"><div class="mini-label"><span id="${labelId}">${label}</span><span class="mini-val" id="${lid}" style="color:${color}" aria-hidden="true">${fmtAgentVal(k,v)}</span></div><input type="range" min="${min}" max="${max}" value="${v}" step="${step}" aria-labelledby="${labelId}" aria-valuetext="${fmtAgentVal(k,v)}" oninput="setAP(${a.id},'${k}',${cast},'${lid}',v=>fmtAgentVal('${k}',v))"></div>`;
+  // Pull tooltip from the central map — keeps the call sites in agentCardHtml
+  // free of per-slider markup and centralizes the content. Missing keys
+  // render the label without an underline (no-tooltip).
+  const tip=AGENT_SLIDER_TIPS[k];
+  const labelClass=tip?' class="sr-label"':'';
+  const tipAttr=tip?` data-tip="${tip.replace(/"/g,'&quot;')}"`:'';
+  return `<div class="agent-mini-range"><div class="mini-label"><span id="${labelId}"${labelClass}${tipAttr}>${label}</span><span class="mini-val" id="${lid}" style="color:${color}" aria-hidden="true">${fmtAgentVal(k,v)}</span></div><input type="range" min="${min}" max="${max}" value="${v}" step="${step}" aria-labelledby="${labelId}" aria-valuetext="${fmtAgentVal(k,v)}" oninput="setAP(${a.id},'${k}',${cast},'${lid}',v=>fmtAgentVal('${k}',v))"></div>`;
 }
 function agentSection(title,color,on,body){
   // OFF state: distinguish via border + a tinted muted status pill, but
