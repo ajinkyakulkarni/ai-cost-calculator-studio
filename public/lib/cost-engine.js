@@ -621,7 +621,17 @@
   function effectiveCachedRate(rates, writeShare) {
     const pIn    = rates.input_per_million;
     const pRead  = rates.cached_per_million != null ? rates.cached_per_million : pIn * 0.1;
-    const pWrite = rates.cached_write_per_million != null ? rates.cached_write_per_million : pIn;
+    // Anthropic-style explicit caching publishes a distinct cache-write rate
+    // (typically 1.25× input for the 5-minute cache). OpenAI/Gemini auto-prefix
+    // caching has no separate write rate — first-occurrence tokens pay regular
+    // input price, subsequent occurrences pay cached_read. Blending a
+    // user-tuned writeShare against an inferred pWrite=pIn fallback double-bills
+    // OpenAI workloads (the EIE preset was 19% over its measured $30K because
+    // a 10% Anthropic-default writeShare slider got applied to GPT-5.2). When
+    // the rate card has no cached_write_per_million, treat the cached rate as
+    // pure cached_read — steady-state pricing the way OpenAI bills.
+    if (rates.cached_write_per_million == null) return pRead;
+    const pWrite = rates.cached_write_per_million;
     const w      = (writeShare != null && !isNaN(writeShare)) ? writeShare : 0;
     return w * pWrite + (1 - w) * pRead;
   }
