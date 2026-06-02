@@ -1139,6 +1139,37 @@
     'bedrock-provisioned': 10950,  // 1 model unit × $15/hr × 730h
     'azure-ptu':           10000,  // 1 PTU × ~$13.70/hr × 730h
   };
+  // Sustained NLI calls/sec per unit at typical input shapes (~1.2K-token
+  // premise + atom hypothesis). Used to scale flat-rate hosting by the
+  // verifier variant: fr1's 24 calls/q fits in fewer units than fr2's 160,
+  // so picking fr2 forces additional units once peak NLI throughput
+  // exceeds one unit's capacity. Without this, switching variants on a
+  // flat-rate hosting option would not change cost at all — the procurement
+  // reviewer would see fr1 ≡ fr2 ≡ fr3 in the headline.
+  // Per-unit values are conservative batched-inference estimates for a
+  // small NLI classifier (BERT-large class):
+  //   ec2-g6 (1×L4 24GB):  ~80 calls/sec
+  //   ec2-g5 (1×A10 24GB): ~120 calls/sec
+  //   Bedrock / PTU: 1 model-unit ≈ 250 calls/sec for small models
+  const NLI_HOSTING_FLAT_THROUGHPUT = {
+    'ec2-g6':              80,
+    'ec2-g5':              120,
+    'bedrock-provisioned': 250,
+    'azure-ptu':           250,
+  };
+  // Compute how many flat-rate units (GPUs / model units / PTUs) are
+  // required to sustain the peak NLI throughput for a given
+  // verifiedCount × nliCallsPerQuery. Uses the same diurnal × headroom
+  // scaling as the LLM self-host sizing (see computeSelfHost). Returns
+  // a minimum of 1 (you can't rent half a GPU).
+  function _nliFlatUnitsRequired(verifiedCount, nliCallsPerQuery, nliHosting, workload) {
+    const throughputPerUnit = NLI_HOSTING_FLAT_THROUGHPUT[nliHosting] || 100;
+    const diurnal = (workload && workload.self_host && workload.self_host.diurnal_peak_factor) || 4;
+    const headroom = (workload && workload.self_host && workload.self_host.headroom) || 1.5;
+    const meanCallsPerSec = (verifiedCount * nliCallsPerQuery) / (30 * 86400);
+    const peakCallsPerSec = meanCallsPerSec * diurnal * headroom;
+    return Math.max(1, Math.ceil(peakCallsPerSec / throughputPerUnit));
+  }
   // Per-token-priced hosting modes. Multiplier applied to the resolved
   // per-token cost from the rate card. Bedrock on-demand and Azure
   // OpenAI typically bill at parity with the source provider's direct
@@ -1184,11 +1215,15 @@
     const factscoreLlmPerQuery = preset.llmPerAtomTokens ? atoms * tokenCost(preset.llmPerAtomTokens) : 0;
     const nliHosting = opts.nliHosting || v.nli_hosting || 'api';
     let nliMonthly;
+    let nliFlatUnits = null;
     if (NLI_HOSTING_TOKEN_MULT[nliHosting] != null) {
       const nliPerCall = tokenCost(v.nli_tokens || { input: 1200, output: 20 });
       nliMonthly = verifiedCount * nliCallsPerQuery * nliPerCall * NLI_HOSTING_TOKEN_MULT[nliHosting];
+    } else if (NLI_HOSTING_FLAT[nliHosting] != null) {
+      nliFlatUnits = _nliFlatUnitsRequired(verifiedCount, nliCallsPerQuery, nliHosting, w);
+      nliMonthly = nliFlatUnits * NLI_HOSTING_FLAT[nliHosting];
     } else {
-      nliMonthly = NLI_HOSTING_FLAT[nliHosting] || 0;
+      nliMonthly = 0;
     }
     const retrieval = opts.retrieval || v.retrieval || 'wikipedia';
     const retrievalMonthly = retrieval === 'serper' ? verifiedCount * atoms * (5 / 1000) : 0;
@@ -1458,9 +1493,14 @@
       // multiply by `atoms` again. See VARIANT_NLI_CALLS comment.
       const nliPerCall = tokenCost(v.nli_tokens || { input: 1200, output: 20 });
       nliMonthly = verifiedQueries * nliCallsPerQuery * nliPerCall * NLI_HOSTING_TOKEN_MULT[nliHosting];
+    } else if (NLI_HOSTING_FLAT[nliHosting] != null) {
+      // Flat-rate hosting (EC2 / Bedrock provisioned / Azure PTU). Scale by
+      // the units required to sustain peak NLI throughput so the variant
+      // actually affects cost once volume exceeds one unit's capacity.
+      const units = _nliFlatUnitsRequired(verifiedQueries, nliCallsPerQuery, nliHosting, w);
+      nliMonthly = units * NLI_HOSTING_FLAT[nliHosting];
     } else {
-      // Flat-rate hosting (EC2 / Bedrock provisioned / Azure PTU).
-      nliMonthly = NLI_HOSTING_FLAT[nliHosting] || 0;
+      nliMonthly = 0;
     }
 
     // Retrieval: wikipedia is free; serper is ~$5 per 1000 calls (atoms).
