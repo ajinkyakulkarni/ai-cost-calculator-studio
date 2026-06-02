@@ -1980,7 +1980,12 @@ function updateKPIs(){
 /* ═══════ ONSLIDER ═══════ */
 function onSlider(){
   const sv=(id,fmt)=>{const el=document.getElementById('v-'+id);if(el)el.textContent=fmt(cfg('s-'+id));};
-  sv('agents',v=>v);sv('users',v=>v.toLocaleString());sv('turns',v=>v);sv('sessions',v=>v.toLocaleString());
+  const svF=(id,fmt)=>{const el=document.getElementById('v-'+id);if(el)el.textContent=fmt(cfgF('s-'+id));};
+  sv('agents',v=>v);sv('users',v=>v.toLocaleString());sv('turns',v=>v);
+  // s-sessions is a float slider (step 0.01, range 0.01-10) — reading via
+  // cfg() (parseInt) silently floors 0.2 → 0 and renders "Daily return
+  // rate 0". Use the float reader so sub-1 values display honestly.
+  svF('sessions',v=>v.toLocaleString(undefined,{maximumFractionDigits:2}));
   document.getElementById('v-cache').textContent=cfg('s-cache')+'%';
   document.getElementById('v-cache-write-share').textContent=cfg('s-cache-write-share')+'%';
   document.getElementById('v-batch').textContent=cfg('s-batch')+'%';
@@ -2164,23 +2169,19 @@ function setTheme(t){
   document.querySelectorAll('.simulator-pane').forEach(p=>p.classList.add('theme-'+t));
   document.querySelectorAll('.theme-btn').forEach(b=>b.classList.toggle('active',b.dataset.theme===t));
   // Keep the appbar dropdown in sync — it replaced the 3-button pill but
-  // setTheme can still be called from restoreTheme() or programmatic paths.
+  // setTheme can still be called from programmatic paths.
   const dd=document.getElementById('appbar-theme-select');
   if(dd && dd.value!==t) dd.value=t;
-  try{ localStorage.setItem('ccs-theme', t); }catch(_){}
   setTimeout(()=>{
     try{updateCostPanel();renderLedger();updateSensitivity();}catch(e){}
     const ac=document.getElementById('arch-canvas');
     if(ac){const ctx2=ac.getContext('2d');const tc=getChartColors();ctx2.fillStyle=tc.bg;ctx2.fillRect(0,0,ac.width,ac.height);}
   },60);
 }
-// Restore saved theme on load (default: mission).
-(function restoreTheme(){
-  let t='mission';
-  try{ t = localStorage.getItem('ccs-theme') || 'mission'; }catch(_){}
-  if(!['tactical','mission','command'].includes(t)) t='mission';
-  // Defer until DOM (and simulator init) is ready.
-  const apply = () => { try{ setTheme(t); }catch(e){ console.warn('setTheme deferred:',e); setTimeout(apply,200);} };
+// Apply default theme on load (mission). No persistence across reloads —
+// the dropdown is the in-session source of truth.
+(function applyDefaultTheme(){
+  const apply = () => { try{ setTheme('mission'); }catch(e){ console.warn('setTheme deferred:',e); setTimeout(apply,200);} };
   if(document.readyState==='loading') document.addEventListener('DOMContentLoaded',apply);
   else apply();
 })();
@@ -2607,11 +2608,14 @@ window.__setSimulatorFromWorkload = function(workload) {
     if (sCache) sCache.value = String(Math.round(aq.cache_rate_baseline * 100));
   }
 
-  // 2. Turns slider
-  if (aq.session_baseline_turns != null) {
-    const sTurns = document.getElementById('s-turns');
-    if (sTurns) sTurns.value = String(Math.max(1, Math.round(aq.session_baseline_turns)));
-  }
+  // 2. Turns slider — INTENTIONALLY skipped here. The s-turns slider maps
+  // to segments[].questions_per_session (user-level questions per session),
+  // which is already written by syncAxiomSlidersFromSegments() before this
+  // function runs. anchor_query.session_baseline_turns is a different
+  // concept (the per-call granularity at which cache_rate_baseline was
+  // measured) and overwriting s-turns from it clobbers the workload's
+  // questions_per_session — visible in the EIE preset where the two
+  // values legitimately diverge (questions=10, baseline_turns=6).
 
   // 3. MAU slider (sum of segments)
   const segs = Array.isArray(workload.segments) ? workload.segments : [];

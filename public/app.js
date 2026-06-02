@@ -4258,14 +4258,14 @@ Production teams measure their primary's confidence-score distribution; escalate
       // explains itself again.
       window.__promoteToastShown = false;
       window.__restoreMeasuredBadge?.();
-      // Remember the slug for the ↻ Reset button so a returning user can
-      // undo URL-hash drift without hunting through the dropdown.
-      try { localStorage.setItem('calc.lastPresetSlug', slug); } catch (_) {}
+      // Remember the slug in-session so the ↻ Reset button can undo any
+      // URL-hash drift the user introduces by tweaking sliders.
+      // Intentionally NOT persisted across reloads — fresh page = fresh state.
       window.__currentPresetSlug = slug;
       const resetBtn = document.getElementById('reset-preset-btn');
       if (resetBtn) {
         resetBtn.style.display = '';
-        resetBtn.title = `Reset to ${slug} defaults (undoes URL-hash drift from prior sessions)`;
+        resetBtn.title = `Reset to ${slug} defaults`;
       }
     }
     document.getElementById('example-loader')?.addEventListener('change', async (e) => {
@@ -4275,22 +4275,8 @@ Production teams measure their primary's confidence-score distribution; escalate
       catch (err) { alert(`Failed to load ${slug}: ${err.message}`); }
       finally { e.target.value = ''; }
     });
-    // Restore reset-button visibility on page load if user has loaded a
-    // preset before (slug persisted across reloads via localStorage).
-    try {
-      const lastSlug = localStorage.getItem('calc.lastPresetSlug');
-      if (lastSlug) {
-        window.__currentPresetSlug = lastSlug;
-        const resetBtn = document.getElementById('reset-preset-btn');
-        if (resetBtn) {
-          resetBtn.style.display = '';
-          resetBtn.title = `Reset to ${lastSlug} defaults (undoes URL-hash drift from prior sessions)`;
-        }
-      }
-    } catch (_) {}
     document.getElementById('reset-preset-btn')?.addEventListener('click', async () => {
-      const slug = window.__currentPresetSlug
-        || (() => { try { return localStorage.getItem('calc.lastPresetSlug'); } catch (_) { return null; } })();
+      const slug = window.__currentPresetSlug;
       if (!slug) return;
       try { await applyPresetSlug(slug); }
       catch (err) { alert(`Failed to reset to ${slug}: ${err.message}`); }
