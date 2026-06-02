@@ -82,9 +82,9 @@
       // workload. Without this default the engine treats cache_write_share=0
       // (OpenAI auto-prefix assumption), which under-estimates Anthropic by
       // ~5-10% in model comparisons. Override via s-cache-write-share slider.
-      'claude-opus-4.7': { input_per_million: 5.00, cached_per_million: 0.50,  output_per_million: 25.00, provider: 'Anthropic',  cache_write_share_default: 0.10, source_url: 'https://www.anthropic.com/pricing', last_verified: '2026-04-25' },
-      'claude-sonnet-4.6': { input_per_million: 3.00, cached_per_million: 0.30,  output_per_million: 15.00, provider: 'Anthropic',  cache_write_share_default: 0.10, source_url: 'https://www.anthropic.com/pricing', last_verified: '2026-04-25' },
-      'claude-haiku-4.5':{ input_per_million: 0.80, cached_per_million: 0.08,  output_per_million:  4.00, provider: 'Anthropic',  cache_write_share_default: 0.10, source_url: 'https://www.anthropic.com/pricing', last_verified: '2026-04-25' },
+      'claude-opus-4.7': { input_per_million: 5.00, cached_per_million: 0.50,  cached_write_per_million: 6.25,  output_per_million: 25.00, provider: 'Anthropic',  cache_write_share_default: 0.10, source_url: 'https://www.anthropic.com/pricing', last_verified: '2026-04-25' },
+      'claude-sonnet-4.6': { input_per_million: 3.00, cached_per_million: 0.30,  cached_write_per_million: 3.75,  output_per_million: 15.00, provider: 'Anthropic',  cache_write_share_default: 0.10, source_url: 'https://www.anthropic.com/pricing', last_verified: '2026-04-25' },
+      'claude-haiku-4.5':{ input_per_million: 0.80, cached_per_million: 0.08,  cached_write_per_million: 1.00,  output_per_million:  4.00, provider: 'Anthropic',  cache_write_share_default: 0.10, source_url: 'https://www.anthropic.com/pricing', last_verified: '2026-04-25' },
       'gemini-3.1-pro':  { input_per_million: 2.00, cached_per_million: 0.20,  output_per_million: 12.00, provider: 'Google',     source_url: 'https://ai.google.dev/pricing',     last_verified: '2026-04-25' },
     },
 
