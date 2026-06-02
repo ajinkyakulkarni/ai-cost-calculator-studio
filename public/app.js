@@ -2584,7 +2584,7 @@ Production teams measure their primary's confidence-score distribution; escalate
             <div style="font-family: var(--sans); font-size: 11px; color: var(--muted); margin-bottom: 4px;">
               <strong>Marginal benefit:</strong> cost rises linearly with coverage; hallucination-catch saturates. Diminishing returns above ~30% coverage.
             </div>
-            <svg width="100%" viewBox="0 0 ${W} ${H}" style="display:block;">
+            <svg width="100%" viewBox="0 0 ${W} ${H}" style="display:block; max-width: 360px;">
               <line x1="${padL}" y1="${padT + plotH}" x2="${padL + plotW}" y2="${padT + plotH}" stroke="#999" stroke-width="0.5"/>
               <line x1="${padL}" y1="${padT}" x2="${padL}" y2="${padT + plotH}" stroke="#999" stroke-width="0.5"/>
               <path d="${costPath}" stroke="#8b2331" fill="none" stroke-width="1.5"/>
@@ -2862,11 +2862,12 @@ Production teams measure their primary's confidence-score distribution; escalate
     const denom = sessionsPerUser * turnsPerSession * 30 * bot;
     const maxMAU = denom > 0 ? Math.floor(queriesAffordable / denom) : 0;
     const currentMAU = Math.round((workload.segments?.[0]?.mau) || 0);
-    const fitsCurrent = budget >= currentHeadline;
+    const fitsCurrent = budget >= Math.round(currentHeadline);
     // Headline message
     let headline;
     if (fitsCurrent) {
-      headline = `<strong>✓ Your $${fmtNum(budget)}/mo budget covers the current $${fmtNum(Math.round(currentHeadline))}/mo deployment</strong> with $${fmtNum(Math.round(budget - currentHeadline))}/mo headroom (${Math.round((budget - currentHeadline) / budget * 100)}%).`;
+      const headroom = Math.max(0, budget - currentHeadline);
+      headline = `<strong>✓ Your $${fmtNum(budget)}/mo budget covers the current $${fmtNum(Math.round(currentHeadline))}/mo deployment</strong> with $${fmtNum(headroom)}/mo headroom (${Math.round(headroom / budget * 100)}%).`;
     } else if (maxMAU >= currentMAU) {
       headline = `<strong>Affordable scale at $${fmtNum(budget)}/mo: up to <span style="color:var(--accent)">${fmtNum(maxMAU)} MAU</span></strong>`;
     } else {
