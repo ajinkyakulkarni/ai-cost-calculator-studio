@@ -12,7 +12,8 @@
     "input_tokens": 14082,
     "output_tokens": 142,
     "cache_rate_baseline": 0.836,
-    "session_baseline_turns": 10,
+    "session_baseline_turns": 6,
+    "cache_baseline_pre_averaged": true,
     "example": "Methane datasets over Alabama 2022 — dataset query → selection → location+year filter → datetime confirmation → location confirmation → run analysis (6 stages).",
     "_calibration": {
       "source": "EIE Cost Estimation document (internal, 2026-06-02). Normal-cycle measurement on GPT-5.2.",

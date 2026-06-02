@@ -400,7 +400,7 @@ If you use this toolkit in published work or a procurement document:
 
 ```bibtex
 @misc{kulkarni2026cost,
-  author = {Kulkarni, Ajinkya},
+  author = {Kulkarni, Ajinkya and Parajuli, Paridhi},
   title  = {Cost Modeling for Public-Facing {LLM} Chat Applications:
             Token Math, Self-Host Break-Even, and Empirical Calibration},
   year   = {2026},

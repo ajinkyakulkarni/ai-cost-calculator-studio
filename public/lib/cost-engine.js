@@ -589,6 +589,23 @@
     const turnAdj = Math.min(TURN_ADJ_BOUND, Math.max(-TURN_ADJ_BOUND, rawAdj));
     return Math.min(0.99, Math.max(0, baseline + turnAdj));
   }
+  // Resolve the effective cache rate, honoring an opt-in escape hatch.
+  // Some workloads measure cache_rate_baseline at the per-call granularity
+  // (the EIE-style measurement: average cache rate across the N calls of a
+  // single agent cycle). In those cases the paper's session-warming
+  // adjustment shouldn't pile on top — the measurement already represents
+  // the working-granularity average. Setting
+  //   anchor_query.cache_baseline_pre_averaged: true
+  // tells the engine to use baseline as-is and skip Eq.3's session-turn
+  // delta. Default (false) preserves all existing-preset behavior.
+  function resolveEffectiveCacheRate(workload, baseline, questions_per_session) {
+    const anchor = workload && workload.anchor_query;
+    if (anchor && anchor.cache_baseline_pre_averaged === true) {
+      return Math.min(0.99, Math.max(0, baseline));
+    }
+    const baselineTurns = (anchor && anchor.session_baseline_turns) || 6;
+    return effectiveCacheRate(baseline, questions_per_session, baselineTurns);
+  }
 
   // Eq. 2 cache-blending helper. Given a model's rate card and an optional
   // workload-supplied cache-write share `w`, return the effective per-million
@@ -776,7 +793,7 @@
     let totalCost = 0;
     let agentBreakdown = null;
     for (const seg of w.segments) {
-      const eff = effectiveCacheRate(cacheBase, seg.questions_per_session, w.anchor_query.session_baseline_turns);
+      const eff = resolveEffectiveCacheRate(w, cacheBase, seg.questions_per_session);
       let pq;
       if (agentMode) {
         const agentRes = perQueryCostAgents(w, modelId, tierId, eff, opts);
@@ -864,7 +881,7 @@
         // approximation — exact per-segment math would double-loop). Cache
         // savings still apply since docs are typically the same across turns.
         const firstSeg = w.segments[0] || { questions_per_session: 6 };
-        const eff = effectiveCacheRate(cacheBase, firstSeg.questions_per_session, w.anchor_query.session_baseline_turns);
+        const eff = resolveEffectiveCacheRate(w, cacheBase, firstSeg.questions_per_session);
         const pCachedEff = effectiveCachedRate(rates, writeShare);
         const tokens = extraInTokensPerQ * queries.total;
         const uncached = tokens * (1 - eff);
