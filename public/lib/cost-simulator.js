@@ -1034,15 +1034,30 @@ function buildWhatIf(base){
 }
 
 /* ═══════ TASK BARS ═══════ */
+// Tooltips for the workload-mix task-type sliders. Each tip explains
+// what the task type represents and references its output multiplier so
+// users can reason about cost shifts when reshaping the mix.
+const TASK_MIX_TIPS={
+  classify:"### Classification queries\nShare of queries that are short-answer / multi-label classification — sentiment, intent, routing decisions, content moderation pre-checks. Output budget ×0.30, the smallest of any task type. Shrinking this slice means fewer cheap queries and more expensive ones, so the average output bill rises non-linearly.",
+  summary: "### Summarisation queries\nShare of queries that compress long input into shorter output — meeting notes, document summaries, email digests. Output budget ×0.65 — cheaper than balanced because the input does most of the work. RAG-heavy workloads with summarisation downstream land here.",
+  rag:     "### RAG / Retrieval queries\nShare of queries that retrieve context and answer over it — Q&A over docs, semantic-search responses, knowledge-base lookups. Output budget ×0.85, close to baseline because answers are bounded by source material. Note: retrieval *input* tokens are separate (RAG section in agent cards); this slice scales the LLM's *output* budget.",
+  code:    "### Code generation queries\nShare of queries that generate code — boilerplate, refactors, full implementations. Output budget ×2.80, expensive because code is verbose and rarely terse. Coding-agent fleets (SWE-bench, Devin-class) sit ~70%+ here; mixed developer tooling sits 15–25%.",
+  longform:"### Long-form NLG queries\nShare of queries producing long natural-language output — blog posts, reports, marketing copy, narrative customer responses. Output budget ×3.60, the second-most expensive task type. Customer-facing chatbots producing answers > ~300 tokens land here.",
+  agent:   "### Agentic chain queries\nShare of queries that execute multi-step agent loops — plan, act, observe, revise. Output budget ×4.30, the most expensive task type because each user-visible turn expands to multiple LLM calls with cumulative output. ReAct / extended-thinking workloads dominate this slice.",
+};
 function renderTaskBars(){
   const t=TASK_TYPES.reduce((s,x)=>s+x.pct,0)||1;
-  document.getElementById('task-bars').innerHTML=TASK_TYPES.map((x,i)=>`
+  document.getElementById('task-bars').innerHTML=TASK_TYPES.map((x,i)=>{
+    const tip=(TASK_MIX_TIPS[x.id]||'').replace(/"/g,'&quot;');
+    const tipAttr=tip?` class="sr-label" data-tip="${tip}"`:'';
+    return `
     <div style="display:flex;align-items:center;gap:5px;margin-bottom:5px">
-      <span style="font-size:8px;color:${x.color};width:82px;flex-shrink:0;text-align:right">${x.label}</span>
-      <input type="range" min="0" max="100" value="${x.pct}" step="5" style="flex:1" oninput="setTask(${i},this.value)">
+      <span${tipAttr} style="font-size:8px;color:${x.color};width:82px;flex-shrink:0;text-align:right">${x.label}</span>
+      <input type="range" min="0" max="100" value="${x.pct}" step="5" style="flex:1" aria-label="${x.label} workload mix percentage" oninput="setTask(${i},this.value)">
       <span style="font-size:8px;font-weight:700;min-width:24px;color:${x.color}" id="tp-${i}">${Math.round(x.pct/t*100)}%</span>
       <span style="font-size:7px;color:var(--dimmer);min-width:36px">×${x.outMult}out</span>
-    </div>`).join('');
+    </div>`;
+  }).join('');
   const ob=document.getElementById('out-mult-badge');if(ob)ob.textContent='×'+wOM().toFixed(2)+' out';
 }
 function setTask(i,v){
