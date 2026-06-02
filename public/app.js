@@ -2881,11 +2881,86 @@ Production teams measure their primary's confidence-score distribution; escalate
       detailEl.innerHTML = '<p class="helper" style="font-style:italic">Configure traffic above (MAU + sessions/turns) to see budget projections.</p>';
       return;
     }
-    // Levers: model-swap, cache, batch
-    const buildRow = (label, multiplier, note) => {
-      const newPerQ = variablePerQuery * multiplier;
-      const newQueriesAfford = newPerQ > 0 ? Math.max(0, (budget - fixedOverhead) / newPerQ) : 0;
-      const newMAU = denom > 0 ? Math.floor(newQueriesAfford / denom) : 0;
+    // Each lever re-runs CostEngine.compute() with a perturbed opts/workload
+    // so the row shows the actual delta this workload would see, not a flat
+    // heuristic that ignores cache shape, model class, and traffic mix.
+    function variablePerQueryFromResult(result, qTotal) {
+      if (qTotal <= 0) return 0;
+      const api = result.api?.monthly_with_retry != null
+                ? result.api.monthly_with_retry
+                : (result.api?.monthly_capped || 0) * retryInflate;
+      const verif = result.verification?.monthly || 0;
+      const fed = result.federal?.additive_total || 0;
+      const emb = (result.embedding?.enabled ? result.embedding.monthly : 0) || 0;
+      const embIngest = (result.embedding?.enabled ? (result.embedding.ingest_amortized || 0) : 0);
+      return (api + verif + fed + (emb - embIngest)) / qTotal;
+    }
+    function deriveLever(perturb) {
+      try {
+        const { w, o } = perturb();
+        const r = CostEngine.compute(w, o);
+        const qNew = r.queries?.total || queries;
+        return { perQ: variablePerQueryFromResult(r, qNew), qNew };
+      } catch (_) {
+        return { perQ: variablePerQuery, qNew: queries };
+      }
+    }
+    // Map current model to a "cheaper class" peer in the same provider.
+    // Empty string ⇒ no smaller-model lever row (already at the floor or
+    // catalog doesn't have a cheaper sibling).
+    function cheaperModel(current) {
+      const m = String(current || '').toLowerCase();
+      if (m.startsWith('gpt-')) {
+        if (m === 'gpt-5-nano') return '';
+        if (m === 'gpt-5-mini') return 'gpt-5-nano';
+        return 'gpt-5-mini';
+      }
+      if (m.startsWith('claude-haiku')) return '';
+      if (m.startsWith('claude-')) return 'claude-haiku-4.5';
+      if (m.startsWith('gemini-')) return '';
+      return '';
+    }
+    const currentCacheRate = currentOpts.cacheRate != null ? currentOpts.cacheRate
+                           : (workload.anchor_query?.cache_rate_baseline || 0.84);
+    const smallerSlug = cheaperModel(currentOpts.model);
+    const cacheLever = deriveLever(() => ({
+      w: workload,
+      o: Object.assign({}, currentOpts, { cacheRate: Math.min(0.99, currentCacheRate + 0.20) }),
+    }));
+    const modelLever = smallerSlug
+      ? deriveLever(() => {
+          const w2 = JSON.parse(JSON.stringify(workload));
+          if (Array.isArray(w2.agents)) for (const a of w2.agents) a.model = smallerSlug;
+          return { w: w2, o: Object.assign({}, currentOpts, { model: smallerSlug }) };
+        })
+      : null;
+    const batchLever = deriveLever(() => ({
+      w: workload,
+      o: Object.assign({}, currentOpts, { batchShare: 0.5 }),
+    }));
+    const turnsLever = deriveLever(() => {
+      const w2 = JSON.parse(JSON.stringify(workload));
+      if (Array.isArray(w2.segments)) {
+        for (const s of w2.segments) {
+          if (typeof s.questions_per_session === 'number') {
+            s.questions_per_session = Math.max(1, s.questions_per_session / 2);
+          }
+        }
+      }
+      return { w: w2, o: currentOpts };
+    });
+
+    function rowFromLever(label, lever, note) {
+      // Adjust denom for the turns lever — halving questions/session also
+      // halves the queries-per-MAU denominator, so affordable MAU scales
+      // with both the lower per-query cost AND the lower per-MAU usage.
+      const myDenom = lever.qNew > 0 && currentMAU > 0
+        ? (lever.qNew / currentMAU)
+        : denom;
+      const newQueriesAfford = lever.perQ > 0
+        ? Math.max(0, (budget - fixedOverhead) / lever.perQ)
+        : 0;
+      const newMAU = myDenom > 0 ? Math.floor(newQueriesAfford / myDenom) : 0;
       const delta = newMAU - maxMAU;
       const sign = delta > 0 ? '+' : '';
       const color = delta > 0 ? 'var(--good, #2a8c3a)' : delta < 0 ? '#b3333d' : 'var(--muted)';
@@ -2895,7 +2970,17 @@ Production teams measure their primary's confidence-score distribution; escalate
         <td style="padding:8px 10px;text-align:right;color:${color};font-weight:600">${sign}${fmtNum(delta)}</td>
         <td style="padding:8px 10px;color:var(--muted);font-size:11.5px">${note}</td>
       </tr>`;
-    };
+    }
+    const rows = [
+      rowFromLever('At current settings', { perQ: variablePerQuery, qNew: queries }, 'no change'),
+      rowFromLever(`Cache hit rate +20pp (${Math.round(currentCacheRate * 100)}% → ${Math.round(Math.min(0.99, currentCacheRate + 0.20) * 100)}%)`,
+        cacheLever, 'engineering effort: stable system prompts, multi-turn sessions'),
+      modelLever
+        ? rowFromLever(`Switch to ${smallerSlug}`, modelLever, 'lose ~5–15 quality points; validate against your eval set')
+        : '',
+      rowFromLever('Move 50% to batch tier (offline)', batchLever, 'batch latency in minutes-to-hours; fine for analytics, not chat'),
+      rowFromLever('Cut turns/session by half', turnsLever, 'shorter sessions = fewer queries per user, but fewer cache hits too'),
+    ];
     detailEl.innerHTML = `
       <p class="helper" style="margin-bottom:6px">Optimization levers — what each one would do to your affordable MAU at the same $${fmtNum(budget)}/mo budget:</p>
       <table style="width:100%;border-collapse:collapse;font-size:12px">
@@ -2908,14 +2993,10 @@ Production teams measure their primary's confidence-score distribution; escalate
           </tr>
         </thead>
         <tbody>
-          ${buildRow('At current settings', 1.00, 'no change')}
-          ${buildRow('Cache hit rate +20pp', 0.82, 'engineering effort: stable system prompts, multi-turn sessions')}
-          ${buildRow('Switch to a smaller model (e.g. mini/haiku)', 0.20, 'lose ~5–15 quality points; validate against your eval set')}
-          ${buildRow('Move 50% to batch tier (offline)', 0.75, 'batch latency in minutes-to-hours; fine for analytics, not chat')}
-          ${buildRow('Cut turns/session by half', 0.55, 'shorter sessions = fewer queries per user, but fewer cache hits too')}
+          ${rows.filter(Boolean).join('')}
         </tbody>
       </table>
-      <p class="helper" style="margin-top:10px;font-size:11.5px;color:var(--muted)">Multipliers are heuristic. Actual savings depend on your traffic mix and provider rates — re-test with the simulator cache slider for your specific case.</p>
+      <p class="helper" style="margin-top:10px;font-size:11.5px;color:var(--muted)">Levers are re-derived from the engine on your current workload — actual deltas, not heuristic constants.</p>
     `;
   }
   function fmtNum(n) { return Math.round(n).toLocaleString(); }
@@ -4160,31 +4241,59 @@ Production teams measure their primary's confidence-score distribution; escalate
       if (typeof renderPreview === 'function') renderPreview();
     });
 
+    async function applyPresetSlug(slug) {
+      const resp = await fetch(`examples/${slug}.json`);
+      if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+      workload = ensureFields(await resp.json()); window.workload = workload;
+      // Mirror new preset into the simulator with writeback suspended.
+      window.__setSimWritebackEnabled?.(false);
+      syncAxiomSlidersFromSegments();
+      window.__setSimulatorFromWorkload?.(workload);
+      renderEditor();
+      renderPreview();
+      window.__setSimWritebackEnabled?.(true);
+      // Fresh preset → workload is back in measured-mode (agents=[]).
+      // Re-add the ✓ MEASURED badge if a prior promotion removed it,
+      // and reset the one-shot promotion toast so the next promotion
+      // explains itself again.
+      window.__promoteToastShown = false;
+      window.__restoreMeasuredBadge?.();
+      // Remember the slug for the ↻ Reset button so a returning user can
+      // undo URL-hash drift without hunting through the dropdown.
+      try { localStorage.setItem('calc.lastPresetSlug', slug); } catch (_) {}
+      window.__currentPresetSlug = slug;
+      const resetBtn = document.getElementById('reset-preset-btn');
+      if (resetBtn) {
+        resetBtn.style.display = '';
+        resetBtn.title = `Reset to ${slug} defaults (undoes URL-hash drift from prior sessions)`;
+      }
+    }
     document.getElementById('example-loader')?.addEventListener('change', async (e) => {
       const slug = e.target.value;
       if (!slug) return;
-      try {
-        const resp = await fetch(`examples/${slug}.json`);
-        if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
-        workload = ensureFields(await resp.json()); window.workload = workload;
-        // Mirror new preset into the simulator with writeback suspended.
-        window.__setSimWritebackEnabled?.(false);
-        syncAxiomSlidersFromSegments();
-        window.__setSimulatorFromWorkload?.(workload);
-        renderEditor();
-        renderPreview();
-        window.__setSimWritebackEnabled?.(true);
-        // Fresh preset → workload is back in measured-mode (agents=[]).
-        // Re-add the ✓ MEASURED badge if a prior promotion removed it,
-        // and reset the one-shot promotion toast so the next promotion
-        // explains itself again.
-        window.__promoteToastShown = false;
-        window.__restoreMeasuredBadge?.();
-      } catch (err) {
-        alert(`Failed to load ${slug}: ${err.message}`);
-      } finally {
-        e.target.value = '';
+      try { await applyPresetSlug(slug); }
+      catch (err) { alert(`Failed to load ${slug}: ${err.message}`); }
+      finally { e.target.value = ''; }
+    });
+    // Restore reset-button visibility on page load if user has loaded a
+    // preset before (slug persisted across reloads via localStorage).
+    try {
+      const lastSlug = localStorage.getItem('calc.lastPresetSlug');
+      if (lastSlug) {
+        window.__currentPresetSlug = lastSlug;
+        const resetBtn = document.getElementById('reset-preset-btn');
+        if (resetBtn) {
+          resetBtn.style.display = '';
+          resetBtn.title = `Reset to ${lastSlug} defaults (undoes URL-hash drift from prior sessions)`;
+        }
       }
+    } catch (_) {}
+    document.getElementById('reset-preset-btn')?.addEventListener('click', async () => {
+      const slug = window.__currentPresetSlug
+        || (() => { try { return localStorage.getItem('calc.lastPresetSlug'); } catch (_) { return null; } })();
+      if (!slug) return;
+      try { await applyPresetSlug(slug); }
+      catch (err) { alert(`Failed to reset to ${slug}: ${err.message}`); }
     });
 
     // Sum any incoming workload.segments (from a preset / JSON / URL hash)

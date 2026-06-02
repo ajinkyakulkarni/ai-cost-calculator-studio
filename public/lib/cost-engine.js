@@ -444,9 +444,18 @@
       const cached = effInT * eff;
       const uncached = effInT - cached;
       // Eq. 2 blend, per-agent (agent may override workload-wide write share).
+      // Fallback chain: agent override → opts override → workload anchor →
+      // per-model rate-card default (Anthropic explicit cache wants ~0.10
+      // even when nothing else is set) → 0 (OpenAI auto-prefix assumption).
       const agentWriteShare = agent.cache_write_share != null
         ? agent.cache_write_share
-        : (options && options.cacheWriteShare != null ? options.cacheWriteShare : 0);
+        : (options && options.cacheWriteShare != null
+          ? options.cacheWriteShare
+          : (w.anchor_query && w.anchor_query.cache_write_share != null
+            ? w.anchor_query.cache_write_share
+            : (w.rate_cards && w.rate_cards[modelId] && w.rate_cards[modelId].cache_write_share_default != null
+              ? w.rate_cards[modelId].cache_write_share_default
+              : 0)));
       const pCachedEff = effectiveCachedRate(rates, agentWriteShare);
       // Per-agent task-character multiplier. agent.task_bias='code' on a
       // Drafter agent multiplies its output tokens by ~2.4× (code is

@@ -3515,10 +3515,12 @@ input[type=range]:disabled { cursor: not-allowed; }
 
   <!-- Example preset loader — fetches one of the bundled scenario JSONs
        and applies it through the same path as Import JSON. -->
-  <div class="appbar-menu" id="appbar-example-menu" style="margin-right:6px;order:-1">
+  <div class="appbar-menu" id="appbar-example-menu" style="margin-right:6px;order:-1;display:flex;align-items:center;gap:4px">
+    <button id="reset-preset-btn" type="button" title="Reset to the bundled defaults of the last-loaded preset (undoes any slider/segment drift saved in the URL hash from a prior session)" style="display:none;cursor:pointer;font:inherit;color:inherit;background:transparent;border:1px solid rgba(255,255,255,.18);border-radius:6px;padding:4px 8px" aria-label="Reset to preset defaults">↻ Reset</button>
     <select id="example-loader" class="appbar-menu-trigger" style="cursor:pointer;font:inherit;color:inherit;background:transparent;border:1px solid rgba(255,255,255,.18);border-radius:6px;padding:4px 8px;width:160px;max-width:160px" title="Load a bundled example scenario">
       <option value="">Load example…</option>
       <option value="public-geospatial-qa">Public geospatial Q&amp;A (example)</option>
+      <option value="eie-cost-estimation">EIE Cost Estimation (reproduction)</option>
       <option value="public-geospatial-per-tool">Geo Q&amp;A · per-tool registry (advanced)</option>
       <option value="doe-grid-modeling">DOE · Grid Modeling Assistant</option>
       <option value="nih-clinical-trials">NIH · ClinicalTrials Search Agent</option>
@@ -5531,6 +5533,7 @@ Both fields are independent; they don't have to match.">ⓘ</span></label>
           <select id="cmp-preset-a" style="width:100%;font-size:13px;font-family:var(--mono);margin-top:3px">
             <option value="__current__">Current scenario (live)</option>
             <option value="public-geospatial-qa">Public geospatial Q&amp;A (example)</option>
+            <option value="eie-cost-estimation">EIE Cost Estimation (reproduction)</option>
       <option value="public-geospatial-per-tool">Geo Q&amp;A · per-tool registry (advanced)</option>
             <option value="doe-grid-modeling">DOE · Grid Modeling Assistant</option>
             <option value="nih-clinical-trials">NIH · ClinicalTrials Search Agent</option>
@@ -5546,6 +5549,7 @@ Both fields are independent; they don't have to match.">ⓘ</span></label>
           <select id="cmp-preset-b" style="width:100%;font-size:13px;font-family:var(--mono);margin-top:3px">
             <option value="__current__">Current scenario (live)</option>
             <option value="public-geospatial-qa" selected>Public geospatial Q&amp;A (example)</option>
+            <option value="eie-cost-estimation">EIE Cost Estimation (reproduction)</option>
             <option value="public-geospatial-per-tool">Geo Q&amp;A · per-tool registry (advanced)</option>
             <option value="doe-grid-modeling">DOE · Grid Modeling Assistant</option>
             <option value="nih-clinical-trials">NIH · ClinicalTrials Search Agent</option>
