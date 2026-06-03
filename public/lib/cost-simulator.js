@@ -1151,7 +1151,7 @@ let sim={running:false,agents:[],users:[],totalIn:0,totalOut:0,totalCost:0,ragTo
 if (typeof window !== 'undefined') window.sim = sim;
 function cfg(id){return parseInt(document.getElementById(id)?.value)||0;}
 function cfgF(id){return parseFloat(document.getElementById(id)?.value)||0;}
-const AGENT_CONFIG_FIELDS=['model','provider','temp','maxOut','turnsShare','toolsOn','ragOn','reasonOn','guardOn','tools_per','schema','result','rag_chunks','rag_size','rag_calls','think_tok','think_pct','cot','factcheck','guard_in','guard_out','guard_pii','guard_policy','cache_rate','task_bias'];
+const AGENT_CONFIG_FIELDS=['model','provider','temp','maxOut','turnsShare','toolsOn','ragOn','reasonOn','guardOn','tools_per','schema','result','rag_chunks','rag_size','rag_calls','think_tok','think_pct','cot','factcheck','guard_in','guard_out','guard_pii','guard_policy','cache_rate','task_bias','tool_result_cache_share','tool_result_react_persistence'];
 function cloneAgentBase(src,i){return {...JSON.parse(JSON.stringify(src)),id:i,tokens:0,calls:0,busy:false,utilPct:0,realIn:0,realOut:0,ctxUsed:0,expanded:false};}
 function snapshotAgentConfig(){return sim.agents.map(a=>{const o={name:a.name,role:a.role};AGENT_CONFIG_FIELDS.forEach(k=>{if(a[k]!==undefined)o[k]=a[k];});return o;});}
 function applyAgentConfigSnapshot(arr){if(!Array.isArray(arr))return;arr.forEach((src,i)=>{const a=sim.agents[i];if(!a||!src)return;AGENT_CONFIG_FIELDS.forEach(k=>{if(src[k]!==undefined)a[k]=src[k];});});renderAgents();updateCostPanel();renderLedger();updateKPIs();}
@@ -1189,6 +1189,13 @@ const _agentFallbackSlider={
 };
 function _agentEffectiveVal(a,k){
   if(a[k]!==undefined&&a[k]!==null)return a[k];
+  // Calibration knobs default to engine-level defaults when unset on
+  // the agent. Without these explicit defaults the sliders would show
+  // 0 and immediately misread the engine behavior (engine reads
+  // undefined → falls back to its own default, but the SLIDER would
+  // render at 0, suggesting the user has set strict no-cache).
+  if (k === 'tool_result_cache_share') return 0.5;
+  if (k === 'tool_result_react_persistence') return 0;
   const sid=_agentFallbackSlider[k];
   if(!sid)return 0;
   const el=document.getElementById(sid);
@@ -1222,6 +1229,8 @@ const AGENT_SLIDER_TIPS = {
   guard_out:       "### Output guard tokens\nTokens spent screening model output for policy violations, hallucinated PII, or unsafe content before returning to the user. Same models / prices as input guards. Sometimes skipped on cached / templated outputs that don't need re-checking; required when generating free-form responses to end users.",
   guard_pii:       "### PII scan tokens\nTokens specifically scanning for personally identifiable information (names, SSNs, emails, addresses). Required for HIPAA, GDPR, FedRAMP workloads. Usually folded into a single Llama-Guard call — keep at 0 if your guard_in/guard_out model already covers PII. Don't double-count.",
   guard_policy:    "### Policy enforcement tokens\nTokens enforcing org-specific policies — banned topics, regulated phrases, brand-voice rules. Custom-prompted, so cost varies widely. Tends to be higher than generic safety guards because the policy specification itself eats input tokens on every call. Tune by measuring real policy-prompt size in your stack.",
+  tool_result_cache_share:      "### Tool result cache share — 📊 MEASURED, not a knob you set\n**What it is:** the fraction (0..1) of this agent's tool-RESULT tokens (the payload each tool returns) that end up cached by the provider's prompt cache in practice. Distinct from the agent's overall cache hit rate — that includes the stable sysprompt, which always caches; this is specifically the volatile tool-return content.\n\n**Default 0.5** — the engine's modeled assumption when you don't have measured data. Lands a typical EIE-class workload at ~30% templated savings (matching published doc figures). Reasonable starting point for un-instrumented agents.\n\n**How to measure it for YOUR deployment:**\n1. Instrument your LLM call site to log `response.usage.prompt_tokens_details.cached_tokens` and `prompt_tokens` per call\n2. For each call, also tokenize the tool-return messages in your prompt to get `tool_result_tokens_in_prompt`\n3. Per stage: `share = (cached_tokens - sysprompt_tokens) / tool_result_tokens_in_prompt`\n4. Average across stages weighted by their result token contribution\n\n**Worked example:** NASA-IMPACT's EIE agent — measured via 180-call instrumented replay against OpenAI gpt-5.2 — lands at 0.215 (much lower than the 0.5 default). The collapse is driven by stage 6 where stac_search's 18K-token freeform payload from stage 5 exceeds OpenAI's prompt-cache alignment buffer. See docs/eie-calibration-2026-06.md in the repo for the full method and per-stage breakdown.\n\n**Setting 0** = strict no-cache (most conservative). **Setting 1** = full cache discount (rarely true for freeform). Move the slider only when you have telemetry — guessing here distorts the freeform cost by 4× either direction.",
+  tool_result_react_persistence: "### Tool result ReAct persistence — 📊 MEASURED, default off\n**What it is:** the fraction (0..1) of how strongly tool results from prior stages accumulate in subsequent LLM calls' contexts. Models the ReAct loop behavior where a tool return at stage K is still in conversation at stage K+1, K+2, etc., until summarization or context-window pressure pushes it out.\n\n**Default 0** — no behavior change. The existing tool_result_cache_share knob (above) already absorbs the ReAct accumulation effect implicitly via its 0.5 default that lands EIE at 30% savings. Turning persistence ON without re-tuning share will DOUBLE-COUNT the effect.\n\n**When to use it:** only when you've measured BOTH knobs from production telemetry. The two model overlapping phenomena — share captures \"how much of result tokens caches across same-stage repeats\", persistence captures \"how much of prior-stage result tokens persist in later-stage prompts\". A well-instrumented deployment with per-call cached_tokens telemetry can disentangle them; a guess-based config can't.\n\n**Formula:** result tokens get multiplied by `1 + (calls_per_query - 1) × persistence`. For a 6-call EIE-style ReAct loop, persistence=0.5 means tool results are billed 3.5× per query on average (each stage's return seen by ~half the subsequent calls).\n\n**Setting 0** = no accumulation (default; works with default share=0.5 to match EIE doc).\n**Setting 1** = full accumulation (every tool result in every subsequent call's context, no summarization).",
 };
 
 // Cost-neutral sliders kept in the UI for learning. The agent card
@@ -1230,6 +1239,16 @@ const AGENT_SLIDER_TIPS = {
 // (cyan dotted underline + 🎓 marker, see index.html .is-educational)
 // makes clear "don't expect the headline to move when you drag this."
 const AGENT_SLIDER_EDUCATIONAL = new Set(['temp']);
+
+// Measured-band per-agent sliders. Render with the same amber dashed
+// underline + 📊 marker as the workload-level measured sliders
+// (Cache hit rate, Bot factor, etc.) to signal "set this from
+// production telemetry, not by guessing." See index.html
+// .sr-label.is-measured for the visual styling.
+const AGENT_SLIDER_MEASURED = new Set([
+  'tool_result_cache_share',
+  'tool_result_react_persistence',
+]);
 
 function agentRangeCtl(a,scope,k,label,min,max,step,color,type='int'){
   const v=_agentEffectiveVal(a,k);
@@ -1241,7 +1260,8 @@ function agentRangeCtl(a,scope,k,label,min,max,step,color,type='int'){
   // render the label without an underline (no-tooltip).
   const tip=AGENT_SLIDER_TIPS[k];
   const eduClass=AGENT_SLIDER_EDUCATIONAL.has(k)?' is-educational':'';
-  const labelClass=tip?` class="sr-label${eduClass}"`:'';
+  const measClass=AGENT_SLIDER_MEASURED.has(k)?' is-measured':'';
+  const labelClass=tip?` class="sr-label${eduClass}${measClass}"`:'';
   const tipAttr=tip?` data-tip="${tip.replace(/"/g,'&quot;')}"`:'';
   return `<div class="agent-mini-range"><div class="mini-label"><span id="${labelId}"${labelClass}${tipAttr}>${label}</span><span class="mini-val" id="${lid}" style="color:${color}" aria-hidden="true">${fmtAgentVal(k,v)}</span></div><input type="range" min="${min}" max="${max}" value="${v}" step="${step}" aria-labelledby="${labelId}" aria-valuetext="${fmtAgentVal(k,v)}" oninput="setAP(${a.id},'${k}',${cast},'${lid}',v=>fmtAgentVal('${k}',v))"></div>`;
 }
@@ -1551,6 +1571,10 @@ function agentCardHtml(a,scope){
         ${agentRangeCtl(a,scope,'cache_rate','Cache hit rate',0,95,5,'#00e676')}
         ${agentRangeCtl(a,scope,'temp','Temperature',0,1,0.05,'#ffab40','float')}
         ${agentRangeCtl(a,scope,'maxOut','Max output tok',64,4096,64,'#42a5f5')}
+      </div>
+      <div class="agent-edit-grid">
+        ${agentRangeCtl(a,scope,'tool_result_cache_share','Tool result cache share',0,1,0.05,'#f59e00','float')}
+        ${agentRangeCtl(a,scope,'tool_result_react_persistence','Tool result ReAct persistence',0,1,0.05,'#f59e00','float')}
       </div>
       <div class="agent-edit-grid">
         ${agentRangeCtl(a,scope,'sysprompt','Sysprompt tok',0,4000,50,'#42a5f5')}
@@ -1878,6 +1902,12 @@ function _mirrorAgentEditToWorkload(simAgentId, k, v) {
     guard_out: 'guard_output_tokens',
     guard_pii: 'guard_pii_tokens',
     guard_policy: 'guard_policy_tokens',
+    // Calibration knobs (measured-band). Engine reads matching field
+    // names directly off the agent object; precedence inside the engine
+    // is agent > workload > engine default. See cost-engine.js
+    // perQueryCostAgents tool result cost block.
+    tool_result_cache_share: 'tool_result_cache_share',
+    tool_result_react_persistence: 'tool_result_react_persistence',
   };
   const wlKey = mapping[k];
   if (!wlKey) return;
