@@ -448,7 +448,25 @@ function computeCost(mk){
     const myMemory=agent.memory??memoryGlobal;
     const myCitations=agent.citations??citationsGlobal;
     const myPromptOHTurn=myFewshot+myJsonSchema+myMemory;
-    const turnIn=(mySysTok/myTurns)+200+myToolSchemaOH+myToolResultOH+myIaMsg+myRagTok+myReasonTok+myGuardTokInTurn+_commOverheadPerTurn+modalTurnTok+myPromptOHTurn;
+    // Tool-result cache share (mirrors cost-engine.js). Default 0.5 means
+    // half of per-call tool result tokens flow through the agent's cache
+    // rate (modeling prefix reuse across stages of the same session); the
+    // other half is billed fresh. Setting 0 = strict no-cache, 1.0 =
+    // pre-fix-A behavior. Per-agent override beats workload-wide.
+    const __trcsDefault = 0.5;
+    const __trcsRaw = (agent.tool_result_cache_share != null
+                       ? agent.tool_result_cache_share
+                       : (window.workload && window.workload.tool_result_cache_share != null
+                          ? window.workload.tool_result_cache_share
+                          : __trcsDefault));
+    const __trcs = Math.max(0, Math.min(1, Number(__trcsRaw)));
+    // The "uncached" portion of tool result tokens is pulled OUT of the
+    // cacheable input bucket and added separately as a fresh-rate cost
+    // below. This is the load-bearing fix for freeform tool returns —
+    // see cost-engine.js comment on agentToolTokenBreakdown.
+    const __toolResultUncachedPerTurn = myToolResultOH * (1 - __trcs);
+    const __toolResultCachedPerTurn   = myToolResultOH * __trcs;
+    const turnIn=(mySysTok/myTurns)+200+myToolSchemaOH+__toolResultCachedPerTurn+myIaMsg+myRagTok+myReasonTok+myGuardTokInTurn+_commOverheadPerTurn+modalTurnTok+myPromptOHTurn;
     const rawTurnOut=Math.round(200*myOM)+myCitations;
     const turnOut=Math.min(rawTurnOut, agent.maxOut||rawTurnOut);
     const tierInfo=resolvePricingTier(m,provider,langMult,turnIn);
@@ -460,6 +478,10 @@ function computeCost(mk){
     const pipelineHandoffTok = _commPattern === 3 ? pipelineCumulativeOutTok : 0;
     const myTotalIn=turnIn*myTurns + pipelineHandoffTok;
     const myTotalOut=turnOut*myTurns;
+    // Uncached fresh tool-result tokens. Billed at the full input rate
+    // (no cache discount, no batch discount) and added to the model cost
+    // alongside the cached-bucket inPrice below.
+    const __toolResultFreshCost = (__toolResultUncachedPerTurn * myTurns / 1e6) * inRate;
 
     let myModelCost=0,myFixed=0,myCacheSave=0,myBatchSave=0,myCacheReadTok=0,myCacheWriteTok=0;
     if(provider.in_mult===0 && provider.out_mult===0){
@@ -469,7 +491,11 @@ function computeCost(mk){
       const cwsOverride=parseFloat(document.getElementById('s-cache-write-share')?.value);
       const inPrice=pricedInputCost(myTotalIn,inRate,priceModel,batchRate,myCacheRate, isNaN(cwsOverride)?null:cwsOverride/100);
       const outPrice=pricedOutputCost(myTotalOut,outRate,priceModel,batchRate);
-      myModelCost=inPrice.cost+outPrice.cost;
+      // Add the uncached portion of tool result tokens (pulled out of
+      // myTotalIn above) at the fresh input rate — no cache discount,
+      // no batch discount. Mirrors the engine's split in
+      // cost-engine.js perQueryCostAgents.
+      myModelCost=inPrice.cost+outPrice.cost+__toolResultFreshCost;
       modelApiCost+=myModelCost;
       baseCost+=myModelCost;
       retryWaste+=myModelCost*retryRate*1.5;

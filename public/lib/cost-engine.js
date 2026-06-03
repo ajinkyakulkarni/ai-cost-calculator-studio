@@ -372,11 +372,29 @@
   // workload.tool_response_mode. Mirrors cost-simulator.js's per-tool
   // walk (the "(A) Per-tool walk" branch) so the headline and the
   // simulator agree. Returns a per-QUERY input-token total.
-  function agentToolInputTokens(agent, workload) {
+  function agentToolTokenBreakdown(agent, workload) {
+    // Splits per-query tool input tokens into the SCHEMA bucket (tool
+    // definitions that live in the system prompt — stable across calls,
+    // genuinely cache-eligible) and the RESULT bucket (the payload each
+    // tool returns — varies per call, NOT prefix-cacheable).
+    //
+    // Why the split matters: the EIE-style preset's freeform tool returns
+    // are ~20K tokens per turn of variable JSON/text. Treating them at the
+    // agent's cache rate (88% measured on the templated baseline) silently
+    // under-bills freeform mode by ~4×. The fix bills schema_tokens at the
+    // agent's effective cached rate (correct — they ARE in the cached
+    // prefix) and result_tokens at the uncached input rate.
+    //
+    // Memoize is already applied via callsEff reduction — a memoize:true
+    // tool that answers from its own cache produces a real call-count
+    // saving rather than a per-token cache discount, so we don't ALSO
+    // give its result tokens the LLM prompt-cache rate (that would
+    // double-count the memoization benefit).
     const reg = (workload && workload.tools_registry) || {};
     const enabled = (agent && agent.enabled_tools) || {};
     const globalMode = (workload && workload.tool_response_mode) || 'freeform';
-    let tokens = 0;
+    let schemaTok = 0;
+    let resultTok = 0;
     for (const [tid, spec] of Object.entries(enabled)) {
       if (!spec || !(spec.calls_per_query > 0)) continue;
       const t = reg[tid];
@@ -392,11 +410,17 @@
       const cap = Number.isFinite(spec.cap_tokens_override) ? spec.cap_tokens_override
                 : Number.isFinite(t.cap_tokens) ? t.cap_tokens : 40;
       const effResult = shape === 'templated' ? Math.min(rawResult, cap) : rawResult;
-      // schema is seen on every nominal call; result tokens scale with
-      // the memoization/trigger-adjusted effective call count.
-      tokens += callsNominal * schema + callsEff * effResult;
+      schemaTok += callsNominal * schema;
+      resultTok += callsEff * effResult;
     }
-    return tokens;
+    return { schemaTok, resultTok };
+  }
+  // Back-compat wrapper for any external caller that still asks for the
+  // combined per-query token total. Not used internally any more — the
+  // perQueryCostAgents pricing path consumes the breakdown directly.
+  function agentToolInputTokens(agent, workload) {
+    const b = agentToolTokenBreakdown(agent, workload);
+    return b.schemaTok + b.resultTok;
   }
 
   // -------------------------------------------------------------------
@@ -501,10 +525,18 @@
       const activationRate = Number(agent.activation_rate);
       const activeRate = Number.isFinite(activationRate) && activationRate >= 0 && activationRate <= 1
         ? activationRate : 1.0;
-      // Itemized tool tokens (per query) — schema on every call + result
-      // tokens modulated by return_shape. Billed once per query at the
-      // agent's model rate + cache rate.
-      const toolInT = agentToolInputTokens(agent, w);
+      // Itemized tool tokens (per query) — split into:
+      //   • schemaTok  — tool definitions in the system prompt
+      //                  (stable across calls → cache-eligible)
+      //   • resultTok  — payloads each tool returns
+      //                  (varies per call → billed at uncached input rate)
+      // Pre-2026-06-03 this was a single combined number that flowed
+      // through the agent's cache rate, silently under-billing freeform
+      // tool returns by ~4× on EIE-class workloads where the result
+      // payload dwarfs the schema. See agentToolTokenBreakdown for the
+      // reasoning.
+      const { schemaTok: agentSchemaTok, resultTok: agentResultTok } =
+        agentToolTokenBreakdown(agent, w);
 
       // ────────────────────────────────────────────────────────────────
       // Per-agent extras — bridged from simulator sliders via
@@ -615,12 +647,53 @@
           cached   * pCachedEff / 1e6 +
           effOutT  * rates.output_per_million / 1e6
         ) * mult * (1 + factCheckPasses);
-        const shapedToolInT = toolInT * inFactor;
+        // Bill schema (cache-eligible prefix material) and result
+        // (per-call payload — partial cache eligibility) separately so
+        // freeform mode reflects its real cost. See comment on
+        // agentToolTokenBreakdown.
+        const shapedSchemaTok = agentSchemaTok * inFactor;
+        const shapedResultTok = agentResultTok * inFactor;
         let shapeToolCost = 0;
-        if (shapedToolInT > 0) {
-          const toolCached = shapedToolInT * eff;
-          shapeToolCost = ((shapedToolInT - toolCached) * rates.input_per_million / 1e6
-                          + toolCached * pCachedEff / 1e6) * mult * activeRate;
+        if (shapedSchemaTok > 0) {
+          const schemaCached = shapedSchemaTok * eff;
+          shapeToolCost += ((shapedSchemaTok - schemaCached) * rates.input_per_million / 1e6
+                          + schemaCached * pCachedEff / 1e6) * mult * activeRate;
+        }
+        if (shapedResultTok > 0) {
+          // tool_result_cache_share — 0..1 fraction of result tokens that
+          // DO end up in the prompt cache in practice. Default 0.5 means
+          // half the result-token volume gets the agent's cache discount
+          // and half is billed fresh. The default lands EIE-class
+          // (calls_per_query≥6, freeform tool returns, sysprompt cache
+          // measured ≥0.8) workloads at ~30% templated savings vs
+          // freeform — matching EIE's published doc figure.
+          //
+          // Precedence (highest wins): agent.tool_result_cache_share →
+          // workload.tool_result_cache_share → DEFAULT_RESULT_CACHE_SHARE.
+          // Per-tool override (tools_registry[tid].result_cache_share)
+          // is honored inside agentToolTokenBreakdown for memoized tools
+          // via the existing callsEff path; this knob covers the
+          // PROMPT-CACHE-via-prefix-reuse case, which is distinct from
+          // tool-level memoization.
+          //
+          // Setting 0.0 = strict no-cache (most conservative; mirrors
+          // a one-shot session with no prefix reuse). Setting 1.0 =
+          // full cache discount (pre-fix-A behavior; over-credits
+          // freeform). Real deployments should measure this with API
+          // billing telemetry — instrument the LLM call site to log
+          // cached_tokens / prompt_tokens from each response and
+          // average across freeform tool turns.
+          const DEFAULT_RESULT_CACHE_SHARE = 0.5;
+          const rawShare = agent.tool_result_cache_share != null
+            ? agent.tool_result_cache_share
+            : (w.tool_result_cache_share != null
+              ? w.tool_result_cache_share
+              : DEFAULT_RESULT_CACHE_SHARE);
+          const share = Math.max(0, Math.min(1, Number(rawShare)));
+          const cachedPortion = shapedResultTok * eff * share;
+          const freshPortion  = shapedResultTok - cachedPortion;
+          shapeToolCost += ((freshPortion * rates.input_per_million / 1e6)
+                          + (cachedPortion * pCachedEff / 1e6)) * mult * activeRate;
         }
         const shapeContrib = effCalls * perCall * llmCallMult * activeRate + shapeToolCost;
         agentPerQuery += weight * shapeContrib;
@@ -638,7 +711,10 @@
       breakdown.push({
         id: agent.id, label: agent.label || agent.id,
         hosting, model: modelId, calls, input: inT, output: outT,
-        tool_input_tokens: toolInT, tool_cost: blendedToolCost,
+        tool_input_tokens: agentSchemaTok + agentResultTok,
+        tool_schema_tokens: agentSchemaTok,
+        tool_result_tokens: agentResultTok,
+        tool_cost: blendedToolCost,
         per_call_cost: blendedPerCall, per_query_cost: agentPerQuery,
       });
     }
