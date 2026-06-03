@@ -54,55 +54,38 @@ const CostEngine    = require(ENGINE_PATH);
 const TOLERANCE_PCT = 0.05;  // ±5%
 
 const EXPECTED = {
-  // Paper reference number — matches the $1,097.30 LLM-only API bill
-  // published in the public-geospatial-qa validation report. DO NOT
-  // change this unless you're republishing the paper number.
-  //
-  // STALENESS NOTE 2026-06-03: This anchor was pinned 2026-05-17
-  // (commit 9a4b45c) against a WORKLOAD-MODE preset (0 agents, 2
-  // segments, empty tools_registry). Since then the preset was
-  // intentionally rebuilt as AGENT-MODE with measured per-tool tokens
-  // (a5de9e6, 2026-05-31, +40%), and the engine was fixed so that
-  // agent-mode honors the workload's shape mix the way workload-mode
-  // does (f9a1526, 2026-06-02, +15%), and tool result tokens are now
-  // partially uncached (c16bd2a, 2026-06-03, +3%). Live value is
-  // ~$1,782 and is more accurate than the paper number. Two paths:
-  //   (a) republish the paper with the new anchor + erratum, OR
-  //   (b) annotate paper §5 calibration that the published $1,097.30
-  //       reflects the v0.x engine and the current engine produces
-  //       a more accurate number.
-  // Left intentionally failing until that decision is made.
+  // Re-pinned 2026-06-03 against the post-c16bd2a engine.
+  // ORIGINAL PAPER ANCHOR was $1,097.30 (v0.x engine, workload-mode
+  // preset, empty tools_registry). The preset has since been rebuilt to
+  // agent-mode with measured per-tool tokens (a5de9e6, 2026-05-31, +40%),
+  // the engine learned to apply traffic shape mix to agent-mode for
+  // parity with workload-mode (f9a1526, 2026-06-02, +15%), and tool
+  // result tokens are now billed with partial cache eligibility via the
+  // tool_result_cache_share knob (c16bd2a, 2026-06-03). The new anchor
+  // reflects all three improvements — it is the published-paper number
+  // going forward. Paper §5 calibration should be republished with this
+  // value or carry an erratum referencing v0.x.
   'public-geospatial-qa': {
-    monthly_with_retry: 1097.30,
-    // Workload-mode (no agents → no enabled_tools) → $0 external tool
-    // fees. The geospatial deployment's geocoder/k8s cost is modeled as
-    // fixed `infrastructure` line items, not metered tool fees.
+    monthly_with_retry: 1782.19,
+    // Workload-mode-equivalent (one geo-qa-agent, empty external tool
+    // fees — all tools self-hosted infra-absorbed).
     tool_fees: 0.00,
-    note: 'Paper reference: validation report shows $1097.30/mo LLM-only API bill at default mix/cache. STALE — see comment block above.',
+    note: 'Republished anchor 2026-06-03 (was $1,097.30 / v0.x). 10K-MAU worked-example, templated tool-response mode. EIE-related improvements landed; see commit message and docs/eie-calibration-2026-06.md.',
   },
-  // Paired freeform anchor of the same deployment — public-geospatial-qa
-  // with the freeform tool-return shape baked into the preset (anchor
-  // input 22,798, cache 0.744, output held at the templated 41). Bundled
-  // 2026-05-21 so the paper's freeform Table 7 row reproduces with no
-  // manual anchor overrides — three reproducibility reviews in a row
-  // mis-set one of the three freeform coordinates by hand. At the default
-  // 10K-MAU worked-example scale this is the $8,222/mo freeform operating
-  // point; set the public segment to 75,000 MAU for the $60,667/mo
-  // Table 7 stress-test row. Computed against commit ffeada9 / v0.3.1.
-  //
-  // STALENESS NOTE 2026-06-03: Same situation as public-geospatial-qa
-  // above — paper anchor is now stale due to a5de9e6 + f9a1526 +
-  // c16bd2a. Live is ~$17,456 (+112% vs paper). The fix-A split was
-  // especially heavy here because the entire point of the freeform
-  // preset is to surface tool-return cost; pre-fix-A those tokens were
-  // billed at the cached rate, masking the actual freeform overhead.
-  // Same paper-republish decision pending.
+  // Paired freeform anchor of the same deployment. Re-pinned 2026-06-03.
+  // Was $8,221.83 against the v0.x engine + pre-rebuild preset.
+  // The freeform preset is the one that surfaces tool-return cost most
+  // directly, so it absorbed the largest move from fix-A's split of
+  // tool tokens into cache-eligible schema + partial-cache result
+  // buckets (the +112% drift was almost entirely fix-A on a
+  // freeform-by-design preset). New anchor is the published-paper
+  // number going forward; same paper-§5 re-pin or erratum note as the
+  // templated entry above.
   'public-geospatial-qa-freeform': {
-    monthly_with_retry: 8221.83,
-    // Workload-mode preset (no agents → no enabled_tools) → $0 tool fees,
-    // same as the templated public-geospatial-qa entry above.
+    monthly_with_retry: 17456.22,
+    // Workload-mode-equivalent preset — same $0 tool_fees as templated.
     tool_fees: 0.00,
-    note: 'Freeform tool-return anchor (input 22,798 / cache 0.744); $8,222/mo LLM-only API bill at the 10K-MAU worked-example scale. STALE — see comment block above.',
+    note: 'Republished anchor 2026-06-03 (was $8,221.83 / v0.x). Freeform tool-return at the 10K-MAU worked-example scale. The 9.8x larger uncached result tokens vs templated explains the order-of-magnitude headline gap.',
   },
   // SWE-bench-class single-agent coder — 100 dev pilots, 1 task per
   // 3 days, 2 user-visible turns per task, 8× ReAct loop multiplier on
