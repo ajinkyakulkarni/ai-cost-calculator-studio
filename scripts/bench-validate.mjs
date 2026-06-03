@@ -194,6 +194,32 @@ const EXPECTED = {
     tool_fees: 6574.50,
     note: '50 attorneys × 1.5 sess/day × 30 × 3 q/sess = 6,750 queries; 2-agent Retriever/Drafter, opus-4.7 on Drafter, FR2 cascade @ 20% escalate.',
   },
+  // EIE reproduction — NASA-IMPACT's Earth Information Explorer agent
+  // at the worked-example 10K-MAU scale (400 DAU × 50 cycles/day in
+  // EIE's framing maps to 10K × 0.2 × 10 × 30 = 600K cycles/mo in the
+  // calculator's MAU framing). gpt-5.2 standard tier, mix=worst (every
+  // query runs the full 6-stage cycle), cache_rate_baseline=0.836
+  // (measured by EIE from production), tool_response_mode=templated by
+  // default. EIE claims ~30% templated savings vs freeform.
+  //
+  // Pinned 2026-06-03 against commit (this commit) after the
+  // tool_result_cache_share calibration project landed (see
+  // docs/eie-calibration-2026-06.md). The preset now carries an
+  // EXPLICIT tool_result_cache_share = 0.215, measured by replaying the
+  // EIE 6-stage ReAct loop against OpenAI gpt-5.2 chat.completions API
+  // with the real EIE sysprompt + tool schemas + prompt_cache_key
+  // 'eie-agent'. At this share, templated lands at $29,197/mo (vs the
+  // EIE doc's "~$30K/mo" — within 3%), freeform lands at $47,510/mo,
+  // templated savings = 38.5% (vs doc's stated ~30%; 8.5pp higher
+  // because the measured share is more pessimistic than the modeled
+  // default that originally landed the calculator at 30%).
+  'eie-cost-estimation': {
+    monthly_with_retry: 29196.57,
+    // Workload-mode-equivalent agent (one geo-qa-agent, no external
+    // tool fees — all 7 EIE tools are self-hosted infra-absorbed).
+    tool_fees: 0.00,
+    note: 'EIE worked example: 10K MAU × 0.2 sess/day × 10 q/sess × 30 days = 600K cycles/mo on gpt-5.2 standard with measured tool_result_cache_share=0.215. Lands within 3% of EIE doc $30K/mo at default templated mode.',
+  },
 };
 
 // ---------------------------------------------------------------------

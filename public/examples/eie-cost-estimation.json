@@ -3,80 +3,152 @@
   "deployment": {
     "name": "EIE Cost Estimation (reproduction)",
     "agency": "NASA-IMPACT EIE-agent",
-    "description": "Reproduction. Maps the EIE team's 'normal cycle' measurement (84,490 input / 70,656 cached / 854 output across 6 stages → $0.05/cycle) into the calc's agent model. Their headline math: 400 DAU × 50 cycles/user/day × 30 days × $0.05/cycle = $30K/mo unoptimized — equivalent to MAU=10K, sessions/day=0.2, questions/session=10, no bot factor (10K × 0.2 × 10 × 30 = 600K cycles/mo). This preset hits the same ~$30K headline (mix=worst, applyBotFactor=false, verification/FedRAMP/infra all off) so a procurement reviewer can pull on the same levers the paper exposes — switch mix to mixed (~$18K), enable FedRAMP (+15% on LLM line), turn on verification, or flip the tool-response architecture to see where the ~3-6× key-fields lever lands. The agent.input_tokens = 14,062 sits between the public-geospatial-qa preset's templated anchor (2,933) and freeform anchor (23,740) — closer to a realistic key-fields midpoint, ~4.8× the templated floor.",
+    "description": "Reproduction. Maps the EIE team's 'normal cycle' measurement (84,490 input / 70,656 cached / 854 output across 6 stages \u2192 $0.05/cycle) into the calc's agent model. Their headline math: 400 DAU \u00d7 50 cycles/user/day \u00d7 30 days \u00d7 $0.05/cycle = $30K/mo unoptimized \u2014 equivalent to MAU=10K, sessions/day=0.2, questions/session=10, no bot factor (10K \u00d7 0.2 \u00d7 10 \u00d7 30 = 600K cycles/mo). This preset hits the same ~$30K headline (mix=worst, applyBotFactor=false, verification/FedRAMP/infra all off) so a procurement reviewer can pull on the same levers the paper exposes \u2014 switch mix to mixed (~$18K), enable FedRAMP (+15% on LLM line), turn on verification, or flip the tool-response architecture to see where the ~3-6\u00d7 key-fields lever lands. The agent.input_tokens = 14,062 sits between the public-geospatial-qa preset's templated anchor (2,933) and freeform anchor (23,740) \u2014 closer to a realistic key-fields midpoint, ~4.8\u00d7 the templated floor.",
     "publicFacing": true,
     "fedrampTier": "none"
   },
-
   "anchor_query": {
     "input_tokens": 14082,
     "output_tokens": 142,
     "cache_rate_baseline": 0.836,
     "session_baseline_turns": 6,
     "cache_baseline_pre_averaged": true,
-    "example": "Methane datasets over Alabama 2022 — dataset query → selection → location+year filter → datetime confirmation → location confirmation → run analysis (6 stages).",
+    "example": "Methane datasets over Alabama 2022 \u2014 dataset query \u2192 selection \u2192 location+year filter \u2192 datetime confirmation \u2192 location confirmation \u2192 run analysis (6 stages).",
     "_calibration": {
       "source": "EIE Cost Estimation document. Normal-cycle measurement on GPT-5.2.",
-      "method": "Per-stage average from EIE's table: 84,490 input / 6 stages = 14,082 input/turn; 70,656 cached / 84,490 input = 0.836 cache rate; 854 output / 6 stages = 142 output/turn. Per-call cost = 2,310 fresh × $1.75/M + 11,772 cached × $0.175/M + 142 × $14/M = $0.00809. Per-cycle (6 calls) ≈ $0.0485, EIE rounds to $0.05.",
-      "supersedes": "Lower-anchor 'public-geospatial-qa' preset measured per-turn input at 2,933 (templated) / 23,740 (freeform). EIE's 14,082/turn sits ~4.8× the templated floor — between the paper's reproduced 'key-fields midpoint' (~3×) and full freeform (~8×). Useful for reasoning about EIE's $30K/mo claim against the paper's $1.5K/mo templated baseline.",
+      "method": "Per-stage average from EIE's table: 84,490 input / 6 stages = 14,082 input/turn; 70,656 cached / 84,490 input = 0.836 cache rate; 854 output / 6 stages = 142 output/turn. Per-call cost = 2,310 fresh \u00d7 $1.75/M + 11,772 cached \u00d7 $0.175/M + 142 \u00d7 $14/M = $0.00809. Per-cycle (6 calls) \u2248 $0.0485, EIE rounds to $0.05.",
+      "supersedes": "Lower-anchor 'public-geospatial-qa' preset measured per-turn input at 2,933 (templated) / 23,740 (freeform). EIE's 14,082/turn sits ~4.8\u00d7 the templated floor \u2014 between the paper's reproduced 'key-fields midpoint' (~3\u00d7) and full freeform (~8\u00d7). Useful for reasoning about EIE's $30K/mo claim against the paper's $1.5K/mo templated baseline.",
       "eie_cycle_variants": {
-        "normal":          { "input_total": 84490,  "cached_total": 70656,  "output_total": 854,  "stages": 6,  "per_cycle_usd": 0.0485 },
-        "normal_optimized":{ "input_total": 80630,  "cached_total": 71040,  "output_total": 513,  "stages": 5,  "per_cycle_usd": 0.0360 },
-        "long":            { "input_total": 129302, "cached_total": 114688, "output_total": 1376, "stages": 10, "per_cycle_usd": 0.0650 },
-        "long_optimized":  { "input_total": 135911, "cached_total": 131584, "output_total": 747,  "stages": 10, "per_cycle_usd": 0.0430 }
+        "normal": {
+          "input_total": 84490,
+          "cached_total": 70656,
+          "output_total": 854,
+          "stages": 6,
+          "per_cycle_usd": 0.0485
+        },
+        "normal_optimized": {
+          "input_total": 80630,
+          "cached_total": 71040,
+          "output_total": 513,
+          "stages": 5,
+          "per_cycle_usd": 0.036
+        },
+        "long": {
+          "input_total": 129302,
+          "cached_total": 114688,
+          "output_total": 1376,
+          "stages": 10,
+          "per_cycle_usd": 0.065
+        },
+        "long_optimized": {
+          "input_total": 135911,
+          "cached_total": 131584,
+          "output_total": 747,
+          "stages": 10,
+          "per_cycle_usd": 0.043
+        }
       },
-      "to_reproduce_long_cycle": "Set calls_per_query=10 (instead of 6), input_tokens≈12930, cache≈0.887 → per-cycle ≈ $0.065. EIE's optimized variants reduce input slightly and cut output ~40% via tighter prompting and better state management.",
-      "to_reproduce_eie_traffic_math": "DAU=400, cycles/user/day=50 → 20K cycles/day → 600K cycles/mo. Paper formula at MAU=10K, sessions/day=0.2, questions/session=10, no bot factor: 10K × 0.2 × 10 × 30 × 1.0 = 600K queries/mo. The two framings give the same total. EIE's headline = 600K × $0.05 = $30K.",
-      "gap_to_paper": "Per-cycle cost ($0.05) is ~30× the paper's templated anchor ($0.00168) and ~3× the paper's freeform anchor ($0.0147). That gap is the tool-response architecture lever in action — adopting EIE's measured 14K tokens/turn versus the paper's status-only-style 3K tokens/turn explains the bulk of the difference. Bot factor and shape mix are second-order vs. that."
+      "to_reproduce_long_cycle": "Set calls_per_query=10 (instead of 6), input_tokens\u224812930, cache\u22480.887 \u2192 per-cycle \u2248 $0.065. EIE's optimized variants reduce input slightly and cut output ~40% via tighter prompting and better state management.",
+      "to_reproduce_eie_traffic_math": "DAU=400, cycles/user/day=50 \u2192 20K cycles/day \u2192 600K cycles/mo. Paper formula at MAU=10K, sessions/day=0.2, questions/session=10, no bot factor: 10K \u00d7 0.2 \u00d7 10 \u00d7 30 \u00d7 1.0 = 600K queries/mo. The two framings give the same total. EIE's headline = 600K \u00d7 $0.05 = $30K.",
+      "gap_to_paper": "Per-cycle cost ($0.05) is ~30\u00d7 the paper's templated anchor ($0.00168) and ~3\u00d7 the paper's freeform anchor ($0.0147). That gap is the tool-response architecture lever in action \u2014 adopting EIE's measured 14K tokens/turn versus the paper's status-only-style 3K tokens/turn explains the bulk of the difference. Bot factor and shape mix are second-order vs. that.",
+      "tool_result_cache_share_measurement": {
+        "value": 0.215,
+        "method": "Synthetic ReAct 6-stage replay against OpenAI gpt-5.2 chat.completions API with EIE sysprompt + tool schemas + prompt_cache_key=eie-agent. Per-stage share = cached_beyond_sysprompt / tool_result_tokens_so_far, averaged across 15 cycles (5 archetypes x 3 samples), then weighted by per-stage prior_result_tokens.",
+        "date": "2026-06-03",
+        "measured_per_stage": {
+          "get_place_tool": 1.0,
+          "collections_rag_tool": 0.667,
+          "select_collection_tool": 0.331,
+          "stac_search_tool": 0.957,
+          "stats_tool": 0.115
+        },
+        "note": "Stage 6 (stats_tool) shows collapse to 0.115 because stage 5 (stac_search) freeform payload of 18,435 tok exceeds OpenAI prompt cache 128-tok alignment buffer. Templated mode lands at 1.000 because per-tool returns sum to 318 tok/cycle, well within cache alignment.",
+        "spend_usd": 0.81,
+        "sample_count": 15,
+        "report": "docs/eie-calibration-2026-06.md"
+      }
     }
   },
-
   "tool_response_mode": "templated",
   "tools_registry": {
     "set_datetime": {
       "label": "parse_datetime",
       "description": "Validate and normalize a date range (Stage 3 / Stage 4 of the EIE cycle). Templated returns the parsed interval + confirmation prompt.",
-      "cost_shape": "free", "rate_usd": 0, "schema_tokens": 0, "result_tokens_avg": 25, "cap_tokens": 25,
-      "provider": "self-hosted", "builtin": false
+      "cost_shape": "free",
+      "rate_usd": 0,
+      "schema_tokens": 0,
+      "result_tokens_avg": 25,
+      "cap_tokens": 25,
+      "provider": "self-hosted",
+      "builtin": false
     },
     "get_place": {
       "label": "geocode",
       "description": "Resolve a place name to bbox + admin geometry (Stage 3 / Stage 5 of the EIE cycle). Templated returns confirmation; freeform returns the full GeoJSON polygon.",
-      "cost_shape": "free", "rate_usd": 0, "schema_tokens": 0, "result_tokens_avg": 250, "cap_tokens": 26,
-      "provider": "self-hosted", "builtin": false
+      "cost_shape": "free",
+      "rate_usd": 0,
+      "schema_tokens": 0,
+      "result_tokens_avg": 250,
+      "cap_tokens": 26,
+      "provider": "self-hosted",
+      "builtin": false
     },
     "collections_rag": {
       "label": "search_collections",
-      "description": "Semantic search over the STAC catalog (Stage 1 of the EIE cycle — 'I want methane datasets'). Templated returns just the count + selection prompt; freeform returns the Top-K collection metadata.",
-      "cost_shape": "free", "rate_usd": 0, "schema_tokens": 0, "result_tokens_avg": 1500, "cap_tokens": 10,
-      "provider": "self-hosted", "builtin": false
+      "description": "Semantic search over the STAC catalog (Stage 1 of the EIE cycle \u2014 'I want methane datasets'). Templated returns just the count + selection prompt; freeform returns the Top-K collection metadata.",
+      "cost_shape": "free",
+      "rate_usd": 0,
+      "schema_tokens": 0,
+      "result_tokens_avg": 1500,
+      "cap_tokens": 10,
+      "provider": "self-hosted",
+      "builtin": false
     },
     "select_collection": {
       "label": "select_collection",
-      "description": "Records the user's collection + variable selection (Stage 2 of the EIE cycle — 'ct-ch4-monthgrid-v2025'). Small either way.",
-      "cost_shape": "free", "rate_usd": 0, "schema_tokens": 0, "result_tokens_avg": 16, "cap_tokens": 16,
-      "provider": "self-hosted", "builtin": false
+      "description": "Records the user's collection + variable selection (Stage 2 of the EIE cycle \u2014 'ct-ch4-monthgrid-v2025'). Small either way.",
+      "cost_shape": "free",
+      "rate_usd": 0,
+      "schema_tokens": 0,
+      "result_tokens_avg": 16,
+      "cap_tokens": 16,
+      "provider": "self-hosted",
+      "builtin": false
     },
     "stac_search": {
       "label": "search_items",
-      "description": "Enumerate catalog items inside the AOI and datetime window (Stage 6 of the EIE cycle — 'run analysis on items'). Templated returns just the count; freeform returns the full STAC item array.",
-      "cost_shape": "free", "rate_usd": 0, "schema_tokens": 0, "result_tokens_avg": 18435, "cap_tokens": 27,
-      "provider": "self-hosted", "builtin": false
+      "description": "Enumerate catalog items inside the AOI and datetime window (Stage 6 of the EIE cycle \u2014 'run analysis on items'). Templated returns just the count; freeform returns the full STAC item array.",
+      "cost_shape": "free",
+      "rate_usd": 0,
+      "schema_tokens": 0,
+      "result_tokens_avg": 18435,
+      "cap_tokens": 27,
+      "provider": "self-hosted",
+      "builtin": false
     },
     "stats": {
       "label": "compute_stats",
       "description": "Per-item zonal statistics (Stage 6 of the EIE cycle). Templated returns just the count; freeform returns the per-item stats dictionaries.",
-      "cost_shape": "free", "rate_usd": 0, "schema_tokens": 0, "result_tokens_avg": 600, "cap_tokens": 7,
-      "provider": "self-hosted", "builtin": false
+      "cost_shape": "free",
+      "rate_usd": 0,
+      "schema_tokens": 0,
+      "result_tokens_avg": 600,
+      "cap_tokens": 7,
+      "provider": "self-hosted",
+      "builtin": false
     },
     "viz": {
       "label": "render_map",
-      "description": "Build a raster tile URL for the selected items + AOI (Stage 6 of the EIE cycle). Small either way — visualization metadata is bounded.",
-      "cost_shape": "free", "rate_usd": 0, "schema_tokens": 0, "result_tokens_avg": 100, "cap_tokens": 8,
-      "provider": "self-hosted", "builtin": false
+      "description": "Build a raster tile URL for the selected items + AOI (Stage 6 of the EIE cycle). Small either way \u2014 visualization metadata is bounded.",
+      "cost_shape": "free",
+      "rate_usd": 0,
+      "schema_tokens": 0,
+      "result_tokens_avg": 100,
+      "cap_tokens": 8,
+      "provider": "self-hosted",
+      "builtin": false
     }
   },
-
   "agents": [
     {
       "id": "eie-agent",
@@ -88,66 +160,139 @@
       "model": "gpt-5.2",
       "cache_eligible": true,
       "hosting": "api",
-      "description": "EIE-agent's measured per-cycle behavior. Per call: 14,062 fresh conversation-history input + 142 output at 0.836 cache rate, GPT-5.2 pricing. Tool returns add once per query (sum 119 tok templated, 20,926 tok freeform). Per query: 6 × 14,062 + 119 = 84,491 ≈ EIE's measured 84,490 input/cycle. Per cycle ≈ $0.0485 ≈ EIE's stated $0.05. Switch tool_response_mode to freeform (or flip individual tools' RETURN SHAPE) to see the heavy-payload variant — EIE's 'normal cycle' was measured under their typical templated/key-fields tool returns. To model the 'long with clarifications' scenario, raise calls_per_query to 10.",
+      "description": "EIE-agent's measured per-cycle behavior. Per call: 14,062 fresh conversation-history input + 142 output at 0.836 cache rate, GPT-5.2 pricing. Tool returns add once per query (sum 119 tok templated, 20,926 tok freeform). Per query: 6 \u00d7 14,062 + 119 = 84,491 \u2248 EIE's measured 84,490 input/cycle. Per cycle \u2248 $0.0485 \u2248 EIE's stated $0.05. Switch tool_response_mode to freeform (or flip individual tools' RETURN SHAPE) to see the heavy-payload variant \u2014 EIE's 'normal cycle' was measured under their typical templated/key-fields tool returns. To model the 'long with clarifications' scenario, raise calls_per_query to 10.",
       "enabled_tools": {
-        "set_datetime":      { "calls_per_query": 1 },
-        "get_place":         { "calls_per_query": 1 },
-        "collections_rag":   { "calls_per_query": 1 },
-        "select_collection": { "calls_per_query": 1 },
-        "stac_search":       { "calls_per_query": 1 },
-        "stats":             { "calls_per_query": 1 },
-        "viz":               { "calls_per_query": 1 }
+        "set_datetime": {
+          "calls_per_query": 1
+        },
+        "get_place": {
+          "calls_per_query": 1
+        },
+        "collections_rag": {
+          "calls_per_query": 1
+        },
+        "select_collection": {
+          "calls_per_query": 1
+        },
+        "stac_search": {
+          "calls_per_query": 1
+        },
+        "stats": {
+          "calls_per_query": 1
+        },
+        "viz": {
+          "calls_per_query": 1
+        }
       }
     }
   ],
-
   "shapes": {
-    "full":    { "input_factor": 1.00, "output_factor": 1.00, "cache_eligible": true,  "description": "Full pipeline (one analysis query)" },
-    "rag":     { "input_factor": 0.19, "output_factor": 0.47, "cache_eligible": true,  "description": "Discovery-only (no stats/viz)" },
-    "partial": { "input_factor": 0.62, "output_factor": 0.47, "cache_eligible": true,  "description": "Pipeline terminates early" },
-    "refusal": { "input_factor": 0.06, "output_factor": 0.12, "cache_eligible": false, "description": "Out-of-scope rejection" },
-    "heavy":   { "input_factor": 1.20, "output_factor": 1.17, "cache_eligible": true,  "description": "Long-context multi-turn" }
+    "full": {
+      "input_factor": 1.0,
+      "output_factor": 1.0,
+      "cache_eligible": true,
+      "description": "Full pipeline (one analysis query)"
+    },
+    "rag": {
+      "input_factor": 0.19,
+      "output_factor": 0.47,
+      "cache_eligible": true,
+      "description": "Discovery-only (no stats/viz)"
+    },
+    "partial": {
+      "input_factor": 0.62,
+      "output_factor": 0.47,
+      "cache_eligible": true,
+      "description": "Pipeline terminates early"
+    },
+    "refusal": {
+      "input_factor": 0.06,
+      "output_factor": 0.12,
+      "cache_eligible": false,
+      "description": "Out-of-scope rejection"
+    },
+    "heavy": {
+      "input_factor": 1.2,
+      "output_factor": 1.17,
+      "cache_eligible": true,
+      "description": "Long-context multi-turn"
+    }
   },
-
   "mix": {
-    "worst":  { "label": "Worst-case (every cycle full pipeline · matches EIE doc)", "weights": { "full": 1.0 } },
-    "mixed":  { "label": "Mixed (40% full · 30% rag · 15% partial · 10% refusal · 5% heavy)", "weights": { "full": 0.40, "rag": 0.30, "partial": 0.15, "refusal": 0.10, "heavy": 0.05 } },
-    "lookup": { "label": "Lookup-heavy (70% rag, 15% full, 10% refusal, 5% partial)", "weights": { "rag": 0.70, "full": 0.15, "refusal": 0.10, "partial": 0.05 } }
+    "worst": {
+      "label": "Worst-case (every cycle full pipeline \u00b7 matches EIE doc)",
+      "weights": {
+        "full": 1.0
+      }
+    },
+    "mixed": {
+      "label": "Mixed (40% full \u00b7 30% rag \u00b7 15% partial \u00b7 10% refusal \u00b7 5% heavy)",
+      "weights": {
+        "full": 0.4,
+        "rag": 0.3,
+        "partial": 0.15,
+        "refusal": 0.1,
+        "heavy": 0.05
+      }
+    },
+    "lookup": {
+      "label": "Lookup-heavy (70% rag, 15% full, 10% refusal, 5% partial)",
+      "weights": {
+        "rag": 0.7,
+        "full": 0.15,
+        "refusal": 0.1,
+        "partial": 0.05
+      }
+    }
   },
-
   "segments": [
-    { "id": "all", "label": "EIE active users", "mau": 10000, "sessions_per_day": 0.2, "questions_per_session": 10, "applyBotFactor": false, "description": "EIE projection: ~10K MAU baseline, ~400 DAU. Paper formula 10K × 0.2 × 10 × 30 × 1.0 = 600K cycles/mo matches EIE's 400 DAU × 50 cycles/day × 30. applyBotFactor=false because EIE's '50 cycles/user/day' is an aggregate that already includes any bot or scripted traffic — adding a 1.5× bot multiplier on top would double-count." }
+    {
+      "id": "all",
+      "label": "EIE active users",
+      "mau": 10000,
+      "sessions_per_day": 0.2,
+      "questions_per_session": 10,
+      "applyBotFactor": false,
+      "description": "EIE projection: ~10K MAU baseline, ~400 DAU. Paper formula 10K \u00d7 0.2 \u00d7 10 \u00d7 30 \u00d7 1.0 = 600K cycles/mo matches EIE's 400 DAU \u00d7 50 cycles/day \u00d7 30. applyBotFactor=false because EIE's '50 cycles/user/day' is an aggregate that already includes any bot or scripted traffic \u2014 adding a 1.5\u00d7 bot multiplier on top would double-count."
+    }
   ],
-
   "verification": {
     "enabled": false,
-    "coverage": 0.10,
+    "coverage": 0.1,
     "atoms_per_response": 8,
     "variant": "fr1",
-    "atoms_per_response_nli_calls": { "fr1": 24, "fr2": 160 },
-    "atomizer_tokens": { "input": 1500, "output": 400 },
-    "reviser_tokens":  { "input":  500, "output":  30 },
-    "nli_tokens":      { "input": 1200, "output":  20 },
+    "atoms_per_response_nli_calls": {
+      "fr1": 24,
+      "fr2": 160
+    },
+    "atomizer_tokens": {
+      "input": 1500,
+      "output": 400
+    },
+    "reviser_tokens": {
+      "input": 500,
+      "output": 30
+    },
+    "nli_tokens": {
+      "input": 1200,
+      "output": 20
+    },
     "retrieval": "wikipedia",
     "nli_hosting": "ec2-g6",
     "service_pod_monthly": 36
   },
-
   "rate_limit": {
     "strategy": "edge",
     "monthly_cost": 15,
     "bot_ceiling": 2.5
   },
-
   "daily_cap": {
     "enabled": false,
     "amount_usd": 1500,
     "burst_days": 7,
     "burst_factor": 1.0
   },
-
   "infrastructure": {},
-
   "defaults": {
     "model": "gpt-5.2",
     "tier": "standard",
@@ -156,37 +301,61 @@
     "hosting": "api",
     "cost_mode": "optimistic"
   },
-
   "migration": {
     "enabled": false,
     "phases": []
   },
-
   "tier_multipliers": {
     "standard": 1,
-    "flex":     0.5,
-    "batch":    0.5,
+    "flex": 0.5,
+    "batch": 0.5,
     "priority": 2.5
   },
-
   "rate_cards": {},
-
   "self_host": {
     "gpu_options": {
-      "g6e.12xl": { "hourly": 10.49, "tput_tps": 1200, "name": "4× L40S 48GB", "capable": "70B int8" },
-      "g5.48xl":  { "hourly": 16.29, "tput_tps":  900, "name": "8× A10G 24GB", "capable": "70B int4" },
-      "p5.48xl":  { "hourly": 98.32, "tput_tps": 4500, "name": "8× H100 80GB", "capable": "400B fp8" }
+      "g6e.12xl": {
+        "hourly": 10.49,
+        "tput_tps": 1200,
+        "name": "4\u00d7 L40S 48GB",
+        "capable": "70B int8"
+      },
+      "g5.48xl": {
+        "hourly": 16.29,
+        "tput_tps": 900,
+        "name": "8\u00d7 A10G 24GB",
+        "capable": "70B int4"
+      },
+      "p5.48xl": {
+        "hourly": 98.32,
+        "tput_tps": 4500,
+        "name": "8\u00d7 H100 80GB",
+        "capable": "400B fp8"
+      }
     },
     "diurnal_peak_factor": 4,
     "headroom": 1.5,
     "min_replicas": 2,
     "tokens_per_query_default": 2000,
     "cost_modes": {
-      "optimistic": { "ops_monthly":  350, "fte_monthly": 2500, "setup_amortized":     0, "throughput_derate": 1.00, "discount_1yr": 0.40, "discount_3yr": 0.60 },
-      "realistic":  { "ops_monthly": 1800, "fte_monthly": 8000, "setup_amortized":  8333, "throughput_derate": 0.75, "discount_1yr": 0.33, "discount_3yr": 0.55 }
+      "optimistic": {
+        "ops_monthly": 350,
+        "fte_monthly": 2500,
+        "setup_amortized": 0,
+        "throughput_derate": 1.0,
+        "discount_1yr": 0.4,
+        "discount_3yr": 0.6
+      },
+      "realistic": {
+        "ops_monthly": 1800,
+        "fte_monthly": 8000,
+        "setup_amortized": 8333,
+        "throughput_derate": 0.75,
+        "discount_1yr": 0.33,
+        "discount_3yr": 0.55
+      }
     }
   },
-
   "federal": {
     "fedramp_tier": "none",
     "multi_region": "single",
@@ -199,18 +368,15 @@
     "retrieval_infra_monthly": 0,
     "pii_redaction_per_million_tokens": 0
   },
-
   "compliance": {
     "ato_tier": "none",
     "upfront_amortization_months": 36
   },
-
   "reservations": {
     "enabled": false,
     "type": "none",
     "units": 4
   },
-
   "embedding": {
     "enabled": false,
     "model": "text-embedding-3-small",
@@ -218,14 +384,13 @@
     "reembed_frequency_months": 6,
     "query_embedding_tokens": 8
   },
-
   "personnel": {
     "enabled": false,
     "roles": []
   },
-
-  "risk": { "enabled": false },
-
+  "risk": {
+    "enabled": false
+  },
   "agent_engineering": {
     "enabled": false,
     "roles": [],
@@ -234,5 +399,6 @@
     "helper_agent_monthly": 400,
     "maintenance_interval_months": 6,
     "maintenance_hours_per_session": 40
-  }
+  },
+  "tool_result_cache_share": 0.215
 }
