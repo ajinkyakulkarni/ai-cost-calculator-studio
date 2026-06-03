@@ -506,6 +506,61 @@
       // agent's model rate + cache rate.
       const toolInT = agentToolInputTokens(agent, w);
 
+      // ────────────────────────────────────────────────────────────────
+      // Per-agent extras — bridged from simulator sliders via
+      // _mirrorAgentEditToWorkload (cost-simulator.js). All default to 0
+      // / no-op so existing presets without these fields render
+      // identically to before this block was added.
+      //
+      // Prompt extras (cache-eligible — sit on the cache-warm prefix):
+      //   - fewshot_examples × tokens_per_fewshot_example (amortized over calls)
+      //   - jsonschema_tokens (every call)
+      //   - memory_tokens (every call, stable across session)
+      // RAG (fresh per query; we flow it through the same cache rate as
+      // input_tokens for simulator-side consistency):
+      //   - rag_chunks × rag_tokens_per_chunk × rag_calls_per_query
+      // Reasoning extras (output rate):
+      //   - thinking_budget_tokens × reasoning_turns_pct/100
+      //   - cot_steps × 100 tok/step
+      //   - citation_output_tokens
+      // Fact-check passes — each adds another full per-call bill of this
+      // agent's main call (1 pass ≈ doubles per-call cost).
+      // Guards (per-call):
+      //   - guard_input + guard_pii + guard_policy → input
+      //   - guard_output → output
+      // turn_share multiplies the per-agent call count (turn_share=2 →
+      // agent fires 2× the workload's turn count).
+      // cache_rate_override (0-1 fraction OR 1-99 integer percent) →
+      // overrides the workload-wide cache rate for THIS agent only.
+      const fewshotN = Number(agent.fewshot_examples) || 0;
+      const fewshotTokPerEx = Number(agent.tokens_per_fewshot_example) || 200;
+      const fewshotInAmortized = (fewshotN * fewshotTokPerEx) / Math.max(1, calls);
+      const jsonSchemaIn = Number(agent.jsonschema_tokens) || 0;
+      const memoryIn = Number(agent.memory_tokens) || 0;
+      const ragInPerCall = (Number(agent.rag_chunks) || 0)
+                         * (Number(agent.rag_tokens_per_chunk) || 0)
+                         * (Number(agent.rag_calls_per_query) || 0);
+      const reasoningOutPerCall = (Number(agent.thinking_budget_tokens) || 0)
+                                * Math.max(0, Math.min(100, Number(agent.reasoning_turns_pct) || 0)) / 100;
+      const cotOutPerCall = (Number(agent.cot_steps) || 0) * 100;
+      const citationOutPerCall = Number(agent.citation_output_tokens) || 0;
+      const factCheckPasses = Math.max(0, Number(agent.factcheck_passes) || 0);
+      const guardInPerCall = (Number(agent.guard_input_tokens) || 0)
+                           + (Number(agent.guard_pii_tokens) || 0)
+                           + (Number(agent.guard_policy_tokens) || 0);
+      const guardOutPerCall = Number(agent.guard_output_tokens) || 0;
+      const turnShareRaw = Number(agent.turn_share);
+      const turnShare = Number.isFinite(turnShareRaw) && turnShareRaw > 0 ? turnShareRaw : 1;
+      const effCalls = calls * turnShare;
+      const cacheOverrideRaw = Number(agent.cache_rate_override);
+      let agentCacheRate = null;
+      if (Number.isFinite(cacheOverrideRaw) && cacheOverrideRaw > 0) {
+        agentCacheRate = cacheOverrideRaw > 1
+          ? Math.min(0.99, cacheOverrideRaw / 100)
+          : Math.min(0.99, cacheOverrideRaw);
+      }
+      // ────────────────────────────────────────────────────────────────
+
       // Blend across shape mix: each shape contributes weight × per-shape
       // monthly contribution. For mix="worst" with weights={full:1.0},
       // the inner loop runs once with input_factor=output_factor=1 and
@@ -520,18 +575,34 @@
         const inFactor = shape.input_factor != null ? shape.input_factor : 1;
         const outFactor = shape.output_factor != null ? shape.output_factor : 1;
         const shapeCacheEligible = agent.cache_eligible && (shape.cache_eligible !== false);
-        const eff = shapeCacheEligible ? cacheRate : 0;
+        // Use per-agent cache rate override when set, else fall back to
+        // workload-wide cache rate. shape.cache_eligible=false on a
+        // shape (e.g. refusal) still zeroes the cache regardless.
+        const eff = shapeCacheEligible
+          ? (agentCacheRate != null ? agentCacheRate : cacheRate)
+          : 0;
 
-        // Per-call input: variable input scales with shape, sysprompt + iamsg do not.
-        const effInT = inT * inFactor + sysAmortized + iaPerCall;
+        // Per-call input: variable input + sysprompt/iamsg/extras.
+        // fewshot/jsonschema/memory are stable across calls in a session,
+        // so they flow through the cache rate the same way sysprompt does.
+        // RAG and guards are fresh per call but we flow them through cache
+        // for sim-side consistency (sliders model average hit rate, not
+        // per-block cache eligibility).
+        const effInT = inT * inFactor + sysAmortized + iaPerCall
+                     + fewshotInAmortized + jsonSchemaIn + memoryIn
+                     + ragInPerCall + guardInPerCall;
         const cached = effInT * eff;
         const uncached = effInT - cached;
-        const effOutT = outT * outFactor * agentOutMult;
+        // Output: base × shape × task-mix multiplier, plus per-agent
+        // reasoning trace + visible CoT + citations + output guard tokens.
+        const effOutT = outT * outFactor * agentOutMult
+                      + reasoningOutPerCall + cotOutPerCall
+                      + citationOutPerCall + guardOutPerCall;
         const perCall = (
           uncached * rates.input_per_million / 1e6 +
           cached   * pCachedEff / 1e6 +
           effOutT  * rates.output_per_million / 1e6
-        ) * mult;
+        ) * mult * (1 + factCheckPasses);
         const shapedToolInT = toolInT * inFactor;
         let shapeToolCost = 0;
         if (shapedToolInT > 0) {
@@ -539,7 +610,7 @@
           shapeToolCost = ((shapedToolInT - toolCached) * rates.input_per_million / 1e6
                           + toolCached * pCachedEff / 1e6) * mult * activeRate;
         }
-        const shapeContrib = calls * perCall * llmCallMult * activeRate + shapeToolCost;
+        const shapeContrib = effCalls * perCall * llmCallMult * activeRate + shapeToolCost;
         agentPerQuery += weight * shapeContrib;
         blendedPerCall += weight * perCall;
         blendedToolCost += weight * shapeToolCost;

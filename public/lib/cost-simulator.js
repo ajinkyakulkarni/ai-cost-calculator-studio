@@ -1799,11 +1799,35 @@ function _mirrorAgentEditToWorkload(simAgentId, k, v) {
     calls_per_turn_multiplier: 'calls_per_turn_multiplier',
     model: 'model',
     guard_model: 'guard_model',
-    cache_rate: 'cache_eligible_rate',  // engine uses cache_eligible bool + cache_rate
+    // cache_rate slider used to map to 'cache_eligible_rate' which the
+    // engine never read. The engine now reads `cache_rate_override` —
+    // see perQueryCostAgents in cost-engine.js. Accepts 0-1 fraction or
+    // 1-99 integer percent; 0 means "inherit workload-wide rate".
+    cache_rate: 'cache_rate_override',
     verify_enabled: 'verify_enabled',
     verify_coverage: 'verify_coverage',
     verifier_override: 'verifier_override',
     activation_rate: 'activation_rate',
+    // Newly-wired sliders (2026-06). Until this batch, these all sat in
+    // the simulator UI but never wrote to workload.agents, so the
+    // headline pill ignored them. Engine fields are documented at the
+    // matching block in cost-engine.js perQueryCostAgents.
+    turnsShare: 'turn_share',
+    fewshot: 'fewshot_examples',
+    jsonschema: 'jsonschema_tokens',
+    memory: 'memory_tokens',
+    citations: 'citation_output_tokens',
+    rag_chunks: 'rag_chunks',
+    rag_size: 'rag_tokens_per_chunk',
+    rag_calls: 'rag_calls_per_query',
+    think_tok: 'thinking_budget_tokens',
+    think_pct: 'reasoning_turns_pct',
+    cot: 'cot_steps',
+    factcheck: 'factcheck_passes',
+    guard_in: 'guard_input_tokens',
+    guard_out: 'guard_output_tokens',
+    guard_pii: 'guard_pii_tokens',
+    guard_policy: 'guard_policy_tokens',
   };
   const wlKey = mapping[k];
   if (!wlKey) return;
@@ -1822,6 +1846,28 @@ function _mirrorAgentEditToWorkload(simAgentId, k, v) {
     }
   } else {
     wl.agents[idx][wlKey] = v;
+  }
+  // Companion-field bridging — RAG cost = chunks × tokens_per_chunk ×
+  // calls_per_query; reasoning cost = budget × pct/100. If the user
+  // moves only one slider in the group, the engine reads the other
+  // fields as undefined → 0 → the multiplication is 0 and the slider
+  // appears dead. Push the companions' CURRENT sim state alongside the
+  // primary edit so a single move propagates correctly.
+  const simAgent = sim.agents.find(x => x.id === simAgentId);
+  if (simAgent) {
+    const companions = {
+      rag_chunks: ['rag_size', 'rag_calls'],
+      rag_size: ['rag_chunks', 'rag_calls'],
+      rag_calls: ['rag_chunks', 'rag_size'],
+      think_tok: ['think_pct'],
+      think_pct: ['think_tok'],
+    };
+    for (const cmpKey of (companions[k] || [])) {
+      const cmpWlKey = mapping[cmpKey];
+      if (cmpWlKey && simAgent[cmpKey] != null) {
+        wl.agents[idx][cmpWlKey] = simAgent[cmpKey];
+      }
+    }
   }
   if (typeof window.renderPreview === 'function') window.renderPreview();
 }

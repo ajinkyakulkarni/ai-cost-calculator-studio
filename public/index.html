@@ -2007,6 +2007,25 @@
     cursor: help;
     border-bottom: 1px dotted rgba(120,120,120,.45);
   }
+  /* Measurement-vs-tunable distinction. Levers (`.sr-label` default)
+     are things a developer can directly choose in code: batch %, model
+     selection, sysprompt size, RAG chunks, etc. Measurements
+     (`.is-measured`) are outcomes the dev observes from a running
+     workload then plugs in for sensitivity analysis: cache hit rate,
+     retry rate, cache-write share, bot factor, language token
+     multiplier. Use a warm amber underline + 📊 marker on the value
+     hint so the distinction reads at a glance. The tooltip still
+     explains the full nuance; the color is the quick affordance. */
+  .sr-label.is-measured[data-tip] {
+    border-bottom-color: rgba(245, 158, 0, 0.55);
+    border-bottom-style: dashed;
+  }
+  .sr-label.is-measured[data-tip]::after {
+    content: " 📊";
+    font-size: 9px;
+    opacity: 0.7;
+    margin-left: 1px;
+  }
 
   /* Body-appended tooltip — positioned via JS, hardcoded colors so it's
      guaranteed readable regardless of active theme. Overrides the older
@@ -3903,7 +3922,7 @@ This is the *frequency* knob. Doubling it roughly doubles total queries per mont
 
 **Tip for procurement**
 Base it on real analytics if you have them (login events, web visits). Public federal portals usually sit around **0.1–0.2** because most visitors don't return. Internal team tools sit higher.">Daily return rate per user</span><span class="sr-val" id="v-sessions" style="color:var(--teal)">0.3</span></div><input type="range" min="0.01" max="10" value="0.3" step="0.01" id="s-sessions" oninput="onSlider()" aria-label="Sessions per user per day"></div>
-        <div class="sr"><div class="sr-top"><span class="sr-label" data-tip="### Bot factor (machine traffic multiplier)
+        <div class="sr"><div class="sr-top"><span class="sr-label is-measured" data-tip="### Bot factor (machine traffic multiplier) — 📊 MEASURED from analytics, not set in code
 
 **In plain English:** how much *extra* traffic comes from automated bots, web crawlers, and scrapers — on top of real human users. A 1.5× means for every 100 humans, another 50 bots are also hitting the system.
 
@@ -3917,26 +3936,28 @@ Bots cost real money. The AI vendor doesn't know whether the request came from a
 
 **Tip**
 Internal sites behind single-sign-on (SSO) or a VPN can safely set this to 1.0×. Public sites should not — set 1.5× minimum, or invest in a bot-mitigation layer (Cloudflare, etc.) and prove it's working.">Bot factor</span><span class="sr-val" id="prev-bot-val" style="color:var(--amber)">1.5×</span></div><input type="range" min="1.0" max="3.0" value="1.5" step="0.1" id="prev-bot" oninput="onSlider()" aria-label="Bot factor"><div class="sr-hint">1.0 = internal · 1.5× = typical public · 2–3× = under crawler load</div></div>
-        <div class="sr"><div class="sr-top"><span class="sr-label" data-tip="### Cache hit rate (vendor discount when re-reading the same text)
+        <div class="sr"><div class="sr-top"><span class="sr-label is-measured" data-tip="### Cache hit rate (📊 MEASURED outcome — not a knob you set in code)
 
-**In plain English:** AI vendors (OpenAI, Anthropic) offer a big discount — usually about **90% off** — when they're asked to re-read text they've already seen recently. This number is the percentage of input text that qualifies for that discount.
+**Important:** You can't tell the provider "give me 90% cache." Cache hit rate is what you OBSERVE after a workload runs. This slider is for sensitivity analysis ("if my cache rate is 70% vs 85%, what's the cost delta?") and for plugging in the value you measured in production.
 
-**A simple analogy**
-Imagine paying full price the first time a barista reads a complicated coffee order, but only 10% the next time you order the same thing. If you order the same thing 9 times out of 10, your cache hit rate is 90%.
+**How each provider's cache actually works**
+- **OpenAI** (auto-prefix): cache kicks in only when the prompt prefix is ≥**1024 tokens** and stable across calls within ~5–10 min idle. The dev levers: keep sysprompt at the START (stable), put dynamic content at the END, maintain enough traffic that the cache doesn't evict.
+- **Anthropic** (explicit `cache_control` markers): you mark which blocks to cache; 5-min TTL default, 1-hour available for higher write cost. The dev levers: choose cache breakpoints, choose TTL.
+- **Gemini** (context-caching API): explicit paid storage + reduced read price. Dev decides what to cache and for how long.
 
 **What drives a high hit rate**
 - A stable set of standing instructions used by every user
 - Longer chats that reuse the same context turn after turn
-- A short, well-organized prompt structure
+- Cache-warm traffic volume (so the cache doesn't expire between requests)
 
 **Typical numbers**
 - One-shot prompts: **5–20%** (low — every prompt is unique)
 - Well-engineered multi-turn assistant: **80–90%**
 - Best observed in production: 91% (OpenAI), 77% (Anthropic)
 
-**Why this knob matters for cost**
-The single highest-leverage cost lever in the whole calculator. Every 10 percentage points of cache hit cuts the input bill by roughly 8%. Moving from 45% → 85% on a $30K/mo deployment saves about **$10K/mo**. Worth investing engineering effort here before optimizing anything else.">Cache hit rate</span><span class="sr-val" id="v-cache" style="color:var(--green)">70%</span></div><input type="range" min="0" max="95" value="70" step="1" id="s-cache" oninput="onSlider()" aria-label="Cache hit rate percentage"><div class="sr-hint">~90% discount on hits</div></div>
-        <div class="sr sr-advanced"><div class="sr-top"><span class="sr-label" data-tip="Of the tokens served from cache, the fraction that are first-writes (premium price, typically 25-100% over standard input). Steady state ~10%; cold start or cache-miss-heavy traffic ~50%.
+**Why this matters for cost**
+The single highest-leverage cost lever in the whole calculator. Every 10 percentage points of cache hit cuts the input bill by roughly 8%. Moving from 45% → 85% on a $30K/mo deployment saves about **$10K/mo**. Worth investing engineering effort in cache-friendly prompt design before optimizing anything else.">Cache hit rate</span><span class="sr-val" id="v-cache" style="color:var(--green)">70%</span></div><input type="range" min="0" max="95" value="70" step="1" id="s-cache" oninput="onSlider()" aria-label="Cache hit rate percentage"><div class="sr-hint">📊 measured · ~90% discount on hits · OpenAI requires ≥1024-tok prefix</div></div>
+        <div class="sr sr-advanced"><div class="sr-top"><span class="sr-label is-measured" data-tip="📊 MEASURED outcome (not a knob you set in code). Of the tokens served from cache, the fraction that are first-writes (premium price, typically 25-100% over standard input). You observe this from prompt rotation behavior — every time your sysprompt or prefix changes, the cache writes anew at the premium rate. Steady state ~10%; cold start or cache-miss-heavy traffic ~50%. Anthropic only — OpenAI auto-prefix has no separate write surcharge.
 
 **Only affects API hosting.** Self-host has no provider-side cache-write surcharge — once you've paid for the GPU hour, all input tokens cost the same regardless of cache state. Slider has no effect on the headline when Hosting is set to *Self-host on EC2* or *On-prem*.
 
@@ -3961,7 +3982,7 @@ The single highest-leverage cost lever in the whole calculator. Every 10 percent
 - **>50%:** rare — usually means summarization is too lossy for the use case
 
 **Why this knob matters:** for long multi-turn agents (research, coding, customer support), compression can be the second-biggest cost lever after prompt-caching. A 30% net saving on a $50K/mo deployment is $15K/mo. Distinct from prompt cache (which prices reads cheaper but doesn't shrink tokens) — compression actually replaces tokens with a shorter representation.">Context compression %</span><span class="sr-val" id="v-context-compression" style="color:var(--green)">0%</span></div><input type="range" min="0" max="70" value="0" step="5" id="s-context-compression" oninput="onSlider()" aria-label="Context compression percentage"><div class="sr-hint">Net LLM-bill saving from history summarization (after summarization overhead). 30%=Claude-Code-like.</div></div>
-        <div class="sr sr-advanced"><div class="sr-top"><span class="sr-label" data-tip="### Retry rate (failed-call do-overs)
+        <div class="sr sr-advanced"><div class="sr-top"><span class="sr-label is-measured" data-tip="### Retry rate (failed-call do-overs) — 📊 MEASURED from logs, not a knob
 
 **In plain English:** the percentage of calls to the AI that fail the first time and have to be sent again. Failures happen when the AI vendor is overloaded, when the network blips, or when the AI's answer doesn't pass a validation check. Each retry costs real money — the bill is paid even if the answer is unusable.
 
@@ -3991,7 +4012,7 @@ Peak-hour traffic divided by average traffic. 1× = perfectly flat. 3-5× = typi
 **Why this knob matters:** drives replica count via the engine's sizing formula — peak_TPS = avg_QPS × tokens/q × diurnal × headroom — and replicas = ceil(peak_TPS / per-GPU throughput). A 5× peak with realistic 30% headroom and 12-tok/s per-GPU throughput at scale needs ~5× the replicas a flat-traffic deployment would, which directly multiplies the GPU-hour bill. Under-sizing here means dropped requests at 5pm; over-sizing here means paying for idle GPUs all night.
 
 **Slider quirk:** value 1× means *use the workload's measured default* (typically 4×), not *no peak* — the slider only overrides when dialed above 1× so an untouched default doesn't accidentally undersize the fleet.">Peak / avg ratio</span><span class="sr-val" id="v-peak" style="color:var(--amber)">1×</span></div><input type="range" min="1" max="10" value="1" step="1" id="s-peak" oninput="onSlider()" aria-label="Peak to average traffic ratio"><div class="sr-hint">Self-host sizing only · 1×=use workload default (~4×) · &gt;1× overrides</div></div>
-        <div class="sr sr-advanced"><div class="sr-top"><span class="sr-label" data-tip="Token-count multiplier for non-English content. English = 1.0; code = 1.3; Spanish/French ~1.1-1.2; CJK languages (Chinese, Japanese, Korean) = 1.8-2.2 because tokenizers fragment characters. Inflates input and output cost proportionally.
+        <div class="sr sr-advanced"><div class="sr-top"><span class="sr-label is-measured" data-tip="📊 MEASURED outcome — run a tokenizer over a representative sample of your real user content to get the actual ratio for your workload. Token-count multiplier for non-English content. English = 1.0; code = 1.3; Spanish/French ~1.1-1.2; CJK languages (Chinese, Japanese, Korean) = 1.8-2.2 because tokenizers fragment characters. Inflates input and output cost proportionally.
 
 **Why this knob matters:** invisible cost driver for international deployments. A Japanese-language assistant costs ~2× what an English one does at the same word count. Often missed during budget planning — flags multilingual deployments needing tokenizer-aware budgets.">Language multiplier</span><span class="sr-val" id="v-lang-mult" style="color:var(--purple)">1.0×</span></div><input type="range" min="1.0" max="2.5" value="1.0" step="0.1" id="s-lang-mult" oninput="onSlider()" aria-label="Language token multiplier"><div class="sr-hint">EN=1.0, code=1.3, CJK=1.8-2.2</div></div>
     </div>
