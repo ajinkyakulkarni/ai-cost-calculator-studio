@@ -2007,21 +2007,37 @@
     cursor: help;
     border-bottom: 1px dotted rgba(120,120,120,.45);
   }
-  /* Measurement-vs-tunable distinction. Levers (`.sr-label` default)
-     are things a developer can directly choose in code: batch %, model
-     selection, sysprompt size, RAG chunks, etc. Measurements
-     (`.is-measured`) are outcomes the dev observes from a running
-     workload then plugs in for sensitivity analysis: cache hit rate,
-     retry rate, cache-write share, bot factor, language token
-     multiplier. Use a warm amber underline + 📊 marker on the value
-     hint so the distinction reads at a glance. The tooltip still
-     explains the full nuance; the color is the quick affordance. */
+  /* Three-way slider taxonomy, visually distinguished:
+       — `.sr-label` (gray dotted, no marker) → LEVER. Direct dev knob
+         that bills: model selection, batch %, sysprompt size, RAG
+         chunks, citations output tokens, etc.
+       — `.is-measured` (amber dashed + 📊) → MEASURED outcome. Not
+         settable in code — observed from a running workload and
+         plugged in for sensitivity analysis: cache hit rate, retry
+         rate, cache-write share, bot factor, language multiplier.
+       — `.is-educational` (cyan dotted + 🎓) → EDUCATIONAL. Real
+         production parameter that's COST-NEUTRAL in this calculator
+         (token counts don't depend on it). Kept in the UI because
+         users still need to understand it when building agents — e.g.
+         sampling temperature affects output determinism + retry rate
+         but doesn't change tokens directly. The marker makes clear
+         "don't expect the headline to move." */
   .sr-label.is-measured[data-tip] {
     border-bottom-color: rgba(245, 158, 0, 0.55);
     border-bottom-style: dashed;
   }
   .sr-label.is-measured[data-tip]::after {
     content: " 📊";
+    font-size: 9px;
+    opacity: 0.7;
+    margin-left: 1px;
+  }
+  .sr-label.is-educational[data-tip] {
+    border-bottom-color: rgba(100, 175, 220, 0.55);
+    border-bottom-style: dotted;
+  }
+  .sr-label.is-educational[data-tip]::after {
+    content: " 🎓";
     font-size: 9px;
     opacity: 0.7;
     margin-left: 1px;
