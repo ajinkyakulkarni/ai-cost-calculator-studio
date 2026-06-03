@@ -57,13 +57,28 @@ const EXPECTED = {
   // Paper reference number — matches the $1,097.30 LLM-only API bill
   // published in the public-geospatial-qa validation report. DO NOT
   // change this unless you're republishing the paper number.
+  //
+  // STALENESS NOTE 2026-06-03: This anchor was pinned 2026-05-17
+  // (commit 9a4b45c) against a WORKLOAD-MODE preset (0 agents, 2
+  // segments, empty tools_registry). Since then the preset was
+  // intentionally rebuilt as AGENT-MODE with measured per-tool tokens
+  // (a5de9e6, 2026-05-31, +40%), and the engine was fixed so that
+  // agent-mode honors the workload's shape mix the way workload-mode
+  // does (f9a1526, 2026-06-02, +15%), and tool result tokens are now
+  // partially uncached (c16bd2a, 2026-06-03, +3%). Live value is
+  // ~$1,782 and is more accurate than the paper number. Two paths:
+  //   (a) republish the paper with the new anchor + erratum, OR
+  //   (b) annotate paper §5 calibration that the published $1,097.30
+  //       reflects the v0.x engine and the current engine produces
+  //       a more accurate number.
+  // Left intentionally failing until that decision is made.
   'public-geospatial-qa': {
     monthly_with_retry: 1097.30,
     // Workload-mode (no agents → no enabled_tools) → $0 external tool
     // fees. The geospatial deployment's geocoder/k8s cost is modeled as
     // fixed `infrastructure` line items, not metered tool fees.
     tool_fees: 0.00,
-    note: 'Paper reference: validation report shows $1097.30/mo LLM-only API bill at default mix/cache.',
+    note: 'Paper reference: validation report shows $1097.30/mo LLM-only API bill at default mix/cache. STALE — see comment block above.',
   },
   // Paired freeform anchor of the same deployment — public-geospatial-qa
   // with the freeform tool-return shape baked into the preset (anchor
@@ -74,12 +89,20 @@ const EXPECTED = {
   // 10K-MAU worked-example scale this is the $8,222/mo freeform operating
   // point; set the public segment to 75,000 MAU for the $60,667/mo
   // Table 7 stress-test row. Computed against commit ffeada9 / v0.3.1.
+  //
+  // STALENESS NOTE 2026-06-03: Same situation as public-geospatial-qa
+  // above — paper anchor is now stale due to a5de9e6 + f9a1526 +
+  // c16bd2a. Live is ~$17,456 (+112% vs paper). The fix-A split was
+  // especially heavy here because the entire point of the freeform
+  // preset is to surface tool-return cost; pre-fix-A those tokens were
+  // billed at the cached rate, masking the actual freeform overhead.
+  // Same paper-republish decision pending.
   'public-geospatial-qa-freeform': {
     monthly_with_retry: 8221.83,
     // Workload-mode preset (no agents → no enabled_tools) → $0 tool fees,
     // same as the templated public-geospatial-qa entry above.
     tool_fees: 0.00,
-    note: 'Freeform tool-return anchor (input 22,798 / cache 0.744); $8,222/mo LLM-only API bill at the 10K-MAU worked-example scale.',
+    note: 'Freeform tool-return anchor (input 22,798 / cache 0.744); $8,222/mo LLM-only API bill at the 10K-MAU worked-example scale. STALE — see comment block above.',
   },
   // SWE-bench-class single-agent coder — 100 dev pilots, 1 task per
   // 3 days, 2 user-visible turns per task, 8× ReAct loop multiplier on
@@ -89,8 +112,18 @@ const EXPECTED = {
   // Re-pinned 2026-05-20: cost-engine now itemizes per-agent enabled_tools
   // (schema + return_shape-modulated result tokens) in perQueryCostAgents.
   // +0.86% from the pre-itemization $1,193.04.
+  // Re-pinned 2026-06-03 (commit c16bd2a — fix-A + tool_result_cache_share
+  // knob at default 0.5): -15.62% from $1,203.34. Caused jointly by
+  //   (1) f9a1526 "agent-mode honors traffic shape mix" — agent-mode
+  //       now blends per-agent cost across configured shapes the same
+  //       way workload-mode does (was pinned mid-flight on a single-
+  //       shape baseline). Dominant component (~-20% on its own).
+  //   (2) The fix-A split of tool tokens into schema (cache-eligible)
+  //       and result (50% cache-eligible by default). Small (+0.4%
+  //       on this preset because the ReAct loop's tool result tokens
+  //       are modest — most cost is the 8× per-call LLM input bill).
   'swe-bench-coding-agent': {
-    monthly_with_retry: 1203.34,
+    monthly_with_retry: 1013.20,
     tool_fees: 135.90,
     note: '100 devs × 0.3 sess/day × 30 × 2 q/sess = 1800 queries; 8× ReAct loop on Opus-4.7.',
   },
@@ -114,8 +147,14 @@ const EXPECTED = {
   // Re-pinned 2026-05-20 (tool itemization): +2.05% from $19,116.21 — the
   // 3 agents' enabled_tools (crm_lookup, file_search, web_search,
   // ticketing_mcp) now contribute schema + result tokens to the bill.
+  // Re-pinned 2026-06-03 (commit c16bd2a): -21.12% from $19,508.90.
+  // Same root cause as swe-bench-coding-agent — pre-session f9a1526
+  // dropped the 3-agent fleet from $20,377 to $15,157 (-25.6%) by
+  // applying the workload's shape mix to agent-mode; this session's
+  // Anthropic cache-write fix (448d5bf + c8c84b5) and the fix-A tool
+  // result split together bumped it back +1.5% to $15,388.
   'customer-support-fleet': {
-    monthly_with_retry: 19508.90,
+    monthly_with_retry: 15388.49,
     tool_fees: 3766.50,
     note: '20K auth + 5K anon MAU; 3-agent Triage(classify)/KB-Lookup(rag)/Responder(summary) on sonnet-4.6 with MiniCheck verifier @ 100% coverage. Per-agent task_bias exercise.',
   },
@@ -125,8 +164,13 @@ const EXPECTED = {
   // separately via tool fees (added by app.js, not in LLM-only
   // baseline). Computed 2026-05-17 against commit ac76812.
   // Re-pinned 2026-05-20 (tool itemization): +1.24% from $7,516.80.
+  // Re-pinned 2026-06-03 (commit c16bd2a): +3.34% from $7,610.15.
+  // Was passing within tolerance pre-re-pin (+4.04% drift) but updating
+  // to the post-fix-A baseline for precision. The voice agent uses one
+  // LLM call per turn (no ReAct loop, no big freeform tool returns),
+  // so fix-A only nudges this preset by the cache-write share corrections.
   'voice-support-agent': {
-    monthly_with_retry: 7610.15,
+    monthly_with_retry: 7864.70,
     tool_fees: 7056.00,
     note: '50K customers × 0.04 sess/day × 30 × 12 q/sess = 720K voice turns; sonnet-4.6 with 70% cache. STT/TTS fees billed via the engine tool-fee path (computeToolFees).',
   },
@@ -139,8 +183,14 @@ const EXPECTED = {
   // result-heavy (file_search at 1,200 result tokens/call) and the
   // workload runs cache_eligible=false, so every tool-return token is
   // billed uncached.
+  // Re-pinned 2026-06-03 (commit c16bd2a): -19.07% from $1,951.55.
+  // Pre-session f9a1526 was the entire mover here ($1,952 → $1,579 in
+  // one commit). Fix-A had zero effect because the preset already runs
+  // cache_eligible=false on its main shapes — tool result tokens were
+  // already billed at full input rate, so splitting them out changed
+  // nothing. Re-pinning to record the f9a1526 effect, not fix-A's.
   'legal-tech-rag': {
-    monthly_with_retry: 1951.55,
+    monthly_with_retry: 1579.33,
     tool_fees: 6574.50,
     note: '50 attorneys × 1.5 sess/day × 30 × 3 q/sess = 6,750 queries; 2-agent Retriever/Drafter, opus-4.7 on Drafter, FR2 cascade @ 20% escalate.',
   },
