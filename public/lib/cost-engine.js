@@ -660,6 +660,45 @@
                           + schemaCached * pCachedEff / 1e6) * mult * activeRate;
         }
         if (shapedResultTok > 0) {
+          // ReAct accumulation (bug B). For an agent with
+          // calls_per_query=N (a ReAct loop firing N LLM calls per user
+          // query), a tool's result from stage K stays in conversation
+          // context for stages K+1..N. So result tokens are seen by
+          // more than one LLM call. Pre-fix this was modeled as 1×
+          // (silently under-billing freeform ReAct).
+          //
+          // tool_result_react_persistence (0..1, default 0) controls
+          // the multiplier:
+          //   effResultTok = shapedResultTok × (1 + (calls - 1) × persistence)
+          //
+          //   persistence=0:    1× (no accumulation modeled — current
+          //                     calibration, lands EIE at 30% via the
+          //                     tool_result_cache_share knob alone)
+          //   persistence=0.5:  result tokens averaged across ~half the
+          //                     subsequent calls (moderate accumulation,
+          //                     summarized between stages)
+          //   persistence=1.0:  result tokens seen by ALL N calls
+          //                     (full accumulation, no summarization)
+          //
+          // Default 0 is intentional — share=0.5 already calibrates EIE
+          // to 30%. Turning persistence ON without re-tuning share would
+          // double-count the ReAct accumulation effect (both knobs model
+          // overlapping phenomena). Real deployments with instrumented
+          // telemetry should set BOTH simultaneously: measure share from
+          // cached_tokens/prompt_tokens ratio at the LLM call site, and
+          // persistence from how often prior tool returns appear in
+          // subsequent calls' prompts.
+          //
+          // Precedence: agent.tool_result_react_persistence →
+          // workload.tool_result_react_persistence → 0.
+          const rawPersist = agent.tool_result_react_persistence != null
+            ? agent.tool_result_react_persistence
+            : (w.tool_result_react_persistence != null
+              ? w.tool_result_react_persistence
+              : 0);
+          const persist = Math.max(0, Math.min(1, Number(rawPersist)));
+          const reactMultiplier = 1 + Math.max(0, calls - 1) * persist;
+          const accumulatedResultTok = shapedResultTok * reactMultiplier;
           // tool_result_cache_share — 0..1 fraction of result tokens that
           // DO end up in the prompt cache in practice. Default 0.5 means
           // half the result-token volume gets the agent's cache discount
@@ -690,8 +729,8 @@
               ? w.tool_result_cache_share
               : DEFAULT_RESULT_CACHE_SHARE);
           const share = Math.max(0, Math.min(1, Number(rawShare)));
-          const cachedPortion = shapedResultTok * eff * share;
-          const freshPortion  = shapedResultTok - cachedPortion;
+          const cachedPortion = accumulatedResultTok * eff * share;
+          const freshPortion  = accumulatedResultTok - cachedPortion;
           shapeToolCost += ((freshPortion * rates.input_per_million / 1e6)
                           + (cachedPortion * pCachedEff / 1e6)) * mult * activeRate;
         }

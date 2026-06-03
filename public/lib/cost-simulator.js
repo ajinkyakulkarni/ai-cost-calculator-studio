@@ -460,12 +460,27 @@ function computeCost(mk){
                           ? window.workload.tool_result_cache_share
                           : __trcsDefault));
     const __trcs = Math.max(0, Math.min(1, Number(__trcsRaw)));
-    // The "uncached" portion of tool result tokens is pulled OUT of the
-    // cacheable input bucket and added separately as a fresh-rate cost
-    // below. This is the load-bearing fix for freeform tool returns —
-    // see cost-engine.js comment on agentToolTokenBreakdown.
-    const __toolResultUncachedPerTurn = myToolResultOH * (1 - __trcs);
-    const __toolResultCachedPerTurn   = myToolResultOH * __trcs;
+    // ReAct accumulation persistence (bug B, mirrors cost-engine.js).
+    // Default 0 — no change to existing presets. When > 0, tool result
+    // tokens get multiplied by (1 + (calls - 1) × persistence) to model
+    // results being seen by subsequent LLM calls in the same ReAct loop.
+    // See engine comment for full rationale and double-counting warning.
+    const __trrpRaw = (agent.tool_result_react_persistence != null
+                       ? agent.tool_result_react_persistence
+                       : (window.workload && window.workload.tool_result_react_persistence != null
+                          ? window.workload.tool_result_react_persistence
+                          : 0));
+    const __trrp = Math.max(0, Math.min(1, Number(__trrpRaw)));
+    const __agentCallsForReact = Math.max(1, Number(agent.calls_per_query) || 1);
+    const __reactMult = 1 + Math.max(0, __agentCallsForReact - 1) * __trrp;
+    const __accResultPerTurn = myToolResultOH * __reactMult;
+    // The "uncached" portion of (react-accumulated) tool result tokens
+    // is pulled OUT of the cacheable input bucket and added separately
+    // as a fresh-rate cost below. This is the load-bearing fix for
+    // freeform tool returns — see cost-engine.js comment on
+    // agentToolTokenBreakdown.
+    const __toolResultUncachedPerTurn = __accResultPerTurn * (1 - __trcs);
+    const __toolResultCachedPerTurn   = __accResultPerTurn * __trcs;
     const turnIn=(mySysTok/myTurns)+200+myToolSchemaOH+__toolResultCachedPerTurn+myIaMsg+myRagTok+myReasonTok+myGuardTokInTurn+_commOverheadPerTurn+modalTurnTok+myPromptOHTurn;
     const rawTurnOut=Math.round(200*myOM)+myCitations;
     const turnOut=Math.min(rawTurnOut, agent.maxOut||rawTurnOut);
