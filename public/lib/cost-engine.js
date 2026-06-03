@@ -552,6 +552,17 @@
       const turnShareRaw = Number(agent.turn_share);
       const turnShare = Number.isFinite(turnShareRaw) && turnShareRaw > 0 ? turnShareRaw : 1;
       const effCalls = calls * turnShare;
+      // Per-agent output cap. Clamps base outT only when set AND less
+      // than outT. Above outT is a no-op (cap doesn't bind — model
+      // would naturally finish below the cap). When the user drags the
+      // slider DOWN below the agent's natural output_tokens, output is
+      // truncated and the per-call output bill drops proportionally —
+      // honest behavior matching how OpenAI / Anthropic max_tokens
+      // actually work in production.
+      const outCapRaw = Number(agent.max_output_tokens);
+      const cappedOutT = (Number.isFinite(outCapRaw) && outCapRaw > 0)
+        ? Math.min(outT, outCapRaw)
+        : outT;
       const cacheOverrideRaw = Number(agent.cache_rate_override);
       let agentCacheRate = null;
       if (Number.isFinite(cacheOverrideRaw) && cacheOverrideRaw > 0) {
@@ -593,9 +604,10 @@
                      + ragInPerCall + guardInPerCall;
         const cached = effInT * eff;
         const uncached = effInT - cached;
-        // Output: base × shape × task-mix multiplier, plus per-agent
+        // Output: capped base × shape × task-mix multiplier, plus per-agent
         // reasoning trace + visible CoT + citations + output guard tokens.
-        const effOutT = outT * outFactor * agentOutMult
+        // Use cappedOutT (max_output_tokens applied) instead of raw outT.
+        const effOutT = cappedOutT * outFactor * agentOutMult
                       + reasoningOutPerCall + cotOutPerCall
                       + citationOutPerCall + guardOutPerCall;
         const perCall = (

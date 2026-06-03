@@ -1813,6 +1813,7 @@ function _mirrorAgentEditToWorkload(simAgentId, k, v) {
     // headline pill ignored them. Engine fields are documented at the
     // matching block in cost-engine.js perQueryCostAgents.
     turnsShare: 'turn_share',
+    maxOut: 'max_output_tokens',
     fewshot: 'fewshot_examples',
     jsonschema: 'jsonschema_tokens',
     memory: 'memory_tokens',
