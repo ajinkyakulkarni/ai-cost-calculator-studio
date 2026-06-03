@@ -2057,13 +2057,34 @@ Production teams measure their primary's confidence-score distribution; escalate
       const isBinding  = apiGross > apiCapped + 1 && refused > 0;
       if (isBinding) {
         const refusedPct = queries > 0 ? (100 * refused / queries) : 0;
+        const capDollars = workload?.daily_cap?.amount_usd || 0;
         cbCapWarn.textContent = `Cap · ${refusedPct.toFixed(0)}% refused`;
         cbCapWarn.style.display = '';
-        cbCapWarn.title =
-          `Daily spend cap is binding:\n` +
-          `  ${fmt$(apiGross)}/mo gross → ${fmt$(apiCapped)}/mo after cap (saved ${fmt$(apiGross - apiCapped)})\n` +
-          `  ${refused.toLocaleString()} queries/mo refused out of ${queries.toLocaleString()} (${refusedPct.toFixed(1)}%)\n\n` +
-          `Drag the daily cap up, drop MAU, or accept the refusal rate. Dragging s-agents while the cap is binding moves the gross cost up but not the headline (cap clips the difference) — that's why the headline looks unresponsive.`;
+        // Inject the LIVE numbers into the rich data-tip from index.html so
+        // hovering shows the exact gross/capped/refused numbers for the
+        // current workload, not just the generic explainer. We rebuild the
+        // tip each render to keep dollars/queries fresh as sliders move.
+        const liveStats =
+          `### What this badge means\n\n` +
+          `Your **daily spend cap of $${capDollars.toLocaleString()}/day** is binding — projected demand would cost more per day than the cap allows, so the engine refuses queries above the cap.\n\n` +
+          `**Live numbers right now:**\n` +
+          `- Gross (uncapped): **${fmt$(apiGross)}/mo**\n` +
+          `- After cap: **${fmt$(apiCapped)}/mo** (saves ${fmt$(apiGross - apiCapped)})\n` +
+          `- Refused: **${refused.toLocaleString()} queries/mo** out of ${queries.toLocaleString()} (${refusedPct.toFixed(1)}%)\n\n` +
+          `**What '${refusedPct.toFixed(0)}% refused' means:** that share of monthly queries get rejected with HTTP 429/503 once the daily $-budget is hit. Real users see errors, not LLM responses.\n\n` +
+          `### Why this is happening\n\n` +
+          `Either your cap is low relative to projected traffic, OR you've dragged MAU/sessions/questions up past what the cap can fund, OR the loaded preset's default cap is below this workload's actual demand.\n\n` +
+          `### What to do — three options\n\n` +
+          `**(1) Raise the cap** to match your real production budget.\n\n` +
+          `**(2) Reduce demand** — lower MAU, sessions/day, or questions/session until the badge stops appearing.\n\n` +
+          `**(3) Accept the refusal rate** — if ${refusedPct.toFixed(0)}% refused is acceptable for your SLA, this is a legitimate cost-containment posture.\n\n` +
+          `### Where to adjust the cap\n\n` +
+          `The daily-cap input was retired from the standard UI (most users don't tune it) but the field is still in the workload JSON. To change it:\n\n` +
+          `1. Click **'Edit JSON'** in the top bar\n` +
+          `2. Find \`daily_cap.amount_usd\` (currently $${capDollars.toLocaleString()})\n` +
+          `3. Edit, save, reload\n\n` +
+          `Heads-up: dragging s-agents or s-users while the cap is binding moves GROSS cost up but not the headline — the cap clips the difference. That's why the headline looks unresponsive.`;
+        cbCapWarn.setAttribute('data-tip', liveStats);
       } else {
         cbCapWarn.style.display = 'none';
       }

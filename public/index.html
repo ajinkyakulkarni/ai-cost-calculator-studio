@@ -3632,7 +3632,34 @@ input[type=range]:disabled { cursor: not-allowed; }
     <span class="cb-suffix" id="cb-suffix"></span>
     <span class="cb-tco-sep" id="cb-tco-sep" aria-hidden="true">·</span>
     <span class="cb-tco" id="cb-tco" title="3-year cumulative TCO at the current growth rate. Useful for federal contract budgeting (typical 3-year envelope)."></span>
-    <span class="cb-cap-warn" id="cb-cap-warn" style="display:none" title="The daily spend cap is binding — the engine is refusing queries to stay under the cap. The headline reflects the capped cost, not the gross. Drag the cap up, drop MAU, or accept the refusal rate."></span>
+    <span class="cb-cap-warn" id="cb-cap-warn" style="display:none;cursor:help" data-tip="### What this badge means
+
+Your **daily spend cap** is binding — the projected demand would cost MORE per day than the cap allows, so the engine refuses queries above the cap to keep you under budget. The headline above reflects the **capped** cost, not the gross.
+
+**What '%N refused' means:** that percentage of monthly queries get rejected with HTTP 429 / 503 once the daily $-budget is hit. Real users see errors, not LLM responses.
+
+### Why this is happening
+
+You've either:
+- Configured a daily cap that's low relative to your modeled traffic
+- Dragged MAU / sessions / questions up past what the cap can fund
+- Loaded a preset whose default cap is below the EIE-class workload it models
+
+### What to do — three options
+
+**(1) Raise the cap** to match your real production budget.
+
+**(2) Reduce demand** — lower MAU, sessions/day, or questions/session sliders until the cap stops binding.
+
+**(3) Accept the refusal rate** — if N% refused is acceptable for your SLA, this is a legitimate cost-containment posture. Just be honest about it with stakeholders.
+
+### Where to adjust the cap
+
+The daily-cap input was retired from the standard UI (most users don't need to tune it) but the field is still in the workload JSON. To change it:
+
+1. Click **'Edit JSON'** (or **'Export'**) in the top bar
+2. Find the `daily_cap` block: `&quot;amount_usd&quot;: 1500` (or whatever your current cap is)
+3. Change the dollar value, save, reload"></span>
   </div>
 </div>
 <div id="toast" style="position: fixed; bottom: 30px; left: 50%; transform: translateX(-50%); background: var(--ink); color: var(--paper); padding: 12px 20px; border-radius: 4px; font-family: var(--sans); font-size: 13px; opacity: 0; transition: opacity 0.3s; pointer-events: none; z-index: 1000;"></div>
