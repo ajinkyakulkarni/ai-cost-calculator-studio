@@ -150,6 +150,35 @@ reproduce.
 
 ---
 
+## Running the geospatial agent directly
+
+The templated/freeform anchors above come from a six-stage geospatial
+Q&A agent (parse_datetime → geocode → collections_rag → select_collection
+→ stac_search → stats). The bench scenarios call OpenAI with the same
+prompt+tool payloads the agent would, but they don't simulate the agent
+loop itself. To run the loop end-to-end against a live OpenAI key — see
+the per-stage cache_tokens, flip the tool-return mode in place, and
+watch the cache warm up on a browser UI — use the companion repository:
+
+- `github.com/ajinkyakulkarni/public-geospatial-qa-agent`
+
+```bash
+git clone https://github.com/ajinkyakulkarni/public-geospatial-qa-agent
+cd public-geospatial-qa-agent && pip install -e .
+cp .env.example .env   # paste OPENAI_API_KEY
+
+python3 -m public_geospatial_qa_agent.cli run-once \
+    --archetype single_dataset_viz --mode templated
+python3 -m public_geospatial_qa_agent.cli serve --budget 1.00
+```
+
+`run-suite` writes one JSON line per LLM call into `runs/measurement.jsonl`,
+and `analyze` rolls that up into per-stage averages directly comparable
+to the bench output. Same model, same rate card, same cache key —
+different runtime path. Per-cycle totals agree.
+
+---
+
 ## Verifying a result
 
 To check that the calculator's prediction matches a real API run for the

@@ -224,6 +224,13 @@ attributes, per-call usage, request_ids) and the comparator emits a
 Markdown variance report. Coefficients drifting more than ±15% from
 their predicted values get flagged for calibration.
 
+To run the same templated/freeform measurement end-to-end through an
+actual six-stage agent (not just the bench's prompt payloads), see
+[`public-geospatial-qa-agent`](https://github.com/ajinkyakulkarni/public-geospatial-qa-agent)
+— a small Python + FastAPI app that runs the workflow against the
+OpenAI API with a browser UI and a JSONL log directly comparable to
+`agent-cost-bench` output.
+
 ## The calibration loop
 
 ```
