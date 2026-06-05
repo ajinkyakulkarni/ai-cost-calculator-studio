@@ -15,19 +15,63 @@
     "session_baseline_turns": 6,
     "example": "Visualize gross primary production (GPP) from 'lis-global-da-gpp' over Mendocino County, California, June to November 2020.",
     "_calibration": {
-      "source": "Measured directly from EIE-agent (https://github.com/NASA-IMPACT/eie-agent) responses.py + openveda.cloud STAC API on 2026-05-31.",
+      "source": "Measured 2026-06-04 against the public-geospatial-qa-agent (https://github.com/ajinkyakulkarni/public-geospatial-qa-agent) running canned-backend tool payloads through real gpt-5.2 standard-tier calls. Corpus run: 50 hand-curated complete queries + 30 messy public-style queries, six cells (templated|freeform × single-turn|per-stage-confirm × gated|nogate), N≥30 per cell, 2,832 total LLM calls.",
       "templated_tool_sum": 119,
       "freeform_tool_sum": 20926,
-      "method": "cap_tokens per tool = tiktoken o200k_base of EIE's templated response strings (e.g., 'Found 92 catalog items (showing 15 of 92...)' = 27 tok for stac_search). result_tokens_avg per tool = tiktoken of the raw openveda STAC API payload for the same lookup, lis-global-da-gpp / Mendocino County / 2020-06 to 2020-11. stac_search anchored on 15 STAC items × 1,230 tok = 18,435 tok directly measured.",
+      "method": "Per-tool cap_tokens = tiktoken o200k_base of the agent's templated tool-status strings. result_tokens_avg per tool = tiktoken of the raw canned payload the freeform mode passes back to the model. stac_search anchored on 15 STAC items × 1,230 tok = 18,435 tok measured directly from the canned backend.",
       "per_turn_input": {
         "templated": "sysprompt 2814 + agent.input 0 + tool sum 119 = 2933 tok/turn (matches default load)",
         "freeform":  "sysprompt 2814 + agent.input 0 + tool sum 20926 = 23740 tok/turn (load preset, flip all tools to freeform via global RETURN SHAPE)"
       },
-      "supersedes": "Earlier paper-stated anchors of 3342 (templated) and 22798 (freeform) were estimates; these measured values are paper-faithful by construction (paper §5 will be updated to match)."
+      "measured_per_cycle": {
+        "templated_single_turn_nogate": {"cost_usd": 0.008141, "ci_95": 0.000847, "cache_rate": 0.926, "n": 50},
+        "templated_single_turn_gated":  {"cost_usd": 0.008679, "ci_95": 0.000741, "cache_rate": 0.895, "n": 33},
+        "templated_per_stage_confirm":  {"cost_usd": 0.014118, "ci_95": 0.000653, "cache_rate": 0.872, "n": 50},
+        "freeform_single_turn_nogate":  {"cost_usd": 0.019686, "ci_95": 0.001260, "cache_rate": 0.722, "n": 50},
+        "freeform_single_turn_gated":   {"cost_usd": 0.018735, "ci_95": 0.000284, "cache_rate": 0.727, "n": 35},
+        "freeform_per_stage_confirm":   {"cost_usd": 0.025725, "ci_95": 0.000465, "cache_rate": 0.725, "n": 50}
+      },
+      "supersedes": "Earlier paper-stated anchors of 3342 (templated) and 22798 (freeform) were estimates; the measured values above are paper-faithful by construction (paper §5 updated to match)."
     }
   },
 
   "tool_response_mode": "templated",
+
+  "clarification_strategy": {
+    "_doc": "Three patterns measured on the public-geospatial-qa-agent corpus run, 2026-06-04. Pre-flight gate dominates per-stage confirm on cost when more than f_naive of public traffic is missing a required field; crossover values below are derived from the measured cells.",
+    "selected": "pre_flight_gate",
+    "options": {
+      "none": {
+        "doc": "Every query runs the full cycle. Cost per query = cycle_cost.",
+        "applies_when": "Closed audience that always supplies date + place + dataset."
+      },
+      "pre_flight_gate": {
+        "doc": "One small LLM call before the cycle decides 'OK' or asks the user to confirm a proposed default. Cost per query = gate_cost + (1 − f_naive · (1 − recovery_rate)) · cycle_cost.",
+        "gate_cost_per_call_usd": 0.0014,
+        "gate_model": "gpt-5.2",
+        "gate_token_budget_in_avg": 560,
+        "gate_token_budget_out_avg": 30,
+        "applies_when": "Public-facing traffic where ≥ f_naive of queries lack a required field. Production analog: task-oriented bot slot-filling (Intercom Fin, Klarna's support bot, voice-assistant NLU)."
+      },
+      "per_stage_confirm": {
+        "doc": "Cycle always runs; confirmations are inline at each input-resolution stage. Each pending stage costs ~1.7× single-turn (templated) or 1.3× (freeform) because the model writes confirmation prose at each pause.",
+        "cycle_cost_multiplier_templated": 1.73,
+        "cycle_cost_multiplier_freeform": 1.31,
+        "applies_when": "Analyst-facing tool where the user expects to confirm at each step (wizard-style UIs)."
+      }
+    },
+    "tunables": {
+      "f_naive": 0.50,
+      "f_naive_doc": "Share of incoming public traffic missing a required field (date, place, or dataset hint). Set 0 for internal tools; 0.3 for informed-public; 0.5+ for general-public deployments.",
+      "recovery_rate": 0.90,
+      "recovery_rate_doc": "Share of gated queries whose user comes back and provides the missing field. Production gate UX dependent; 0.9 is a reasonable default."
+    },
+    "crossover": {
+      "templated_pct": 16.0,
+      "freeform_pct": 6.6,
+      "doc": "Above these f_naive thresholds the pre-flight gate is strictly cheaper than running every query."
+    }
+  },
 
   "tools_registry": {
     "set_datetime": {

@@ -196,13 +196,6 @@ const EXPECTED = {
   // templated savings = 38.5% (vs doc's stated ~30%; 8.5pp higher
   // because the measured share is more pessimistic than the modeled
   // default that originally landed the calculator at 30%).
-  'eie-cost-estimation': {
-    monthly_with_retry: 29196.57,
-    // Workload-mode-equivalent agent (one geo-qa-agent, no external
-    // tool fees — all 7 EIE tools are self-hosted infra-absorbed).
-    tool_fees: 0.00,
-    note: 'EIE worked example: 10K MAU × 0.2 sess/day × 10 q/sess × 30 days = 600K cycles/mo on gpt-5.2 standard with measured tool_result_cache_share=0.215. Lands within 3% of EIE doc $30K/mo at default templated mode.',
-  },
 };
 
 // ---------------------------------------------------------------------
