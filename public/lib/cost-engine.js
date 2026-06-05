@@ -3,9 +3,9 @@
 //
 // Pure-JS implementation of the cost-modeling math, decoupled from any
 // specific deployment. Consumes a workload specification (see
-// schema/workload-v1.schema.json) and exposes the same compute
-// functions the EIE calculator uses, with all data-layer values
-// pulled from the workload spec.
+// schema/workload-v1.schema.json) and exposes the compute functions
+// the calculator UI uses, with all data-layer values pulled from the
+// workload spec.
 //
 // Designed to run both:
 //   - In a browser, included via <script> in the studio or generated
@@ -757,7 +757,47 @@
         per_call_cost: blendedPerCall, per_query_cost: agentPerQuery,
       });
     }
-    return { per_query: total, breakdown };
+    // Apply the clarification-strategy wrapper (gate / per-stage /
+    // none) to the per-query total. The breakdown is left untouched
+    // so the UI's per-agent table still shows the raw cycle math; the
+    // strategy adjustment shows up only at the aggregate per_query.
+    const adjusted = applyClarificationStrategy(workload, total);
+    return { per_query: adjusted, breakdown };
+  }
+
+  // -------------------------------------------------------------------
+  // Clarification-strategy wrapper. Three patterns supported, mapped
+  // to the formulas measured on the public-geospatial-qa-agent corpus
+  // (preset block: anchor_query._calibration.measured_per_cycle):
+  //
+  //   none:               return the cycle cost unchanged.
+  //   pre_flight_gate:    g·(1 + r·f_naive) + (1 − f_naive·(1 − r))·cycle_cost
+  //   per_stage_confirm:  cycle_cost · mult, where mult is set per mode
+  //                       (templated 1.73, freeform 1.31 in defaults).
+  //
+  // Workload spec lives under workload.clarification_strategy; defaults
+  // applied per-field so partial specs (e.g. missing tunables block)
+  // degrade gracefully.
+  // -------------------------------------------------------------------
+  function applyClarificationStrategy(workload, cycleCost) {
+    const cs = workload && workload.clarification_strategy;
+    if (!cs || !cs.selected || cs.selected === 'none') return cycleCost;
+    const tunables = cs.tunables || {};
+    const f = Number(tunables.f_naive != null ? tunables.f_naive : 0.5);
+    const r = Number(tunables.recovery_rate != null ? tunables.recovery_rate : 0.9);
+    const opt = (cs.options && cs.options[cs.selected]) || {};
+    if (cs.selected === 'pre_flight_gate') {
+      const g = Number(opt.gate_cost_per_call_usd != null ? opt.gate_cost_per_call_usd : 0.0014);
+      return g * (1 + r * f) + (1 - f * (1 - r)) * cycleCost;
+    }
+    if (cs.selected === 'per_stage_confirm') {
+      const mode = workload.tool_response_mode;
+      const mult = mode === 'freeform'
+        ? Number(opt.cycle_cost_multiplier_freeform != null ? opt.cycle_cost_multiplier_freeform : 1.31)
+        : Number(opt.cycle_cost_multiplier_templated != null ? opt.cycle_cost_multiplier_templated : 1.73);
+      return cycleCost * mult;
+    }
+    return cycleCost;
   }
 
   // -------------------------------------------------------------------
@@ -928,7 +968,8 @@
       total += weight * shapeCost;
       totalWeight += weight;
     }
-    return totalWeight > 0 ? total / totalWeight : 0;
+    const cycleCost = totalWeight > 0 ? total / totalWeight : 0;
+    return applyClarificationStrategy(w, cycleCost);
   }
 
   // -------------------------------------------------------------------
