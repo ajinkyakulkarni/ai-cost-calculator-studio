@@ -9,25 +9,41 @@ regenerates it.
 
 ## Pin the version first
 
-The paper's dollar figures are a dated snapshot. Provider rate cards in
-`public/lib/prices.js` get refreshed over time, so `main` will drift from
-the published numbers. To reproduce the paper **exactly**, check out the
-release it was written against:
+**TL;DR: the paper anchors are at `v0.4.0`. Running `main` reproduces
+something different by design.**
+
+The paper's dollar figures are a dated snapshot of the engine + preset
++ rate card. Both the engine and the preset have moved past `v0.4.0`
+since publication, so `main` will drift from the published numbers.
+To reproduce paper §5 / Table 4 / Table 7 **exactly**, check out the
+release tag:
 
 ```bash
-git checkout v0.4.0
+git checkout v0.4.0       # dereferences to commit d883ce51a27e51984d306a5f0f5bc9eb3254a2c3
 ```
 
 | Pin | Value |
 |---|---|
 | Release tag | `v0.4.0` |
+| Tag → commit | `d883ce51a27e51984d306a5f0f5bc9eb3254a2c3` (orphan; only reachable via the tag, not on `main` after a history rewrite) |
 | Harness version | `agent-cost-bench` 0.2.0 |
 | `public/coefficients.json` sha256 | `6d12073cec675a7743b5ec21c74d838403c1da8ed14eb10c2b45d91d65d672d9` |
 | Rate-card date | 2026-05-11 (GPT-5.2, Sonnet-4-5 prices captured) |
+| Templated worked-example anchor | **$1,508/mo** (paper §5) |
+| Freeform worked-example anchor | **$13,253/mo** (paper §5) |
 
-On `main` you will get numbers priced at the *current* rate card instead —
-useful, but not the paper's figures. That is expected and is exactly why
-the paper calls dollar figures "timestamps, not constants."
+On `main` (HEAD), the engine outputs different dollar figures
+(currently around $3,794 templated / $17,456 freeform for the same
+preset at 10K MAU) because the engine learned to itemize per-agent
+`enabled_tools` and the preset was rebuilt against measured per-tool
+tokens after the paper was anchored. The HEAD numbers are the
+regression anchors for `npm run bench:validate`; the paper numbers
+are anchored at the tag. Both are intentional.
+
+If you cloned the repo, ran `npm run bench:validate`, and saw the
+LLM API line agree with **$3,794.13 templated / $17,456.22 freeform**:
+that is HEAD's expected output, and the paper's $1,508/$13,253
+anchors are at the `v0.4.0` tag.
 
 The shipped calculator (including `v0.4.0`) applies the Eq. 3 clamp
 differently from the paper's printed form: the [0.50, 0.94] bound is

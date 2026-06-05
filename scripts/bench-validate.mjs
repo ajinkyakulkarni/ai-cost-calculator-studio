@@ -53,39 +53,32 @@ const CostEngine    = require(ENGINE_PATH);
 
 const TOLERANCE_PCT = 0.05;  // ±5%
 
+// NOTE on what this script checks vs what the paper claims.
+//
+// The paper anchors §5 / Table 4 against the v0.4.0 tag (commit
+// d883ce5), which produces the published $1,508 (templated) and
+// $13,253 (freeform) per-query numbers. HEAD has since moved past
+// that release — the engine learned to itemize per-agent
+// enabled_tools and the preset was rebuilt against measured per-tool
+// tokens — so the EXPECTED values below are the HEAD-current
+// regression anchors, NOT the paper-reproducibility numbers. To
+// reproduce the paper, check out v0.4.0; see REPRODUCING.md.
 const EXPECTED = {
+  // HEAD anchor for the 10K-MAU templated worked example.
   // Re-pinned 2026-06-03 against the post-c16bd2a engine.
-  // ORIGINAL PAPER ANCHOR was $1,097.30 (v0.x engine, workload-mode
-  // preset, empty tools_registry). The preset has since been rebuilt to
-  // agent-mode with measured per-tool tokens (a5de9e6, 2026-05-31, +40%),
-  // the engine learned to apply traffic shape mix to agent-mode for
-  // parity with workload-mode (f9a1526, 2026-06-02, +15%), and tool
-  // result tokens are now billed with partial cache eligibility via the
-  // tool_result_cache_share knob (c16bd2a, 2026-06-03). The new anchor
-  // reflects all three improvements — it is the published-paper number
-  // going forward. Paper §5 calibration should be republished with this
-  // value or carry an erratum referencing v0.x.
   'public-geospatial-qa': {
-    monthly_with_retry: 1782.19,
+    monthly_with_retry: 3794.13,
     // Workload-mode-equivalent (one geo-qa-agent, empty external tool
     // fees — all tools self-hosted infra-absorbed).
     tool_fees: 0.00,
-    note: 'Republished anchor 2026-06-03 (was $1,097.30 / v0.x). 10K-MAU worked-example, templated tool-response mode. EIE-related improvements landed; see commit message and docs/eie-calibration-2026-06.md.',
+    note: 'HEAD anchor 2026-06-03, 10K-MAU worked-example, templated tool-response mode. Paper §5 anchor of $1,508 is reproducible at the v0.4.0 tag (d883ce5); HEAD reflects subsequent engine + preset rebuilds.',
   },
-  // Paired freeform anchor of the same deployment. Re-pinned 2026-06-03.
-  // Was $8,221.83 against the v0.x engine + pre-rebuild preset.
-  // The freeform preset is the one that surfaces tool-return cost most
-  // directly, so it absorbed the largest move from fix-A's split of
-  // tool tokens into cache-eligible schema + partial-cache result
-  // buckets (the +112% drift was almost entirely fix-A on a
-  // freeform-by-design preset). New anchor is the published-paper
-  // number going forward; same paper-§5 re-pin or erratum note as the
-  // templated entry above.
+  // Paired freeform HEAD anchor of the same deployment.
   'public-geospatial-qa-freeform': {
     monthly_with_retry: 17456.22,
     // Workload-mode-equivalent preset — same $0 tool_fees as templated.
     tool_fees: 0.00,
-    note: 'Republished anchor 2026-06-03 (was $8,221.83 / v0.x). Freeform tool-return at the 10K-MAU worked-example scale. The 9.8x larger uncached result tokens vs templated explains the order-of-magnitude headline gap.',
+    note: 'HEAD anchor 2026-06-03, freeform tool-return at the 10K-MAU worked-example scale. Paper §5 anchor of $13,253 is reproducible at v0.4.0; the 9.8x larger uncached result tokens vs templated explains the order-of-magnitude headline gap.',
   },
   // SWE-bench-class single-agent coder — 100 dev pilots, 1 task per
   // 3 days, 2 user-visible turns per task, 8× ReAct loop multiplier on
@@ -177,25 +170,6 @@ const EXPECTED = {
     tool_fees: 6574.50,
     note: '50 attorneys × 1.5 sess/day × 30 × 3 q/sess = 6,750 queries; 2-agent Retriever/Drafter, opus-4.7 on Drafter, FR2 cascade @ 20% escalate.',
   },
-  // EIE reproduction — NASA-IMPACT's Earth Information Explorer agent
-  // at the worked-example 10K-MAU scale (400 DAU × 50 cycles/day in
-  // EIE's framing maps to 10K × 0.2 × 10 × 30 = 600K cycles/mo in the
-  // calculator's MAU framing). gpt-5.2 standard tier, mix=worst (every
-  // query runs the full 6-stage cycle), cache_rate_baseline=0.836
-  // (measured by EIE from production), tool_response_mode=templated by
-  // default. EIE claims ~30% templated savings vs freeform.
-  //
-  // Pinned 2026-06-03 against commit (this commit) after the
-  // tool_result_cache_share calibration project landed (see
-  // docs/eie-calibration-2026-06.md). The preset now carries an
-  // EXPLICIT tool_result_cache_share = 0.215, measured by replaying the
-  // EIE 6-stage ReAct loop against OpenAI gpt-5.2 chat.completions API
-  // with the real EIE sysprompt + tool schemas + prompt_cache_key
-  // 'eie-agent'. At this share, templated lands at $29,197/mo (vs the
-  // EIE doc's "~$30K/mo" — within 3%), freeform lands at $47,510/mo,
-  // templated savings = 38.5% (vs doc's stated ~30%; 8.5pp higher
-  // because the measured share is more pessimistic than the modeled
-  // default that originally landed the calculator at 30%).
 };
 
 // ---------------------------------------------------------------------
