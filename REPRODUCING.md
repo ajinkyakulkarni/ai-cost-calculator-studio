@@ -15,7 +15,7 @@ something different by design.**
 The paper's dollar figures are a dated snapshot of the engine + preset
 + rate card. Both the engine and the preset have moved past `v0.4.0`
 since publication, so `main` will drift from the published numbers.
-To reproduce paper §5 / Table 4 / Table 7 **exactly**, check out the
+To reproduce paper §6 / Table 4 / Table 7 **exactly**, check out the
 release tag:
 
 ```bash
@@ -29,8 +29,8 @@ git checkout v0.4.0       # dereferences to commit d883ce51a27e51984d306a5f0f5bc
 | Harness version | `agent-cost-bench` 0.2.0 |
 | `public/coefficients.json` sha256 | `6d12073cec675a7743b5ec21c74d838403c1da8ed14eb10c2b45d91d65d672d9` |
 | Rate-card date | 2026-05-11 (GPT-5.2, Sonnet-4-5 prices captured) |
-| Templated worked-example anchor | **$1,508/mo** (paper §5) |
-| Freeform worked-example anchor | **$13,253/mo** (paper §5) |
+| Templated worked-example anchor | **$1,508/mo** (paper §6) |
+| Freeform worked-example anchor | **$13,253/mo** (paper §6) |
 
 On `main` (HEAD), the engine outputs different dollar figures
 (currently around $3,794 templated / $17,456 freeform for the same
@@ -106,14 +106,15 @@ agent-cost-bench run scenarios/public-geospatial-react.yml --yes
 agent-cost-bench run scenarios/public-geospatial-react-freeform.yml --yes
 ```
 
-(Anchors updated 2026-06-01 against directly-measured EIE-agent `responses.py`
-templated returns + openveda STAC API freeform payloads, with
+(Anchors updated 2026-06-01 against directly-measured templated returns
+from the public geospatial Q&A reference agent + public STAC catalog API
+freeform payloads, with
 `cache_write_share = 0` — OpenAI auto-prefix steady state. The bundled
 `public-geospatial-qa.json` preset is 1-agent + 7-tool with the per-tool
 breakdown — templated tool sum 119 tok, freeform tool sum 20,926 tok; flip
 RETURN SHAPE per tool to model targeted templating changes.)
 
-The Anthropic cache-write share `w ≈ 0.20` (§5) is a third run:
+The Anthropic cache-write share `w ≈ 0.20` (§6) is a third run:
 
 ```bash
 agent-cost-bench run scenarios/cached-pipeline-anthropic.yml --yes
@@ -142,7 +143,7 @@ example and edit the segment. From the CLI, copy the preset, set
 node scripts/calc.js --workload <preset-at-75k>.json --json
 ```
 
-At the presets' default 10K MAU the two files give the §5 worked-example
+At the presets' default 10K MAU the two files give the §6 worked-example
 operating points, **$1,508/mo** templated and **$13,253/mo** freeform
 (api.monthly_gross, GPT-5.2 Standard tier, mixed traffic mix,
 cache_write_share = 0). The stress-test rows at 75K MAU scale to

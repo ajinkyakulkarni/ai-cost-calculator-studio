@@ -28,7 +28,7 @@
       "value": 73,
       "previous_value": 6,
       "unit": "ratio",
-      "description": "Median ratio of input tokens to output tokens for confirmation-gated tool-orchestration agents (e.g., EIE-shape data-discovery pipelines).",
+      "description": "Median ratio of input tokens to output tokens for confirmation-gated tool-orchestration agents (e.g., data-discovery pipelines with multi-stage tool chains).",
       "source_scenario": "data-discovery",
       "sample_size": 33,
       "provider": "openai",

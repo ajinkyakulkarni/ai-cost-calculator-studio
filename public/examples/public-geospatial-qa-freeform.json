@@ -3,7 +3,7 @@
   "deployment": {
     "name": "Public geospatial Q&A · freeform (example)",
     "agency": "(anonymized public-facing deployment)",
-    "description": "Public geospatial Q&A with tools defaulting to FREEFORM (raw STAC/stats payloads passed into the LLM context). Same agent + 7-tool pipeline as `public-geospatial-qa.json`, but per-tool RETURN SHAPE = freeform by default — the headline cost is ~5.9× the templated default. Use this preset to model the cost of letting the LLM see raw STAC item arrays + per-band stats arrays directly. Flip individual tools back to templated to see the per-tool lever.",
+    "description": "Public geospatial Q&A with tools defaulting to FREEFORM (raw STAC/stats payloads passed into the LLM context). Same agent + 7-tool pipeline as `public-geospatial-qa.json`, but per-tool RETURN SHAPE = freeform by default — the headline per-query cost is ~8.8× the templated default (at the bundled 10K MAU; the monthly bill lever compresses toward 3–6× at smaller MAU as fixed infra dilutes the per-query savings, per paper §6). Use this preset to model the cost of letting the LLM see raw STAC item arrays + per-band stats arrays directly. Flip individual tools back to templated to see the per-tool lever.",
     "publicFacing": true,
     "fedrampTier": "moderate"
   },
@@ -23,7 +23,7 @@
         "templated": "sysprompt 2814 + agent.input 0 + tool sum 119 = 2933 tok/turn (matches default load)",
         "freeform":  "sysprompt 2814 + agent.input 0 + tool sum 20926 = 23740 tok/turn (load preset, flip all tools to freeform via global RETURN SHAPE)"
       },
-      "supersedes": "Earlier paper-stated anchors of 3342 (templated) and 22798 (freeform) were estimates; these measured values are paper-faithful by construction (paper §5 will be updated to match)."
+      "supersedes": "Earlier paper-stated anchors of 3342 (templated) and 22798 (freeform) were estimates; these measured values are paper-faithful by construction (paper §6 reflects these measured values)."
     }
   },
 

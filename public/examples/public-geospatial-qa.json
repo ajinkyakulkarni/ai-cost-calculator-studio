@@ -31,7 +31,7 @@
         "freeform_single_turn_gated":   {"cost_usd": 0.018735, "ci_95": 0.000284, "cache_rate": 0.727, "n": 35},
         "freeform_per_stage_confirm":   {"cost_usd": 0.025725, "ci_95": 0.000465, "cache_rate": 0.725, "n": 50}
       },
-      "supersedes": "Earlier paper-stated anchors of 3342 (templated) and 22798 (freeform) were estimates; the measured values above are paper-faithful by construction (paper §5 updated to match)."
+      "supersedes": "Earlier paper-stated anchors of 3342 (templated) and 22798 (freeform) were estimates; the measured values above are paper-faithful by construction (paper §6 reflects these measured values)."
     }
   },
 

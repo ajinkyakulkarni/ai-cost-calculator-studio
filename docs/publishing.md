@@ -57,7 +57,7 @@ dashboard.
 
 URL becomes `<username>.github.io/<repo>/cost-calculator-studio/studio/`.
 
-## Option 4: AWS S3 static hosting (matching the EIE deployment)
+## Option 4: AWS S3 static hosting (legacy deployment pattern)
 
 ```bash
 # Sync to S3 with public-read:

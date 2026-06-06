@@ -1,9 +1,9 @@
 {
   "schemaVersion": "1.0",
   "deployment": {
-    "name": "Public geospatial Q&A · 2-segment (paper §5)",
+    "name": "Public geospatial Q&A · 2-segment (paper §6)",
     "agency": "(anonymized public-facing deployment)",
-    "description": "Paper §5 worked example variant: 500 authenticated researchers + 10,000 anonymous public visitors (the two-segment split). Same agent + 7-tool pipeline as `public-geospatial-qa.json`; the only difference is the segment split. Auth contributes ~1.6% of monthly queries (5 q/session vs 10; bot factor 1.0 vs 1.5). Use this to reproduce the paper's $Q_{auth} = 15{,}000$ + $Q_{anon} = 900{,}000$ = 915,000 total queries/month math.",
+    "description": "Paper §6 worked example variant: 500 authenticated researchers + 10,000 anonymous public visitors (the two-segment split). Same agent + 7-tool pipeline as `public-geospatial-qa.json`; the only difference is the segment split. Auth contributes ~1.6% of monthly queries (5 q/session vs 10; bot factor 1.0 vs 1.5). Use this to reproduce the paper's $Q_{auth} = 15{,}000$ + $Q_{anon} = 900{,}000$ = 915,000 total queries/month math.",
     "publicFacing": true,
     "fedrampTier": "moderate"
   },
@@ -23,7 +23,7 @@
         "templated": "sysprompt 2814 + agent.input 0 + tool sum 119 = 2933 tok/turn (matches default load)",
         "freeform":  "sysprompt 2814 + agent.input 0 + tool sum 20926 = 23740 tok/turn (load preset, flip all tools to freeform via global RETURN SHAPE)"
       },
-      "supersedes": "Earlier paper-stated anchors of 3342 (templated) and 22798 (freeform) were estimates; these measured values are paper-faithful by construction (paper §5 will be updated to match)."
+      "supersedes": "Earlier paper-stated anchors of 3342 (templated) and 22798 (freeform) were estimates; these measured values are paper-faithful by construction (paper §6 reflects these measured values)."
     }
   },
 
