@@ -110,7 +110,9 @@ base64, or full text descriptions per item.
 > is numbered Table 7. The original text is kept below for provenance.
 
 The §5 footnote should be updated from "84K-token modeled anchor"
-to "7.8× measured spread, both endpoints validated." The
+to "7.8× measured spread, both endpoints validated." [APPLIED in
+paper v3: the worked example is now §6 with the measured-spread
+framing; this recommendation is closed.] The
 qualitative argument (response-template architecture is a major
 cost lever) is unchanged and strengthened by empirical
 validation. The quantitative claim should match the measurement.

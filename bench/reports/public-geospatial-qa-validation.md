@@ -97,7 +97,9 @@ A: 120 user-turns × 238 LLM calls on this scenario alone (this
 report). The full paper calibration was originally N=174 across 9
 scenarios; with the N=238 re-run added, total bench-driven calibration
 is N≈412 across the same scenarios. Section 4 in the paper should be
-updated to reflect this if you choose.
+updated to reflect this if you choose. [APPLIED in paper v3: the
+calibration section is now §5 and reflects the N=238 re-run; this
+recommendation is closed.]
 
 **Q: What's the variance across runs?**
 A: For cache hit rate, stdev = 4.3 percentage points (RSD ≈5%).
