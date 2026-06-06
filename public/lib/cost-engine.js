@@ -378,7 +378,7 @@
     // genuinely cache-eligible) and the RESULT bucket (the payload each
     // tool returns — varies per call, NOT prefix-cacheable).
     //
-    // Why the split matters: the EIE-style preset's freeform tool returns
+    // Why the split matters: the tool-orchestration preset's freeform tool returns
     // are ~20K tokens per turn of variable JSON/text. Treating them at the
     // agent's cache rate (88% measured on the templated baseline) silently
     // under-bills freeform mode by ~4×. The fix bills schema_tokens at the
@@ -672,16 +672,16 @@
           //   effResultTok = shapedResultTok × (1 + (calls - 1) × persistence)
           //
           //   persistence=0:    1× (no accumulation modeled — current
-          //                     calibration, lands EIE at 30% via the
-          //                     tool_result_cache_share knob alone)
+          //                     calibration, lands tool-orchestration at 30% via
+          //                     the tool_result_cache_share knob alone)
           //   persistence=0.5:  result tokens averaged across ~half the
           //                     subsequent calls (moderate accumulation,
           //                     summarized between stages)
           //   persistence=1.0:  result tokens seen by ALL N calls
           //                     (full accumulation, no summarization)
           //
-          // Default 0 is intentional — share=0.5 already calibrates EIE
-          // to 30%. Turning persistence ON without re-tuning share would
+          // Default 0 is intentional — share=0.5 already calibrates the
+          // tool-orchestration reference to 30%. Turning persistence ON without re-tuning share would
           // double-count the ReAct accumulation effect (both knobs model
           // overlapping phenomena). Real deployments with instrumented
           // telemetry should set BOTH simultaneously: measure share from
@@ -829,7 +829,7 @@
   }
   // Resolve the effective cache rate, honoring an opt-in escape hatch.
   // Some workloads measure cache_rate_baseline at the per-call granularity
-  // (the EIE-style measurement: average cache rate across the N calls of a
+  // (the tool-orchestration-style measurement: average cache rate across the N calls of a
   // single agent cycle). In those cases the paper's session-warming
   // adjustment shouldn't pile on top — the measurement already represents
   // the working-granularity average. Setting
@@ -864,8 +864,8 @@
     // caching has no separate write rate — first-occurrence tokens pay regular
     // input price, subsequent occurrences pay cached_read. Blending a
     // user-tuned writeShare against an inferred pWrite=pIn fallback double-bills
-    // OpenAI workloads (the EIE preset was 19% over its measured $30K because
-    // a 10% Anthropic-default writeShare slider got applied to GPT-5.2). When
+    // OpenAI workloads (the public geospatial Q&A preset was 19% over its measured $30K
+    // because a 10% Anthropic-default writeShare slider got applied to GPT-5.2). When
     // the rate card has no cached_write_per_million, treat the cached rate as
     // pure cached_read — steady-state pricing the way OpenAI bills.
     if (rates.cached_write_per_million == null) return pRead;
@@ -1278,7 +1278,7 @@
   //
   // This is the "should we even be considering self-host?" number that
   // procurement officers want as a single line. The original static
-  // EIE calculator surfaced it; the new generic engine does too.
+  // single-purpose calculator surfaced it; the new generic engine does too.
   //
   // Returns { break_even_queries, api_cost, self_host_cost, found }.
   // `found: false` means no crossover within [1K, 100M] — typically

@@ -2791,7 +2791,7 @@ window.__setSimulatorFromWorkload = function(workload) {
   // function runs. anchor_query.session_baseline_turns is a different
   // concept (the per-call granularity at which cache_rate_baseline was
   // measured) and overwriting s-turns from it clobbers the workload's
-  // questions_per_session — visible in the EIE preset where the two
+  // questions_per_session — visible in the public geospatial Q&A preset where the two
   // values legitimately diverge (questions=10, baseline_turns=6).
 
   // 3. MAU slider (sum of segments)
@@ -2833,7 +2833,7 @@ window.__setSimulatorFromWorkload = function(workload) {
       if (Number.isFinite(w.activation_rate)) base.activation_rate = Math.round(w.activation_rate * 100);
       // Mirror enabled_tools so the agent card's TOOLS checklist reflects
       // what the engine is actually billing. Without this, presets that
-      // ship with enabled_tools (e.g., public-geospatial-qa with 7 EIE
+      // ship with enabled_tools (e.g., public-geospatial-qa with 7
       // tools) load with every checkbox unticked, even though the engine
       // is correctly billing them via workload.agents[i].enabled_tools.
       if (w.enabled_tools && typeof w.enabled_tools === 'object') {

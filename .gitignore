@@ -39,3 +39,5 @@ CLAUDE.local.md
 test-results/
 playwright-report/
 docs/eie-calibration-2026-06.md
+docs/eie-instrumentation-spec.md
+bench/docs/
