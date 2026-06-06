@@ -2030,6 +2030,11 @@
     const tierMult = w.tier_multipliers[tierId] || 1;
     out += `Model: ${modelId} ($${rates?.input_per_million}/M input, $${rates?.cached_per_million || (rates?.input_per_million * 0.1)}/M cached, $${rates?.output_per_million}/M output)\n`;
     out += `Tier multiplier: ${tierId} × ${tierMult}\n`;
+    // Helper: format a value to 6 decimals for the unrounded display,
+    // and to the standard 4-decimal $4 form for the rounded display.
+    // Pasting `$X (unrounded $Y)` into ChatGPT lets the verifier pick the
+    // precision that reconciles to the next section's arithmetic.
+    const $6 = (n) => '$' + (n != null && isFinite(n) ? Number(n).toFixed(6) : '—');
     if (r.api.agent_mode) {
       out += `\nAgent-sum mode (shape×mix bypassed):\n`;
       let agentCycleSum = 0;
@@ -2040,11 +2045,12 @@
         const resultTok = a.tool_result_tokens || 0;
         const outT = a.output || 0;
         out += `  Agent "${a.label}" (${a.model}): ${a.calls} call(s)/query\n`;
-        out += `    Per-call tokens: ${num(ownIn)} agent input + ${num(schemaTok)} tool-schema (cache-eligible) + ${num(resultTok)} tool-result (volatile, partial cache via tool_result_cache_share) + ${num(outT)} output\n`;
-        out += `    Per-call cost: ${$4(a.per_call_cost)} (cache-discounted at the §2 effective rate; see engine for sysprompt/iamsg/RAG/guard token splits)\n`;
-        out += `    Per-query (× ${a.calls}): ${$4(a.per_query_cost)}\n`;
+        out += `    Visible per-call tokens (from breakdown): ${num(ownIn)} agent input + ${num(schemaTok)} tool-schema (cache-eligible) + ${num(resultTok)} tool-result (partial cache via tool_result_cache_share) + ${num(outT)} output\n`;
+        out += `    (Hidden per-call contributors folded into the per-call cost: sysprompt amortized over calls; iamsg, fewshot, JSON schema, memory, RAG, guards — see anchor_query.input_tokens and per-agent prompt-extras config in the workload JSON.)\n`;
+        out += `    Per-call cost: ${$4(a.per_call_cost)} (unrounded ${$6(a.per_call_cost)}); cache-discounted at the §2 effective rate\n`;
+        out += `    Per-query (× ${a.calls}): ${$4(a.per_query_cost)} (unrounded ${$6(a.per_query_cost)})\n`;
       }
-      out += `  Cycle cost (sum across agents, pre-strategy): ${$4(agentCycleSum)}/q\n`;
+      out += `  Cycle cost (sum across agents, pre-strategy): ${$4(agentCycleSum)}/q (unrounded ${$6(agentCycleSum)})\n`;
       // ── 3a. Clarification-strategy wrapper (gate / per-stage / none).
       // Without this step the trace would jump from agent cycle cost
       // (e.g. $0.0017) to per_segment.per_query (e.g. $0.0037) with no
@@ -2057,21 +2063,22 @@
         const rRec = Number(tunables.recovery_rate != null ? tunables.recovery_rate : 0.9);
         const opt = (cs.options && cs.options[cs.selected]) || {};
         out += `\nClarification strategy: ${cs.selected}\n`;
+        out += `  Symbols: f_naive = fraction of public traffic missing a required field; r_rec = recovery share (fraction of gated queries whose user supplies the missing field; paper §5.2 notation, "r_{rec}").\n`;
         if (cs.selected === 'pre_flight_gate') {
           const g = Number(opt.gate_cost_per_call_usd != null ? opt.gate_cost_per_call_usd : 0.0014);
           const adjusted = g * (1 + rRec * fNaive) + (1 - fNaive * (1 - rRec)) * agentCycleSum;
-          out += `  Formula: g·(1 + r·f) + (1 − f·(1−r))·cycle (paper §6.1 Eq.)\n`;
+          out += `  Formula: E[cost] = g·(1 + r_rec·f_naive) + (1 − f_naive·(1−r_rec))·cycle (paper §5.2 gate-crossover derivation, page reporting f^* = g/[c(1−r) − g·r]).\n`;
           out += `    g = $${g}/gate-call, f_naive = ${fNaive}, r_rec = ${rRec}\n`;
-          out += `    = $${g}·(1 + ${rRec}·${fNaive}) + (1 − ${fNaive}·(1−${rRec}))·${$4(agentCycleSum)}\n`;
-          out += `    = ${$4(g * (1 + rRec * fNaive))} + ${$4((1 - fNaive * (1 - rRec)) * agentCycleSum)}\n`;
-          out += `    = ${$4(adjusted)}/q (pre-multiplier, per segment)\n`;
+          out += `    = $${g}·(1 + ${rRec}·${fNaive}) + (1 − ${fNaive}·(1−${rRec}))·${$6(agentCycleSum)}\n`;
+          out += `    = ${$6(g * (1 + rRec * fNaive))} + ${$6((1 - fNaive * (1 - rRec)) * agentCycleSum)}\n`;
+          out += `    = ${$4(adjusted)}/q (pre-multiplier, per segment; unrounded ${$6(adjusted)})\n`;
         } else if (cs.selected === 'per_stage_confirm') {
           const mode = w.tool_response_mode;
           const mult = mode === 'freeform'
             ? Number(opt.cycle_cost_multiplier_freeform != null ? opt.cycle_cost_multiplier_freeform : 1.31)
             : Number(opt.cycle_cost_multiplier_templated != null ? opt.cycle_cost_multiplier_templated : 1.73);
-          out += `  Formula: cycle · multiplier (${mode || 'templated'} mode)\n`;
-          out += `    = ${$4(agentCycleSum)} × ${mult} = ${$4(agentCycleSum * mult)}/q (pre-multiplier, per segment)\n`;
+          out += `  Formula: per-query cost = cycle · multiplier (${mode || 'templated'} mode); paper §5.2 per-stage confirmation, measured 1.73× (templated) / 1.31× (freeform).\n`;
+          out += `    = ${$6(agentCycleSum)} × ${mult} = ${$4(agentCycleSum * mult)}/q (pre-multiplier, per segment; unrounded ${$6(agentCycleSum * mult)})\n`;
         }
       } else {
         out += `\nClarification strategy: none (cycle cost = per-query cost)\n`;
@@ -2092,15 +2099,33 @@
       }
     }
     // Bridge per-segment per-query (pre-multiplier) to per_query_blended
-    // (post-multiplier) so the trace reconciles end-to-end.
-    const firstSegId = w.segments && w.segments[0] && w.segments[0].id;
-    const segPreMult = firstSegId && r.api.per_segment[firstSegId]
-      ? r.api.per_segment[firstSegId].per_query : null;
-    if (segPreMult != null) {
-      out += `\nPer-segment pre-multiplier: ${$4(segPreMult)}/q\n`;
-      out += `× hosting multiplier (${(r.api.hosting_multiplier).toFixed(2)}×) = ${$4(segPreMult * r.api.hosting_multiplier)}/q (post-multiplier)\n`;
+    // (post-multiplier) so the trace reconciles end-to-end. Loop over ALL
+    // segments (multi-segment presets aggregate by query share); show the
+    // weighted-blended computation explicitly.
+    const segIds = (w.segments || []).map(s => s.id);
+    if (segIds.length === 1) {
+      const segPreMult = r.api.per_segment[segIds[0]]?.per_query;
+      if (segPreMult != null) {
+        out += `\nPer-segment pre-multiplier (${segIds[0]}): ${$4(segPreMult)}/q (unrounded ${$6(segPreMult)})\n`;
+        out += `× hosting multiplier (${(r.api.hosting_multiplier).toFixed(2)}×) = ${$4(segPreMult * r.api.hosting_multiplier)}/q\n`;
+      }
+    } else if (segIds.length > 1) {
+      out += `\nPer-segment pre-multiplier (volume-weighted blend across ${segIds.length} segments):\n`;
+      let weightedSum = 0;
+      const totalQ = r.queries.total || 0;
+      for (const segId of segIds) {
+        const segPreMult = r.api.per_segment[segId]?.per_query;
+        const segQ = r.queries.bySegment[segId] || 0;
+        if (segPreMult != null) {
+          const share = totalQ > 0 ? segQ / totalQ : 0;
+          weightedSum += segPreMult * share;
+          out += `  ${segId}: ${$4(segPreMult)}/q × ${(share * 100).toFixed(1)}% query share = ${$6(segPreMult * share)} contribution\n`;
+        }
+      }
+      out += `  Blended pre-multiplier: ${$4(weightedSum)}/q (unrounded ${$6(weightedSum)})\n`;
+      out += `× hosting multiplier (${(r.api.hosting_multiplier).toFixed(2)}×) = ${$4(weightedSum * r.api.hosting_multiplier)}/q\n`;
     }
-    out += `Blended per-query (post-multiplier, includes hosting mult): ${$4(r.api.per_query_blended)}\n\n`;
+    out += `Blended per-query (post-multiplier, includes hosting mult): ${$4(r.api.per_query_blended)} (unrounded ${$6(r.api.per_query_blended)})\n\n`;
 
     // ── 4. LLM total + cap + multiplier ──
     out += '──────────────────────────────────────────────────\n';
@@ -2115,7 +2140,7 @@
     const preFederalPerQuery = r.queries.total > 0
       ? r.api.monthly_gross_pre_federal / r.queries.total
       : 0;
-    out += `Pre-multiplier monthly: ${num(r.queries.total)} queries × ${$4(preFederalPerQuery)}/q (pre-multiplier per-query) = ${$(r.api.monthly_gross_pre_federal)}\n`;
+    out += `Pre-multiplier monthly: ${num(r.queries.total)} queries × ${$6(preFederalPerQuery)}/q (pre-multiplier per-query, unrounded; rounded display ${$4(preFederalPerQuery)}) = ${$(r.api.monthly_gross_pre_federal)}\n`;
     out += `Hosting multiplier: FedRAMP=${w.federal?.fedramp_tier || 'none'} × multi-region=${w.federal?.multi_region || 'single'} = ${(r.api.hosting_multiplier).toFixed(2)}×\n`;
     out += `Post-multiplier monthly: ${$(r.api.monthly_gross_pre_federal)} × ${(r.api.hosting_multiplier).toFixed(2)} = ${$(r.api.monthly_gross)}\n`;
     out += '\n';
