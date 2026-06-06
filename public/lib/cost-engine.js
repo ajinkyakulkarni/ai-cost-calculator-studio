@@ -2032,8 +2032,49 @@
     out += `Tier multiplier: ${tierId} × ${tierMult}\n`;
     if (r.api.agent_mode) {
       out += `\nAgent-sum mode (shape×mix bypassed):\n`;
+      let agentCycleSum = 0;
       for (const a of (r.api.agent_breakdown || [])) {
-        out += `  Agent "${a.label}" (${a.model}): ${a.calls} call(s) × (${a.input} in + ${a.output} out tok) = ${$4(a.per_query_cost)}/q\n`;
+        agentCycleSum += a.per_query_cost || 0;
+        const ownIn = a.input || 0;
+        const schemaTok = a.tool_schema_tokens || 0;
+        const resultTok = a.tool_result_tokens || 0;
+        const outT = a.output || 0;
+        out += `  Agent "${a.label}" (${a.model}): ${a.calls} call(s)/query\n`;
+        out += `    Per-call tokens: ${num(ownIn)} agent input + ${num(schemaTok)} tool-schema (cache-eligible) + ${num(resultTok)} tool-result (volatile, partial cache via tool_result_cache_share) + ${num(outT)} output\n`;
+        out += `    Per-call cost: ${$4(a.per_call_cost)} (cache-discounted at the §2 effective rate; see engine for sysprompt/iamsg/RAG/guard token splits)\n`;
+        out += `    Per-query (× ${a.calls}): ${$4(a.per_query_cost)}\n`;
+      }
+      out += `  Cycle cost (sum across agents, pre-strategy): ${$4(agentCycleSum)}/q\n`;
+      // ── 3a. Clarification-strategy wrapper (gate / per-stage / none).
+      // Without this step the trace would jump from agent cycle cost
+      // (e.g. $0.0017) to per_segment.per_query (e.g. $0.0037) with no
+      // visible bridge. Show the formula and values so a reviewer can
+      // reconstruct the per-query cost from first principles.
+      const cs = w.clarification_strategy;
+      if (cs && cs.selected && cs.selected !== 'none') {
+        const tunables = cs.tunables || {};
+        const fNaive = Number(tunables.f_naive != null ? tunables.f_naive : 0.5);
+        const rRec = Number(tunables.recovery_rate != null ? tunables.recovery_rate : 0.9);
+        const opt = (cs.options && cs.options[cs.selected]) || {};
+        out += `\nClarification strategy: ${cs.selected}\n`;
+        if (cs.selected === 'pre_flight_gate') {
+          const g = Number(opt.gate_cost_per_call_usd != null ? opt.gate_cost_per_call_usd : 0.0014);
+          const adjusted = g * (1 + rRec * fNaive) + (1 - fNaive * (1 - rRec)) * agentCycleSum;
+          out += `  Formula: g·(1 + r·f) + (1 − f·(1−r))·cycle (paper §6.1 Eq.)\n`;
+          out += `    g = $${g}/gate-call, f_naive = ${fNaive}, r_rec = ${rRec}\n`;
+          out += `    = $${g}·(1 + ${rRec}·${fNaive}) + (1 − ${fNaive}·(1−${rRec}))·${$4(agentCycleSum)}\n`;
+          out += `    = ${$4(g * (1 + rRec * fNaive))} + ${$4((1 - fNaive * (1 - rRec)) * agentCycleSum)}\n`;
+          out += `    = ${$4(adjusted)}/q (pre-multiplier, per segment)\n`;
+        } else if (cs.selected === 'per_stage_confirm') {
+          const mode = w.tool_response_mode;
+          const mult = mode === 'freeform'
+            ? Number(opt.cycle_cost_multiplier_freeform != null ? opt.cycle_cost_multiplier_freeform : 1.31)
+            : Number(opt.cycle_cost_multiplier_templated != null ? opt.cycle_cost_multiplier_templated : 1.73);
+          out += `  Formula: cycle · multiplier (${mode || 'templated'} mode)\n`;
+          out += `    = ${$4(agentCycleSum)} × ${mult} = ${$4(agentCycleSum * mult)}/q (pre-multiplier, per segment)\n`;
+        }
+      } else {
+        out += `\nClarification strategy: none (cycle cost = per-query cost)\n`;
       }
     } else {
       const mixId = opts.mix || w.defaults?.mix;
@@ -2050,7 +2091,16 @@
         }
       }
     }
-    out += `\nBlended per-query (post-multiplier, includes hosting mult): ${$4(r.api.per_query_blended)}\n\n`;
+    // Bridge per-segment per-query (pre-multiplier) to per_query_blended
+    // (post-multiplier) so the trace reconciles end-to-end.
+    const firstSegId = w.segments && w.segments[0] && w.segments[0].id;
+    const segPreMult = firstSegId && r.api.per_segment[firstSegId]
+      ? r.api.per_segment[firstSegId].per_query : null;
+    if (segPreMult != null) {
+      out += `\nPer-segment pre-multiplier: ${$4(segPreMult)}/q\n`;
+      out += `× hosting multiplier (${(r.api.hosting_multiplier).toFixed(2)}×) = ${$4(segPreMult * r.api.hosting_multiplier)}/q (post-multiplier)\n`;
+    }
+    out += `Blended per-query (post-multiplier, includes hosting mult): ${$4(r.api.per_query_blended)}\n\n`;
 
     // ── 4. LLM total + cap + multiplier ──
     out += '──────────────────────────────────────────────────\n';
