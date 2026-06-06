@@ -532,8 +532,8 @@
       //                  (varies per call → billed at uncached input rate)
       // Pre-2026-06-03 this was a single combined number that flowed
       // through the agent's cache rate, silently under-billing freeform
-      // tool returns by ~4× on EIE-class workloads where the result
-      // payload dwarfs the schema. See agentToolTokenBreakdown for the
+      // tool returns by ~4× on tool-orchestration workloads where the
+      // result payload dwarfs the schema. See agentToolTokenBreakdown for the
       // reasoning.
       const { schemaTok: agentSchemaTok, resultTok: agentResultTok } =
         agentToolTokenBreakdown(agent, w);
@@ -702,10 +702,10 @@
           // tool_result_cache_share — 0..1 fraction of result tokens that
           // DO end up in the prompt cache in practice. Default 0.5 means
           // half the result-token volume gets the agent's cache discount
-          // and half is billed fresh. The default lands EIE-class
+          // and half is billed fresh. The default lands tool-orchestration
           // (calls_per_query≥6, freeform tool returns, sysprompt cache
           // measured ≥0.8) workloads at ~30% templated savings vs
-          // freeform — matching EIE's published doc figure.
+          // freeform — matching the public geospatial Q&A reference figure.
           //
           // Precedence (highest wins): agent.tool_result_cache_share →
           // workload.tool_result_cache_share → DEFAULT_RESULT_CACHE_SHARE.

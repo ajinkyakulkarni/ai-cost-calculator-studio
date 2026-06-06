@@ -15,10 +15,10 @@
     "session_baseline_turns": 6,
     "example": "Visualize gross primary production (GPP) from 'lis-global-da-gpp' over Mendocino County, California, June to November 2020.",
     "_calibration": {
-      "source": "Measured directly from EIE-agent (https://github.com/NASA-IMPACT/eie-agent) responses.py + openveda.cloud STAC API on 2026-05-31.",
+      "source": "Measured directly from the public geospatial Q&A reference agent's templated response handlers and a public STAC catalog API on 2026-05-31.",
       "templated_tool_sum": 119,
       "freeform_tool_sum": 20926,
-      "method": "cap_tokens per tool = tiktoken o200k_base of EIE's templated response strings (e.g., 'Found 92 catalog items (showing 15 of 92...)' = 27 tok for stac_search). result_tokens_avg per tool = tiktoken of the raw openveda STAC API payload for the same lookup, lis-global-da-gpp / Mendocino County / 2020-06 to 2020-11. stac_search anchored on 15 STAC items × 1,230 tok = 18,435 tok directly measured.",
+      "method": "cap_tokens per tool = tiktoken o200k_base of the agent's templated response strings (e.g., 'Found 92 catalog items (showing 15 of 92...)' = 27 tok for stac_search). result_tokens_avg per tool = tiktoken of the raw public STAC catalog API payload for the same lookup, lis-global-da-gpp / Mendocino County / 2020-06 to 2020-11. stac_search anchored on 15 STAC items × 1,230 tok = 18,435 tok directly measured.",
       "per_turn_input": {
         "templated": "sysprompt 2814 + agent.input 0 + tool sum 119 = 2933 tok/turn (matches default load)",
         "freeform":  "sysprompt 2814 + agent.input 0 + tool sum 20926 = 23740 tok/turn (load preset, flip all tools to freeform via global RETURN SHAPE)"
@@ -56,7 +56,7 @@
     },
     "collections_rag": {
       "label": "search_collections",
-      "description": "Semantic search over the STAC catalog. Templated returns just the count + selection prompt; freeform returns the Top-K collection metadata (descriptions, summaries, asset dictionaries) measured at ~300 tok/collection × 5 collections via openveda /collections.",
+      "description": "Semantic search over the STAC catalog. Templated returns just the count + selection prompt; freeform returns the Top-K collection metadata (descriptions, summaries, asset dictionaries) measured at ~300 tok/collection × 5 collections via the public STAC catalog's /collections endpoint.",
       "cost_shape": "free",
       "rate_usd": 0,
       "schema_tokens": 0,
@@ -80,7 +80,7 @@
     },
     "stac_search": {
       "label": "search_items",
-      "description": "Enumerate catalog items inside the AOI and datetime window. Templated returns just the count; freeform returns the full STAC item array — measured at 15 items × 1,230 tok = 18,435 tok directly from openveda /search against lis-global-da-gpp over Mendocino County. This is the dominant freeform lever.",
+      "description": "Enumerate catalog items inside the AOI and datetime window. Templated returns just the count; freeform returns the full STAC item array — measured at 15 items × 1,230 tok = 18,435 tok directly from the public STAC catalog's /search endpoint against lis-global-da-gpp over Mendocino County. This is the dominant freeform lever.",
       "cost_shape": "free",
       "rate_usd": 0,
       "schema_tokens": 0,

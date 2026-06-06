@@ -100,7 +100,7 @@
     },
     "collections_rag": {
       "label": "search_collections",
-      "description": "Semantic search over the STAC catalog. Templated returns just the count + selection prompt; freeform returns the Top-K collection metadata (descriptions, summaries, asset dictionaries) measured at ~300 tok/collection × 5 collections via openveda /collections. Cost: $0 self-hosted vector DB (infra-absorbed). Derived: monthly vector-DB infra $ / monthly queries = per-call rate (e.g., $36/mo RAG service / 900K queries ≈ $0.00004/call). Managed: OpenAI File Search $0.0025/call.",
+      "description": "Semantic search over the STAC catalog. Templated returns just the count + selection prompt; freeform returns the Top-K collection metadata (descriptions, summaries, asset dictionaries) measured at ~300 tok/collection × 5 collections via the public STAC catalog's /collections endpoint. Cost: $0 self-hosted vector DB (infra-absorbed). Derived: monthly vector-DB infra $ / monthly queries = per-call rate (e.g., $36/mo RAG service / 900K queries ≈ $0.00004/call). Managed: OpenAI File Search $0.0025/call.",
       "cost_shape": "free",
       "rate_usd": 0,
       "schema_tokens": 0,
@@ -124,7 +124,7 @@
     },
     "stac_search": {
       "label": "search_items",
-      "description": "Enumerate catalog items inside the AOI and datetime window. Templated returns just the count; freeform returns the full STAC item array — measured at 15 items × 1,230 tok = 18,435 tok directly from openveda /search against lis-global-da-gpp over Mendocino County. This is the dominant freeform lever. Cost: $0 self-hosted STAC API (infra-absorbed; openveda is community-hosted). Commercial STAC providers (Planet, Maxar, etc.) typically $0.001–$0.01/call.",
+      "description": "Enumerate catalog items inside the AOI and datetime window. Templated returns just the count; freeform returns the full STAC item array — measured at 15 items × 1,230 tok = 18,435 tok directly from the public STAC catalog's /search endpoint against lis-global-da-gpp over Mendocino County. This is the dominant freeform lever. Cost: $0 self-hosted STAC API (infra-absorbed; the catalog used here is community-hosted). Commercial STAC providers (Planet, Maxar, etc.) typically $0.001–$0.01/call.",
       "cost_shape": "free",
       "rate_usd": 0,
       "schema_tokens": 0,
