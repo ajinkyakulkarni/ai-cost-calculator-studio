@@ -305,6 +305,197 @@
   /* In advanced mode, .advanced-only elements just render with their
      natural display value (no override needed). The class is a hide
      marker, not a layout container. */
+  /* Hide the existing .sr-advanced sliders inside the visible Global
+     parameters tab when in basic mode (cache write share, batch async,
+     context compression, retry rate, language multiplier, peak/avg
+     ratio, etc. — calibration knobs that procurement users don't tune). */
+  body.mode-basic .sr-advanced { display: none !important; }
+  /* Editor body has padding-bottom:80px to leave breathing room before
+     the next axiom section in advanced mode. In basic mode all those
+     sections collapse via display:none, so that 80px becomes a big
+     empty gap before the Report tab. Shrink it. */
+  body.mode-basic #editor-body { padding-bottom: 16px !important; }
+  /* Audience block — single canonical UI for editing per-segment audience
+     data (MAU / sessions / questions / bot factor). Replaces the
+     legacy duplication between the 3 global sliders (s-users / s-sessions
+     / s-turns) and the report-side per-segment editor. Renderer in
+     cost-simulator.js auto-switches data-audience-view between "single"
+     (segments.length === 1) and "multi" (≥2). */
+  /* Always span the full width of the parent auto-fit grid so the
+     multi-mode cards (MAU + Sess/day + Q/session + Bot) have enough
+     room — the BOT column was getting clipped at the 280px minmax
+     column width otherwise. */
+  #audience-block { display: block; grid-column: 1 / -1; }
+  .audience-cta {
+    display: inline-block;
+    margin-top: 8px;
+    font: inherit;
+    font-size: 11px;
+    color: var(--cyan);
+    background: transparent;
+    border: 1px dashed rgba(0,212,255,0.45);
+    border-radius: 5px;
+    padding: 5px 10px;
+    cursor: pointer;
+    transition: background 0.15s ease, border-color 0.15s ease;
+  }
+  .audience-cta:hover { background: rgba(0,212,255,0.08); border-color: rgba(0,212,255,0.75); }
+  .audience-summary {
+    font-size: 11.5px;
+    color: var(--ink-2, #3a4a62);
+    padding: 10px 14px;
+    background: rgba(0,212,255,0.05);
+    border-left: 3px solid var(--cyan);
+    border-radius: 3px;
+    margin-bottom: 32px;
+    line-height: 1.6;
+  }
+  .audience-summary b { color: var(--ink); font-weight: 700; }
+  .audience-cards { display: flex; flex-direction: column; gap: 12px; }
+  .audience-card {
+    border: 1px solid var(--rule);
+    border-radius: 6px;
+    padding: 10px !important;
+    /* Match the panel container's background instead of forcing the
+       grayer var(--paper). Keeps the audience cards visually flat
+       inside the "Your audience" panel — matches how workload-params
+       sliders sit directly on the panel without a separate card tint. */
+    background: var(--card, #fff);
+  }
+  .audience-card-head {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 12px;
+  }
+  .audience-card-label-input {
+    flex: 1;
+    font: inherit;
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--cyan);
+    background: transparent;
+    border: none;
+    border-bottom: 1px dashed transparent;
+    padding: 2px 0;
+  }
+  .audience-card-label-input:hover, .audience-card-label-input:focus {
+    border-bottom-color: rgba(0,212,255,0.5);
+    outline: none;
+  }
+  .audience-card-remove {
+    font: inherit;
+    font-size: 11px;
+    color: var(--muted, #888);
+    background: transparent;
+    border: 1px solid rgba(255,0,0,0.2);
+    border-radius: 3px;
+    padding: 3px 8px;
+    cursor: pointer;
+  }
+  .audience-card-remove:hover { color: #c62828; border-color: rgba(255,0,0,0.5); }
+  .audience-card-fields {
+    display: grid;
+    /* Three slider columns + Bot checkbox. Slider columns get enough
+       width to be draggable (180px min); Bot cell auto-sized to its
+       label. Trailing 1fr soaks up remaining row space. */
+    grid-template-columns: minmax(180px, 1fr) minmax(180px, 1fr) minmax(180px, 1fr) auto;
+    gap: 18px 22px;
+    align-items: end;
+  }
+  /* Per-segment slider — reuses the canonical .sr / .sr-top /
+     .sr-label / .sr-val / .sr-hint classes for typography + the
+     simulator-pane's range-input styling (3px track, cyan thumb).
+     Override only the .sr border + padding which assume a slider-
+     grid context and don't apply inside an audience card. */
+  .audience-card-fields .sr {
+    border: none !important;
+    padding: 0 !important;
+    min-width: 0;
+  }
+  .audience-card-fields .bot-cell {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    font-size: 10px;
+    color: var(--ink-2, #3a4a62);
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    align-items: center;
+    padding-bottom: 6px;
+  }
+  .audience-card-fields .bot-cell input[type="checkbox"] {
+    margin-top: 4px;
+    width: 18px;
+    height: 18px;
+    cursor: pointer;
+  }
+  /* Medium viewports: 3 sliders in one row, Bot cell drops below. */
+  @media (max-width: 1100px) {
+    .audience-card-fields {
+      grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) minmax(0, 1fr);
+    }
+    .audience-card-fields .bot-cell {
+      grid-column: 1 / -1;
+      flex-direction: row;
+      justify-content: flex-start;
+      gap: 10px;
+      align-items: center;
+      padding-top: 4px;
+      padding-bottom: 0;
+    }
+    .audience-card-fields .bot-cell input[type="checkbox"] { margin-top: 0; }
+  }
+  /* Narrow viewports: stack vertically. */
+  @media (max-width: 640px) {
+    .audience-card-fields { grid-template-columns: 1fr; }
+    .audience-card-fields .bot-cell { grid-column: 1 / -1; }
+  }
+  /* Basic / Advanced segmented-pill toggle — sits left of the title.
+     Purple "container" pill with a white inner pill on the active
+     segment (Hotels/Apartments-style segmented control). Mode-tinted:
+     purple for both states, but the inactive label is semi-transparent
+     so the affordance is always clear. */
+  #mode-toggle {
+    display: inline-flex;
+    align-items: center;
+    gap: 0;
+    background: linear-gradient(135deg, #0B3D91 0%, #1e5fc9 100%);
+    border-radius: 999px;
+    padding: 4px;
+    box-shadow: 0 0 0 1px rgba(30,95,201,0.45), 0 0 14px 2px rgba(30,95,201,0.55);
+    border: 1px solid rgba(165,200,255,0.6);
+    margin-right: 12px;
+    animation: modeTogglePulse 2.4s ease-in-out infinite;
+  }
+  #mode-toggle:hover { animation: none; filter: brightness(1.06); }
+  #mode-toggle button {
+    cursor: pointer;
+    font: inherit;
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: rgba(255,255,255,0.92);
+    background: transparent;
+    border: none;
+    border-radius: 999px;
+    padding: 6px 16px;
+    transition: background 0.25s ease, color 0.25s ease, box-shadow 0.25s ease;
+  }
+  #mode-toggle button[aria-checked="true"] {
+    background: #fff;
+    color: #0B3D91;
+    box-shadow: 0 1px 4px rgba(0,0,0,0.18);
+  }
+  #mode-toggle button:focus-visible {
+    outline: 2px solid #fff;
+    outline-offset: 2px;
+  }
+  @keyframes modeTogglePulse {
+    0%, 100% { transform: scale(1); box-shadow: 0 0 0 1px rgba(30,95,201,0.45), 0 0 14px 2px rgba(30,95,201,0.55); }
+    50%      { transform: scale(1.03); box-shadow: 0 0 0 1px rgba(30,95,201,0.65), 0 0 18px 4px rgba(30,95,201,0.70); }
+  }
 
   /* Theme switcher pill in the global appbar. Uses semi-transparent
      white-on-dark — works against the appbar's dark bg in all 3 themes. */
@@ -358,8 +549,8 @@
     line-height: 1.5;
   }
   .appbar {
-    background: var(--ink);
-    color: var(--paper);
+    background: #0B3D91;
+    color: #fff;
     padding: 10px 18px;
     display: flex; align-items: center; gap: 12px;
     flex-wrap: wrap;
@@ -3548,6 +3739,18 @@ input[type=range]:disabled { cursor: not-allowed; }
 <body>
 
 <div class="appbar">
+  <!-- Basic / Advanced segmented-pill toggle — leftmost item in the
+       appbar, draws procurement vs engineer users to the right view.
+       Glowing purple pill mirrors the Hotels/Apartments segmented
+       control pattern; the white inner pill marks the active segment.
+       Click handlers route to setUiMode() in cost-simulator.js. -->
+  <div id="mode-toggle" role="group" aria-label="UI mode"
+       title="Basic mode hides advanced controls — engine still uses preset defaults so the headline doesn't change. Advanced mode exposes every knob. Mode persists in the URL hash.">
+    <button type="button" role="radio" data-mode="basic" aria-checked="false"
+            onclick="try{setUiMode('basic');}catch(_){}">Basic</button>
+    <button type="button" role="radio" data-mode="advanced" aria-checked="true"
+            onclick="try{setUiMode('advanced');}catch(_){}">Advanced</button>
+  </div>
   <h1>AI Cost Calculator
     <!-- Fleet inventory pill — tools first (you build tools, then assemble
          agents that use them, then plug in RAG/vector stores). Sourced from
@@ -3563,9 +3766,11 @@ input[type=range]:disabled { cursor: not-allowed; }
        your AI system in plain English") below — single source of
        truth, no duplicate dropdown in the appbar. -->
 
-  <!-- Example preset loader — fetches one of the bundled scenario JSONs
-       and applies it through the same path as Import JSON. -->
-  <div class="appbar-menu" id="appbar-example-menu" style="margin-right:6px;order:-1;display:flex;align-items:center;gap:4px">
+  <!-- Example preset loader — sits immediately right of the title so
+       a first-time visitor sees "AI Cost Calculator → Load example" as
+       a natural left-to-right reading. No more `order:-1` flex hack;
+       DOM order = visual order. -->
+  <div class="appbar-menu advanced-only" id="appbar-example-menu" style="margin-right:6px;display:flex;align-items:center;gap:4px">
     <button id="reset-preset-btn" type="button" title="Reset to the bundled defaults of the last-loaded preset (undoes any slider/segment drift saved in the URL hash from a prior session)" style="display:none;cursor:pointer;font:inherit;color:inherit;background:transparent;border:1px solid rgba(255,255,255,.18);border-radius:6px;padding:4px 8px" aria-label="Reset to preset defaults">↻ Reset</button>
     <select id="example-loader" class="appbar-menu-trigger" style="cursor:pointer;font:inherit;color:inherit;background:transparent;border:1px solid rgba(255,255,255,.18);border-radius:6px;padding:4px 8px;width:160px;max-width:160px" title="Load a bundled example scenario">
       <option value="">Load example…</option>
@@ -3639,15 +3844,9 @@ input[type=range]:disabled { cursor: not-allowed; }
     <option value="tactical">Dark</option>
     <option value="command">Warm</option>
   </select>
-  <!-- UI mode switcher — Basic (procurement) vs Advanced (engineering).
-       Persisted via URL hash, not localStorage, so a shared link carries
-       the mode through to the recipient. Default boot mode is basic. -->
-  <select id="appbar-mode-select" title="Basic mode hides advanced controls — engine still uses preset defaults so the headline doesn't change. Advanced mode exposes every knob. Mode persists in the URL hash (no localStorage)." aria-label="UI mode"
-          style="cursor:pointer;font:inherit;color:inherit;background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.18);border-radius:6px;padding:4px 8px;font-size:10.5px;font-weight:600;letter-spacing:0.04em;text-transform:uppercase;margin-left:6px"
-          onchange="try{setUiMode(this.value);}catch(_){}">
-    <option value="basic" selected>Basic</option>
-    <option value="advanced">Advanced</option>
-  </select>
+  <!-- (UI mode toggle moved to the leftmost slot in the appbar; the
+       former <select id="appbar-mode-select"> dropdown was replaced by
+       the segmented-pill #mode-toggle right after <body> open.) -->
   <!-- Live cost badge — always visible, click to jump to Report tab -->
   <div id="cost-pill" class="cost-pill" title="All-in monthly: API cost + infra + verification + reservations + personnel + ATO. Click to view full cost report.">
     <span class="cb-label" data-tip="Headline figure rolling up everything: API/self-host LLM cost + verification + federal additives + fixed infra + reservations + personnel + agent-engineering amortization. Updates live as you change inputs. Hover the number itself to see the line-by-line derivation, or jump to the Report section for the full breakdown.">Total / mo (all-in)</span>
@@ -3693,10 +3892,10 @@ The daily-cap input was retired from the standard UI (most users don't need to t
        wizard handler at the bottom of the page owns the dispatch. -->
   <nav class="sidebar" id="sidebar">
     <div class="nav-group-header">Configure</div>
-    <button class="tab-btn active" data-wiz="profile"      data-wiz-anchor="sec-deployment"><span class="nav-icon">◐</span><span class="step-num">1</span>Project profile</button>
-    <button class="tab-btn"        data-wiz="token-cost"   data-wiz-anchor="axiom-h-config"><span class="nav-icon">⚡</span><span class="step-num">2</span>Global parameters</button>
-    <button class="tab-btn advanced-only" data-wiz="tools"        data-wiz-axiom="tools" data-wiz-anchor="axiom-h-tools"><span class="nav-icon">⚒</span><span class="step-num">3</span>Tools &amp; rates</button>
-    <button class="tab-btn advanced-only" data-wiz="agent-fleet"  data-wiz-axiom="agents" data-wiz-anchor="axiom-h-agents"><span class="nav-icon">▣</span><span class="step-num">4</span>Agent fleet</button>
+    <button class="tab-btn advanced-only" data-wiz="profile"      data-wiz-anchor="sec-deployment"><span class="nav-icon">◐</span><span class="step-num">1</span>Project profile</button>
+    <button class="tab-btn active"        data-wiz="token-cost"   data-wiz-anchor="axiom-h-config"><span class="nav-icon">⚡</span><span class="step-num">2</span>Global parameters</button>
+    <button class="tab-btn"        data-wiz="tools"        data-wiz-axiom="tools" data-wiz-anchor="axiom-h-tools"><span class="nav-icon">⚒</span><span class="step-num">3</span>Tools &amp; rates</button>
+    <button class="tab-btn"        data-wiz="agent-fleet"  data-wiz-axiom="agents" data-wiz-anchor="axiom-h-agents"><span class="nav-icon">▣</span><span class="step-num">4</span>Agent fleet</button>
     <button class="tab-btn advanced-only" data-wiz="verification" data-wiz-axiom="verification" data-wiz-anchor="axiom-h-verification"><span class="nav-icon">✓</span><span class="step-num">5</span>Fact-checking</button>
     <button class="tab-btn advanced-only" data-wiz="agent-eng"    data-wiz-anchor="sec-agent-engineering"><span class="nav-icon">⚙</span><span class="step-num">6</span>Agent engineering</button>
     <button class="tab-btn"                data-wiz="hosting"      data-wiz-anchor="sec-reservations"><span class="nav-icon">☁</span><span class="step-num">7</span>Hosting &amp; infra</button>
@@ -3717,8 +3916,8 @@ The daily-cap input was retired from the standard UI (most users don't need to t
          appear right after the headline); Prices + Benchmarks are
          separate panels reordered to the end via CSS `order`. -->
     <button class="tab-btn"        data-wiz="derivation"   data-wiz-anchor="sec-derivation"><span class="nav-icon">∑</span><span class="step-bullet">•</span>Derivation</button>
-    <button class="tab-btn"        data-wiz="methodology"  data-wiz-anchor="sec-methodology"><span class="nav-icon">§</span><span class="step-bullet">•</span>Methodology</button>
-    <button class="tab-btn"        data-wiz="prices"       data-wiz-anchor="sec-prices"><span class="nav-icon">$</span><span class="step-bullet">•</span>Prices</button>
+    <button class="tab-btn advanced-only" data-wiz="methodology"  data-wiz-anchor="sec-methodology"><span class="nav-icon">§</span><span class="step-bullet">•</span>Methodology</button>
+    <button class="tab-btn advanced-only" data-wiz="prices"       data-wiz-anchor="sec-prices"><span class="nav-icon">$</span><span class="step-bullet">•</span>Prices</button>
     <button class="tab-btn advanced-only" data-wiz="benchmarks"   data-wiz-anchor="sec-benchmarks"><span class="nav-icon">▦</span><span class="step-bullet">•</span>Benchmarks</button>
   </nav>
 
@@ -3761,7 +3960,7 @@ The daily-cap input was retired from the standard UI (most users don't need to t
          deployment?" question. -->
 
 
-    <div class="section" data-cat="setup" id="sec-deployment">
+    <div class="section advanced-only" data-cat="setup" id="sec-deployment">
       <h2><span class="chev">▶</span><span class="lead">Project profile</span> <em>name, team, audience</em></h2>
       <div class="section-body">
       <div class="section-helper">
@@ -3779,8 +3978,9 @@ The daily-cap input was retired from the standard UI (most users don't need to t
       <!-- Hosting strategy — folded in from former sec-scenario panel.
            4 visual cards drive the hidden #prev-hosting select; downstream
            sections (sec-reservations, sec-selfhost, on-prem fields)
-           visibility-gate off the same hosting value. -->
-      <div style="margin-top: 16px; padding-top: 14px; border-top: 1px dashed var(--rule);">
+           visibility-gate off the same hosting value. In basic mode the
+           picker is hidden and hosting locks to the API default. -->
+      <div class="advanced-only" style="margin-top: 16px; padding-top: 14px; border-top: 1px dashed var(--rule);">
         <div style="font-size: 11px; font-weight: 600; color: var(--accent); letter-spacing: 0.06em; text-transform: uppercase; margin-bottom: 8px;">Hosting strategy</div>
         <p class="helper" style="margin-top:0;margin-bottom:10px">Pick where the LLM runs. Downstream sections (Reservations, Self-host capacity, On-prem amortization) auto-show only when relevant.</p>
         <div class="hosting-cards" id="hosting-cards" role="radiogroup" aria-label="Hosting strategy">
@@ -3924,10 +4124,8 @@ Hybrid is rarely cost-effective below 30% self-host share — fixed ops staff an
   <span class="ix-desc">MAU, sessions, turns, cache, retries — workload-wide knobs that drive the headline cost</span>
 </div>
 <div id="tab-config" class="tab-panel active">
-  <div class="section-helper">
-    <p><strong>What this is.</strong> The workload-wide knobs that apply to your whole deployment — how many users hit it, how often, how big each query is, how much prompt-caching works, what retry overhead you carry. These are <em>shared across all agents</em>; per-agent specifics live in Section C.</p>
-    <p><strong>Why it matters.</strong> MAU, sessions/day and turns/session multiply into total monthly questions — get any one wrong by 2× and your bill estimate is off by 2×. Cache hit rate is the single largest cost lever (every +10 percentage points trims input cost by ~8%). Retry rate, bot factor, and the advanced knobs (compression, batch async, language multiplier) each move the bill by 5–30%.</p>
-    <p><strong>How to interpret the results.</strong> The values you set here flow into every per-agent calculation in Section C and the headline at the top. Pull MAU from real analytics not guesses; set bot factor to 1.5× for public-facing deployments; aim for cache hit ≥70% on stable system prompts. If the resulting headline looks wrong, it's almost always a knob in this section that's off.</p>
+  <div class="section-helper" style="padding:8px 12px">
+    <p style="margin:0;font-size:11.5px;line-height:1.6"><strong>Workload-wide knobs</strong> — shared across all agents (per-agent specifics live in the Agent fleet tab). Two sub-panels below: <em>Your audience</em> sizes the traffic (MAU × sessions × questions), <em>Workload parameters</em> shapes the per-query bill (cache hit rate, retry, growth, plus advanced calibration knobs). Open each panel for detailed guidance on its knobs.</p>
   </div>
 
   <!-- Section A sliders — header removed 2026-05-18 (the axiom-h-config
@@ -3967,6 +4165,33 @@ The color is decoration if the slider isn't doing what you expected — hover an
     </div>
 
     <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:0 8px;padding:4px 0">
+        <!-- Audience block — single canonical place to edit users. The 3
+             sliders below (MAU / Turns / Daily return) render in
+             "single audience" mode (segments.length === 1). When the
+             user clicks "+ Split into audience types", or loads a
+             preset with multiple segments, the audience-multi block
+             below takes over and the 3 sliders hide. Engine math is
+             unchanged — both views write to workload.segments[] which
+             is the engine's only audience source of truth. -->
+        <div class="panel" style="grid-column: 1 / -1; margin-bottom: 8px">
+          <div class="ph" data-tip="### Your audience
+
+**What this is.** The single canonical place to edit who's using your AI system — how many monthly active users (MAU), how often they come back, and how many questions they ask per session.
+
+**Single mode (one audience).** Drag the 3 sliders below. Behaves exactly like the old slider trio.
+
+**Multi mode (two or more audiences).** Click *+ Split into audience types* to break MAU into distinct groups — e.g. authenticated power users vs. anonymous public visitors. Each group gets its own MAU + sess/day + q/session + bot factor. The totals at the top show the weighted aggregate that the engine uses.
+
+**Why this exists.** Mixing 500 authenticated users and 10,000 anonymous public visitors into a single MAU number masks the bot-factor multiplier on the public segment — which routinely accounts for 30–60% of the bill on consumer-facing deployments. Splitting makes the breakdown auditable.">Your audience <span class="badge" id="audience-mode-badge">single</span></div>
+        <div class="section-helper" style="margin:8px 10px 0">
+          <p><strong>What this is.</strong> Audience segmentation — split MAU into groups that use the app differently. Each segment has its own MAU, sessions/day per user, questions/session, and authentication status. Anonymous public segments get a bot-factor multiplier (typically 1.5–2.5×) to account for crawlers, scrapers, and abuse traffic.</p>
+          <p><strong>Why it matters.</strong> Authenticated internal staff might run 3 deep sessions/day with 15 questions each; anonymous public visitors might run 0.05 sessions/day with 2 questions each. Modeling these together as one average user obscures cost behavior — and bot-factor on the public segment routinely accounts for 30–60% of the bill on consumer-facing deployments. Without this breakout, you can't defend the MAU number to procurement.</p>
+          <p><strong>How to interpret the results.</strong> Pull each segment's numbers from analytics (login records for authenticated, web analytics for anonymous). Set bot-factor to 1.0× for internal-only, 1.5× for typical public, 2.5–3× for SEO-targeted public pages. The aggregate "total monthly questions" used in the headline = Σ (MAU × sessions × questions × 30 × bot-factor) across all segments.</p>
+          <p><strong>Single vs Multi.</strong> One audience uses the slider trio below. Click <em>+ Split into audience types</em> to break MAU into distinct groups (auth power users vs. anonymous public, paid vs. free tier, etc.). Both views drive the same engine math — <code>workload.segments[]</code> is the only source of truth.</p>
+        </div>
+        <div style="padding:8px 10px">
+        <div id="audience-block">
+        <div data-audience-view="single">
         <div class="sr"><div class="sr-top"><span class="sr-label" data-tip="### Monthly active users (MAU)
 
 **In plain English:** how many different people use the app in a typical month. If your customer service site has 5,000 unique visitors who chat with the assistant during March, your March MAU is 5,000.
@@ -4015,7 +4240,44 @@ This is the *frequency* knob. Doubling it roughly doubles total queries per mont
 
 **Tip for procurement**
 Base it on real analytics if you have them (login events, web visits). Public federal portals usually sit around **0.1–0.2** because most visitors don't return. Internal team tools sit higher.">Daily return rate per user</span><span class="sr-val" id="v-sessions" style="color:var(--cyan)">0.3</span></div><input type="range" min="0.01" max="10" value="0.3" step="0.01" id="s-sessions" oninput="onSlider()" aria-label="Sessions per user per day"></div>
-        <div class="sr"><div class="sr-top"><span class="sr-label is-measured" data-tip="### Bot factor (machine traffic multiplier) — 📊 MEASURED from analytics, not set in code
+        <button type="button" id="audience-split-btn" class="audience-cta"
+                title="Split your audience into multiple types (e.g. authenticated power users + anonymous public). The 3 sliders above become per-audience cards below.">
+          + Split into audience types
+        </button>
+        </div><!-- /data-audience-view=single -->
+        <div data-audience-view="multi" hidden>
+          <div class="audience-summary" id="audience-summary" aria-live="polite"></div>
+          <div class="audience-cards" id="audience-cards"></div>
+          <button type="button" id="audience-add-btn" class="audience-cta"
+                  title="Add another audience type — e.g. anonymous public visitors on top of authenticated users.">
+            + Add another audience type
+          </button>
+        </div><!-- /data-audience-view=multi -->
+        </div><!-- /audience-block -->
+        </div><!-- /panel inner padding -->
+        </div><!-- /panel.Your audience -->
+        <!-- Workload parameters panel — wraps the cache / retry / growth /
+             bot-factor / etc. sliders so they read as a single block of
+             knobs rather than loose tiles. The inner grid mirrors the
+             outer auto-fit template so each slider gets a comparable
+             column width. Most knobs are advanced-only or sr-advanced;
+             in basic mode this panel shows only the Growth / month
+             slider, which is still legitimately useful (procurement
+             memos quote a 12- and 36-month projection). -->
+        <div class="panel" style="grid-column: 1 / -1; margin-bottom: 8px">
+        <div class="ph" data-tip="### Workload parameters
+
+The knobs that scale or shape the bill on top of your audience: cache hit rate (biggest cost lever), retry rate, growth rate, bot factor, plus the more specialized advanced calibration sliders (batch async %, context compression, language multiplier, peak/avg ratio).
+
+Most are hidden in Basic mode — Advanced mode exposes the full set.">Workload parameters</div>
+        <div class="section-helper" style="margin:8px 10px 0">
+          <p><strong>What this is.</strong> The per-query <em>shape</em> knobs that sit on top of your audience volume. <em>Cache hit rate</em> = vendor discount when you re-serve the same system prompt (every +10pp ≈ 8% off the input bill). <em>Retry rate</em> = share of failed calls that re-run (measured from logs, not set in code). <em>Growth / month</em> = compounding traffic growth used for the 12- and 36-month projection. The advanced knobs (Bot factor, Cache write share, Batch async %, Context compression %, Peak/avg ratio, Language multiplier) cover specialized calibration and only appear in Advanced mode.</p>
+          <p><strong>Why it matters.</strong> These are the second-largest set of cost levers after audience volume. <em>Cache hit rate</em> is THE biggest single lever — moving from 45% → 85% on a $30K/mo deployment saves ~$10K/mo. <em>Retry rate</em> above 5% means real production friction that costs real money. <em>Bot factor</em> on a public-facing segment routinely accounts for 30–60% of the bill (and silently — the multiplier compounds with the audience volume). <em>Growth</em> doesn't change this month's headline but determines what the 36-month TCO looks like in the budget memo.</p>
+          <p><strong>How to interpret the results.</strong> Aim for cache hit ≥70% on stable system prompts (workflow: deduplicate sysprompts, lock them in a versioned artifact, never inline-edit). Pull retry rate from production logs, not guess. Set bot factor to 1.0× for internal SSO-only, 1.5× for typical public, 2.5–3× for SEO-targeted public pages. Set growth conservatively (5–15% for known internal tools, 20–50% for public launches). If your post-launch bill diverges from this estimate, the answer is almost always in this panel — recalibrate cache, retry, and bot factor first.</p>
+          <p><strong>Basic vs Advanced.</strong> Basic mode shows only the Growth slider — the other knobs keep their preset defaults (cache 70%, retry 3%, bot 1.5×) so the headline cost is identical to Advanced. Switch to Advanced to tune all 9 knobs and see the calibration sliders.</p>
+        </div>
+        <div style="padding:8px 10px;display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:0 8px">
+        <div class="sr advanced-only"><div class="sr-top"><span class="sr-label is-measured" data-tip="### Bot factor (machine traffic multiplier) — 📊 MEASURED from analytics, not set in code
 
 **In plain English:** how much *extra* traffic comes from automated bots, web crawlers, and scrapers — on top of real human users. A 1.5× means for every 100 humans, another 50 bots are also hitting the system.
 
@@ -4029,7 +4291,7 @@ Bots cost real money. The AI vendor doesn't know whether the request came from a
 
 **Tip**
 Internal sites behind single-sign-on (SSO) or a VPN can safely set this to 1.0×. Public sites should not — set 1.5× minimum, or invest in a bot-mitigation layer (Cloudflare, etc.) and prove it's working.">Bot factor</span><span class="sr-val" id="prev-bot-val" style="color:var(--amber)">1.5×</span></div><input type="range" min="1.0" max="3.0" value="1.5" step="0.1" id="prev-bot" oninput="onSlider()" aria-label="Bot factor"><div class="sr-hint">1.0 = internal · 1.5× = typical public · 2–3× = under crawler load</div></div>
-        <div class="sr"><div class="sr-top"><span class="sr-label is-measured" data-tip="### Cache hit rate (vendor discount when re-reading the same text)
+        <div class="sr advanced-only"><div class="sr-top"><span class="sr-label is-measured" data-tip="### Cache hit rate (vendor discount when re-reading the same text)
 
 **In plain English:** AI vendors (OpenAI, Anthropic) offer a big discount — usually about **90% off** — when they're asked to re-read text they've already seen recently. This number is the percentage of input text that qualifies for that discount.
 
@@ -4114,6 +4376,8 @@ Peak-hour traffic divided by average traffic. 1× = perfectly flat. 3-5× = typi
         <div class="sr sr-advanced"><div class="sr-top"><span class="sr-label is-measured" data-tip="📊 MEASURED outcome — run a tokenizer over a representative sample of your real user content to get the actual ratio for your workload. Token-count multiplier for non-English content. English = 1.0; code = 1.3; Spanish/French ~1.1-1.2; CJK languages (Chinese, Japanese, Korean) = 1.8-2.2 because tokenizers fragment characters. Inflates input and output cost proportionally.
 
 **Why this knob matters:** invisible cost driver for international deployments. A Japanese-language assistant costs ~2× what an English one does at the same word count. Often missed during budget planning — flags multilingual deployments needing tokenizer-aware budgets.">Language multiplier</span><span class="sr-val" id="v-lang-mult" style="color:var(--amber)">1.0×</span></div><input type="range" min="1.0" max="2.5" value="1.0" step="0.1" id="s-lang-mult" oninput="onSlider()" aria-label="Language token multiplier"><div class="sr-hint">EN=1.0, code=1.3, CJK=1.8-2.2</div></div>
+        </div><!-- /workload-params inner grid -->
+        </div><!-- /panel.Workload parameters -->
     </div>
   </div>
 
@@ -4121,7 +4385,7 @@ Peak-hour traffic divided by average traffic. 1× = perfectly flat. 3-5× = typi
        grid to single-column so Workload Mix uses the full width instead of
        leaving an empty right pane). -->
   <div style="display:grid;grid-template-columns:1fr;gap:8px">
-    <div class="panel">
+    <div class="panel advanced-only">
       <div class="ph" data-tip="### Workload mix — query types
 
 **What this is.** Default mix across all queries — classify (0.3× output), summary (0.65×), RAG (0.85×), code (2.8×), longform (3.6×), agentic (4.3×). The weighted-average becomes the ×Nout multiplier applied to every agent that doesn't override.
@@ -4270,7 +4534,7 @@ Set Cap above to match your template's actual emission size (40 for status-only,
       <div class="sr" style="max-width:420px"><div class="sr-top"><span class="sr-label" data-tip="Number of LLM agents working on each query. 1 = single chat. 3-5 = orchestrated reasoning. 8+ = research-heavy multi-agent. Each agent runs its own context, so cost scales close to linearly with agent count.
 
 **Why this knob matters:** doubling agents roughly doubles per-query cost (each runs full sysprompt + RAG + reasoning). Going 1→3 on a $30K/mo deployment ≈ +$60K/mo. Validate that each extra agent adds answer quality, not just tokens.">Agents in fleet</span><span class="sr-val" id="v-agents" style="color:var(--cyan)">3</span></div><input type="range" min="1" max="8" value="3" step="1" id="s-agents" oninput="onSlider()" aria-label="Agents in fleet"><div class="sr-hint">Parallel reasoning agents — count syncs with the cards below</div></div>
-      <div class="sr" style="max-width:420px"><div class="sr-top"><span class="sr-label" data-tip="### Communication pattern
+      <div class="sr advanced-only" style="max-width:420px"><div class="sr-top"><span class="sr-label" data-tip="### Communication pattern
 
 How agents coordinate, billed as extra input tokens per turn per agent.
 
@@ -4335,20 +4599,20 @@ How agents coordinate, billed as extra input tokens per turn per agent.
      section so reviewers see fact-checking as a peer concern alongside
      Agent fleet and Cost breakdown. All data-bind IDs are unchanged so
      cost-engine wiring needs no edits. -->
-<div class="axiom-section-divider" id="axiom-h-verification">
+<div class="axiom-section-divider advanced-only" id="axiom-h-verification">
   <span class="ix-title">Fact-checking pipeline</span>
   <span class="ix-desc">verifier preset · NLI hosting · atomizer/reviser token budgets — pick a preset or stay at the simulator default</span>
 </div>
-<div class="section-helper">
+<div class="section-helper advanced-only">
   <p><strong>What this is.</strong> The post-response verification pipeline that checks generated claims against a knowledge source before returning. Configures the verifier preset (MiniCheck, FactScore, AlignScore, FR2, etc.), NLI model hosting (self-hosted vs. managed), per-claim atomizer/reviser token budgets, and a cascade rule for escalating low-confidence claims to a second more-expensive verifier.</p>
   <p><strong>Why it matters.</strong> Skipping fact-checking is the right call for low-stakes chatbots and a compliance violation for legal/medical/financial. When you do need it, the verifier choice can swing fact-check cost by 20×: a self-hosted MiniCheck NLI run on every claim is ~$0.0001/claim; an API-hosted FR2 with reasoning is ~$0.002/claim. Cascade verification keeps the average cheap (90% of claims handled by the fast verifier) while still catching the hard cases.</p>
   <p><strong>How to interpret the results.</strong> Start by picking a preset that matches your risk profile — MiniCheck for general grounding, FR2 for high-stakes, FactScore if you publish citation rates. Set <em>coverage</em> to the fraction of responses that need verification (1.0 = all, 0.2 = 20%). Cascade settings show up as the ⇉ icon in the Section C architecture diagram; the cost flows into the headline as a separate "verify" line.</p>
 </div>
-<div id="tab-verification" class="tab-panel">
+<div id="tab-verification" class="tab-panel advanced-only">
   <!-- Panel header removed 2026-05-18: the axiom-h-verification divider
        above already says "Fact-checking pipeline". The VERIFY badge was
        informational only; dropped along with the duplicate title. -->
-  <div class="panel" id="sec-verification" style="margin-top:8px">
+  <div class="panel advanced-only" id="sec-verification" style="margin-top:8px">
     <div class="section-body" style="padding:9px 12px;display:flex;flex-direction:column;gap:9px">
       <div style="font-size:9px;color:var(--dim);line-height:1.5">
         Adds an automated factuality check on a sample of answers — catches
@@ -4609,16 +4873,16 @@ Measure primary's confidence-score histogram across a labeled validation set; pi
   </div>
 
 <!-- ═══ TAB: TOKENS ═══ -->
-<div class="axiom-section-divider" id="axiom-h-tokens">
+<div class="axiom-section-divider advanced-only" id="axiom-h-tokens">
   <span class="ix-title">Cost breakdown</span>
   <span class="ix-desc">per-turn token ledger · cumulative composition · cost-per-session distribution</span>
 </div>
-<div class="section-helper">
+<div class="section-helper advanced-only">
   <p><strong>What this is.</strong> Three views on the headline number, each from a different angle. <em>Per-turn token ledger</em> — line-by-line accounting of where one canonical query's tokens go (sysprompt + history + RAG + tool results + output + reasoning). <em>Cumulative token breakdown</em> — same components rolled across the whole session as a stacked bar so the dominant cost driver pops visually. <em>Lognormal CI distribution</em> — the cost-per-session probability curve (p50 / p90 / p99) showing how wide your variance is on real traffic, not just the central estimate.</p>
   <p><strong>Why it matters.</strong> Headline cost is an opinion until you can see what's driving it. The ledger answers "which knob to tune": if RAG chunks consume 60% of input, the lever is retrieval depth (Section A → RAG chunks); if reasoning tokens are 40% of output, the lever is thinking mode (per-agent in Section C). The CI distribution answers "how confident is the number": a wide p50→p99 spread means a single bad day can blow past the central estimate, so you size budget envelopes against the tail, not the median.</p>
   <p><strong>How to interpret the results.</strong> Ledger: look for the biggest bar — that's your priority lever. Compare "uncached input" vs "cached input" — if uncached is &gt;50%, prompt-cache isn't earning its keep (system prompt instability, dynamic preambles). Cumulative chart: confirms the ledger findings at session scale. CI distribution: bring the p90 to the procurement memo as the budget defense — "central estimate $X, p90 worst-case $Y, $/session standard deviation Z%."</p>
 </div>
-<div id="tab-tokens" class="tab-panel">
+<div id="tab-tokens" class="tab-panel advanced-only">
   <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
     <div class="panel">
       <div class="ph" data-tip="### Per-Turn Token Ledger
@@ -4675,16 +4939,16 @@ Measure primary's confidence-score histogram across a labeled validation set; pi
 </div>
 
 <!-- ═══ TAB: COST ═══ -->
-<div class="axiom-section-divider" id="axiom-h-cost">
+<div class="axiom-section-divider advanced-only" id="axiom-h-cost">
   <span class="ix-title">Comparisons</span>
   <span class="ix-desc">model-by-model cost table and 12-month projection</span>
 </div>
-<div class="section-helper">
+<div class="section-helper advanced-only">
   <p><strong>What this is.</strong> A side-by-side cost table running your current workload against every model in the rate card — Claude Opus/Sonnet/Haiku, GPT-5.x family, Gemini 3, Llama 3.3, etc. Each row shows per-query cost, monthly bill, and percentage delta vs. your selected model. The 12-month projection chart shows the same models curved over time at your configured growth rate.</p>
   <p><strong>Why it matters.</strong> Model choice is usually the second-biggest decision after agent count. The same workload run on Opus-4.7 vs Haiku-4.5 can differ by 8×; gpt-5.4 vs gpt-5.4-mini by 5×. But naïve "always pick the cheapest" ignores quality differences — this table lets you see the cost gap so you can decide if the quality lift is worth it.</p>
   <p><strong>How to interpret the results.</strong> The "whole-fleet uniform" badge is a reminder: this table assumes every agent runs the same model. Real fleets mix (Triage on Mini, Drafter on Opus) — use Section C's per-agent "Compare models" expander for the realistic per-agent swap math. Treat this table as a "ceiling vs floor" reference, then mix and match in Section C.</p>
 </div>
-<div id="tab-cost" class="tab-panel">
+<div id="tab-cost" class="tab-panel advanced-only">
   <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
     <div class="panel">
       <div class="ph" data-tip="### Model Comparison — whole-fleet uniform
@@ -4757,16 +5021,16 @@ Measure primary's confidence-score histogram across a labeled validation set; pi
 </div>
 
 <!-- ═══ TAB: SENSITIVITY ═══ -->
-<div class="axiom-section-divider" id="axiom-h-sensitivity">
+<div class="axiom-section-divider advanced-only" id="axiom-h-sensitivity">
   <span class="ix-title">Stress test</span>
   <span class="ix-desc">±50% sensitivity, tornado chart, what-if scenarios</span>
 </div>
-<div class="section-helper">
+<div class="section-helper advanced-only">
   <p><strong>What this is.</strong> A robustness check on your headline number. The sensitivity table flips each input ±50% in isolation and reports the resulting % change in monthly cost; the tornado chart shows the same ranked by impact. The What-If cards flip one knob (or a small bundle) to a named scenario value and report the delta — "what if cache hit rate hit 80%", "what if RAG chunks doubled", etc.</p>
   <p><strong>Why it matters.</strong> A budget that's right at the central estimate but blows up at +20% on the most sensitive input is not a budget — it's an optimistic guess. Sensitivity tells procurement reviewers <em>which inputs your estimate is fragile to</em>, so they know where to push back on assumptions. The What-If cards give a quick "lever pull" view for the most common cost-reduction or cost-increase moves.</p>
   <p><strong>How to interpret the results.</strong> Top bars in the tornado = the inputs that matter most — these are the ones you should validate hardest before signing. What-If cards reading 0.0% means that knob doesn't apply to your current preset (RAG off, guardrails already at zero, etc.). Use this section to write the "Sensitivity" paragraph in your procurement memo.</p>
 </div>
-<div id="tab-sensitivity" class="tab-panel">
+<div id="tab-sensitivity" class="tab-panel advanced-only">
   <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
     <div class="panel">
       <div class="ph" data-tip="### Sensitivity — ±50% Parameter Impact
@@ -4818,7 +5082,7 @@ Measure primary's confidence-score histogram across a labeled validation set; pi
 
     </div><!-- /.tab-panel simulator -->
 
-    <div class="section" data-cat="setup" id="sec-federal">
+    <div class="section advanced-only" data-cat="setup" id="sec-federal">
       <h2><span class="chev">▶</span><span class="lead">Federal compliance & hosting</span> <em>FedRAMP, ATO, egress, audit retention</em></h2>
       <div class="section-body">
       <div class="section-helper">
@@ -4968,7 +5232,7 @@ Picking a tier here auto-computes the monthly amortized cost (upfront ÷ amortiz
       </div>
     </div>
 
-    <div class="section" data-cat="traffic" id="sec-anchor">
+    <div class="section advanced-only" data-cat="traffic" id="sec-anchor">
       <h2><span class="chev">▶</span><span class="lead">Your typical question</span> <em>token sizes for one canonical query</em></h2>
       <div class="section-body">
       <div class="section-helper">
@@ -5096,7 +5360,7 @@ Picking a tier here auto-computes the monthly amortized cost (upfront ÷ amortiz
       </div>
     </div>
 
-    <div class="section" data-cat="traffic" id="sec-shapes">
+    <div class="section advanced-only" data-cat="traffic" id="sec-shapes">
       <h2><span class="chev">▶</span><span class="lead">Question types</span> <em>full-pipeline, lookup-only, refusal, …</em></h2>
       <div class="section-body">
       <div class="section-helper">
@@ -5109,7 +5373,7 @@ Picking a tier here auto-computes the monthly amortized cost (upfront ÷ amortiz
       </div>
     </div>
 
-    <div class="section" data-cat="traffic" id="sec-agents">
+    <div class="section advanced-only" data-cat="traffic" id="sec-agents">
       <h2><span class="chev">▶</span><span class="lead">Multi-agent pipeline</span> <em>optional — if your system uses more than one LLM call per query</em></h2>
       <div class="section-body">
       <div id="agents-mode-banner" class="mode-warning" style="display:none;">
@@ -5134,7 +5398,7 @@ Picking a tier here auto-computes the monthly amortized cost (upfront ÷ amortiz
       </div>
     </div>
 
-    <div class="section" data-cat="traffic" id="sec-mix">
+    <div class="section advanced-only" data-cat="traffic" id="sec-mix">
       <h2><span class="chev">▶</span><span class="lead">Traffic mix presets</span> <em>how questions split across types</em></h2>
       <div class="section-body">
       <div class="section-helper">
@@ -5147,25 +5411,18 @@ Picking a tier here auto-computes the monthly amortized cost (upfront ÷ amortiz
       </div>
     </div>
 
-    <div class="section" data-cat="traffic" id="sec-segments">
-      <h2><span class="chev">▶</span><span class="lead">Your users</span> <em>monthly active users, sessions, questions</em></h2>
-      <div class="section-body">
-      <div class="section-helper">
-        <p><strong>What this is.</strong> Audience segmentation — split MAU into groups that use the app differently. Each segment has its own MAU, sessions/day per user, questions/session, and authentication status. Anonymous public segments get a bot-factor multiplier (typically 1.5–2.5×) to account for crawlers, scrapers, and abuse traffic.</p>
-        <p><strong>Why it matters.</strong> Authenticated internal staff might run 3 deep sessions/day with 15 questions each; anonymous public visitors might run 0.05 sessions/day with 2 questions each. Modeling these together as one average user obscures cost behavior — and bot-factor on the public segment routinely accounts for 30–60% of the bill on consumer-facing deployments. Without this breakout, you can't defend the MAU number to procurement.</p>
-        <p><strong>How to interpret the results.</strong> Pull each segment's numbers from analytics (login records for authenticated, web analytics for anonymous). Set bot-factor to 1.0× for internal-only, 1.5× for typical public, 2.5–3× for SEO-targeted public pages. The aggregate "total monthly questions" used in the headline = Σ (MAU × sessions × questions × 30 × bot-factor) across all segments.</p>
-      </div>
-      <div class="item-list" id="segments-list"></div>
-      <div class="item add-row" id="segments-add">+ Add another audience segment</div>
-      </div>
-    </div>
+    <!-- sec-segments (the per-segment audience editor) was removed
+         2026-06-09. Replaced by the #audience-block in tab-config, which
+         is the single canonical UI for editing per-segment audience data.
+         Engine math is unchanged — workload.segments[] remains the only
+         source of truth; #audience-block is just the new control surface. -->
 
     <!-- sec-verification relocated into the simulator tab-config — single source
          of truth for fact-checking cost. The id is preserved on the new
          markup so calc-side data-bind / OPTIONAL_COMPONENTS still resolve. -->
 
     <!-- API reservations / committed-spend -->
-    <div class="section" data-cat="limits" id="sec-reservations">
+    <div class="section advanced-only" data-cat="limits" id="sec-reservations">
       <h2><span class="chev">▶</span><span class="lead">API reservations / committed-spend</span> <em>discount or PTU vs on-demand</em></h2>
       <div class="section-body">
       <div class="section-helper">
@@ -5296,7 +5553,7 @@ Start with -small. Upgrade only if your evaluation shows retrieval quality is th
     </div>
 
     <!-- Migration timeline — phased deployment over 36 months -->
-    <div class="section" data-cat="reference" id="sec-migration">
+    <div class="section advanced-only" data-cat="reference" id="sec-migration">
       <h2><span class="chev">▶</span><span class="lead">Migration timeline</span> <em>phased deployment over 36 months</em></h2>
       <div class="section-body">
       <div class="section-helper">
@@ -5366,7 +5623,7 @@ Start with -small. Upgrade only if your evaluation shows retrieval quality is th
       </div>
     </div>
 
-    <div class="section" data-cat="limits" id="sec-safeguards">
+    <div class="section advanced-only" data-cat="limits" id="sec-safeguards">
       <h2><span class="chev">▶</span><span class="lead">Traffic safeguards</span> <em>bot rate limiting</em></h2>
       <div class="section-body">
       <div class="section-helper">
@@ -5397,7 +5654,7 @@ Start with -small. Upgrade only if your evaluation shows retrieval quality is th
       </div>
     </div>
 
-    <div class="section" data-cat="selfhost" id="sec-selfhost">
+    <div class="section advanced-only" data-cat="selfhost" id="sec-selfhost">
       <h2><span class="chev">▶</span><span class="lead">Self-host capacity</span> <em>only matters if you self-host</em></h2>
       <div class="section-body">
       <div class="section-helper">
@@ -5802,7 +6059,7 @@ Both fields are independent; they don't have to match.">ⓘ</span></label>
     </div>
 
     <!-- PRICES section — single-page flow, scroll target id="sec-prices". -->
-    <div class="tab-panel prices-panel" data-tab-panel="prices" id="sec-prices">
+    <div class="tab-panel prices-panel advanced-only" data-tab-panel="prices" id="sec-prices">
       <div class="prices-header">
         <h2>💲 Price book</h2>
         <p>Single source of truth for every price the calculator uses — LLM rates, API reservations, GPU instances, embeddings, vector DBs, AWS infra, personnel salaries, ATO costs. Edits here override the defaults for this workload only and persist in the URL hash. Defaults are validated against vendor pricing pages; <strong>last full refresh: <span id="prices-last-checked">—</span></strong>. Future plan: a scraper periodically fetches each <code>source_url</code> and bumps <code>last_verified</code>.</p>
@@ -5887,7 +6144,7 @@ Both fields are independent; they don't have to match.">ⓘ</span></label>
 **How to interpret.** If one segment is &gt;70% of total cost AND it's the anonymous-public one, rate-limiting + bot-factor controls in Section A become a priority. If the auth segment dominates, the cost-per-paying-user math should appear in the procurement memo.">Per-segment breakdown</h3>
     <table class="compare-table" id="prev-segments"></table>
 
-    <div id="prev-migration-section" style="display: none;">
+    <div id="prev-migration-section" class="advanced-only" style="display: none;">
       <h3 class="report-h" data-tip="### Migration timeline — 3-year phased rollout
 
 **What this is.** Per-phase cost breakdown when Migration is enabled (Year 1 API pilot, Year 2 committed-spend, Year 3 self-host, etc.). The bar chart shows monthly cost per phase; the line shows cumulative TCO.
@@ -5899,7 +6156,7 @@ Both fields are independent; they don't have to match.">ⓘ</span></label>
       <table class="compare-table" id="prev-migration-table"></table>
     </div>
 
-    <div id="prev-verif-section" style="display: none;">
+    <div id="prev-verif-section" class="advanced-only" style="display: none;">
       <h3 class="report-h" data-tip="### Verification pipeline cost
 
 **What this is.** Cost breakdown for the fact-checking pipeline when verification is enabled — atomizer cost, NLI / verifier cost, reviser cost, plus any cascade-escalation cost.
@@ -5941,15 +6198,15 @@ Both fields are independent; they don't have to match.">ⓘ</span></label>
     <p style="font-size:11px;color:var(--muted);margin:0 0 8px;line-height:1.5">Full math trace for <em>this</em> workload — copy-paste into ChatGPT/Claude/Gemini and ask "verify this math". For source citations and formula details, see <strong>Methodology</strong> in the sidebar.</p>
     <div class="math-walk" id="prev-math">—</div>
 
-    <h3 class="report-h" id="sec-methodology" style="scroll-margin-top:80px" data-tip="### Methodology, sources &amp;amp; disclosures
+    <h3 class="report-h advanced-only" id="sec-methodology" style="scroll-margin-top:80px" data-tip="### Methodology, sources &amp;amp; disclosures
 
 **What this is.** Where the price book comes from (vendor pricing pages, last-verified dates), what assumptions are baked in (optimistic vs realistic cost mode), the empirical-calibration loop (bench → coefficients → live calc), and what this calculator does NOT model.
 
 **Why it matters.** Procurement decisions live or die on input credibility. This section is the audit trail — every price the calc uses traces back to a published source, every coefficient traces back to a real API benchmark. The &quot;planning only&quot; badge is the legally important caveat.
 
 **How to interpret.** Read this before signing the procurement document. Refresh prices before procurement use — vendor rates drift; the in-repo scraper re-validates them against live pricing pages. Last-verified dates appear next to each rate in the Prices tab.">Methodology, sources &amp; disclosures <span class="badge-warn" style="font-size:12px;font-weight:600;padding:2px 8px;border-radius:4px;background:rgba(199,107,0,0.12);color:#c76b00;text-transform:uppercase;letter-spacing:0.04em;margin-left:8px">planning only — refresh prices before procurement</span></h3>
-    <p style="font-size:11px;color:var(--muted);margin:0 0 12px;line-height:1.5">Pricing sources, token-counting heuristics, confidence-interval math, and what this calculator does not model. For the math applied to <em>your</em> numbers, see <strong>Derivation of your numbers</strong> above.</p>
-    <div class="methodology-body" style="line-height:1.7;font-size:12px;color:var(--ink);background:var(--paper);padding:16px 18px;border:1px solid var(--rule);border-radius:6px">
+    <p class="advanced-only" style="font-size:11px;color:var(--muted);margin:0 0 12px;line-height:1.5">Pricing sources, token-counting heuristics, confidence-interval math, and what this calculator does not model. For the math applied to <em>your</em> numbers, see <strong>Derivation of your numbers</strong> above.</p>
+    <div class="methodology-body advanced-only" style="line-height:1.7;font-size:12px;color:var(--ink);background:var(--paper);padding:16px 18px;border:1px solid var(--rule);border-radius:6px">
       <div style="font-size:13px;font-weight:700;color:var(--accent);margin-bottom:6px;letter-spacing:1px">PRICING SOURCES</div>
       <div style="color:var(--muted);margin-bottom:14px">Static bootstrap prices were patched on <b style="color:var(--ink)">2026-05-04</b>. Your scraper should refresh these before procurement use. Prices are subject to change by providers. For procurement, verify against vendor pricing pages on the day of submission. Sources:
         <ul style="margin-left:18px;margin-top:6px">
@@ -6104,7 +6361,7 @@ Both fields are independent; they don't have to match.">ⓘ</span></label>
 <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 <script src="lib/prices.js"></script>
 <script src="lib/cost-engine.js"></script>
-<script src="app.js"></script>
+<script src="app.js?v=2026-06-09-audience-3"></script>
 
 <!-- ===== Live prices from api.ajinkya.ai/prices ==================
      The bundled lib/prices.js gives the calc a working snapshot;
@@ -6164,7 +6421,7 @@ Both fields are independent; they don't have to match.">ⓘ</span></label>
        All globals (sim, AGENT_DEF, MODELS, computeCost, setMode, setTheme,
        onSlider, …) attach to window so inline blocks below + the bridge
        in app.js see them unchanged. -->
-  <script src="lib/cost-simulator.js"></script>
+  <script src="lib/cost-simulator.js?v=2026-06-09-audience-7"></script>
   <!-- ============== simulator ↔ Cost Calculator integration script ============== -->
   <script>
 (function(){

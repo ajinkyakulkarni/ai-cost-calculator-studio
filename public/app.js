@@ -315,7 +315,13 @@
 
     renderShapesList();
     renderMixesList();
-    renderSegmentsList();
+    // Segments are now owned by #audience-block in tab-config (rendered
+    // by cost-simulator.js). The legacy renderSegmentsList() and its
+    // sec-segments markup were removed 2026-06-09. Trigger an
+    // audience-block re-render here to keep things in sync when the
+    // calc-side editor refreshes for other reasons (preset switch,
+    // hash restore, raw-JSON edit).
+    window.__renderAudienceBlock?.();
     renderAgentsList();
     renderGpuList();
     renderInfraList();
@@ -590,70 +596,12 @@ Self-hosted tools with fixed infrastructure should normally stay at $0 here (the
     });
   }
 
-  function renderSegmentsList() {
-    const list = document.getElementById('segments-list');
-    list.innerHTML = '';
-    workload.segments.forEach((seg, idx) => {
-      const div = document.createElement('div');
-      div.className = 'item';
-      const safe = String(seg.id || idx).replace(/[^a-z0-9-]/gi, '_');
-      div.innerHTML = `
-        <button class="item-remove" data-seg-remove="${idx}" aria-label="Remove segment ${seg.id}">remove</button>
-        <div class="item-title">${seg.id}</div>
-        <div class="row grid-2">
-          <div><label for="seg-${safe}-id">ID</label><input id="seg-${safe}-id" type="text" value="${seg.id}" data-seg="${idx}" data-key="id"></div>
-          <div><label for="seg-${safe}-label">Label</label><input id="seg-${safe}-label" type="text" value="${seg.label || ''}" data-seg="${idx}" data-key="label"></div>
-        </div>
-        <div class="row grid-3">
-          <div><label for="seg-${safe}-mau">MAU</label><input id="seg-${safe}-mau" type="number" value="${seg.mau}" data-seg="${idx}" data-key="mau"></div>
-          <div><label for="seg-${safe}-sessions_per_day">Sessions / day</label><input id="seg-${safe}-sessions_per_day" type="number" step="0.1" value="${seg.sessions_per_day}" data-seg="${idx}" data-key="sessions_per_day"></div>
-          <div><label for="seg-${safe}-questions_per_session">Q / session</label><input id="seg-${safe}-questions_per_session" type="number" value="${seg.questions_per_session}" data-seg="${idx}" data-key="questions_per_session"></div>
-        </div>
-        <div class="row checkbox">
-          <input type="checkbox" id="bot-${idx}" ${seg.applyBotFactor ? 'checked' : ''} data-seg="${idx}" data-key="applyBotFactor">
-          <label for="bot-${idx}">Apply bot factor (typically anonymous segments)</label>
-        </div>
-      `;
-      list.appendChild(div);
-    });
-    list.querySelectorAll('[data-seg]').forEach(el => {
-      el.addEventListener('input', () => {
-        const idx = parseInt(el.dataset.seg, 10);
-        const key = el.dataset.key;
-        let v;
-        if (el.type === 'checkbox') v = el.checked;
-        else if (el.type === 'number') v = parseFloat(el.value) || 0;
-        else v = el.value;
-        workload.segments[idx][key] = v;
-        // In single-segment mode renderPreview rebuilds workload.segments[0]
-        // from s-users/s-sessions/s-turns on every render (see app.js:1657+),
-        // so a direct edit to this form would be silently clobbered. Mirror
-        // numeric traffic edits back to the matching slider so the next
-        // renderPreview reads the user's value instead of the stale slider.
-        if (workload.segments.length === 1 && el.type === 'number') {
-          const sliderMap = {
-            mau: 's-users',
-            sessions_per_day: 's-sessions',
-            questions_per_session: 's-turns',
-          };
-          const sliderId = sliderMap[key];
-          if (sliderId) {
-            const slider = document.getElementById(sliderId);
-            if (slider) slider.value = String(v);
-          }
-        }
-        renderPreview();
-        renderRawJson();
-      });
-    });
-    list.querySelectorAll('[data-seg-remove]').forEach(b => {
-      b.addEventListener('click', (e) => {
-        workload.segments.splice(parseInt(e.target.dataset.segRemove, 10), 1);
-        renderEditor();
-        renderPreview();
-      });
-    });
-  }
+  // renderSegmentsList — REMOVED 2026-06-09. Audience editing moved
+  // to #audience-block in tab-config (owned by cost-simulator.js's
+  // renderAudienceBlock()). Single canonical UI. The block reads/writes
+  // workload.segments[] directly and keeps the hidden s-users /
+  // s-sessions / s-turns slider inputs in sync with the aggregate so
+  // downstream code that polls those IDs keeps working unchanged.
 
   // Common multi-agent pipeline templates
   const AGENT_TEMPLATES = {
@@ -1015,7 +963,7 @@ Production teams measure their primary's confidence-score distribution; escalate
       div.innerHTML = `
         <button class="item-remove" data-infra-remove="${encodeURIComponent(name)}" aria-label="Remove infrastructure line ${name}">remove</button>
         <div class="row grid-2">
-          <div><label for="infra-${safe}-name">Line item</label><input id="infra-${safe}-name" type="text" value="${name.replace(/"/g, '&quot;')}" data-infra-name="${encodeURIComponent(name)}"></div>
+          <div><label for="infra-${safe}-name">Service / Component</label><input id="infra-${safe}-name" type="text" value="${name.replace(/"/g, '&quot;')}" data-infra-name="${encodeURIComponent(name)}"></div>
           <div><label for="infra-${safe}-cost">${scalingActive ? 'Computed monthly $' : 'Monthly $'} <span class="tip" data-tip="Flat = fixed $/mo. Toggle scaling to compute as a rate × your monthly query volume (S3, CloudWatch, NAT egress, etc.).">ⓘ</span></label>
             <input id="infra-${safe}-cost" type="number" step="1" value="${displayCost}" data-infra-cost="${encodeURIComponent(name)}" ${scalingActive ? 'disabled style="background:var(--card2, rgba(0,0,0,0.04)); color:var(--muted); cursor:not-allowed;"' : ''}>
           </div>
@@ -2655,11 +2603,11 @@ Production teams measure their primary's confidence-score distribution; escalate
     if (infraTable) {
       const items = Object.entries(workload.infrastructure || {}).sort((a, b) => b[1] - a[1]);
       if (items.length === 0) {
-        infraTable.innerHTML = `<tbody><tr><td style="color: var(--muted);">No infrastructure line items configured. Add them in section 10.</td></tr></tbody>`;
+        infraTable.innerHTML = `<tbody><tr><td style="color: var(--muted);">No infrastructure services / components configured. Add them in section 10.</td></tr></tbody>`;
       } else {
         let infraRows = items.map(([n, c]) => `<tr><td>${n}</td><td class="num">${fmt$(c)}</td></tr>`).join('');
         infraRows += `<tr class="row-highlight" style="font-weight:600;"><td>Total infrastructure</td><td class="num">${fmt$(infraTotal)}</td></tr>`;
-        infraTable.innerHTML = `<thead><tr><th>Line item</th><th style="text-align:right;">Monthly</th></tr></thead><tbody>${infraRows}</tbody>`;
+        infraTable.innerHTML = `<thead><tr><th>Service / Component</th><th style="text-align:right;">Monthly</th></tr></thead><tbody>${infraRows}</tbody>`;
       }
     }
 
@@ -2679,25 +2627,25 @@ Production teams measure their primary's confidence-score distribution; escalate
       const lines = [];
       lines.push('');
       lines.push(sep);
-      lines.push('A) COST-SIMULATOR TOKEN BRIDGE (app.js → engine inputs)');
+      lines.push('A) WORKLOAD → ENGINE INPUTS (per-turn token counts from your settings)');
       lines.push(sep);
       if (_axTotalIn != null && _axTurns != null) {
         const perTurn = Math.round(_axTotalIn / _axTurns);
-        lines.push(`simulator computeCost() session-total input: ${fmtN(_axTotalIn)} tok across ${_axTurns} turns`);
+        lines.push(`Session-total input from your workload: ${fmtN(_axTotalIn)} tok across ${_axTurns} turns`);
         lines.push(`  → anchor_query.input_tokens = ${fmtN(_axTotalIn)} / ${_axTurns} = ${fmtN(perTurn)} tok/query (used in section 3 above)`);
         if (_axTotalOut != null) {
           const perTurnOut = Math.round(_axTotalOut / _axTurns);
-          lines.push(`simulator session-total output: ${fmtN(_axTotalOut)} tok across ${_axTurns} turns`);
+          lines.push(`Session-total output from your workload: ${fmtN(_axTotalOut)} tok across ${_axTurns} turns`);
           lines.push(`  → anchor_query.output_tokens = ${fmtN(_axTotalOut)} / ${_axTurns} = ${fmtN(perTurnOut)} tok/query`);
         }
-        lines.push(`(simulator internal: per-agent loop sums sysprompt + ia_msg + tool schema/result + RAG + reasoning + guards + comm-pattern overhead × turns × agentCount.)`);
+        lines.push(`(Per-agent loop sums sysprompt + inter-agent messages + tool schema/result + RAG + reasoning + guardrails + comm-pattern overhead × turns × agent count.)`);
       } else {
-        lines.push('simulator bridge not active this render — anchor_query.input_tokens used as-is.');
+        lines.push('Per-agent token build-up not active this render — anchor_query.input_tokens used as-is.');
       }
       lines.push('');
 
       lines.push(sep);
-      lines.push('B) RETRY INFLATION (app.js multiplier on API bill)');
+      lines.push('B) RETRY INFLATION (multiplier on API bill)');
       lines.push(sep);
       lines.push(`Retry rate (s-retry): ${(retryRate * 100).toFixed(1)}%`);
       lines.push(`Inflate factor: 1 + retry_rate × 1.5 = 1 + ${retryRate.toFixed(3)} × 1.5 = ${retryInflate.toFixed(4)}`);
@@ -2708,7 +2656,7 @@ Production teams measure their primary's confidence-score distribution; escalate
 
       if (agentEngineering && agentEngineering.enabled && agentEngMonthly > 0) {
         lines.push(sep);
-        lines.push('C) AGENT ENGINEERING (app.js — upfront design + maintenance)');
+        lines.push('C) AGENT ENGINEERING (upfront design + maintenance amortization)');
         lines.push(sep);
         const ae = agentEngineering;
         if (ae.upfront_total != null) {
@@ -2725,7 +2673,7 @@ Production teams measure their primary's confidence-score distribution; escalate
       }
 
       lines.push(sep);
-      lines.push('D) FINAL HEADLINE (after app.js adjustments)');
+      lines.push('D) FINAL HEADLINE (after retry + engineering + additive adjustments)');
       lines.push(sep);
       lines.push(`  ${opts.hosting === 'self' ? 'Self-host LLM' : opts.hosting === 'hybrid' ? 'Hybrid LLM' : opts.hosting === 'onprem' ? 'On-prem (amortized)' : 'API LLM × retry-inflate'}: ${$f(llmHeadline)}`);
       if (verifMonthly > 0)     lines.push(`+ Verification:        ${$f(verifMonthly)}`);
@@ -3706,12 +3654,9 @@ Production teams measure their primary's confidence-score distribution; escalate
       workload.mix[id] = { label: id, weights };
       renderEditor(); renderPreview();
     });
-    document.getElementById('segments-add').addEventListener('click', () => {
-      const id = prompt('New segment id (e.g., auth, public)?');
-      if (!id) return;
-      workload.segments.push({ id, label: id, mau: 1000, sessions_per_day: 0.2, questions_per_session: 5, applyBotFactor: false });
-      renderEditor(); renderPreview();
-    });
+    // segments-add handler — REMOVED 2026-06-09. The audience-block in
+    // tab-config owns "+ Add another audience type" via its delegated
+    // click handler in cost-simulator.js (#audience-add-btn).
     document.getElementById('agents-add').addEventListener('click', () => {
       const id = prompt('Agent id (e.g., planner, retriever, summarizer)?');
       if (!id) return;
@@ -3740,7 +3685,7 @@ Production teams measure their primary's confidence-score distribution; escalate
       renderEditor(); renderPreview();
     });
     document.getElementById('infra-add').addEventListener('click', () => {
-      const name = prompt('Infrastructure line item name (e.g., NAT Gateway)?');
+      const name = prompt('Infrastructure service / component name (e.g., NAT Gateway, RDS Postgres, CloudWatch)?');
       if (!name || workload.infrastructure[name] != null) return;
       workload.infrastructure[name] = 0;
       renderEditor(); renderPreview();
@@ -4272,6 +4217,9 @@ Production teams measure their primary's confidence-score distribution; escalate
       window.__setSimulatorFromWorkload?.(workload);
       renderEditor();
       renderPreview();
+      // Re-render the audience block so single/multi mode + summary line
+      // reflect the freshly-loaded preset's segments.
+      window.__renderAudienceBlock?.();
       window.__setSimWritebackEnabled?.(true);
       // Fresh preset → workload is back in measured-mode (agents=[]).
       // Re-add the ✓ MEASURED badge if a prior promotion removed it,
