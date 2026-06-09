@@ -5328,7 +5328,9 @@ Production teams measure their primary's confidence-score distribution; escalate
     return false;
   }
 
-  // Auto-update URL hash on every change so refreshing preserves state
+  // Auto-update URL hash on every change so refreshing preserves state.
+  // Preserves the &mode=basic|advanced param if it's set so toggling
+  // between Basic and Advanced sticks across workload edits and reloads.
   let hashUpdateTimer = null;
   function scheduleHashUpdate() {
     if (hashUpdateTimer) clearTimeout(hashUpdateTimer);
@@ -5337,7 +5339,16 @@ Production teams measure their primary's confidence-score distribution; escalate
         const payload = { workload, ui: captureUiState() };
         const json = JSON.stringify(payload);
         const hash = btoa(encodeURIComponent(json));
-        history.replaceState(null, '', '#w=' + hash);
+        // Carry the UI mode through. Read it from the body class
+        // (set by setUiMode) rather than the URL hash because on the
+        // initial render this serializer can fire before setUiMode has
+        // had a chance to write its #mode= param — body class is the
+        // canonical source of truth and is always set by this point.
+        const modeClass = document.body.classList.contains('mode-advanced')
+          ? 'advanced'
+          : (document.body.classList.contains('mode-basic') ? 'basic' : null);
+        const modeSuffix = modeClass ? '&mode=' + modeClass : '';
+        history.replaceState(null, '', '#w=' + hash + modeSuffix);
       } catch (_) {}
     }, 500);
   }
@@ -5348,6 +5359,11 @@ Production teams measure their primary's confidence-score distribution; escalate
     _origRenderPreview();
     scheduleHashUpdate();
   };
+  // Expose so setUiMode (in cost-simulator.js) can re-trigger the hash
+  // serializer after toggling mode — guarantees the mode= param survives
+  // even on initial load when the renderPreview timer may have fired
+  // before setUiMode established the body class.
+  window.__scheduleHashUpdate = scheduleHashUpdate;
 
   // -----------------------------------------------------------------
   // Toast

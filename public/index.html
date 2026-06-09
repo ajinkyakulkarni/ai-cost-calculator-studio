@@ -291,6 +291,21 @@
   body.theme-tactical .json-modal-view,
   body.theme-tactical .json-modal-edit { background: #050a13; border-color: rgba(255,255,255,0.10); }
 
+  /* ─── Basic vs Advanced UI mode ─────────────────────────────────────
+     Two-mode UI: BASIC hides advanced controls so procurement users
+     see only the levers that materially change the headline; ADVANCED
+     exposes every knob. Mode is set via URL hash (#mode=basic|advanced)
+     — no localStorage — so a shared link preserves the mode for the
+     recipient. Default mode: basic (set at boot if no hash override).
+
+     Implementation: body gets .mode-basic or .mode-advanced. Any element
+     marked .advanced-only is hidden in basic mode. Engine math is
+     unaffected — hidden controls keep their preset defaults. */
+  body.mode-basic .advanced-only { display: none !important; }
+  /* In advanced mode, .advanced-only elements just render with their
+     natural display value (no override needed). The class is a hide
+     marker, not a layout container. */
+
   /* Theme switcher pill in the global appbar. Uses semi-transparent
      white-on-dark — works against the appbar's dark bg in all 3 themes. */
   .app-theme-switcher {
@@ -3624,6 +3639,15 @@ input[type=range]:disabled { cursor: not-allowed; }
     <option value="tactical">Dark</option>
     <option value="command">Warm</option>
   </select>
+  <!-- UI mode switcher — Basic (procurement) vs Advanced (engineering).
+       Persisted via URL hash, not localStorage, so a shared link carries
+       the mode through to the recipient. Default boot mode is basic. -->
+  <select id="appbar-mode-select" title="Basic mode hides advanced controls — engine still uses preset defaults so the headline doesn't change. Advanced mode exposes every knob. Mode persists in the URL hash (no localStorage)." aria-label="UI mode"
+          style="cursor:pointer;font:inherit;color:inherit;background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.18);border-radius:6px;padding:4px 8px;font-size:10.5px;font-weight:600;letter-spacing:0.04em;text-transform:uppercase;margin-left:6px"
+          onchange="try{setUiMode(this.value);}catch(_){}">
+    <option value="basic" selected>Basic</option>
+    <option value="advanced">Advanced</option>
+  </select>
   <!-- Live cost badge — always visible, click to jump to Report tab -->
   <div id="cost-pill" class="cost-pill" title="All-in monthly: API cost + infra + verification + reservations + personnel + ATO. Click to view full cost report.">
     <span class="cb-label" data-tip="Headline figure rolling up everything: API/self-host LLM cost + verification + federal additives + fixed infra + reservations + personnel + agent-engineering amortization. Updates live as you change inputs. Hover the number itself to see the line-by-line derivation, or jump to the Report section for the full breakdown.">Total / mo (all-in)</span>
@@ -3671,18 +3695,18 @@ The daily-cap input was retired from the standard UI (most users don't need to t
     <div class="nav-group-header">Configure</div>
     <button class="tab-btn active" data-wiz="profile"      data-wiz-anchor="sec-deployment"><span class="nav-icon">◐</span><span class="step-num">1</span>Project profile</button>
     <button class="tab-btn"        data-wiz="token-cost"   data-wiz-anchor="axiom-h-config"><span class="nav-icon">⚡</span><span class="step-num">2</span>Global parameters</button>
-    <button class="tab-btn"        data-wiz="tools"        data-wiz-axiom="tools" data-wiz-anchor="axiom-h-tools"><span class="nav-icon">⚒</span><span class="step-num">3</span>Tools &amp; rates</button>
-    <button class="tab-btn"        data-wiz="agent-fleet"  data-wiz-axiom="agents" data-wiz-anchor="axiom-h-agents"><span class="nav-icon">▣</span><span class="step-num">4</span>Agent fleet</button>
-    <button class="tab-btn"        data-wiz="verification" data-wiz-axiom="verification" data-wiz-anchor="axiom-h-verification"><span class="nav-icon">✓</span><span class="step-num">5</span>Fact-checking</button>
-    <button class="tab-btn"        data-wiz="agent-eng"    data-wiz-anchor="sec-agent-engineering"><span class="nav-icon">⚙</span><span class="step-num">6</span>Agent engineering</button>
-    <button class="tab-btn"        data-wiz="hosting"      data-wiz-anchor="sec-reservations"><span class="nav-icon">☁</span><span class="step-num">7</span>Hosting &amp; infra</button>
-    <button class="tab-btn"        data-wiz="budget"       data-wiz-anchor="sec-budget-solver"><span class="nav-icon">$</span><span class="step-num">8</span>Budget solver</button>
-    <button class="tab-btn"        data-wiz="model-compare" data-wiz-anchor="sec-model-compare"><span class="nav-icon">⇌</span><span class="step-num">9</span>Model comparison</button>
-    <button class="tab-btn"        data-wiz="sensitivity"  data-wiz-anchor="sec-sensitivity"><span class="nav-icon">⇕</span><span class="step-num">10</span>Sensitivity</button>
-    <button class="tab-btn"        data-wiz="cost-time"    data-wiz-anchor="sec-cost-over-time"><span class="nav-icon">↗</span><span class="step-num">11</span>Cost over time</button>
-    <button class="tab-btn"        data-wiz="compare"      data-wiz-anchor="sec-preset-compare"><span class="nav-icon">⫷</span><span class="step-num">12</span>Side-by-side</button>
-    <button class="tab-btn"        data-wiz="as-is"        data-wiz-anchor="sec-as-is-compare"><span class="nav-icon">⇆</span><span class="step-num">13</span>AS-IS vs proposed</button>
-    <button class="tab-btn"        data-wiz="people"       data-wiz-anchor="sec-personnel"><span class="nav-icon">◍</span><span class="step-num">14</span>Personnel</button>
+    <button class="tab-btn advanced-only" data-wiz="tools"        data-wiz-axiom="tools" data-wiz-anchor="axiom-h-tools"><span class="nav-icon">⚒</span><span class="step-num">3</span>Tools &amp; rates</button>
+    <button class="tab-btn advanced-only" data-wiz="agent-fleet"  data-wiz-axiom="agents" data-wiz-anchor="axiom-h-agents"><span class="nav-icon">▣</span><span class="step-num">4</span>Agent fleet</button>
+    <button class="tab-btn advanced-only" data-wiz="verification" data-wiz-axiom="verification" data-wiz-anchor="axiom-h-verification"><span class="nav-icon">✓</span><span class="step-num">5</span>Fact-checking</button>
+    <button class="tab-btn advanced-only" data-wiz="agent-eng"    data-wiz-anchor="sec-agent-engineering"><span class="nav-icon">⚙</span><span class="step-num">6</span>Agent engineering</button>
+    <button class="tab-btn"                data-wiz="hosting"      data-wiz-anchor="sec-reservations"><span class="nav-icon">☁</span><span class="step-num">7</span>Hosting &amp; infra</button>
+    <button class="tab-btn advanced-only" data-wiz="budget"       data-wiz-anchor="sec-budget-solver"><span class="nav-icon">$</span><span class="step-num">8</span>Budget solver</button>
+    <button class="tab-btn advanced-only" data-wiz="model-compare" data-wiz-anchor="sec-model-compare"><span class="nav-icon">⇌</span><span class="step-num">9</span>Model comparison</button>
+    <button class="tab-btn advanced-only" data-wiz="sensitivity"  data-wiz-anchor="sec-sensitivity"><span class="nav-icon">⇕</span><span class="step-num">10</span>Sensitivity</button>
+    <button class="tab-btn advanced-only" data-wiz="cost-time"    data-wiz-anchor="sec-cost-over-time"><span class="nav-icon">↗</span><span class="step-num">11</span>Cost over time</button>
+    <button class="tab-btn advanced-only" data-wiz="compare"      data-wiz-anchor="sec-preset-compare"><span class="nav-icon">⫷</span><span class="step-num">12</span>Side-by-side</button>
+    <button class="tab-btn advanced-only" data-wiz="as-is"        data-wiz-anchor="sec-as-is-compare"><span class="nav-icon">⇆</span><span class="step-num">13</span>AS-IS vs proposed</button>
+    <button class="tab-btn advanced-only" data-wiz="people"       data-wiz-anchor="sec-personnel"><span class="nav-icon">◍</span><span class="step-num">14</span>Personnel</button>
 
     <div class="nav-group-header">Report</div>
     <button class="tab-btn"        data-wiz="report"       data-wiz-anchor="sec-report"><span class="nav-icon">▤</span><span class="step-bullet">•</span>Report</button>
@@ -3695,7 +3719,7 @@ The daily-cap input was retired from the standard UI (most users don't need to t
     <button class="tab-btn"        data-wiz="derivation"   data-wiz-anchor="sec-derivation"><span class="nav-icon">∑</span><span class="step-bullet">•</span>Derivation</button>
     <button class="tab-btn"        data-wiz="methodology"  data-wiz-anchor="sec-methodology"><span class="nav-icon">§</span><span class="step-bullet">•</span>Methodology</button>
     <button class="tab-btn"        data-wiz="prices"       data-wiz-anchor="sec-prices"><span class="nav-icon">$</span><span class="step-bullet">•</span>Prices</button>
-    <button class="tab-btn"        data-wiz="benchmarks"   data-wiz-anchor="sec-benchmarks"><span class="nav-icon">▦</span><span class="step-bullet">•</span>Benchmarks</button>
+    <button class="tab-btn advanced-only" data-wiz="benchmarks"   data-wiz-anchor="sec-benchmarks"><span class="nav-icon">▦</span><span class="step-bullet">•</span>Benchmarks</button>
   </nav>
 
   <!-- Main content — full-width per active tab -->
@@ -5287,7 +5311,7 @@ Start with -small. Upgrade only if your evaluation shows retrieval quality is th
     </div>
 
     <!-- Personnel / staffing for the deployment -->
-    <div class="section" data-cat="reference" id="sec-personnel">
+    <div class="section advanced-only" data-cat="reference" id="sec-personnel">
       <h2><span class="chev">▶</span><span class="lead">Personnel / staffing</span> <em>FTE allocations × loaded annual salary</em></h2>
       <div class="section-body">
       <div class="section-helper">
@@ -5305,7 +5329,7 @@ Start with -small. Upgrade only if your evaluation shows retrieval quality is th
          lifetime + ongoing maintenance cadence. Methodology-agnostic; the
          defaults approximate a CARE-style engagement (Ramachandran et al.
          2026, https://arxiv.org/abs/2604.28043). See Methodology section. -->
-    <div class="section" data-cat="reference" id="sec-agent-engineering">
+    <div class="section advanced-only" data-cat="reference" id="sec-agent-engineering">
       <h2><span class="chev">▶</span><span class="lead">Agent engineering</span> <em>upfront design effort + maintenance — amortized monthly</em></h2>
       <div class="section-body">
       <div class="section-helper">
@@ -5482,7 +5506,7 @@ Owned GPUs have to be sized for peak load, not average. Higher peak factor = mor
          support at the current per-query cost rate, plus what knobs would
          double or halve that ceiling. Answers the procurement question
          "if my budget is $X/mo, how many users can I really support?". -->
-    <div class="section" data-cat="output" id="sec-budget-solver">
+    <div class="section advanced-only" data-cat="output" id="sec-budget-solver">
       <h2><span class="chev">▶</span><span class="lead">Budget solver</span> <em>given a budget, find the affordable scale</em></h2>
       <div class="section-body">
       <div class="section-helper">
@@ -5548,7 +5572,7 @@ Both fields are independent; they don't have to match.">ⓘ</span></label>
     <!-- Model cost comparison — re-runs the full procurement-grade calc
          against every model in the price book at the current workload, then
          shows a sorted savings table vs the currently selected model. -->
-    <div class="section" data-cat="output" id="sec-model-compare">
+    <div class="section advanced-only" data-cat="output" id="sec-model-compare">
       <h2><span class="chev">▶</span><span class="lead">Model cost comparison</span> <em>switch models to see headline savings</em></h2>
       <div class="section-body">
       <div class="section-helper">
@@ -5579,7 +5603,7 @@ Both fields are independent; they don't have to match.">ⓘ</span></label>
     <!-- Sensitivity panel — tornado chart of how the headline cost shifts
          when each top driver is perturbed by ±20% / ±10pp / ±15%. Helps
          procurement defend the budget against optimistic input estimates. -->
-    <div class="section" data-cat="output" id="sec-sensitivity">
+    <div class="section advanced-only" data-cat="output" id="sec-sensitivity">
       <h2><span class="chev">▶</span><span class="lead">Sensitivity</span> <em>how robust is the headline to input drift?</em></h2>
       <div class="section-body">
       <div class="section-helper">
@@ -5607,7 +5631,7 @@ Both fields are independent; they don't have to match.">ⓘ</span></label>
     <!-- Cost-over-time projection — line chart showing how the monthly bill
          evolves over 36 months given the s-growth slider. Procurement teams
          need this for multi-year budget envelopes. -->
-    <div class="section" data-cat="output" id="sec-cost-over-time">
+    <div class="section advanced-only" data-cat="output" id="sec-cost-over-time">
       <h2><span class="chev">▶</span><span class="lead">Cost over time</span> <em>monthly + cumulative projection given growth%</em></h2>
       <div class="section-body">
       <div class="section-helper">
@@ -5624,7 +5648,7 @@ Both fields are independent; they don't have to match.">ⓘ</span></label>
     <!-- Side-by-side preset compare — pick two scenarios, run both through
          CostEngine, render a diff table. Useful for "how does NASA compare
          to NIH?" or "what does adding FedRAMP-High actually cost vs Mod?". -->
-    <div class="section" data-cat="output" id="sec-preset-compare">
+    <div class="section advanced-only" data-cat="output" id="sec-preset-compare">
       <h2><span class="chev">▶</span><span class="lead">Side-by-side compare</span> <em>two scenarios diffed line-by-line</em></h2>
       <div class="section-body">
       <div class="section-helper">
@@ -5674,7 +5698,7 @@ Both fields are independent; they don't have to match.">ⓘ</span></label>
     <!-- AS-IS vs proposed — most procurements replace a current contract.
          Enter today's annual spend and the calculator shows the delta:
          savings, overrun, payback timeline. -->
-    <div class="section" data-cat="output" id="sec-as-is-compare">
+    <div class="section advanced-only" data-cat="output" id="sec-as-is-compare">
       <h2><span class="chev">▶</span><span class="lead">AS-IS vs proposed</span> <em>compare against your current contract</em></h2>
       <div class="section-body">
       <div class="section-helper">
@@ -5740,7 +5764,7 @@ Both fields are independent; they don't have to match.">ⓘ</span></label>
 
 
     <!-- BENCHMARKS section — single-page flow, scroll target id="sec-benchmarks". -->
-    <div class="tab-panel benchmarks-panel" data-tab-panel="benchmarks" id="sec-benchmarks">
+    <div class="tab-panel benchmarks-panel advanced-only" data-tab-panel="benchmarks" id="sec-benchmarks">
       <div class="benchmarks-header">
         <h2>📊 Published cost benchmarks</h2>
         <p>Real cost numbers cited in vendor pricing pages, earnings calls, GAO reports, and academic studies. Use these to <strong>sanity-check</strong> your calculator output and to <strong>defend procurement budgets</strong> with citations. Click any source link to verify the number.</p>
