@@ -5162,11 +5162,18 @@ Production teams measure their primary's confidence-score distribution; escalate
     // — PURE and unit-tested in Node (scripts/test-workload-hash.js).
     // This wrapper only does what a module can't: assign the closure
     // `workload` variable and stash the pending UI restore.
-    const c = WorkloadHash.classifyPayload(WorkloadHash.decodeHash(location.hash));
-    if (c.kind === 'invalid') return false;
-    workload = ensureFields(c.workload); window.workload = workload;
-    if (c.kind === 'wrapped') _pendingUiRestore = c.ui;
-    return true;
+    // try/catch matches pre-extraction behavior: a shape-valid but
+    // corrupt payload that makes ensureFields() throw must fall back
+    // to the default preset (return false), not abort the boot.
+    try {
+      const c = WorkloadHash.classifyPayload(WorkloadHash.decodeHash(location.hash));
+      if (c.kind === 'invalid') return false;
+      workload = ensureFields(c.workload); window.workload = workload;
+      if (c.kind === 'wrapped') _pendingUiRestore = c.ui;
+      return true;
+    } catch (_) {
+      return false;
+    }
   }
 
   // Auto-update URL hash on every change so refreshing preserves state.

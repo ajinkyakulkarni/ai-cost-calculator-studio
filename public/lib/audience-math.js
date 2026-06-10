@@ -27,7 +27,13 @@
 })(typeof self !== 'undefined' ? self : this, function () {
   'use strict';
 
-  /** Coerce a segment field to a non-negative finite number. */
+  /** Coerce a segment field to a non-negative finite number.
+   *  DELIBERATE divergence from the pre-extraction `Number(x) || 0`
+   *  idiom: that form preserved negatives (Number(-5) || 0 === -5),
+   *  letting a hand-crafted #w= payload with e.g. "mau": -5 poison
+   *  the aggregate. Negative MAU/sessions/questions are semantically
+   *  invalid (every UI path clamps at ≥0), so this clamps them — and
+   *  ±Infinity — to 0 instead. Flagged + accepted in PR #1 review. */
   function num(x) {
     const n = Number(x);
     return Number.isFinite(n) && n > 0 ? n : 0;
