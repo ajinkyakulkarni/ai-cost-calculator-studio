@@ -1860,7 +1860,10 @@ Production teams measure their primary's confidence-score distribution; escalate
     // Apply retry-rate multiplier from the simulator s-retry slider. Each retry
     // pays input cost again + ~50% of output (partial generation before
     // failure), so we use 1.5× the retry fraction as the inflate factor.
-    const retryInflate = 1 + (retryRate * 1.5);
+    // Formula lives in lib/derivation-trace.js (retryInflateFactor) —
+    // unit-tested in Node, and section B of the derivation appendix
+    // prints the same expression so trace and math can't drift apart.
+    const retryInflate = DerivationTrace.retryInflateFactor(retryRate);
     const totalMau = workload.segments.reduce((a, s) => a + (s.mau || 0), 0);
     const infraTotal = (result.fixed_costs && result.fixed_costs.infrastructure) || 0;
     const rateLimitCost = (result.fixed_costs && result.fixed_costs.rate_limit) || 0;
@@ -2621,72 +2624,20 @@ Production teams measure their primary's confidence-score distribution; escalate
     const mathEl = document.getElementById('prev-math');
     if (mathEl) {
       const engineTrace = result.derivation || '(no derivation available)';
-      const sep = '──────────────────────────────────────────────────\n';
-      const fmtN = (n) => Math.round(n).toLocaleString();
-      const $f = (n) => '$' + fmtN(n);
-      const lines = [];
-      lines.push('');
-      lines.push(sep);
-      lines.push('A) WORKLOAD → ENGINE INPUTS (per-turn token counts from your settings)');
-      lines.push(sep);
-      if (_axTotalIn != null && _axTurns != null) {
-        const perTurn = Math.round(_axTotalIn / _axTurns);
-        lines.push(`Session-total input from your workload: ${fmtN(_axTotalIn)} tok across ${_axTurns} turns`);
-        lines.push(`  → anchor_query.input_tokens = ${fmtN(_axTotalIn)} / ${_axTurns} = ${fmtN(perTurn)} tok/query (used in section 3 above)`);
-        if (_axTotalOut != null) {
-          const perTurnOut = Math.round(_axTotalOut / _axTurns);
-          lines.push(`Session-total output from your workload: ${fmtN(_axTotalOut)} tok across ${_axTurns} turns`);
-          lines.push(`  → anchor_query.output_tokens = ${fmtN(_axTotalOut)} / ${_axTurns} = ${fmtN(perTurnOut)} tok/query`);
-        }
-        lines.push(`(Per-agent loop sums sysprompt + inter-agent messages + tool schema/result + RAG + reasoning + guardrails + comm-pattern overhead × turns × agent count.)`);
-      } else {
-        lines.push('Per-agent token build-up not active this render — anchor_query.input_tokens used as-is.');
-      }
-      lines.push('');
-
-      lines.push(sep);
-      lines.push('B) RETRY INFLATION (multiplier on API bill)');
-      lines.push(sep);
-      lines.push(`Retry rate (s-retry): ${(retryRate * 100).toFixed(1)}%`);
-      lines.push(`Inflate factor: 1 + retry_rate × 1.5 = 1 + ${retryRate.toFixed(3)} × 1.5 = ${retryInflate.toFixed(4)}`);
-      lines.push(`(1.5 accounts for partial output already generated before the retry trips.)`);
-      lines.push(`API bill before retry: ${$f(result.api.monthly_capped || 0)}`);
-      lines.push(`API bill after retry:  ${$f(apiBill)} (= ${$f(result.api.monthly_capped || 0)} × ${retryInflate.toFixed(4)})`);
-      lines.push('');
-
-      if (agentEngineering && agentEngineering.enabled && agentEngMonthly > 0) {
-        lines.push(sep);
-        lines.push('C) AGENT ENGINEERING (upfront design + maintenance amortization)');
-        lines.push(sep);
-        const ae = agentEngineering;
-        if (ae.upfront_total != null) {
-          lines.push(`Upfront design effort: ${$f(ae.upfront_total)} total, amortized over ${ae.amortization_months} months = ${$f(ae.upfront_monthly || 0)}/mo`);
-        }
-        if (ae.maintenance_monthly != null && ae.maintenance_monthly > 0) {
-          lines.push(`Recurring maintenance: ${$f(ae.maintenance_monthly)}/mo`);
-        }
-        if (ae.helper_monthly != null && ae.helper_monthly > 0) {
-          lines.push(`Helper agent (autonomous): ${$f(ae.helper_monthly)}/mo`);
-        }
-        lines.push(`TOTAL agent engineering: ${$f(agentEngMonthly)}/mo`);
-        lines.push('');
-      }
-
-      lines.push(sep);
-      lines.push('D) FINAL HEADLINE (after retry + engineering + additive adjustments)');
-      lines.push(sep);
-      lines.push(`  ${opts.hosting === 'self' ? 'Self-host LLM' : opts.hosting === 'hybrid' ? 'Hybrid LLM' : opts.hosting === 'onprem' ? 'On-prem (amortized)' : 'API LLM × retry-inflate'}: ${$f(llmHeadline)}`);
-      if (verifMonthly > 0)     lines.push(`+ Verification:        ${$f(verifMonthly)}`);
-      if (embeddingMonthly > 0) lines.push(`+ Embeddings:          ${$f(embeddingMonthly)}`);
-      if (personnelMonthly > 0) lines.push(`+ Personnel:           ${$f(personnelMonthly)}`);
-      if (agentEngMonthly > 0)  lines.push(`+ Agent engineering:   ${$f(agentEngMonthly)}`);
-      if (federalAdditive > 0)  lines.push(`+ Federal additive:    ${$f(federalAdditive)}`);
-      if (fixedCosts > 0)       lines.push(`+ Fixed monthly:       ${$f(fixedCosts)}`);
-      lines.push(`= ${$f(headlineTotal)}/mo  →  ${$f(headlineTotal * 12)}/yr  →  ${$f(headlineTotal * 36)}/3yr TCO`);
-      lines.push('');
-      lines.push('(Cross-check: this should match the headline number rendered at the top of the calculator.)');
-
-      const trace = engineTrace + lines.join('\n');
+      // Appendix sections A–D (workload→inputs, retry inflation, agent
+      // engineering, final headline) are built by the PURE module
+      // lib/derivation-trace.js — unit-tested in Node via
+      // scripts/test-derivation-trace.js. This call site only gathers
+      // the already-computed values from this render.
+      const trace = engineTrace + DerivationTrace.buildAppendix({
+        axTotalIn: _axTotalIn, axTotalOut: _axTotalOut, axTurns: _axTurns,
+        retryRate, retryInflate,
+        apiBillBefore: result.api.monthly_capped || 0, apiBill,
+        agentEngineering, agentEngMonthly,
+        hosting: opts.hosting,
+        llmHeadline, verifMonthly, embeddingMonthly, personnelMonthly,
+        federalAdditive, fixedCosts, headlineTotal,
+      });
       mathEl.innerHTML = `
         <div class="math-trace-toolbar">
           <button class="math-copy-btn" id="math-copy-btn">📋 Copy entire derivation</button>

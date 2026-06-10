@@ -6440,7 +6440,11 @@ Both fields are independent; they don't have to match.">ⓘ</span></label>
 <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 <script src="lib/prices.js"></script>
 <script src="lib/cost-engine.js"></script>
-<script src="app.js?v=2026-06-09-audience-3"></script>
+<!-- derivation-trace: PURE appendix builder + retry-inflate formula.
+     Must load BEFORE app.js (renderPreview consumes DerivationTrace).
+     Unit-tested in Node: scripts/test-derivation-trace.js. -->
+<script src="lib/derivation-trace.js?v=2026-06-10-modular-1"></script>
+<script src="app.js?v=2026-06-10-modular-1"></script>
 
 <!-- ===== Live prices from api.ajinkya.ai/prices ==================
      The bundled lib/prices.js gives the calc a working snapshot;
