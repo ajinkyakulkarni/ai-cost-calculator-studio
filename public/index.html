@@ -575,8 +575,12 @@
   .appbar {
     background: #0B3D91;
     color: #fff;
-    padding: 10px 18px;
-    display: flex; align-items: center; gap: 12px;
+    padding: 10px 14px;
+    /* Tight gap so the full control row (toggle · title · example ·
+       share · learn · github · help · theme · cost pill) fits on one
+       line at typical laptop widths. Drops to wrap only when truly
+       out of room. */
+    display: flex; align-items: center; gap: 8px;
     flex-wrap: wrap;
     row-gap: 6px;
     border-bottom: 1px solid var(--rule);
@@ -586,6 +590,26 @@
     position: sticky;
     top: 0;
     z-index: 100;
+  }
+  /* Mid-width laptops: hide the fleet-stats pill (informational only —
+     same numbers live in the Agent fleet tab badge) so the cost pill
+     keeps its place on the first row. */
+  @media (max-width: 1500px) {
+    #appbar-fleet-stats { display: none; }
+  }
+  @media (max-width: 1340px) {
+    #appbar-mode-hint { display: none; }
+    #example-loader { width: 120px !important; max-width: 120px !important; }
+  }
+  /* Below ~1400px the cost pill's 3-year TCO segment (~160px:
+     "· $27,505,028/3yr") is the difference between the pill fitting
+     on the first appbar row or wrapping to a second. Hide it — the
+     3yr figure is still in the Report tab and the pill tooltip. Also
+     compact the pill label so "TOTAL / MO (ALL-IN)" doesn't eat
+     another 60px at these widths. */
+  @media (max-width: 1420px) {
+    #cb-tco, #cb-tco-sep { display: none !important; }
+    .cost-pill .cb-label { font-size: 9px; letter-spacing: 0.04em; }
   }
   .appbar h1 { white-space: nowrap; }
   .appbar .pill { white-space: nowrap; }
