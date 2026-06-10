@@ -1147,44 +1147,13 @@ Production teams measure their primary's confidence-score distribution; escalate
   // over deployment lifetime; plus periodic re-spec maintenance.
   // ─────────────────────────────────────────────────────────────────────
   function computeAgentEngineering() {
-    const ae = workload.agent_engineering || {};
-    if (!ae.enabled) return { enabled: false, upfront: 0, amortized_monthly: 0, maintenance_monthly: 0, monthly: 0 };
-    const dur   = Math.max(0, Number(ae.duration_months) || 0);
-    const amort = Math.max(1, Number(ae.amortization_months) || 36);
-    const helper = Math.max(0, Number(ae.helper_agent_monthly) || 0);
-    const roles = Array.isArray(ae.roles) ? ae.roles : [];
-    let upfront = 0;
-    roles.forEach(r => {
-      const def = (window.Prices && window.Prices.personnel && window.Prices.personnel[r.role]) || {};
-      const loaded = (def.annual_base || 0) * (def.total_comp_multiplier || 1);
-      upfront += (Number(r.fte) || 0) * loaded * (dur / 12);
-    });
-    upfront += helper * dur;
-    const amortized_monthly = upfront / amort;
-    // Maintenance: design-lead loaded hourly × hours per session ÷ months between sessions.
-    // Mirrors scripts/calc.js's fail-loud policy: if prices.js doesn't define
-    // personnel.agent_design_lead, surface a console error and zero out the
-    // maintenance line rather than silently masking the gap with a hardcoded
-    // fallback that can drift away from prices.js. Previously this path used
-    // 230000 × 1.30 as a silent default — divergent from calc.js which throws.
-    const lead = (window.Prices && window.Prices.personnel && window.Prices.personnel.agent_design_lead) || null;
-    let maintenance_monthly = 0;
-    if (lead && lead.annual_base) {
-      const leadLoadedAnnual = lead.annual_base * (lead.total_comp_multiplier || 1);
-      const leadHourly = leadLoadedAnnual / 2080;  // 40hr × 52wk
-      const interval = Math.max(1, Number(ae.maintenance_interval_months) || 6);
-      const hoursPerSession = Math.max(0, Number(ae.maintenance_hours_per_session) || 0);
-      maintenance_monthly = (leadHourly * hoursPerSession) / interval;
-    } else {
-      console.error('prices.js: personnel.agent_design_lead is missing — maintenance line zeroed. Update lib/prices.js to define annual_base + total_comp_multiplier for this role.');
-    }
-    return {
-      enabled: true,
-      upfront,
-      amortized_monthly,
-      maintenance_monthly,
-      monthly: amortized_monthly + maintenance_monthly,
-    };
+    // Formula lives in lib/headline-math.js (PURE, Node-tested via
+    // scripts/test-headline-math.js) — this wrapper only injects the
+    // live workload block + price book.
+    return HeadlineMath.computeAgentEngineering(
+      workload.agent_engineering,
+      window.Prices && window.Prices.personnel
+    );
   }
 
   function renderAgentEngineeringList() {
@@ -1403,32 +1372,14 @@ Production teams measure their primary's confidence-score distribution; escalate
   // a recurring bug source where one panel applied retry-inflate and
   // another didn't, producing inconsistent KPIs across the page.
   function composeHeadline(r, w, opts, retryInflate = 1) {
-    // Eq. 5 (1 + 1.5r) retry inflate is now applied inside the engine
-    // (api.monthly_with_retry). We keep the retryInflate arg for migration
-    // phase callers and fall back to a manual multiplication only when the
-    // engine didn't compute monthly_with_retry (older callers/payloads).
-    const apiBill = r.api?.monthly_with_retry != null
-      ? r.api.monthly_with_retry
-      : (r.api?.monthly_capped || 0) * retryInflate;
-    const fixed = r.fixed_costs?.total || 0;
-    const verif = r.verification?.monthly || 0;
-    // External tool fees (per-call / per-session provider charges for the
-    // agents' enabled_tools) are now an engine line — r.tool_fees — so
-    // calc.js, the Excel export and the bench all bill them identically.
-    const toolFees = r.tool_fees?.monthly || 0;
-    const fed = r.federal?.additive_total || 0;
-    const emb = (r.embedding?.enabled ? r.embedding.monthly : 0) || 0;
-    const pers = (r.personnel?.enabled ? r.personnel.monthly : 0) || 0;
+    // Composition formula lives in lib/headline-math.js (PURE,
+    // Node-tested via scripts/test-headline-math.js) — this wrapper
+    // only injects the live agent-engineering monthly.
     const aeBlock = computeAgentEngineering();
-    const ae = aeBlock.enabled ? aeBlock.monthly : 0;
-    let llm;
-    if (opts.hosting === 'hybrid' && r.hybrid) llm = r.hybrid.total;
-    else if (opts.hosting === 'self') llm = r.self_host?.total || 0;
-    else if (opts.hosting === 'onprem') llm = parseFloat(w.on_prem_monthly) || 0;
-    else if (r.reservation?.enabled) llm = r.reservation.effective_monthly;
-    else llm = apiBill;
-    const headline = llm + fixed + verif + toolFees + fed + emb + pers + ae;
-    return { headline, llm, apiBill, fixed, verif, toolFees, fed, emb, pers, ae };
+    return HeadlineMath.composeHeadline(
+      r, w, opts, retryInflate,
+      aeBlock.enabled ? aeBlock.monthly : 0
+    );
   }
 
   // Render the calibration badge above the headline. Reads
