@@ -2367,9 +2367,9 @@ function setTheme(t){
    Two-mode UI: BASIC hides .advanced-only nodes (per CSS in index.html);
    ADVANCED exposes every knob. Mode persists via URL hash
    (#...&mode=basic|advanced) — no localStorage — so a shared link carries
-   the mode through to the recipient. Default boot mode: basic. The engine
-   math is unchanged regardless of mode — hidden controls keep their
-   preset defaults. */
+   the mode through to the recipient. Default boot mode: advanced. The
+   engine math is unchanged regardless of mode — hidden controls keep
+   their preset defaults. */
 function setUiMode(m){
   const mode = m === 'advanced' ? 'advanced' : 'basic';
   document.body.classList.remove('mode-basic','mode-advanced');
