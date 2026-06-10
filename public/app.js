@@ -1147,44 +1147,13 @@ Production teams measure their primary's confidence-score distribution; escalate
   // over deployment lifetime; plus periodic re-spec maintenance.
   // ─────────────────────────────────────────────────────────────────────
   function computeAgentEngineering() {
-    const ae = workload.agent_engineering || {};
-    if (!ae.enabled) return { enabled: false, upfront: 0, amortized_monthly: 0, maintenance_monthly: 0, monthly: 0 };
-    const dur   = Math.max(0, Number(ae.duration_months) || 0);
-    const amort = Math.max(1, Number(ae.amortization_months) || 36);
-    const helper = Math.max(0, Number(ae.helper_agent_monthly) || 0);
-    const roles = Array.isArray(ae.roles) ? ae.roles : [];
-    let upfront = 0;
-    roles.forEach(r => {
-      const def = (window.Prices && window.Prices.personnel && window.Prices.personnel[r.role]) || {};
-      const loaded = (def.annual_base || 0) * (def.total_comp_multiplier || 1);
-      upfront += (Number(r.fte) || 0) * loaded * (dur / 12);
-    });
-    upfront += helper * dur;
-    const amortized_monthly = upfront / amort;
-    // Maintenance: design-lead loaded hourly × hours per session ÷ months between sessions.
-    // Mirrors scripts/calc.js's fail-loud policy: if prices.js doesn't define
-    // personnel.agent_design_lead, surface a console error and zero out the
-    // maintenance line rather than silently masking the gap with a hardcoded
-    // fallback that can drift away from prices.js. Previously this path used
-    // 230000 × 1.30 as a silent default — divergent from calc.js which throws.
-    const lead = (window.Prices && window.Prices.personnel && window.Prices.personnel.agent_design_lead) || null;
-    let maintenance_monthly = 0;
-    if (lead && lead.annual_base) {
-      const leadLoadedAnnual = lead.annual_base * (lead.total_comp_multiplier || 1);
-      const leadHourly = leadLoadedAnnual / 2080;  // 40hr × 52wk
-      const interval = Math.max(1, Number(ae.maintenance_interval_months) || 6);
-      const hoursPerSession = Math.max(0, Number(ae.maintenance_hours_per_session) || 0);
-      maintenance_monthly = (leadHourly * hoursPerSession) / interval;
-    } else {
-      console.error('prices.js: personnel.agent_design_lead is missing — maintenance line zeroed. Update lib/prices.js to define annual_base + total_comp_multiplier for this role.');
-    }
-    return {
-      enabled: true,
-      upfront,
-      amortized_monthly,
-      maintenance_monthly,
-      monthly: amortized_monthly + maintenance_monthly,
-    };
+    // Formula lives in lib/headline-math.js (PURE, Node-tested via
+    // scripts/test-headline-math.js) — this wrapper only injects the
+    // live workload block + price book.
+    return HeadlineMath.computeAgentEngineering(
+      workload.agent_engineering,
+      window.Prices && window.Prices.personnel
+    );
   }
 
   function renderAgentEngineeringList() {
@@ -1403,32 +1372,14 @@ Production teams measure their primary's confidence-score distribution; escalate
   // a recurring bug source where one panel applied retry-inflate and
   // another didn't, producing inconsistent KPIs across the page.
   function composeHeadline(r, w, opts, retryInflate = 1) {
-    // Eq. 5 (1 + 1.5r) retry inflate is now applied inside the engine
-    // (api.monthly_with_retry). We keep the retryInflate arg for migration
-    // phase callers and fall back to a manual multiplication only when the
-    // engine didn't compute monthly_with_retry (older callers/payloads).
-    const apiBill = r.api?.monthly_with_retry != null
-      ? r.api.monthly_with_retry
-      : (r.api?.monthly_capped || 0) * retryInflate;
-    const fixed = r.fixed_costs?.total || 0;
-    const verif = r.verification?.monthly || 0;
-    // External tool fees (per-call / per-session provider charges for the
-    // agents' enabled_tools) are now an engine line — r.tool_fees — so
-    // calc.js, the Excel export and the bench all bill them identically.
-    const toolFees = r.tool_fees?.monthly || 0;
-    const fed = r.federal?.additive_total || 0;
-    const emb = (r.embedding?.enabled ? r.embedding.monthly : 0) || 0;
-    const pers = (r.personnel?.enabled ? r.personnel.monthly : 0) || 0;
+    // Composition formula lives in lib/headline-math.js (PURE,
+    // Node-tested via scripts/test-headline-math.js) — this wrapper
+    // only injects the live agent-engineering monthly.
     const aeBlock = computeAgentEngineering();
-    const ae = aeBlock.enabled ? aeBlock.monthly : 0;
-    let llm;
-    if (opts.hosting === 'hybrid' && r.hybrid) llm = r.hybrid.total;
-    else if (opts.hosting === 'self') llm = r.self_host?.total || 0;
-    else if (opts.hosting === 'onprem') llm = parseFloat(w.on_prem_monthly) || 0;
-    else if (r.reservation?.enabled) llm = r.reservation.effective_monthly;
-    else llm = apiBill;
-    const headline = llm + fixed + verif + toolFees + fed + emb + pers + ae;
-    return { headline, llm, apiBill, fixed, verif, toolFees, fed, emb, pers, ae };
+    return HeadlineMath.composeHeadline(
+      r, w, opts, retryInflate,
+      aeBlock.enabled ? aeBlock.monthly : 0
+    );
   }
 
   // Render the calibration badge above the headline. Reads
@@ -1860,7 +1811,10 @@ Production teams measure their primary's confidence-score distribution; escalate
     // Apply retry-rate multiplier from the simulator s-retry slider. Each retry
     // pays input cost again + ~50% of output (partial generation before
     // failure), so we use 1.5× the retry fraction as the inflate factor.
-    const retryInflate = 1 + (retryRate * 1.5);
+    // Formula lives in lib/derivation-trace.js (retryInflateFactor) —
+    // unit-tested in Node, and section B of the derivation appendix
+    // prints the same expression so trace and math can't drift apart.
+    const retryInflate = DerivationTrace.retryInflateFactor(retryRate);
     const totalMau = workload.segments.reduce((a, s) => a + (s.mau || 0), 0);
     const infraTotal = (result.fixed_costs && result.fixed_costs.infrastructure) || 0;
     const rateLimitCost = (result.fixed_costs && result.fixed_costs.rate_limit) || 0;
@@ -2621,72 +2575,20 @@ Production teams measure their primary's confidence-score distribution; escalate
     const mathEl = document.getElementById('prev-math');
     if (mathEl) {
       const engineTrace = result.derivation || '(no derivation available)';
-      const sep = '──────────────────────────────────────────────────\n';
-      const fmtN = (n) => Math.round(n).toLocaleString();
-      const $f = (n) => '$' + fmtN(n);
-      const lines = [];
-      lines.push('');
-      lines.push(sep);
-      lines.push('A) WORKLOAD → ENGINE INPUTS (per-turn token counts from your settings)');
-      lines.push(sep);
-      if (_axTotalIn != null && _axTurns != null) {
-        const perTurn = Math.round(_axTotalIn / _axTurns);
-        lines.push(`Session-total input from your workload: ${fmtN(_axTotalIn)} tok across ${_axTurns} turns`);
-        lines.push(`  → anchor_query.input_tokens = ${fmtN(_axTotalIn)} / ${_axTurns} = ${fmtN(perTurn)} tok/query (used in section 3 above)`);
-        if (_axTotalOut != null) {
-          const perTurnOut = Math.round(_axTotalOut / _axTurns);
-          lines.push(`Session-total output from your workload: ${fmtN(_axTotalOut)} tok across ${_axTurns} turns`);
-          lines.push(`  → anchor_query.output_tokens = ${fmtN(_axTotalOut)} / ${_axTurns} = ${fmtN(perTurnOut)} tok/query`);
-        }
-        lines.push(`(Per-agent loop sums sysprompt + inter-agent messages + tool schema/result + RAG + reasoning + guardrails + comm-pattern overhead × turns × agent count.)`);
-      } else {
-        lines.push('Per-agent token build-up not active this render — anchor_query.input_tokens used as-is.');
-      }
-      lines.push('');
-
-      lines.push(sep);
-      lines.push('B) RETRY INFLATION (multiplier on API bill)');
-      lines.push(sep);
-      lines.push(`Retry rate (s-retry): ${(retryRate * 100).toFixed(1)}%`);
-      lines.push(`Inflate factor: 1 + retry_rate × 1.5 = 1 + ${retryRate.toFixed(3)} × 1.5 = ${retryInflate.toFixed(4)}`);
-      lines.push(`(1.5 accounts for partial output already generated before the retry trips.)`);
-      lines.push(`API bill before retry: ${$f(result.api.monthly_capped || 0)}`);
-      lines.push(`API bill after retry:  ${$f(apiBill)} (= ${$f(result.api.monthly_capped || 0)} × ${retryInflate.toFixed(4)})`);
-      lines.push('');
-
-      if (agentEngineering && agentEngineering.enabled && agentEngMonthly > 0) {
-        lines.push(sep);
-        lines.push('C) AGENT ENGINEERING (upfront design + maintenance amortization)');
-        lines.push(sep);
-        const ae = agentEngineering;
-        if (ae.upfront_total != null) {
-          lines.push(`Upfront design effort: ${$f(ae.upfront_total)} total, amortized over ${ae.amortization_months} months = ${$f(ae.upfront_monthly || 0)}/mo`);
-        }
-        if (ae.maintenance_monthly != null && ae.maintenance_monthly > 0) {
-          lines.push(`Recurring maintenance: ${$f(ae.maintenance_monthly)}/mo`);
-        }
-        if (ae.helper_monthly != null && ae.helper_monthly > 0) {
-          lines.push(`Helper agent (autonomous): ${$f(ae.helper_monthly)}/mo`);
-        }
-        lines.push(`TOTAL agent engineering: ${$f(agentEngMonthly)}/mo`);
-        lines.push('');
-      }
-
-      lines.push(sep);
-      lines.push('D) FINAL HEADLINE (after retry + engineering + additive adjustments)');
-      lines.push(sep);
-      lines.push(`  ${opts.hosting === 'self' ? 'Self-host LLM' : opts.hosting === 'hybrid' ? 'Hybrid LLM' : opts.hosting === 'onprem' ? 'On-prem (amortized)' : 'API LLM × retry-inflate'}: ${$f(llmHeadline)}`);
-      if (verifMonthly > 0)     lines.push(`+ Verification:        ${$f(verifMonthly)}`);
-      if (embeddingMonthly > 0) lines.push(`+ Embeddings:          ${$f(embeddingMonthly)}`);
-      if (personnelMonthly > 0) lines.push(`+ Personnel:           ${$f(personnelMonthly)}`);
-      if (agentEngMonthly > 0)  lines.push(`+ Agent engineering:   ${$f(agentEngMonthly)}`);
-      if (federalAdditive > 0)  lines.push(`+ Federal additive:    ${$f(federalAdditive)}`);
-      if (fixedCosts > 0)       lines.push(`+ Fixed monthly:       ${$f(fixedCosts)}`);
-      lines.push(`= ${$f(headlineTotal)}/mo  →  ${$f(headlineTotal * 12)}/yr  →  ${$f(headlineTotal * 36)}/3yr TCO`);
-      lines.push('');
-      lines.push('(Cross-check: this should match the headline number rendered at the top of the calculator.)');
-
-      const trace = engineTrace + lines.join('\n');
+      // Appendix sections A–D (workload→inputs, retry inflation, agent
+      // engineering, final headline) are built by the PURE module
+      // lib/derivation-trace.js — unit-tested in Node via
+      // scripts/test-derivation-trace.js. This call site only gathers
+      // the already-computed values from this render.
+      const trace = engineTrace + DerivationTrace.buildAppendix({
+        axTotalIn: _axTotalIn, axTotalOut: _axTotalOut, axTurns: _axTurns,
+        retryRate, retryInflate,
+        apiBillBefore: result.api.monthly_capped || 0, apiBill,
+        agentEngineering, agentEngMonthly,
+        hosting: opts.hosting,
+        llmHeadline, verifMonthly, embeddingMonthly, personnelMonthly,
+        federalAdditive, fixedCosts, headlineTotal,
+      });
       mathEl.innerHTML = `
         <div class="math-trace-toolbar">
           <button class="math-copy-btn" id="math-copy-btn">📋 Copy entire derivation</button>
@@ -5256,24 +5158,22 @@ Production teams measure their primary's confidence-score distribution; escalate
   let _pendingUiRestore = null;
 
   function loadFromHash() {
+    // Codec (decode + shape classification) lives in lib/workload-hash.js
+    // — PURE and unit-tested in Node (scripts/test-workload-hash.js).
+    // This wrapper only does what a module can't: assign the closure
+    // `workload` variable and stash the pending UI restore.
+    // try/catch matches pre-extraction behavior: a shape-valid but
+    // corrupt payload that makes ensureFields() throw must fall back
+    // to the default preset (return false), not abort the boot.
     try {
-      const m = location.hash.match(/w=([^&]+)/);
-      if (!m) return false;
-      const json = decodeURIComponent(atob(m[1]));
-      const parsed = JSON.parse(json);
-      // New format: { workload, ui }
-      if (parsed && parsed.workload && parsed.workload.deployment && parsed.workload.shapes) {
-        workload = ensureFields(parsed.workload); window.workload = workload;
-        _pendingUiRestore = parsed.ui || null;
-        return true;
-      }
-      // Legacy: unwrapped workload at the top level
-      if (parsed && parsed.deployment && parsed.shapes) {
-        workload = ensureFields(parsed); window.workload = workload;
-        return true;
-      }
-    } catch (_) {}
-    return false;
+      const c = WorkloadHash.classifyPayload(WorkloadHash.decodeHash(location.hash));
+      if (c.kind === 'invalid') return false;
+      workload = ensureFields(c.workload); window.workload = workload;
+      if (c.kind === 'wrapped') _pendingUiRestore = c.ui;
+      return true;
+    } catch (_) {
+      return false;
+    }
   }
 
   // Auto-update URL hash on every change so refreshing preserves state.
@@ -5284,19 +5184,17 @@ Production teams measure their primary's confidence-score distribution; escalate
     if (hashUpdateTimer) clearTimeout(hashUpdateTimer);
     hashUpdateTimer = setTimeout(() => {
       try {
-        const payload = { workload, ui: captureUiState() };
-        const json = JSON.stringify(payload);
-        const hash = btoa(encodeURIComponent(json));
-        // Carry the UI mode through. Read it from the body class
-        // (set by setUiMode) rather than the URL hash because on the
-        // initial render this serializer can fire before setUiMode has
-        // had a chance to write its #mode= param — body class is the
-        // canonical source of truth and is always set by this point.
+        // Encoding + hash assembly live in lib/workload-hash.js (PURE,
+        // Node-tested). Carry the UI mode through by reading the body
+        // class (set by setUiMode) rather than the URL hash because on
+        // the initial render this serializer can fire before setUiMode
+        // has written its #mode= param — body class is the canonical
+        // source of truth and is always set by this point.
+        const encoded = WorkloadHash.encodePayload({ workload, ui: captureUiState() });
         const modeClass = document.body.classList.contains('mode-advanced')
           ? 'advanced'
           : (document.body.classList.contains('mode-basic') ? 'basic' : null);
-        const modeSuffix = modeClass ? '&mode=' + modeClass : '';
-        history.replaceState(null, '', '#w=' + hash + modeSuffix);
+        history.replaceState(null, '', WorkloadHash.buildHashString(encoded, modeClass));
       } catch (_) {}
     }, 500);
   }

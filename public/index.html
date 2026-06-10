@@ -319,8 +319,8 @@
      data (MAU / sessions / questions / bot factor). Replaces the
      legacy duplication between the 3 global sliders (s-users / s-sessions
      / s-turns) and the report-side per-segment editor. Renderer in
-     cost-simulator.js auto-switches data-audience-view between "single"
-     (segments.length === 1) and "multi" (≥2). */
+     lib/audience-block.js auto-switches data-audience-view between
+     "single" (segments.length === 1) and "multi" (≥2). */
   /* Always span the full width of the parent auto-fit grid so the
      multi-mode cards (MAU + Sess/day + Q/session + Bot) have enough
      room — the BOT column was getting clipped at the 280px minmax
@@ -6440,7 +6440,16 @@ Both fields are independent; they don't have to match.">ⓘ</span></label>
 <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 <script src="lib/prices.js"></script>
 <script src="lib/cost-engine.js"></script>
-<script src="app.js?v=2026-06-09-audience-3"></script>
+<!-- PURE modules consumed by app.js — must load BEFORE it. Each is
+     dual-exported (browser global + CommonJS) and unit-tested in Node:
+     - derivation-trace: trace appendix builder + retry-inflate formula
+       (scripts/test-derivation-trace.js)
+     - workload-hash: share-link encode/decode/classify codec
+       (scripts/test-workload-hash.js) -->
+<script src="lib/derivation-trace.js?v=2026-06-10-modular-1"></script>
+<script src="lib/workload-hash.js?v=2026-06-10-modular-2"></script>
+<script src="lib/headline-math.js?v=2026-06-10-modular-3"></script>
+<script src="app.js?v=2026-06-10-modular-3"></script>
 
 <!-- ===== Live prices from api.ajinkya.ai/prices ==================
      The bundled lib/prices.js gives the calc a working snapshot;
@@ -6500,7 +6509,14 @@ Both fields are independent; they don't have to match.">ⓘ</span></label>
        All globals (sim, AGENT_DEF, MODELS, computeCost, setMode, setTheme,
        onSlider, …) attach to window so inline blocks below + the bridge
        in app.js see them unchanged. -->
-  <script src="lib/cost-simulator.js?v=2026-06-09-audience-7"></script>
+  <script src="lib/cost-simulator.js?v=2026-06-10-modular-1"></script>
+  <!-- Modular extractions (2026-06-10) — order matters:
+       audience-math (pure formulas, no deps) before audience-block
+       (DOM layer that consumes it). ui-mode is independent. All three
+       were carved out of cost-simulator.js; see each file's header. -->
+  <script src="lib/audience-math.js?v=2026-06-10-modular-1"></script>
+  <script src="lib/ui-mode.js?v=2026-06-10-modular-1"></script>
+  <script src="lib/audience-block.js?v=2026-06-10-modular-1"></script>
   <!-- ============== simulator ↔ Cost Calculator integration script ============== -->
   <script>
 (function(){
