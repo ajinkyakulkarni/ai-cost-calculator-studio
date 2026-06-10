@@ -5207,24 +5207,15 @@ Production teams measure their primary's confidence-score distribution; escalate
   let _pendingUiRestore = null;
 
   function loadFromHash() {
-    try {
-      const m = location.hash.match(/w=([^&]+)/);
-      if (!m) return false;
-      const json = decodeURIComponent(atob(m[1]));
-      const parsed = JSON.parse(json);
-      // New format: { workload, ui }
-      if (parsed && parsed.workload && parsed.workload.deployment && parsed.workload.shapes) {
-        workload = ensureFields(parsed.workload); window.workload = workload;
-        _pendingUiRestore = parsed.ui || null;
-        return true;
-      }
-      // Legacy: unwrapped workload at the top level
-      if (parsed && parsed.deployment && parsed.shapes) {
-        workload = ensureFields(parsed); window.workload = workload;
-        return true;
-      }
-    } catch (_) {}
-    return false;
+    // Codec (decode + shape classification) lives in lib/workload-hash.js
+    // — PURE and unit-tested in Node (scripts/test-workload-hash.js).
+    // This wrapper only does what a module can't: assign the closure
+    // `workload` variable and stash the pending UI restore.
+    const c = WorkloadHash.classifyPayload(WorkloadHash.decodeHash(location.hash));
+    if (c.kind === 'invalid') return false;
+    workload = ensureFields(c.workload); window.workload = workload;
+    if (c.kind === 'wrapped') _pendingUiRestore = c.ui;
+    return true;
   }
 
   // Auto-update URL hash on every change so refreshing preserves state.
@@ -5235,19 +5226,17 @@ Production teams measure their primary's confidence-score distribution; escalate
     if (hashUpdateTimer) clearTimeout(hashUpdateTimer);
     hashUpdateTimer = setTimeout(() => {
       try {
-        const payload = { workload, ui: captureUiState() };
-        const json = JSON.stringify(payload);
-        const hash = btoa(encodeURIComponent(json));
-        // Carry the UI mode through. Read it from the body class
-        // (set by setUiMode) rather than the URL hash because on the
-        // initial render this serializer can fire before setUiMode has
-        // had a chance to write its #mode= param — body class is the
-        // canonical source of truth and is always set by this point.
+        // Encoding + hash assembly live in lib/workload-hash.js (PURE,
+        // Node-tested). Carry the UI mode through by reading the body
+        // class (set by setUiMode) rather than the URL hash because on
+        // the initial render this serializer can fire before setUiMode
+        // has written its #mode= param — body class is the canonical
+        // source of truth and is always set by this point.
+        const encoded = WorkloadHash.encodePayload({ workload, ui: captureUiState() });
         const modeClass = document.body.classList.contains('mode-advanced')
           ? 'advanced'
           : (document.body.classList.contains('mode-basic') ? 'basic' : null);
-        const modeSuffix = modeClass ? '&mode=' + modeClass : '';
-        history.replaceState(null, '', '#w=' + hash + modeSuffix);
+        history.replaceState(null, '', WorkloadHash.buildHashString(encoded, modeClass));
       } catch (_) {}
     }, 500);
   }
