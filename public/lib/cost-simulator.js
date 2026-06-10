@@ -1265,6 +1265,16 @@ function agentRangeCtl(a,scope,k,label,min,max,step,color,type='int'){
   const tipAttr=tip?` data-tip="${tip.replace(/"/g,'&quot;')}"`:'';
   return `<div class="agent-mini-range"><div class="mini-label"><span id="${labelId}"${labelClass}${tipAttr}>${label}</span><span class="mini-val" id="${lid}" style="color:${color}" aria-hidden="true">${fmtAgentVal(k,v)}</span></div><input type="range" min="${min}" max="${max}" value="${v}" step="${step}" aria-labelledby="${labelId}" aria-valuetext="${fmtAgentVal(k,v)}" oninput="setAP(${a.id},'${k}',${cast},'${lid}',v=>fmtAgentVal('${k}',v))"></div>`;
 }
+// What/why/cost tooltips for the per-agent capability sections. Same
+// rich data-tip widget as every other knob — markdown headers render,
+// hover-to-read. Each answers: what is this, why turn it on, and which
+// dials drive its cost.
+const AGENT_SECTION_TIPS = {
+  'Tools': "### Tools\n\n**What it is:** function-calling for this agent — search, geocode, database queries, code execution. Each enabled tool's JSON schema rides along on every request, and its result payload lands in the turns that call it.\n\n**Why it's useful:** tools are how an agent acts on the world instead of just talking about it.\n\n**Cost impact:** schema tokens × every turn + result tokens × calls/query — all billed as input. Templated (short status) returns keep this cheap; freeform (raw payload) returns can dominate the whole bill — the measured geospatial preset jumps ~3× when stac_search flips to freeform. Toggle TOOLS OFF to model an agent that never calls functions.",
+  'RAG / retrieval': "### RAG / retrieval\n\n**What it is:** retrieval-augmented generation — before answering, the agent pulls document chunks from a vector store and stuffs them into the prompt as context.\n\n**Why it's useful:** grounds answers in YOUR corpus instead of the model's training data — the standard fix for hallucinated facts and stale knowledge.\n\n**Cost impact:** chunks × tokens-per-chunk lands on every retrieval turn as input tokens — often the single biggest input-token lever in the calculator. 5 chunks × 400 tok = 2,000 extra input tokens per turn, every turn. Tune both dials below; toggle RAG OFF for agents that don't retrieve (routers, formatters).",
+  'Reasoning': "### Reasoning / extended thinking\n\n**What it is:** lets the model think before answering (Claude extended thinking, OpenAI o-series reasoning, Gemini thinking) — an internal scratchpad the user never sees.\n\n**Why it's useful:** large quality gains on hard multi-step work: planning, math, code, tricky synthesis. Wasted on simple lookups.\n\n**Cost impact:** thinking tokens are billed as OUTPUT tokens — the expensive direction, ~4–5× input rates — even though they're invisible. Bill = thinking budget × % of turns that think. A 10K budget on 50% of turns can exceed the cost of the visible answer itself.",
+  'Guardrails': "### Guardrails\n\n**What it is:** safety scans wrapped around every turn — input screening (prompt injection), output moderation, PII detection, policy compliance.\n\n**Why it's useful:** table stakes for public-facing and federal deployments — blocks jailbreaks, data leaks, and off-policy answers before they reach users.\n\n**Cost impact:** each scan adds its token budget to every turn (the four dials below), and a response blocked AFTER generation is pure wasted spend — you paid for output the user never saw. Typical full stack adds ~10–20% to the per-turn bill.",
+};
 function agentSection(title,color,on,body){
   // OFF state: distinguish via border + a tinted muted status pill, but
   // keep slider values + section heading legible (opacity:0.45 prior
@@ -1274,9 +1284,13 @@ function agentSection(title,color,on,body){
   const statusBg    = on ? color + '18' : 'rgba(180,180,180,0.10)';
   const statusFg    = on ? color : 'var(--ink-2,#3a3a3a)';
   const statusText  = on ? 'ACTIVE' : 'OFF — values retained';
+  const tip = AGENT_SECTION_TIPS[title];
+  const titleSpan = tip
+    ? `<span data-tip="${String(tip).replace(/"/g,'&quot;')}" style="cursor:help;border-bottom:1px dotted ${on ? color + '99' : 'rgba(120,120,120,.45)'}">${title}</span>`
+    : `<span>${title}</span>`;
   return `<div class="agent-detail-section" style="border-color:${borderColor}">
     <div class="agent-section-title" style="color:${titleColor}">
-      <span>${title}</span>
+      ${titleSpan}
       <span style="font-size:8px;font-weight:600;letter-spacing:0.04em;padding:1px 5px;border-radius:3px;background:${statusBg};color:${statusFg}">${statusText}</span>
     </div>
     <div class="agent-edit-grid">${body}</div>
@@ -1418,7 +1432,13 @@ function verifyAgentHtml(a){
   return `<div style="margin-top:8px;padding:7px 9px;background:rgba(21,101,192,0.05);border:1px solid rgba(21,101,192,0.18);border-radius:5px">
     <label style="display:flex;align-items:center;gap:6px;font-size:12px;cursor:pointer;color:#1565c0;font-weight:600">
       <input type="checkbox" ${enabled?'checked':''} onchange="setAPVerify(${a.id},'verify_enabled',this.checked);event.stopPropagation();" style="margin:0">
-      Fact-check this agent's output
+      <span data-tip="### Fact-check this agent's output
+
+**What it is:** runs the verification sidecar (atomizer → NLI entailment checks → reviser) on a sample of this agent's responses — factual claims get checked against retrieved sources before they stand.
+
+**Why it's useful:** catches hallucinated claims before users see them. Worth it for synthesizer / reporter agents whose output users read as fact; skip for orchestrators and tool-executors whose output is internal plumbing no user reads.
+
+**Cost impact:** adds the verification pipeline's LLM calls on COVERAGE % of this agent's queries — atomizer + NLI batch + reviser per checked response. Shows up as the Verification line in the cost ledger. Coverage 0.10 = 1 in 10 responses checked; tune coverage + the verifier model below." style="cursor:help;border-bottom:1px dotted rgba(21,101,192,.5)">Fact-check this agent's output</span>
     </label>
     <div style="font-size:10px;color:var(--ink-2,#3a4a62);margin-top:3px;line-height:1.4">Default off. Turn on for synthesizer / reporter agents that produce user-facing factual claims. Skip for orchestrators and tool-executors.</div>
     ${sub}

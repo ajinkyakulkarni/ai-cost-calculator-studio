@@ -9,7 +9,8 @@
  * Two-mode UI: BASIC hides .advanced-only nodes (per CSS in index.html);
  * ADVANCED exposes every knob. Mode persists via URL hash
  * (#...&mode=basic|advanced) — no localStorage — so a shared link carries
- * the mode through to the recipient. Default boot mode: advanced. The
+ * the mode through to the recipient. Default boot mode: basic (simple
+ * surface first; engineers flip the pill or share #mode=advanced). The
  * engine math is unchanged regardless of mode — hidden controls keep
  * their preset defaults (see memory/design rule: CSS-only hiding, no
  * per-mode engine branches; headline must be identical across modes). */
@@ -58,23 +59,23 @@ function setUiMode(m){
   } catch(_){ /* hash re-trigger is best-effort */ }
 }
 
-// Boot: read mode from URL hash, default advanced. Wire hashchange so an
+// Boot: read mode from URL hash, default basic. Wire hashchange so an
 // external nav (browser back/forward, or another script editing the
 // hash) re-syncs the mode display.
 (function _initUiMode(){
   const apply = () => {
     try {
       const m = (window.location.hash || '').match(/[#&]mode=(basic|advanced)/);
-      // Default boot mode: advanced. Procurement-only viewers who want
-      // the trimmed Basic surface can flip the toggle (the pill in the
-      // appbar) or share a URL with #mode=basic.
-      setUiMode(m ? m[1] : 'advanced');
+      // Default boot mode: basic — first-time visitors get the simple
+      // procurement surface. Engineers flip the appbar pill or share a
+      // URL with #mode=advanced.
+      setUiMode(m ? m[1] : 'basic');
     } catch(e){ console.warn('UI mode init deferred:',e); setTimeout(apply,200); }
   };
   const wireHashChange = () => {
     window.addEventListener('hashchange', () => {
       const m = (window.location.hash || '').match(/[#&]mode=(basic|advanced)/);
-      const desired = m ? m[1] : 'advanced';
+      const desired = m ? m[1] : 'basic';
       const current = document.body.classList.contains('mode-advanced') ? 'advanced' : 'basic';
       if (desired !== current) setUiMode(desired);
     });

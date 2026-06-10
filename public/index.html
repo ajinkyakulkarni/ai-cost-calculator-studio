@@ -3794,9 +3794,9 @@ input[type=range]:disabled { cursor: not-allowed; }
        Click handlers route to setUiMode() in cost-simulator.js. -->
   <div id="mode-toggle" role="group" aria-label="UI mode"
        title="Basic mode hides advanced controls — engine still uses preset defaults so the headline doesn't change. Advanced mode exposes every knob. Mode persists in the URL hash.">
-    <button type="button" role="radio" data-mode="basic" aria-checked="false"
+    <button type="button" role="radio" data-mode="basic" aria-checked="true"
             onclick="try{setUiMode('basic');}catch(_){}">Basic</button>
-    <button type="button" role="radio" data-mode="advanced" aria-checked="true"
+    <button type="button" role="radio" data-mode="advanced" aria-checked="false"
             onclick="try{setUiMode('advanced');}catch(_){}">Advanced</button>
   </div>
   <h1>AI Cost Calculator
@@ -6509,13 +6509,13 @@ Both fields are independent; they don't have to match.">ⓘ</span></label>
        All globals (sim, AGENT_DEF, MODELS, computeCost, setMode, setTheme,
        onSlider, …) attach to window so inline blocks below + the bridge
        in app.js see them unchanged. -->
-  <script src="lib/cost-simulator.js?v=2026-06-10-modular-1"></script>
+  <script src="lib/cost-simulator.js?v=2026-06-10-tips-1"></script>
   <!-- Modular extractions (2026-06-10) — order matters:
        audience-math (pure formulas, no deps) before audience-block
        (DOM layer that consumes it). ui-mode is independent. All three
        were carved out of cost-simulator.js; see each file's header. -->
   <script src="lib/audience-math.js?v=2026-06-10-modular-1"></script>
-  <script src="lib/ui-mode.js?v=2026-06-10-modular-1"></script>
+  <script src="lib/ui-mode.js?v=2026-06-10-basic-default-1"></script>
   <script src="lib/audience-block.js?v=2026-06-10-modular-1"></script>
   <!-- ============== simulator ↔ Cost Calculator integration script ============== -->
   <script>
