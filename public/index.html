@@ -3868,6 +3868,20 @@ input[type=range]:disabled { cursor: not-allowed; }
   </div>
   <!-- GitHub source link — top-bar variant (the footer keeps the long-form
        "Source" label; the appbar variant is icon-only to stay compact). -->
+  <!-- Interactive explainer link — bar-chart icon to the visual
+       cost-paper explainer on ajinkya.ai. Sits left of the tutorial
+       icon; same compact icon-button treatment. -->
+  <a id="appbar-explainer" href="https://ajinkya.ai/ai-cost-explainer/"
+     target="_blank" rel="noopener"
+     title="Interactive explainer: the cost paper, visualized — charts and walkthroughs of the framework behind this calculator"
+     aria-label="Open the interactive AI cost explainer"
+     style="display:inline-flex;align-items:center;justify-content:center;width:30px;height:28px;margin-right:6px;color:inherit;text-decoration:none;border:1px solid rgba(255,255,255,.18);border-radius:6px;opacity:.85"
+     onmouseover="this.style.opacity=1" onmouseout="this.style.opacity=.85">
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16"
+         width="15" height="15" aria-hidden="true" focusable="false">
+      <path fill="currentColor" d="M1 13.5V14h14v1H0V1h1v12.5zM4 8h2v5H4V8zm4-4h2v9H8V4zm4 2h2v7h-2V6z"/>
+    </svg>
+  </a>
   <!-- Tutorial link — graduation-cap icon to the long-form walkthrough
        "How to cost an AI agent" on ajinkya.ai/learn. Sits left of the
        GitHub icon; same compact icon-button treatment. -->
