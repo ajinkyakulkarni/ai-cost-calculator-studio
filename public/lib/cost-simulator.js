@@ -1163,6 +1163,11 @@ function buildAgents(forceDefaults=false){
     if(prior){AGENT_CONFIG_FIELDS.forEach(k=>{if(prior[k]!==undefined)base[k]=prior[k];});base.expanded=!!prior.expanded;}
     return base;
   });
+  // Single-agent fleet: open the lone card by default so its settings
+  // are visible without a click. Fresh builds only (boot / reset) —
+  // when a prior carried an expanded/collapsed state it already won
+  // above, so a user's manual collapse sticks across re-renders.
+  if(sim.agents.length===1 && prev.length===0) sim.agents[0].expanded=true;
   renderAgentSettingsSummary();
 }
 function buildUsers(){sim.users=UNAMES.slice(0,Math.min(cfg('s-users'),UNAMES.length)).map((name,i)=>({name,id:i}));}
@@ -2834,6 +2839,10 @@ window.__setSimulatorFromWorkload = function(workload) {
   }
 
   // 4. sim.agents — mirror workload.agents (or build single anchor agent)
+  // Capture pre-rebuild expansion state so a user's explicit collapse
+  // survives repaints that re-enter this function (payload-mode toggles,
+  // hash restores) — see single-agent auto-expand below.
+  const prevAgents = Array.isArray(sim.agents) ? sim.agents : [];
   const wAgents = Array.isArray(workload.agents) ? workload.agents : [];
   if (wAgents.length > 0) {
     sim.agents = wAgents.map((w, i) => {
@@ -2891,6 +2900,16 @@ window.__setSimulatorFromWorkload = function(workload) {
     sim.agents = [base];
     const sAgents = document.getElementById('s-agents');
     if (sAgents) sAgents.value = '1';
+  }
+
+  // Single-agent fleet: open the lone card by default so its model,
+  // tools, RAG/reasoning/guardrails settings are visible without a
+  // click — with one agent there's nothing to scan past. When a prior
+  // card existed (repaint, payload-mode toggle) its expanded/collapsed
+  // state wins, so a user's manual collapse sticks. Multi-agent fleets
+  // keep the collapsed default — a wall of open cards is noise.
+  if (sim.agents.length === 1) {
+    sim.agents[0].expanded = prevAgents.length === 1 ? !!prevAgents[0].expanded : true;
   }
 
   // 5. Task mix — mirror workload.task_mix back into TASK_TYPES so the
