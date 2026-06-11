@@ -141,3 +141,23 @@ python3 python/random_parity.py --n 1000 --seed 7
 
 Verified at port time: 2,300 random cases across seeds 1/7/42 — all
 match, zero asymmetric crashes.
+
+## Reproducing the exact UI headline
+
+Every knob in the UI ultimately mutates the workload JSON + a small `ui`
+state block, both of which travel in the share link. So the definitive
+reproduction path is: click **Share** in the calculator, then
+
+```bash
+python3 python/run.py --share-url '<paste the link>'
+```
+
+This decodes the same `#w=` payload the browser wrote (identical codec to
+`lib/workload-hash.js`), applies the ui block (retry/cache sliders,
+hosting/model/tier/mix/cost-mode/GPU/commitment dropdowns) to engine
+opts, and prints the same headline the browser shows — verified to the
+cent on the default preset (\$7,772, including the app-layer 3% retry
+slider that a bare workload JSON does not carry).
+
+Shortcut without a link: `--retry 3` reproduces the default UI slider
+state on top of any preset file.

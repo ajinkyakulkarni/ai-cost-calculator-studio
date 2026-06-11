@@ -222,6 +222,10 @@ r = compute(w, {'model': w['defaults']['model'], 'tier': 'standard',
 print(r['api']['monthly_capped'])   # 3794.13…
 "
 
+# Reproduce EXACTLY what your browser shows (includes UI slider state):
+#   click Share in the calc, then:
+python3 python/run.py --share-url '<pasted share link>'   # → \$7,772 on defaults
+
 # Re-verify parity against the JS engine yourself:
 node scripts/dump-engine.mjs && python3 python/parity_check.py
 ```
