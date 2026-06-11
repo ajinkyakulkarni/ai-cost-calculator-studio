@@ -101,6 +101,7 @@
   <h1>Flashcards <small>every knob &amp; concept — what, why, how it moves the bill</small></h1>
   <div class="mode-toggle" role="group" aria-label="Mode">
     <button id="mode-learn" class="active" onclick="setMode('learn')">📖 Learn</button>
+    <button id="mode-flash" onclick="setMode('flash')">🃏 Flashcards</button>
     <button id="mode-quiz" onclick="setMode('quiz')">🎯 Quiz</button>
   </div>
 </div>
@@ -130,6 +131,15 @@
         <div class="cost" id="b-cost"></div>
       </div>
     </div>
+    <!-- Learn mode — everything visible, no flipping, just read + arrow through -->
+    <div id="read-pane" hidden>
+      <div class="face" style="position:relative; inset:auto; min-height:330px">
+        <span class="chip" id="r-chip"></span>
+        <div class="term-sm" id="r-term" style="font-size:22px; font-weight:800; margin-bottom:12px; color:var(--navy)"></div>
+        <div class="body" id="r-body" style="font-size:14.5px; line-height:1.75; color:var(--ink-2)"></div>
+        <div class="cost" id="r-cost"></div>
+      </div>
+    </div>
     <!-- Quiz mode -->
     <div id="quiz-pane" hidden>
       <div class="face" style="position:relative; inset:auto; min-height:330px">
@@ -145,6 +155,10 @@
 
 <div class="navrow" id="learn-nav">
   <button onclick="prevCard()" title="Left arrow">← Prev</button>
+  <button class="primary" onclick="nextCard()" title="Right arrow or Space">Next →</button>
+</div>
+<div class="navrow" id="flash-nav" hidden>
+  <button onclick="prevCard()" title="Left arrow">← Prev</button>
   <button class="primary" onclick="flipCard()" title="Space">Flip</button>
   <button onclick="nextCard()" title="Right arrow">Next →</button>
 </div>
@@ -153,10 +167,13 @@
 </div>
 
 <div class="keys" id="keys-learn">
-  <kbd>←</kbd><kbd>→</kbd> navigate &nbsp; <kbd>Space</kbd> flip &nbsp; <kbd>S</kbd> shuffle &nbsp; <kbd>M</kbd> switch mode
+  <kbd>←</kbd><kbd>→</kbd> or <kbd>Space</kbd> move through cards &nbsp;·&nbsp; <kbd>S</kbd> shuffle &nbsp;·&nbsp; <kbd>M</kbd> next mode
+</div>
+<div class="keys" id="keys-flash" hidden>
+  <kbd>←</kbd><kbd>→</kbd> navigate &nbsp;·&nbsp; <kbd>Space</kbd> flip &nbsp;·&nbsp; <kbd>S</kbd> shuffle &nbsp;·&nbsp; <kbd>M</kbd> next mode
 </div>
 <div class="keys" id="keys-quiz" hidden>
-  <kbd>1</kbd>–<kbd>4</kbd> answer &nbsp; <kbd>Enter</kbd> next &nbsp; <kbd>M</kbd> switch mode
+  <kbd>1</kbd>–<kbd>4</kbd> pick an answer &nbsp;·&nbsp; <kbd>Enter</kbd> or <kbd>→</kbd> next question &nbsp;·&nbsp; <kbd>S</kbd> new round &nbsp;·&nbsp; <kbd>M</kbd> next mode
 </div>
 
 <script>
@@ -412,10 +429,11 @@ function shuffleCards(){
   if (mode==='learn') renderCard(); else startQuiz();
 }
 
-/* ─── Learn mode ─── */
+/* ─── Learn + Flashcard modes ─── */
 function renderCard(){
   const card = deck[idx]; if(!card) return;
   const col = CATS[card.c] || '#555';
+  // flashcard faces
   $('f-chip').textContent = card.c; $('f-chip').style.background = col;
   $('b-chip').textContent = card.c; $('b-chip').style.background = col;
   $('f-term').textContent = card.t;
@@ -423,12 +441,17 @@ function renderCard(){
   $('b-body').innerHTML = card.w;
   $('b-cost').innerHTML = '<b>💰 Cost impact:</b> ' + card.$;
   $('flip').classList.toggle('flipped', flipped);
+  // learn (read) pane — everything visible at once
+  $('r-chip').textContent = card.c; $('r-chip').style.background = col;
+  $('r-term').textContent = card.t;
+  $('r-body').innerHTML = card.w;
+  $('r-cost').innerHTML = '<b>💰 Cost impact:</b> ' + card.$;
   $('counter').textContent = `${idx+1} / ${deck.length}`;
   $('prog').style.width = ((idx+1)/deck.length*100) + '%';
 }
-function flipCard(){ if(mode!=='learn')return; flipped=!flipped; $('flip').classList.toggle('flipped', flipped); }
-function nextCard(){ if(mode!=='learn')return; idx=(idx+1)%deck.length; flipped=false; renderCard(); }
-function prevCard(){ if(mode!=='learn')return; idx=(idx-1+deck.length)%deck.length; flipped=false; renderCard(); }
+function flipCard(){ if(mode!=='flash')return; flipped=!flipped; $('flip').classList.toggle('flipped', flipped); }
+function nextCard(){ if(mode==='quiz')return; idx=(idx+1)%deck.length; flipped=false; renderCard(); }
+function prevCard(){ if(mode==='quiz')return; idx=(idx-1+deck.length)%deck.length; flipped=false; renderCard(); }
 
 /* ─── Quiz mode ─── */
 function buildQuiz(){
@@ -515,18 +538,23 @@ function showResults(){
   $('prog').style.width = '100%';
 }
 
-/* ─── Mode switch ─── */
+/* ─── Mode switch — learn (read) / flash (flip) / quiz ─── */
+const MODES = ['learn','flash','quiz'];
 function setMode(m){
   mode = m;
   $('mode-learn').classList.toggle('active', m==='learn');
+  $('mode-flash').classList.toggle('active', m==='flash');
   $('mode-quiz').classList.toggle('active', m==='quiz');
-  $('flip').parentElement.querySelector('#flip').hidden = m!=='learn';
-  $('quiz-pane').hidden = m!=='quiz';
-  $('learn-nav').hidden = m!=='learn';
-  $('quiz-nav').hidden = m!=='quiz';
+  $('flip').hidden       = m!=='flash';
+  $('read-pane').hidden  = m!=='learn';
+  $('quiz-pane').hidden  = m!=='quiz';
+  $('learn-nav').hidden  = m!=='learn';
+  $('flash-nav').hidden  = m!=='flash';
+  $('quiz-nav').hidden   = m!=='quiz';
   $('keys-learn').hidden = m!=='learn';
-  $('keys-quiz').hidden = m!=='quiz';
-  $('scoreline').hidden = m!=='quiz';
+  $('keys-flash').hidden = m!=='flash';
+  $('keys-quiz').hidden  = m!=='quiz';
+  $('scoreline').hidden  = m!=='quiz';
   if(m==='quiz') startQuiz(); else { flipped=false; renderCard(); }
 }
 
@@ -534,9 +562,13 @@ function setMode(m){
 document.addEventListener('keydown', e=>{
   if(e.target.tagName==='SELECT') return;
   const k = e.key;
-  if(k==='m'||k==='M'){ setMode(mode==='learn'?'quiz':'learn'); e.preventDefault(); return; }
+  if(k==='m'||k==='M'){ setMode(MODES[(MODES.indexOf(mode)+1)%MODES.length]); e.preventDefault(); return; }
   if(k==='s'||k==='S'){ shuffleCards(); e.preventDefault(); return; }
   if(mode==='learn'){
+    // read-through mode: Space doubles as "next" so one thumb can drive it
+    if(k==='ArrowRight'||k===' '||k==='Enter'){ nextCard(); e.preventDefault(); }
+    else if(k==='ArrowLeft'){ prevCard(); e.preventDefault(); }
+  } else if(mode==='flash'){
     if(k==='ArrowRight'){ nextCard(); e.preventDefault(); }
     else if(k==='ArrowLeft'){ prevCard(); e.preventDefault(); }
     else if(k===' '||k==='Enter'){ flipCard(); e.preventDefault(); }
@@ -549,6 +581,7 @@ document.addEventListener('keydown', e=>{
   }
 });
 init();
+setMode('learn');
 </script>
 </body>
 </html>
