@@ -194,7 +194,9 @@ def per_query_cost_agents(
 
         # Per-agent extras
         fewshot_n = _to_float(agent.get("fewshot_examples"))
-        fewshot_tok_per_ex = _to_float(agent.get("tokens_per_fewshot_example"), 200.0)
+        # JS: `Number(agent.tokens_per_fewshot_example) || 200` — 0 is falsy,
+        # so an explicit 0 ALSO falls back to 200. Match that exactly.
+        fewshot_tok_per_ex = _to_float(agent.get("tokens_per_fewshot_example"), 0.0) or 200.0
         fewshot_in_amortized = (fewshot_n * fewshot_tok_per_ex) / max(1.0, calls)
         json_schema_in = _to_float(agent.get("jsonschema_tokens"))
         memory_in = _to_float(agent.get("memory_tokens"))

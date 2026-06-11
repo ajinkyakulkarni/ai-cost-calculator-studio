@@ -118,3 +118,12 @@ If `public/lib/prices.js` changes, regenerate the JSON fixture:
 ```bash
 node scripts/dump-prices.mjs
 ```
+
+## Deliberate divergences from the JS engine
+
+- **Absent `anchor_query.cache_rate_baseline` (and no `opts['cacheRate']`)** —
+  the JS engine reads `undefined` and the token math silently produces NaN.
+  The Python engine refuses to reproduce silent garbage and raises
+  `ValueError` instead. Every shipped preset sets the field, so this only
+  fires on hand-built minimal workloads. (Found by adversarial fuzz audit,
+  2026-06-11: 1,276 perturbed variants, zero other divergences.)

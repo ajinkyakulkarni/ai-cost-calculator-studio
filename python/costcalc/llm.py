@@ -258,11 +258,19 @@ def compute_api_cost(
     tier_id = opts.get("tier") or workload["defaults"]["tier"]
     mix_id = opts.get("mix") or workload["defaults"]["mix"]
 
-    cache_base = (
-        opts["cacheRate"]
-        if opts.get("cacheRate") is not None
-        else (workload.get("anchor_query") or {}).get("cache_rate_baseline", 0.7)
-    )
+    # JS reads anchor_query.cache_rate_baseline with NO fallback — absent
+    # means undefined and the whole token math silently NaNs. We refuse to
+    # reproduce silent garbage OR invent a default: fail loud instead.
+    # (Documented divergence — see README "Deliberate divergences".)
+    if opts.get("cacheRate") is not None:
+        cache_base = opts["cacheRate"]
+    else:
+        cache_base = (workload.get("anchor_query") or {}).get("cache_rate_baseline")
+        if cache_base is None:
+            raise ValueError(
+                "anchor_query.cache_rate_baseline is missing and opts['cacheRate'] "
+                "was not provided — the JS engine would produce NaN here; set one."
+            )
 
     # write_share: opts → anchor_query → rate-card default → 0
     if opts.get("cacheWriteShare") is not None:
@@ -291,8 +299,8 @@ def compute_api_cost(
                 agent_breakdown = ar["breakdown"]
         else:
             pq = per_query_cost(workload, model_id, tier_id, mix_id, eff, write_share)
-        seg_per_query[seg["id"]] = {"eff_cache": eff, "per_query": pq}
-        total_cost += float(queries["bySegment"].get(seg["id"]) or 0) * pq
+        seg_per_query[seg.get("id")] = {"eff_cache": eff, "per_query": pq}
+        total_cost += float(queries["bySegment"].get(seg.get("id")) or 0) * pq
 
     blended = total_cost / queries["total"] if queries["total"] > 0 else 0.0
 

@@ -232,12 +232,16 @@ def normalize_workload(spec: Dict[str, Any]) -> Dict[str, Any]:
     w["agents"] = w["agents"] if isinstance(w.get("agents"), list) else []
 
     # Daily cap
-    w["daily_cap"] = w.get("daily_cap") or {
+    # JS `w.daily_cap || {...}`: an explicit {} is truthy and KEPT (cap
+    # never binds since enabled is absent). Only absent/None gets defaults.
+    if w.get("daily_cap") is None:
+        w["daily_cap"] = {
         "enabled": True, "amount_usd": 1500, "burst_days": 7, "burst_factor": 1.0,
     }
 
     # Rate limit
-    w["rate_limit"] = w.get("rate_limit") or {
+    if w.get("rate_limit") is None:
+        w["rate_limit"] = {
         "strategy": "edge", "monthly_cost": 15, "bot_ceiling": 2.5,
     }
 
@@ -317,7 +321,7 @@ def compute_queries(
             * float(seg.get("questions_per_session") or 0)
             * beta
         )
-        by_segment[seg["id"]] = q
+        by_segment[seg.get("id")] = q
         total += q
         if seg_apply_bot:
             anon += q
