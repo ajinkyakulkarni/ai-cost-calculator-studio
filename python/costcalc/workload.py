@@ -236,14 +236,14 @@ def normalize_workload(spec: Dict[str, Any]) -> Dict[str, Any]:
     # never binds since enabled is absent). Only absent/None gets defaults.
     if w.get("daily_cap") is None:
         w["daily_cap"] = {
-        "enabled": True, "amount_usd": 1500, "burst_days": 7, "burst_factor": 1.0,
-    }
+            "enabled": True, "amount_usd": 1500, "burst_days": 7, "burst_factor": 1.0,
+        }
 
     # Rate limit
     if w.get("rate_limit") is None:
         w["rate_limit"] = {
-        "strategy": "edge", "monthly_cost": 15, "bot_ceiling": 2.5,
-    }
+            "strategy": "edge", "monthly_cost": 15, "bot_ceiling": 2.5,
+        }
 
     w["infrastructure"] = w.get("infrastructure") or {}
 
@@ -313,7 +313,7 @@ def compute_queries(
         seg_apply_bot = seg.get("applyBotFactor")
         if seg_apply_bot is None:
             seg_apply_bot = seg.get("apply_bot_factor")
-        beta = bot_effective if seg_apply_bot else 1
+        beta = bot_effective if seg_apply_bot else 1.0
         q = (
             float(seg.get("mau") or 0)
             * float(seg.get("sessions_per_day") or 0)

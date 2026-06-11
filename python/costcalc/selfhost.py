@@ -8,6 +8,7 @@ Mirrors: public/lib/cost-engine.js
 """
 from __future__ import annotations
 
+import copy
 import math
 from typing import Any, Dict, Optional
 
@@ -177,7 +178,6 @@ def compute_hybrid(
     compute_api_cost_fn: Any = None,
 ) -> Dict[str, Any]:
     """Mirrors computeHybrid(). Injects compute_api_cost_fn to avoid circular import."""
-    import copy
     opts = options or {}
     split = min(1.0, max(0.0, opts.get("apiSplit") if opts.get("apiSplit") is not None else 0.5))
 

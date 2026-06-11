@@ -13,15 +13,7 @@ from __future__ import annotations
 import math
 from typing import Any, Dict, List, Optional
 
-
-def _to_float(x: Any, default: float = 0.0) -> float:
-    if x is None:
-        return default
-    try:
-        v = float(x)
-        return v if math.isfinite(v) else default
-    except (TypeError, ValueError):
-        return default
+from ._utils import to_float as _to_float
 
 
 def compute_tool_fees(

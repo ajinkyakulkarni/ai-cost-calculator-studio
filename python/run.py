@@ -67,6 +67,10 @@ def decode_share_url(url: str):
     m = re.search(r"w=([^&]+)", url)
     if not m:
         raise ValueError("no w= payload in URL/hash")
+    # latin-1 mirrors the browser codec exactly: JS btoa() produces bytes
+    # 0-255 of the percent-ENCODED string (pure ASCII after encodeURIComponent),
+    # and unquote() then restores the UTF-8 characters — same order as
+    # lib/workload-hash.js decodeHash().
     payload = json.loads(unquote(base64.b64decode(m.group(1)).decode("latin-1")))
     if isinstance(payload, dict) and payload.get("workload"):
         return payload["workload"], payload.get("ui") or {}

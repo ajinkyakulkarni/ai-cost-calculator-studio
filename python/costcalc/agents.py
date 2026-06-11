@@ -34,22 +34,13 @@ from __future__ import annotations
 import math
 from typing import Any, Dict, List, Optional, Tuple
 
+from ._utils import to_float as _to_float
+
 from .llm import (
     apply_clarification_strategy,
     effective_cached_rate,
     task_mix_output_multiplier_for_agent,
 )
-
-
-def _to_float(x: Any, default: float = 0.0) -> float:
-    """Safe numeric conversion."""
-    if x is None:
-        return default
-    try:
-        v = float(x)
-        return v if math.isfinite(v) else default
-    except (TypeError, ValueError):
-        return default
 
 
 def agent_tool_token_breakdown(
@@ -128,7 +119,7 @@ def per_query_cost_agents(
 
     for agent in workload.get("agents") or []:
         hosting = agent.get("hosting") or "api"
-        calls = _to_float(agent.get("calls_per_query"), 1.0) if agent.get("calls_per_query") is not None else 1.0
+        calls = _to_float(agent.get("calls_per_query"), 1.0)
         in_t = _to_float(agent.get("input_tokens"))
         out_t = _to_float(agent.get("output_tokens"))
 

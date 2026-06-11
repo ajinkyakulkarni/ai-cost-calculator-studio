@@ -65,10 +65,10 @@ def compose_headline(
     return {
         "headline": headline,
         "llm": llm,
-        "apiBill": api_bill,
+        "api_bill": api_bill,
         "fixed": fixed,
         "verif": verif,
-        "toolFees": tool_fees,
+        "tool_fees": tool_fees,
         "fed": fed,
         "emb": emb,
         "pers": pers,

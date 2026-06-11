@@ -165,7 +165,7 @@ def run_preset(slug: str) -> Tuple[bool, str, List[Tuple[str, float, float]]]:
     opts = build_opts(workload)
     # Sanity: stored opts should match
     if stored_opts and stored_opts.get("cacheRate") != opts.get("cacheRate"):
-        pass  # stored_opts may differ in costMode; trust build_opts
+        print(f"  ⚠ opts.cacheRate mismatch vs stored dump for {name} — comparing anyway", file=sys.stderr)
 
     # Run Python engine
     try:
