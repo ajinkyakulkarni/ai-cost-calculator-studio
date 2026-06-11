@@ -151,6 +151,11 @@ ai-cost-calculator-studio/
 │       └── geo_qa/          # replication bench: 6 scenarios (2 patterns
 │                            #  × 3 response-handler modes) — stac_tools,
 │                            #  handlers, dispatch, runner, schemas
+├── python/                  # pure-Python port of the cost engine (local use)
+│   ├── README.md            # module map, usage, parity guarantee
+│   ├── costcalc/            # 13 stdlib-only modules mirroring cost-engine.js
+│   ├── run.py               # CLI: preset JSON in → cost breakdown out
+│   └── parity_check.py      # numeric-parity gate vs the JS engine
 ├── docs/
 │   └── paper/
 │       └── validation-methodology.md   # paper section: empirical calibration
@@ -192,6 +197,38 @@ confirm success.
 
 Most asset changes are visible at calc.ajinkya.ai within ~30 seconds.
 Hard-refresh (Cmd-Shift-R) to bypass browser cache.
+
+## Run the math in Python (no browser, no Node)
+
+`python/costcalc/` is a pure-Python 3.9+ port of the cost engine —
+standard library only, nothing to install. It produces the **same numbers
+as the JS engine** (every numeric field verified at 1e-9 relative
+tolerance across all bundled presets, plus a 1,276-variant perturbation
+audit; see `python/README.md` for the parity method and the one
+documented deliberate divergence).
+
+```bash
+# Cost any preset (or your own workload JSON) from the terminal:
+python3 python/run.py public/examples/public-geospatial-qa.json
+python3 python/run.py public/examples/customer-support-fleet.json --hosting api --json
+
+# Use it as a library:
+python3 -c "
+import json, sys; sys.path.insert(0, 'python')
+from costcalc import compute
+w = json.load(open('public/examples/public-geospatial-qa.json'))['workload']
+r = compute(w, {'model': w['defaults']['model'], 'tier': 'standard',
+                'mix': w['defaults']['mix'], 'hosting': 'api'})
+print(r['api']['monthly_capped'])   # 3794.13…
+"
+
+# Re-verify parity against the JS engine yourself:
+node scripts/dump-engine.mjs && python3 python/parity_check.py
+```
+
+The Python code never ships to calc.ajinkya.ai — only `public/` is
+deployed. It exists so the math is runnable, greppable and testable
+outside a browser.
 
 ## Run the benchmark
 

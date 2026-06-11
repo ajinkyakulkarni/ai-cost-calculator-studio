@@ -127,3 +127,17 @@ node scripts/dump-prices.mjs
   `ValueError` instead. Every shipped preset sets the field, so this only
   fires on hand-built minimal workloads. (Found by adversarial fuzz audit,
   2026-06-11: 1,276 perturbed variants, zero other divergences.)
+
+## Randomized cross-check
+
+Beyond the 17-preset parity gate, `random_parity.py` generates seeded
+random workload mutations (segments, tools, verification, caps,
+reservations, embeddings, agent fields, models/tiers/hostings) and runs
+every case through BOTH engines, deep-comparing at the same tolerance:
+
+```bash
+python3 python/random_parity.py --n 1000 --seed 7
+```
+
+Verified at port time: 2,300 random cases across seeds 1/7/42 — all
+match, zero asymmetric crashes.
