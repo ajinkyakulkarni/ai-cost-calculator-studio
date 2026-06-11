@@ -1,0 +1,587 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Flashcards · AI Cost Calculator — learn every knob and concept</title>
+<meta name="description" content="Flashcard + quiz study guide for the AI Cost Calculator: every knob, every concept, what it is, why it matters, how it moves the bill.">
+<style>
+  :root {
+    --navy: #0B3D91; --navy-2: #1e5fc9; --cyan: #0c8db3;
+    --paper: #f6f8fb; --card: #ffffff; --ink: #14213d; --ink-2: #3a4a62;
+    --dim: #8a96a8; --rule: #dde4ee;
+    --green: #1b8a5a; --red: #c62828; --amber: #b26a00;
+    --mono: "SF Mono", "Cascadia Code", Menlo, Consolas, monospace;
+    --sans: -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  }
+  * { box-sizing: border-box; }
+  /* display rules (e.g. .navrow{display:flex}) must not defeat the
+     hidden attribute — without this, the quiz nav leaks into learn mode. */
+  [hidden] { display: none !important; }
+  body { margin:0; font-family:var(--sans); background:var(--paper); color:var(--ink); min-height:100vh; display:flex; flex-direction:column; }
+
+  /* ── Header ────────────────────────────────────────────── */
+  .top { background:linear-gradient(135deg, #0B3D91, #1450b4); color:#fff; padding:14px 22px; display:flex; align-items:center; gap:14px; flex-wrap:wrap; }
+  .top h1 { font-size:17px; margin:0; font-weight:700; letter-spacing:.01em; }
+  .top h1 small { font-weight:400; opacity:.75; font-size:12px; margin-left:8px; }
+  .top a.back { color:#cfe3ff; text-decoration:none; font-size:12px; border:1px solid rgba(255,255,255,.25); padding:4px 10px; border-radius:6px; }
+  .top a.back:hover { background:rgba(255,255,255,.1); }
+  .mode-toggle { margin-left:auto; display:flex; background:rgba(255,255,255,.12); border-radius:999px; padding:3px; }
+  .mode-toggle button { border:none; background:transparent; color:#cfe3ff; font-size:12px; font-weight:700; padding:6px 16px; border-radius:999px; cursor:pointer; letter-spacing:.03em; }
+  .mode-toggle button.active { background:#fff; color:var(--navy); }
+
+  /* ── Toolbar ───────────────────────────────────────────── */
+  .bar { display:flex; gap:10px; align-items:center; padding:12px 22px; flex-wrap:wrap; }
+  .bar select { font:inherit; font-size:12px; padding:6px 10px; border:1px solid var(--rule); border-radius:6px; background:#fff; color:var(--ink); cursor:pointer; }
+  .bar .count { font-family:var(--mono); font-size:12px; color:var(--ink-2); }
+  .bar .spacer { flex:1; }
+  .bar button.mini { font-size:11.5px; padding:6px 12px; border:1px solid var(--rule); background:#fff; border-radius:6px; cursor:pointer; color:var(--ink-2); }
+  .bar button.mini:hover { border-color:var(--cyan); color:var(--cyan); }
+  .progress { height:4px; background:var(--rule); border-radius:2px; margin:0 22px; overflow:hidden; }
+  .progress > div { height:100%; background:linear-gradient(90deg, var(--navy-2), var(--cyan)); width:0%; transition:width .25s ease; }
+
+  /* ── Stage / card ──────────────────────────────────────── */
+  .stage { flex:1; display:flex; align-items:flex-start; justify-content:center; padding:26px 18px 10px; }
+  .flip-wrap { width:min(760px, 96vw); perspective:1400px; }
+  .flip { position:relative; width:100%; min-height:330px; transform-style:preserve-3d; transition:transform .45s cubic-bezier(.2,.7,.3,1); cursor:pointer; }
+  .flip.flipped { transform:rotateY(180deg); }
+  .face { position:absolute; inset:0; backface-visibility:hidden; -webkit-backface-visibility:hidden; background:var(--card); border:1px solid var(--rule); border-radius:14px; box-shadow:0 8px 28px rgba(20,33,61,.08); padding:30px 34px; display:flex; flex-direction:column; }
+  .face.back { transform:rotateY(180deg); overflow-y:auto; }
+  .chip { align-self:flex-start; font-family:var(--mono); font-size:10px; font-weight:700; letter-spacing:.08em; text-transform:uppercase; padding:3px 10px; border-radius:999px; color:#fff; margin-bottom:18px; }
+  .front .term { font-size:30px; font-weight:800; letter-spacing:-.01em; margin:auto 0; line-height:1.25; }
+  .front .hintline { color:var(--dim); font-size:12px; margin-top:auto; }
+  .back .term-sm { font-size:15px; font-weight:800; margin-bottom:10px; color:var(--navy); }
+  .back .body { font-size:14.5px; line-height:1.9; color:var(--ink-2); }
+  .back .body b { color:var(--ink); }
+  .cost { margin-top:26px; padding:13px 16px; background:rgba(178,106,0,.07); border-left:3px solid var(--amber); border-radius:4px; font-size:13px; line-height:1.8; color:var(--ink-2); }
+  .cost b { color:var(--amber); }
+
+  /* ── Nav buttons ───────────────────────────────────────── */
+  .navrow { display:flex; gap:12px; justify-content:center; padding:18px; }
+  .navrow button { font-size:13px; font-weight:600; padding:10px 22px; border-radius:8px; border:1px solid var(--rule); background:#fff; cursor:pointer; color:var(--ink-2); }
+  .navrow button:hover { border-color:var(--navy-2); color:var(--navy-2); }
+  .navrow button.primary { background:var(--navy); border-color:var(--navy); color:#fff; }
+  .navrow button.primary:hover { background:var(--navy-2); }
+
+  /* ── Quiz ──────────────────────────────────────────────── */
+  .quiz-q { font-size:16.5px; line-height:1.7; color:var(--ink); margin-bottom:22px; }
+  .quiz-q .qtag { font-family:var(--mono); font-size:10.5px; color:var(--dim); display:block; margin-bottom:10px; letter-spacing:.06em; }
+  .opt { display:flex; gap:12px; align-items:flex-start; width:100%; text-align:left; font-size:14.5px; line-height:1.55; padding:13px 16px; margin-bottom:10px; border:1.5px solid var(--rule); border-radius:9px; background:#fff; cursor:pointer; color:var(--ink-2); transition:border-color .12s, background .12s; }
+  .opt:hover { border-color:var(--navy-2); }
+  .opt .key { font-family:var(--mono); font-size:11px; font-weight:700; color:var(--dim); border:1px solid var(--rule); border-radius:4px; padding:2px 7px; flex-shrink:0; margin-top:1px; }
+  .opt.correct { border-color:var(--green); background:rgba(27,138,90,.07); color:var(--ink); }
+  .opt.wrong { border-color:var(--red); background:rgba(198,40,40,.06); }
+  .opt:disabled { cursor:default; }
+  .quiz-feedback { min-height:54px; font-size:13.5px; line-height:1.6; color:var(--ink-2); padding:6px 2px; }
+  .quiz-feedback b.ok { color:var(--green); } .quiz-feedback b.no { color:var(--red); }
+  .scoreline { font-family:var(--mono); font-size:12px; color:var(--ink-2); }
+  .result-big { text-align:center; padding:30px 10px; }
+  .result-big .pct { font-size:58px; font-weight:800; color:var(--navy); font-family:var(--mono); }
+  .result-big .msg { font-size:15px; color:var(--ink-2); margin-top:6px; }
+  .missed { margin-top:22px; text-align:left; }
+  .missed h4 { font-size:12px; text-transform:uppercase; letter-spacing:.06em; color:var(--dim); margin:0 0 8px; }
+  .missed li { font-size:13px; color:var(--ink-2); margin-bottom:5px; line-height:1.5; }
+  .missed li b { color:var(--ink); }
+
+  /* ── Keys legend ───────────────────────────────────────── */
+  .keys { text-align:center; padding:6px 14px 22px; font-size:11.5px; color:var(--dim); }
+  .keys kbd { font-family:var(--mono); font-size:10.5px; background:#fff; border:1px solid var(--rule); border-bottom-width:2px; border-radius:4px; padding:1px 6px; margin:0 2px; color:var(--ink-2); }
+
+  @media (max-width: 640px) {
+    .front .term { font-size:22px; }
+    .face { padding:22px 20px; }
+    .flip { min-height:380px; }
+  }
+</style>
+</head>
+<body>
+
+<div class="top">
+  <a class="back" href="index.html">← Calculator</a>
+  <h1>Flashcards <small>every knob &amp; concept — what, why, how it moves the bill</small></h1>
+  <div class="mode-toggle" role="group" aria-label="Mode">
+    <button id="mode-learn" class="active" onclick="setMode('learn')">📖 Learn</button>
+    <button id="mode-flash" onclick="setMode('flash')">🃏 Flashcards</button>
+    <button id="mode-quiz" onclick="setMode('quiz')">🎯 Quiz</button>
+  </div>
+</div>
+
+<div class="bar">
+  <select id="cat-filter" onchange="applyFilter()" aria-label="Category filter"></select>
+  <span class="count" id="counter"></span>
+  <span class="spacer"></span>
+  <span class="scoreline" id="scoreline" hidden></span>
+  <button class="mini" id="shuffle-btn" onclick="shuffleCards()">⇄ Shuffle (S)</button>
+</div>
+<div class="progress"><div id="prog"></div></div>
+
+<div class="stage">
+  <div class="flip-wrap">
+    <!-- Learn mode -->
+    <div class="flip" id="flip" onclick="flipCard()" role="button" aria-label="Flip card" tabindex="0">
+      <div class="face front">
+        <span class="chip" id="f-chip"></span>
+        <div class="term" id="f-term"></div>
+        <div class="hintline">click or press <b>Space</b> to reveal</div>
+      </div>
+      <div class="face back">
+        <span class="chip" id="b-chip"></span>
+        <div class="term-sm" id="b-term"></div>
+        <div class="body" id="b-body"></div>
+        <div class="cost" id="b-cost"></div>
+      </div>
+    </div>
+    <!-- Learn mode — everything visible, no flipping, just read + arrow through -->
+    <div id="read-pane" hidden>
+      <div class="face" style="position:relative; inset:auto; min-height:330px">
+        <span class="chip" id="r-chip"></span>
+        <div class="term-sm" id="r-term" style="font-size:22px; font-weight:800; margin-bottom:12px; color:var(--navy)"></div>
+        <div class="body" id="r-body" style="font-size:14.5px; line-height:1.9; color:var(--ink-2); margin-bottom:6px"></div>
+        <div class="cost" id="r-cost"></div>
+      </div>
+    </div>
+    <!-- Quiz mode -->
+    <div id="quiz-pane" hidden>
+      <div class="face" style="position:relative; inset:auto; min-height:330px">
+        <div id="quiz-inner">
+          <div class="quiz-q" id="q-text"></div>
+          <div id="q-opts"></div>
+          <div class="quiz-feedback" id="q-feedback"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="navrow" id="learn-nav">
+  <button onclick="prevCard()" title="Left arrow">← Prev</button>
+  <button class="primary" onclick="nextCard()" title="Right arrow or Space">Next →</button>
+</div>
+<div class="navrow" id="flash-nav" hidden>
+  <button onclick="prevCard()" title="Left arrow">← Prev</button>
+  <button class="primary" onclick="flipCard()" title="Space">Flip</button>
+  <button onclick="nextCard()" title="Right arrow">Next →</button>
+</div>
+<div class="navrow" id="quiz-nav" hidden>
+  <button class="primary" id="q-next-btn" onclick="quizNext()" disabled>Next question (Enter)</button>
+</div>
+
+<div class="keys" id="keys-learn">
+  <kbd>←</kbd><kbd>→</kbd> or <kbd>Space</kbd> move through cards &nbsp;·&nbsp; <kbd>S</kbd> shuffle &nbsp;·&nbsp; <kbd>M</kbd> next mode
+</div>
+<div class="keys" id="keys-flash" hidden>
+  <kbd>←</kbd><kbd>→</kbd> navigate &nbsp;·&nbsp; <kbd>Space</kbd> flip &nbsp;·&nbsp; <kbd>S</kbd> shuffle &nbsp;·&nbsp; <kbd>M</kbd> next mode
+</div>
+<div class="keys" id="keys-quiz" hidden>
+  <kbd>1</kbd>–<kbd>4</kbd> pick an answer &nbsp;·&nbsp; <kbd>Enter</kbd> or <kbd>→</kbd> next question &nbsp;·&nbsp; <kbd>S</kbd> new round &nbsp;·&nbsp; <kbd>M</kbd> next mode
+</div>
+
+<script>
+'use strict';
+/* ════════════════════════════════════════════════════════════
+   CARD DECK — distilled from the calculator's own tooltips
+   (AGENT_SLIDER_TIPS, AGENT_SECTION_TIPS, audience + workload
+   data-tips). Each card: category, term (front), what/why (back),
+   cost (how it moves the bill). Categories drive chip colors.
+   ════════════════════════════════════════════════════════════ */
+const CATS = {
+  'Workload':     '#0B3D91',
+  'Caching':      '#1b8a5a',
+  'Tokens & pricing': '#b26a00',
+  'Tools':        '#8e24aa',
+  'RAG':          '#5e35b1',
+  'Reasoning':    '#00838f',
+  'Guardrails':   '#e65100',
+  'Verification': '#1565c0',
+  'Agent fleet':  '#37474f',
+  'Hosting':      '#2e7d32',
+  'Federal':      '#6d4c41',
+  'Formulas':     '#c62828',
+};
+
+const CARDS = [
+// ── Workload ──────────────────────────────────────────────
+{c:'Workload', t:'Monthly Active Users (MAU)',
+ w:'How many <b>distinct humans</b> use the deployment in a typical month — unique people, not visits or sessions. Pull it from real analytics (login records, web-analytics dedup), never guess.',
+ $:'The whole bill scales <b>linearly</b> with MAU — a 2× error here is a 2× error on the bill.'},
+{c:'Workload', t:'Sessions per user per day',
+ w:'Average number of times one user opens a session per day. Fractional — most users don’t show up daily. Public portals: 0.1–0.3. Internal tools: 0.5–3.0.',
+ $:'Multiplies with MAU and questions/session into monthly query volume: <b>queries = MAU × sess/day × 30 × q/session</b>.'},
+{c:'Workload', t:'Questions per session',
+ w:'Back-and-forth exchanges in one chat session (one question + one reply = one turn). Quick search-style Q&amp;A: 1–3. Deep research / analyst work: 8–20.',
+ $:'Anchors the per-query rollup — every turn pays the full per-turn input bill (sysprompt + tools + RAG context).'},
+{c:'Workload', t:'MAU-weighted averaging',
+ w:'When audience segments merge into one aggregate, sessions/day and questions/session are <b>MAU-weighted means</b>, not plain means. 10,000 visitors @ 0.2 sess/day + 100 analysts @ 3.0 → weighted 0.228.',
+ $:'A plain mean would give 1.6 — <b>7× too high</b> — and misprice the entire bill. The big segment must dominate.'},
+{c:'Workload', t:'Bot factor',
+ w:'Multiplier inflating query volume for non-human traffic on public deployments. 1.0 = internal (no bots), 1.5× = typical public site, 2–3× = under crawler load.',
+ $:'Applies per-segment (checkbox per audience) — anonymous public segments get it, authenticated ones usually don’t.'},
+{c:'Workload', t:'Query shapes & workload mix',
+ w:'Not every query runs the full pipeline. Shapes (full / rag-only / partial / refusal / heavy) carry input &amp; output factors; the mix weights blend them into an average per-query cost.',
+ $:'A 10% refusal share at 0.06× input factor is nearly free; a 5% heavy share at 1.2× can outweigh it. The blend IS the per-query price.'},
+{c:'Workload', t:'Growth per month',
+ w:'Compounding monthly growth rate applied to the cost-over-time projection.',
+ $:'Curves the projection chart and the 3-year TCO — <b>this month’s headline is unaffected</b>.'},
+{c:'Workload', t:'Peak / average ratio',
+ w:'How spiky traffic is within a day. Used only to size self-host GPU capacity (you must provision for the peak).',
+ $:'Greyed out in API mode — the provider absorbs peaks and you pay per token regardless of spikiness.'},
+
+// ── Tokens & pricing ──────────────────────────────────────
+{c:'Tokens & pricing', t:'Input vs output token prices',
+ w:'Providers price output tokens far above input — typically <b>4–5× per million</b>. Anything billed "as output" is in the expensive direction.',
+ $:'This is why extended thinking (billed as output) and long answers dominate bills even when prompts are huge but cached.'},
+{c:'Tokens & pricing', t:'Anchor query',
+ w:'The measured per-turn token counts that calibrate a workload — e.g. the geospatial reference: 2,933 input / 41 output per turn, measured from 2,832 real instrumented LLM calls.',
+ $:'Everything scales off the anchor. Measured anchors (📊) are trustworthy; estimated ones carry a confidence label.'},
+{c:'Tokens & pricing', t:'Pricing tiers',
+ w:'The same model is sold at multiple service tiers: standard 1×, flex/batch 0.5× (slower, queued), priority 2.5× (low latency SLA).',
+ $:'Batch-eligible traffic (overnight summarization, async pipelines) at 0.5× is one of the cheapest levers that needs zero engineering.'},
+{c:'Tokens & pricing', t:'Retry inflation',
+ w:'Failed calls get retried, and you pay again. Factor = <b>1 + retry_rate × 1.5</b> — the 1.5 accounts for input repaid in full plus roughly half the output that was already generated before the failure.',
+ $:'3% retries → ×1.045 on the API bill. 10% → ×1.15. Schema-strict outputs at high temperature drive retries up.'},
+
+// ── Caching ───────────────────────────────────────────────
+{c:'Caching', t:'Prompt cache hit rate',
+ w:'Share of input tokens served from the provider’s prompt cache at ~10% of the fresh-input price (a ~90% discount on hits). OpenAI requires a stable prefix of ≥1024 tokens to cache at all.',
+ $:'The single biggest lever on input-heavy workloads. 88% measured on the geospatial reference; dropping to 0% roughly triples its LLM line.'},
+{c:'Caching', t:'Cache write share',
+ w:'Of the tokens that hit the cache, the fraction being written for the first time (billed at a premium) vs read back. ~10% in steady state; ~50% during a cold start.',
+ $:'Matters in the first weeks after launch or after every sysprompt change — each change invalidates the cache and re-pays write premiums.'},
+{c:'Caching', t:'Tool result cache share 📊',
+ w:'MEASURED fraction of volatile tool-return tokens that actually cache in practice — distinct from the overall hit rate (the stable sysprompt always caches; tool payloads often don’t). Default 0.5 modeled; the geospatial reference <b>measured 0.215</b>.',
+ $:'Guessing instead of measuring distorts freeform tool cost by up to <b>4× in either direction</b>. Instrument cached_tokens per call to pin it.'},
+{c:'Caching', t:'Context compression',
+ w:'Summarizing conversation history instead of resending it whole. The knob is the <b>net</b> saving: discount minus the summarization calls you pay to produce it.',
+ $:'30% ≈ a Claude-Code-like setup. Long multi-turn sessions benefit most; short sessions can go negative (overhead exceeds savings).'},
+
+// ── Tools ─────────────────────────────────────────────────
+{c:'Tools', t:'Tools (function calling)',
+ w:'How an agent acts on the world — search, geocode, DB queries, code execution. Each enabled tool’s JSON schema rides along on <b>every request</b>; its result payload lands in the turns that call it.',
+ $:'schema tokens × every turn + result tokens × calls/query, all billed as input. Plus any per-call provider fee.'},
+{c:'Tools', t:'Templated vs freeform returns',
+ w:'Templated: the tool returns a short status string ("Found 15 items") and the system keeps the raw payload out of the prompt. Freeform: the full raw payload (STAC JSON, stats dictionaries) goes into the LLM.',
+ $:'The dominant lever in tool-heavy agents: the geospatial preset jumps <b>~3×</b> when stac_search flips — 27 templated tokens vs 18,435 raw.'},
+{c:'Tools', t:'Tool fees',
+ w:'Direct provider charges separate from tokens: web search ~$0.01/call, file search ~$0.0025/call, code-interpreter sessions ~$0.03. An engine line so the calc, CLI and Excel export bill identically.',
+ $:'Easy to forget: 1M queries × 0.3 web-search calls/query = <b>$3,000/mo</b> before a single token is billed.'},
+{c:'Tools', t:'Tool memoization',
+ w:'Caching identical tool calls at the application layer (same CRM lookup, same KB search). hit_rate × per-call fee and result tokens saved.',
+ $:'A 40% memoize rate on a $0.0025 file-search called 4×/query at 1M queries saves ~$4K/mo plus the duplicate result tokens.'},
+
+// ── RAG ───────────────────────────────────────────────────
+{c:'RAG', t:'RAG / retrieval',
+ w:'Before answering, the agent pulls document chunks from a vector store into the prompt. Grounds answers in <b>your corpus</b> instead of training data — the standard fix for hallucinated facts and stale knowledge.',
+ $:'chunks × tokens-per-chunk lands on EVERY retrieval turn as input — often the single biggest input lever. 5 × 400 tok = 2,000 extra input tokens per turn.'},
+{c:'RAG', t:'Chunks per call & tokens per chunk',
+ w:'Recall vs cost tradeoff. Production typically lands at 5–10 chunks; 512 tok/chunk is a common default. Smaller chunks = sharper relevance, more needed; larger = continuity, more tokens per hit.',
+ $:'>15 chunks hits diminishing returns and pressures the context window. Multiply by retrieval calls/query for multi-hop agents.'},
+{c:'RAG', t:'Embeddings cost',
+ w:'Embedding the corpus (one-time + re-embed every N months) plus a tiny per-query embedding for the search itself.',
+ $:'Usually small next to the LLM line — 50M-token corpus on text-embedding-3-small re-embedded twice a year is a rounding error vs one day of queries.'},
+
+// ── Reasoning ─────────────────────────────────────────────
+{c:'Reasoning', t:'Extended thinking',
+ w:'The model’s internal scratchpad (Claude extended thinking, OpenAI o-series, Gemini thinking) — invisible to users, large quality gains on hard multi-step work. Wasted on simple lookups.',
+ $:'Thinking tokens bill at <b>OUTPUT rates</b> (the 4–5× expensive direction). A 10K budget on 50% of turns can cost more than the visible answer.'},
+{c:'Reasoning', t:'Thinking budget',
+ w:'Token allowance per thinking turn. 5,000 is a common "medium"; high-stakes math/code goes to 32K+. Higher = deeper deliberation, slower latency.',
+ $:'Bill = budget × % of turns that think × output rate. Budget is the multiplier most people forget they set.'},
+{c:'Reasoning', t:'Reasoning turns %',
+ w:'Not every turn needs deep reasoning — a router classifying intent doesn’t; a planner deciding the next 5 steps does. 100 = every turn thinks; 20 = only the planning turn.',
+ $:'Cheapest reasoning optimization: keep the budget, drop the percentage to the turns that actually need it.'},
+{c:'Reasoning', t:'CoT steps (visible)',
+ w:'Explicit chain-of-thought in the visible response — separate from the hidden thinking trace. Each step adds ~50–150 output tokens before the final answer.',
+ $:'Use 0 for terse production answers; 3–5 when users need to verify the reasoning. Pure output cost.'},
+{c:'Reasoning', t:'Temperature 🎓',
+ w:'Sampling randomness. Low (0–0.3) = deterministic, good for JSON-schema and routing. High (0.8–1.0) = diverse, good for creative work. A real production parameter you WILL set in code.',
+ $:'<b>Cost-neutral</b> — token counts don’t depend on it. Only indirect path: low temp → fewer schema-mismatch retries → slightly lower retry rate.'},
+
+// ── Guardrails ────────────────────────────────────────────
+{c:'Guardrails', t:'Guardrails',
+ w:'Safety scans wrapped around every turn: input screening (prompt injection / jailbreaks), output moderation, PII detection, policy compliance. Table stakes for public-facing and federal deployments.',
+ $:'Each scan adds its token budget to every turn — a full stack typically adds <b>~10–20%</b> to the per-turn bill.'},
+{c:'Guardrails', t:'Guard block waste',
+ w:'A response blocked AFTER generation is pure wasted spend — the model produced the full output, the user never saw it, and you still pay.',
+ $:'Shows as its own ledger line. High block rates are both a safety smell and a direct cost leak.'},
+{c:'Guardrails', t:'PII scan',
+ w:'Scanning for names, SSNs, emails, addresses. Required for HIPAA / GDPR / FedRAMP workloads. Usually folded into a single Llama-Guard-style call.',
+ $:'Keep at 0 if your input/output guard model already covers PII — <b>don’t double-count</b> the same scan.'},
+
+// ── Verification ──────────────────────────────────────────
+{c:'Verification', t:'Verification pipeline (post-hoc)',
+ w:'A sidecar that runs AFTER the main agent: atomize the response into claims → check each claim against retrieved evidence with a cheap NLI model → revise. Verifies grounding at much lower cost than re-running the main LLM.',
+ $:'Cost = (atomizer + NLI batch + reviser) × coverage × queries. Appears as the Verification line in the ledger.'},
+{c:'Verification', t:'Coverage',
+ w:'Fraction of responses the verification pipeline checks. 0.10 = 1 in 10 responses; 1.0 = every response.',
+ $:'Linear multiplier on the whole verification bill. Sampling at 10% catches systematic hallucination patterns at a tenth of the price.'},
+{c:'Verification', t:'Per-agent fact-check vs workload verification',
+ w:'Two different architectures: the per-agent slider re-runs the agent’s OWN model N times (self-consistency, critic loops) — each pass roughly doubles that agent’s cost. The workload Verification section is the cheap post-hoc NLI sidecar.',
+ $:'Use self-consistency when the agent must deliberate harder; use the NLI sidecar for atom-level grounding checks at scale. Don’t conflate them.'},
+{c:'Verification', t:'MiniCheck vs FactReasoner variants',
+ w:'MiniCheck: a single-call NLI verifier — cheap enough to run inline at 100% coverage. FR1/FR2: multi-call FactReasoner variants (~24 / ~160 NLI calls per checked response) with stronger guarantees.',
+ $:'The variant choice swings verification cost by an order of magnitude — match it to the stakes of the claims being checked.'},
+
+// ── Agent fleet ───────────────────────────────────────────
+{c:'Agent fleet', t:'Turn share ×',
+ w:'This agent’s call count relative to the global turns/session. ×1 = matches global; ×0.5 = an orchestrator that fires once while workers loop; ×2 = a drafter that revises repeatedly.',
+ $:'Multiplies the agent’s per-query LLM calls: a ×2 agent on a 6-turn workload bills 12 calls per query.'},
+{c:'Agent fleet', t:'Inter-agent messages',
+ w:'The structured payload one agent passes to the next on every call (router → worker, planner → drafter). Added to input every call and typically NOT cached — it changes per query.',
+ $:'Sums up fast in chatty fleets: a 500-tok handoff × 6 calls × 1M queries = <b>3B input tokens a month</b>.'},
+{c:'Agent fleet', t:'Activation rate',
+ w:'What fraction of queries this agent fires on. 100% = every query; 30% = conditional (e.g. a refusal-detection agent triggered only on flagged input).',
+ $:'Scales the agent’s entire cost proportionally — the cheapest way to model conditional fleet members.'},
+{c:'Agent fleet', t:'Sysprompt amortization',
+ w:'A per-agent system prompt bills at the cached rate (~10% of fresh) after the first call, and its cost splits across the agent’s calls_per_query.',
+ $:'A 3,000-tok sysprompt on a cache-eligible 6-call agent is cheap; the same prompt on a one-shot uncached agent eats full freight every query.'},
+{c:'Agent fleet', t:'Max output tokens',
+ w:'Hard cap on an agent’s output per call. Routers and classifiers should be capped low; long-form drafters set generously.',
+ $:'Direct lever on the expensive token direction — output is 4–5× input price. Capping a verbose router from 4K to 256 is free money.'},
+
+// ── Hosting ───────────────────────────────────────────────
+{c:'Hosting', t:'API vs self-host',
+ w:'API: pay per token, the provider absorbs peaks, zero idle cost. Self-host: rent/buy GPUs sized for YOUR peak, pay for idle hours, own the ops.',
+ $:'Self-host wins only when steady utilization is high. The calc’s realistic mode adds ops + FTE + setup amortization + a 0.75 throughput derate.'},
+{c:'Hosting', t:'Self-host sizing chain',
+ w:'Queries → average QPS → peak tokens/sec (× diurnal peak factor × headroom) → instances needed (ceil by per-GPU throughput, floor at HA replicas) → GPU hourly × 730 × (1 − commit discount).',
+ $:'Every factor compounds: a 4× diurnal peak × 1.5 headroom means you provision <b>6×</b> the average load.'},
+{c:'Hosting', t:'Reservations / committed spend',
+ w:'Azure PTU, OpenAI enterprise commits: pre-purchased capacity at a discount. When enabled, the effective monthly replaces the per-token API bill on the API path.',
+ $:'Worth it once volume is steady and predictable — the calc’s migration phases model pilot-on-API → commit → hybrid.'},
+{c:'Hosting', t:'Hybrid hosting',
+ w:'Self-host a baseline for steady traffic; route spikes and tail queries to the API. The apiSplit knob sets the blend.',
+ $:'Captures self-host economics on the predictable 50–80% without provisioning GPUs for the worst burst.'},
+
+// ── Federal ───────────────────────────────────────────────
+{c:'Federal', t:'FedRAMP & federal additives',
+ w:'Government deployments pay a hosting premium (gov-cloud rates above commercial) plus additive lines: egress per query, audit-log storage with 7-year retention, PII redaction, ATO cost amortization.',
+ $:'Individually small, collectively real — the additive total rides every query and shows as its own ledger line.'},
+
+// ── Formulas ──────────────────────────────────────────────
+{c:'Formulas', t:'Headline composition',
+ w:'The single source of truth every $/month panel routes through: <b>LLM line</b> (chosen by hosting: hybrid → self → on-prem → reservation → API) <b>+ fixed infra + verification + tool fees + federal + embeddings + personnel + agent engineering</b>.',
+ $:'Lives in lib/headline-math.js, unit-tested in Node. One formula, every panel — so the KPIs can’t drift apart.'},
+{c:'Formulas', t:'Agent engineering amortization',
+ w:'Design-phase cost spread over the deployment’s life: roles × FTE × loaded salary × (duration/12), plus helper-agent months, ÷ amortization months — plus recurring design-lead maintenance (loaded hourly × hours ÷ interval).',
+ $:'A 4-month build with one ML engineer amortized over 36 months adds ~$2.5K/mo — invisible if you only count tokens.'},
+{c:'Formulas', t:'3-year TCO',
+ w:'The federal-budgeting view: headline × 36 at current rate (the growth curve is shown separately in the projection).',
+ $:'A “cheap” $7,772/mo pilot is a <b>$27.5M</b> 3-year line item at constant volume — the number procurement actually signs.'},
+{c:'Formulas', t:'Cost per query',
+ w:'Monthly headline ÷ monthly queries — the unit economics number for comparing architectures, models and providers fairly.',
+ $:'The geospatial reference measures $0.008–0.026 per cycle depending on templated/freeform × gating — a 3× spread from architecture choices alone.'},
+];
+
+/* ════════════ Hand-written quiz extras (numeric / formula) ═══════ */
+const NUMERIC_QS = [
+ {q:'Retry rate is 4%. What does the retry-inflation factor (1 + rate × 1.5) come to?',
+  opts:['×1.04','×1.06','×1.15','×1.60'], a:1,
+  why:'1 + 0.04 × 1.5 = 1.06 — input repaid in full plus ~half the already-generated output.'},
+ {q:'10,000 public visitors at 0.2 sessions/day merge with 100 analysts at 3.0. The correct MAU-weighted sessions/day aggregate is…',
+  opts:['1.60 (plain average)','0.23','3.00','0.50'], a:1,
+  why:'(10,000×0.2 + 100×3.0) ÷ 10,100 ≈ 0.228. The plain mean (1.6) would be ~7× too high.'},
+ {q:'Extended-thinking tokens are billed at…',
+  opts:['Input rates','Output rates','Cached rates','They’re free'], a:1,
+  why:'Thinking bills as OUTPUT — the 4–5× expensive direction — even though users never see it.'},
+ {q:'Flipping the geospatial preset’s stac_search tool from templated to freeform moves the headline roughly…',
+  opts:['+5%','+50%','~3×','~10×'], a:2,
+  why:'27 templated tokens vs 18,435 raw payload tokens per call — the measured preset jumps about 3×.'},
+ {q:'A prompt-cache HIT bills input tokens at roughly…',
+  opts:['Full price','~50% of fresh','~10% of fresh','Free'], a:2,
+  why:'~90% discount on hits. That’s why cache hit rate is the biggest input-side lever.'},
+ {q:'Verification coverage 0.10 means…',
+  opts:['10% of claims per response are checked','1 in 10 responses is checked','The verifier is 10% accurate','Checks cost 10% extra'], a:1,
+  why:'Coverage samples whole responses — 0.10 = every tenth response runs the full atomize→NLI→revise pipeline.'},
+ {q:'Dragging the Temperature slider changes the monthly bill by…',
+  opts:['Nothing — it’s cost-neutral','+1% per 0.1','It halves cached tokens','It doubles output tokens'], a:0,
+  why:'Token counts don’t depend on temperature. Only an indirect path exists: low temp → fewer schema retries.'},
+ {q:'OpenAI’s prompt cache only engages when the stable prompt prefix is at least…',
+  opts:['128 tokens','512 tokens','1024 tokens','4096 tokens'], a:2,
+  why:'Below 1024 stable prefix tokens, nothing caches — short-prompt agents can’t benefit at all.'},
+];
+
+/* ════════════════════════ State ═══════════════════════════ */
+let mode = 'learn';
+let deck = [...CARDS];        // filtered view
+let idx = 0, flipped = false;
+let quiz = null;              // {questions, i, score, answered, missed[]}
+
+/* ─── Setup ─── */
+const $ = id => document.getElementById(id);
+function init(){
+  const sel = $('cat-filter');
+  sel.innerHTML = '<option value="">All categories ('+CARDS.length+' cards)</option>' +
+    Object.keys(CATS).map(c=>{
+      const n = CARDS.filter(x=>x.c===c).length;
+      return `<option value="${c}">${c} (${n})</option>`;
+    }).join('');
+  renderCard();
+}
+function applyFilter(){
+  const v = $('cat-filter').value;
+  deck = v ? CARDS.filter(x=>x.c===v) : [...CARDS];
+  idx = 0; flipped = false;
+  if (mode==='learn') renderCard(); else startQuiz();
+}
+function shuffleCards(){
+  for(let i=deck.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[deck[i],deck[j]]=[deck[j],deck[i]];}
+  idx=0; flipped=false;
+  if (mode==='learn') renderCard(); else startQuiz();
+}
+
+/* ─── Learn + Flashcard modes ─── */
+function renderCard(){
+  const card = deck[idx]; if(!card) return;
+  const col = CATS[card.c] || '#555';
+  // flashcard faces
+  $('f-chip').textContent = card.c; $('f-chip').style.background = col;
+  $('b-chip').textContent = card.c; $('b-chip').style.background = col;
+  $('f-term').textContent = card.t;
+  $('b-term').textContent = card.t;
+  $('b-body').innerHTML = card.w;
+  $('b-cost').innerHTML = '<b>💰 Cost impact:</b> ' + card.$;
+  $('flip').classList.toggle('flipped', flipped);
+  // learn (read) pane — everything visible at once
+  $('r-chip').textContent = card.c; $('r-chip').style.background = col;
+  $('r-term').textContent = card.t;
+  $('r-body').innerHTML = card.w;
+  $('r-cost').innerHTML = '<b>💰 Cost impact:</b> ' + card.$;
+  $('counter').textContent = `${idx+1} / ${deck.length}`;
+  $('prog').style.width = ((idx+1)/deck.length*100) + '%';
+}
+function flipCard(){ if(mode!=='flash')return; flipped=!flipped; $('flip').classList.toggle('flipped', flipped); }
+function nextCard(){ if(mode==='quiz')return; idx=(idx+1)%deck.length; flipped=false; renderCard(); }
+function prevCard(){ if(mode==='quiz')return; idx=(idx-1+deck.length)%deck.length; flipped=false; renderCard(); }
+
+/* ─── Quiz mode ─── */
+function buildQuiz(){
+  // MCQ from cards: show the explanation, pick the term. Distractors
+  // prefer same-category terms so options aren't giveaways.
+  const pool=[...deck]; const qs=[];
+  for(let i=pool.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[pool[i],pool[j]]=[pool[j],pool[i]];}
+  for(const card of pool.slice(0, 8)){
+    const sameCat = CARDS.filter(x=>x.c===card.c && x.t!==card.t);
+    const others  = CARDS.filter(x=>x.t!==card.t);
+    const dpool = sameCat.length>=3 ? sameCat : others;
+    const ds = []; const used=new Set([card.t]);
+    while(ds.length<3){
+      const d = dpool[Math.floor(Math.random()*dpool.length)];
+      if(!used.has(d.t)){ used.add(d.t); ds.push(d.t); }
+    }
+    const opts=[card.t,...ds];
+    for(let i=opts.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[opts[i],opts[j]]=[opts[j],opts[i]];}
+    const plain = card.w.replace(/<[^>]+>/g,'');
+    qs.push({tag:card.c, q:'Which concept is this? — “'+plain+'”', opts, a:opts.indexOf(card.t), why:card.$.replace(/<[^>]+>/g,'')});
+  }
+  // mix in 4 numeric/formula questions
+  const nq=[...NUMERIC_QS];
+  for(let i=nq.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[nq[i],nq[j]]=[nq[j],nq[i]];}
+  for(const n of nq.slice(0,4)) qs.push({tag:'Numbers', ...n});
+  for(let i=qs.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[qs[i],qs[j]]=[qs[j],qs[i]];}
+  return qs;
+}
+function startQuiz(){
+  quiz = { questions: buildQuiz(), i:0, score:0, answered:false, missed:[] };
+  renderQuestion();
+}
+function renderQuestion(){
+  const Q = quiz.questions[quiz.i];
+  $('quiz-inner').innerHTML = `
+    <div class="quiz-q"><span class="qtag">QUESTION ${quiz.i+1} / ${quiz.questions.length} · ${Q.tag.toUpperCase()}</span>${Q.q}</div>
+    <div id="q-opts">${Q.opts.map((o,i)=>`<button class="opt" data-i="${i}" onclick="answer(${i})"><span class="key">${i+1}</span><span>${o}</span></button>`).join('')}</div>
+    <div class="quiz-feedback" id="q-feedback"></div>`;
+  quiz.answered=false;
+  $('q-next-btn').disabled = true;
+  $('q-next-btn').textContent = quiz.i === quiz.questions.length-1 ? 'See results (Enter)' : 'Next question (Enter)';
+  $('counter').textContent = `${quiz.i+1} / ${quiz.questions.length}`;
+  $('prog').style.width = (quiz.i/quiz.questions.length*100)+'%';
+  $('scoreline').textContent = `score ${quiz.score} / ${quiz.i}`;
+}
+function answer(i){
+  if(!quiz || quiz.answered) return;
+  quiz.answered = true;
+  const Q = quiz.questions[quiz.i];
+  document.querySelectorAll('.opt').forEach(b=>{
+    b.disabled = true;
+    const bi = +b.dataset.i;
+    if(bi===Q.a) b.classList.add('correct');
+    else if(bi===i) b.classList.add('wrong');
+  });
+  const ok = i===Q.a;
+  if(ok) quiz.score++;
+  else quiz.missed.push(Q);
+  $('q-feedback').innerHTML = (ok ? '<b class="ok">✓ Correct.</b> ' : `<b class="no">✗ Not quite — it’s “${Q.opts[Q.a]}”.</b> `) + (Q.why||'');
+  $('q-next-btn').disabled = false;
+  $('scoreline').textContent = `score ${quiz.score} / ${quiz.i+1}`;
+}
+function quizNext(){
+  if(!quiz || !quiz.answered) return;
+  quiz.i++;
+  if(quiz.i >= quiz.questions.length) return showResults();
+  renderQuestion();
+}
+function showResults(){
+  const pct = Math.round(quiz.score/quiz.questions.length*100);
+  const msg = pct===100 ? 'Perfect — you could bill for this.' :
+              pct>=75  ? 'Strong — a few cards away from mastery.' :
+              pct>=50  ? 'Solid start — flip through the missed cards below.' :
+                         'Time for a Learn-mode lap. The cards are quick.';
+  $('quiz-inner').innerHTML = `
+    <div class="result-big">
+      <div class="pct">${pct}%</div>
+      <div class="msg">${quiz.score} of ${quiz.questions.length} — ${msg}</div>
+      ${quiz.missed.length?`<div class="missed"><h4>Review these</h4><ul>${quiz.missed.map(m=>`<li><b>${m.opts[m.a]}</b> — ${(m.why||'').slice(0,140)}</li>`).join('')}</ul></div>`:''}
+    </div>`;
+  $('q-next-btn').disabled = false;
+  $('q-next-btn').textContent = 'New round (Enter)';
+  quiz.answered = true; quiz.i = quiz.questions.length; quiz.done = true;
+  $('prog').style.width = '100%';
+}
+
+/* ─── Mode switch — learn (read) / flash (flip) / quiz ─── */
+const MODES = ['learn','flash','quiz'];
+function setMode(m){
+  mode = m;
+  $('mode-learn').classList.toggle('active', m==='learn');
+  $('mode-flash').classList.toggle('active', m==='flash');
+  $('mode-quiz').classList.toggle('active', m==='quiz');
+  $('flip').hidden       = m!=='flash';
+  $('read-pane').hidden  = m!=='learn';
+  $('quiz-pane').hidden  = m!=='quiz';
+  $('learn-nav').hidden  = m!=='learn';
+  $('flash-nav').hidden  = m!=='flash';
+  $('quiz-nav').hidden   = m!=='quiz';
+  $('keys-learn').hidden = m!=='learn';
+  $('keys-flash').hidden = m!=='flash';
+  $('keys-quiz').hidden  = m!=='quiz';
+  $('scoreline').hidden  = m!=='quiz';
+  if(m==='quiz') startQuiz(); else { flipped=false; renderCard(); }
+}
+
+/* ─── Keyboard ─── */
+document.addEventListener('keydown', e=>{
+  if(e.target.tagName==='SELECT') return;
+  const k = e.key;
+  if(k==='m'||k==='M'){ setMode(MODES[(MODES.indexOf(mode)+1)%MODES.length]); e.preventDefault(); return; }
+  if(k==='s'||k==='S'){ shuffleCards(); e.preventDefault(); return; }
+  if(mode==='learn'){
+    // read-through mode: Space doubles as "next" so one thumb can drive it
+    if(k==='ArrowRight'||k===' '||k==='Enter'){ nextCard(); e.preventDefault(); }
+    else if(k==='ArrowLeft'){ prevCard(); e.preventDefault(); }
+  } else if(mode==='flash'){
+    if(k==='ArrowRight'){ nextCard(); e.preventDefault(); }
+    else if(k==='ArrowLeft'){ prevCard(); e.preventDefault(); }
+    else if(k===' '||k==='Enter'){ flipCard(); e.preventDefault(); }
+  } else {
+    if(k>='1'&&k<='4'){ answer(+k-1); e.preventDefault(); }
+    else if(k==='Enter'||k==='ArrowRight'){
+      if(quiz && quiz.done){ startQuiz(); } else quizNext();
+      e.preventDefault();
+    }
+  }
+});
+init();
+setMode('learn');
+</script>
+</body>
+</html>
