@@ -7,6 +7,7 @@
     "publicFacing": true,
     "fedrampTier": "moderate"
   },
+
   "anchor_query": {
     "input_tokens": 2933,
     "output_tokens": 41,
@@ -20,50 +21,22 @@
       "method": "Per-tool cap_tokens = tiktoken o200k_base of the agent's templated tool-status strings. result_tokens_avg per tool = tiktoken of the raw canned payload the freeform mode passes back to the model. stac_search anchored on 15 STAC items × 1,230 tok = 18,435 tok measured directly from the canned backend.",
       "per_turn_input": {
         "templated": "sysprompt 2814 + agent.input 0 + tool sum 119 = 2933 tok/turn (matches default load)",
-        "freeform": "sysprompt 2814 + agent.input 0 + tool sum 20926 = 23740 tok/turn (load preset, flip all tools to freeform via global RETURN SHAPE)"
+        "freeform":  "sysprompt 2814 + agent.input 0 + tool sum 20926 = 23740 tok/turn (load preset, flip all tools to freeform via global RETURN SHAPE)"
       },
       "measured_per_cycle": {
-        "templated_single_turn_nogate": {
-          "cost_usd": 0.008141,
-          "ci_95": 0.000847,
-          "cache_rate": 0.926,
-          "n": 50
-        },
-        "templated_single_turn_gated": {
-          "cost_usd": 0.008679,
-          "ci_95": 0.000741,
-          "cache_rate": 0.895,
-          "n": 33
-        },
-        "templated_per_stage_confirm": {
-          "cost_usd": 0.014118,
-          "ci_95": 0.000653,
-          "cache_rate": 0.872,
-          "n": 50
-        },
-        "freeform_single_turn_nogate": {
-          "cost_usd": 0.019686,
-          "ci_95": 0.00126,
-          "cache_rate": 0.722,
-          "n": 50
-        },
-        "freeform_single_turn_gated": {
-          "cost_usd": 0.018735,
-          "ci_95": 0.000284,
-          "cache_rate": 0.727,
-          "n": 35
-        },
-        "freeform_per_stage_confirm": {
-          "cost_usd": 0.025725,
-          "ci_95": 0.000465,
-          "cache_rate": 0.725,
-          "n": 50
-        }
+        "templated_single_turn_nogate": {"cost_usd": 0.008141, "ci_95": 0.000847, "cache_rate": 0.926, "n": 50},
+        "templated_single_turn_gated":  {"cost_usd": 0.008679, "ci_95": 0.000741, "cache_rate": 0.895, "n": 33},
+        "templated_per_stage_confirm":  {"cost_usd": 0.014118, "ci_95": 0.000653, "cache_rate": 0.872, "n": 50},
+        "freeform_single_turn_nogate":  {"cost_usd": 0.019686, "ci_95": 0.001260, "cache_rate": 0.722, "n": 50},
+        "freeform_single_turn_gated":   {"cost_usd": 0.018735, "ci_95": 0.000284, "cache_rate": 0.727, "n": 35},
+        "freeform_per_stage_confirm":   {"cost_usd": 0.025725, "ci_95": 0.000465, "cache_rate": 0.725, "n": 50}
       },
       "supersedes": "Earlier paper-stated anchors of 3342 (templated) and 22798 (freeform) were estimates; the measured values above are paper-faithful by construction (paper §6 reflects these measured values)."
     }
   },
+
   "tool_response_mode": "templated",
+
   "clarification_strategy": {
     "_doc": "Three patterns measured on the public-geospatial-qa-agent corpus run, 2026-06-04. Pre-flight gate dominates per-stage confirm on cost when more than f_naive of public traffic is missing a required field; crossover values below are derived from the measured cells.",
     "selected": "pre_flight_gate",
@@ -88,9 +61,9 @@
       }
     },
     "tunables": {
-      "f_naive": 0.5,
+      "f_naive": 0.50,
       "f_naive_doc": "Share of incoming public traffic missing a required field (date, place, or dataset hint). Set 0 for internal tools; 0.3 for informed-public; 0.5+ for general-public deployments.",
-      "recovery_rate": 0.9,
+      "recovery_rate": 0.90,
       "recovery_rate_doc": "Share of gated queries whose user comes back and provides the missing field. Production gate UX dependent; 0.9 is a reasonable default."
     },
     "crossover": {
@@ -99,6 +72,7 @@
       "doc": "Above these f_naive thresholds the pre-flight gate is strictly cheaper than running every query."
     }
   },
+
   "tools_registry": {
     "set_datetime": {
       "label": "parse_datetime",
@@ -185,6 +159,7 @@
       "builtin": false
     }
   },
+
   "agents": [
     {
       "id": "geo-qa-agent",
@@ -198,136 +173,62 @@
       "hosting": "api",
       "description": "Single server-side ReAct agent. Per-call input = sysprompt (2,814 cached) + 0 fresh; tool returns contribute via the registry above. At templated default, total per-turn input = 2,933 tok matching the measured paper anchor.",
       "enabled_tools": {
-        "set_datetime": {
-          "calls_per_query": 1
-        },
-        "get_place": {
-          "calls_per_query": 1
-        },
-        "collections_rag": {
-          "calls_per_query": 1
-        },
-        "select_collection": {
-          "calls_per_query": 1
-        },
-        "stac_search": {
-          "calls_per_query": 1
-        },
-        "stats": {
-          "calls_per_query": 1
-        },
-        "viz": {
-          "calls_per_query": 1
-        }
+        "set_datetime":      { "calls_per_query": 1 },
+        "get_place":         { "calls_per_query": 1 },
+        "collections_rag":   { "calls_per_query": 1 },
+        "select_collection": { "calls_per_query": 1 },
+        "stac_search":       { "calls_per_query": 1 },
+        "stats":             { "calls_per_query": 1 },
+        "viz":               { "calls_per_query": 1 }
       }
     }
   ],
+
   "shapes": {
-    "full": {
-      "input_factor": 1.0,
-      "output_factor": 1.0,
-      "cache_eligible": true,
-      "description": "Full pipeline (one analysis query)"
-    },
-    "rag": {
-      "input_factor": 0.19,
-      "output_factor": 0.47,
-      "cache_eligible": true,
-      "description": "Discovery-only (no stats/viz)"
-    },
-    "partial": {
-      "input_factor": 0.62,
-      "output_factor": 0.47,
-      "cache_eligible": true,
-      "description": "Pipeline terminates early"
-    },
-    "refusal": {
-      "input_factor": 0.06,
-      "output_factor": 0.12,
-      "cache_eligible": false,
-      "description": "Out-of-scope rejection"
-    },
-    "heavy": {
-      "input_factor": 1.2,
-      "output_factor": 1.17,
-      "cache_eligible": true,
-      "description": "Long-context multi-turn"
-    }
+    "full":    { "input_factor": 1.00, "output_factor": 1.00, "cache_eligible": true,  "description": "Full pipeline (one analysis query)" },
+    "rag":     { "input_factor": 0.19, "output_factor": 0.47, "cache_eligible": true,  "description": "Discovery-only (no stats/viz)" },
+    "partial": { "input_factor": 0.62, "output_factor": 0.47, "cache_eligible": true,  "description": "Pipeline terminates early" },
+    "refusal": { "input_factor": 0.06, "output_factor": 0.12, "cache_eligible": false, "description": "Out-of-scope rejection" },
+    "heavy":   { "input_factor": 1.20, "output_factor": 1.17, "cache_eligible": true,  "description": "Long-context multi-turn" }
   },
+
   "mix": {
-    "worst": {
-      "label": "Worst-case (every query full pipeline)",
-      "weights": {
-        "full": 1.0
-      }
-    },
-    "mixed": {
-      "label": "Mixed (40% full · 30% rag · 15% partial · 10% refusal · 5% heavy)",
-      "weights": {
-        "full": 0.4,
-        "rag": 0.3,
-        "partial": 0.15,
-        "refusal": 0.1,
-        "heavy": 0.05
-      }
-    },
-    "lookup": {
-      "label": "Lookup-heavy (70% rag, 15% full, 10% refusal, 5% partial)",
-      "weights": {
-        "rag": 0.7,
-        "full": 0.15,
-        "refusal": 0.1,
-        "partial": 0.05
-      }
-    }
+    "worst":  { "label": "Worst-case (every query full pipeline)", "weights": { "full": 1.0 } },
+    "mixed":  { "label": "Mixed (40% full · 30% rag · 15% partial · 10% refusal · 5% heavy)", "weights": { "full": 0.40, "rag": 0.30, "partial": 0.15, "refusal": 0.10, "heavy": 0.05 } },
+    "lookup": { "label": "Lookup-heavy (70% rag, 15% full, 10% refusal, 5% partial)", "weights": { "rag": 0.70, "full": 0.15, "refusal": 0.10, "partial": 0.05 } }
   },
+
   "segments": [
-    {
-      "id": "all",
-      "label": "Public visitors",
-      "mau": 10000,
-      "sessions_per_day": 0.2,
-      "questions_per_session": 10,
-      "applyBotFactor": true,
-      "description": "Anonymous public visitors. Single-segment simplified — load public-geospatial-qa-multi-segment.json for the paper's 500-auth + 10K-public split (auth contributes ~1.6% of monthly queries)."
-    }
+    { "id": "all", "label": "Public visitors", "mau": 10000, "sessions_per_day": 0.2, "questions_per_session": 10, "applyBotFactor": true, "description": "Anonymous public visitors. Single-segment simplified — load public-geospatial-qa-multi-segment.json for the paper's 500-auth + 10K-public split (auth contributes ~1.6% of monthly queries)." }
   ],
+
   "verification": {
     "enabled": true,
-    "coverage": 0.1,
+    "coverage": 0.10,
     "atoms_per_response": 8,
     "variant": "fr1",
-    "atoms_per_response_nli_calls": {
-      "fr1": 24,
-      "fr2": 160
-    },
-    "atomizer_tokens": {
-      "input": 1500,
-      "output": 400
-    },
-    "reviser_tokens": {
-      "input": 500,
-      "output": 30
-    },
-    "nli_tokens": {
-      "input": 1200,
-      "output": 20
-    },
+    "atoms_per_response_nli_calls": { "fr1": 24, "fr2": 160 },
+    "atomizer_tokens": { "input": 1500, "output": 400 },
+    "reviser_tokens":  { "input":  500, "output":  30 },
+    "nli_tokens":      { "input": 1200, "output":  20 },
     "retrieval": "wikipedia",
     "nli_hosting": "ec2-g6",
     "service_pod_monthly": 36
   },
+
   "rate_limit": {
     "strategy": "edge",
     "monthly_cost": 15,
     "bot_ceiling": 2.5
   },
+
   "daily_cap": {
     "enabled": true,
     "amount_usd": 1500,
     "burst_days": 7,
     "burst_factor": 1.0
   },
+
   "infrastructure": {
     "Runtime · compute platform": 179,
     "RAG service": 36,
@@ -347,6 +248,7 @@
     "AWS Config": 20,
     "ECR + platform baseline": 184
   },
+
   "defaults": {
     "model": "gpt-5.2",
     "tier": "standard",
@@ -355,6 +257,7 @@
     "hosting": "api",
     "cost_mode": "optimistic"
   },
+
   "migration": {
     "enabled": true,
     "phases": [
