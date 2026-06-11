@@ -240,6 +240,13 @@ const CARDS = [
  w:'Failed calls get retried, and you pay again. Factor = <b>1 + retry_rate × 1.5</b> — the 1.5 accounts for input repaid in full plus roughly half the output that was already generated before the failure.',
  $:'3% retries → ×1.045 on the API bill. 10% → ×1.15. Schema-strict outputs at high temperature drive retries up.'},
 
+{c:'Tokens & pricing', t:'Batch async %',
+ w:'Share of traffic that can run through the provider’s batch tier — async jobs with relaxed latency (overnight summarization, re-embedding, bulk classification) queued instead of served live.',
+ $:'Batch bills at <b>0.5×</b> standard rates — a 50% discount on every token you can afford to wait for. Zero engineering beyond queueing.'},
+{c:'Tokens & pricing', t:'Language multiplier',
+ w:'Tokenizers are trained mostly on English — the same sentence costs more tokens in other scripts. EN = 1.0×, code ≈ 1.3×, CJK languages ≈ 1.8–2.2×.',
+ $:'A Japanese-language deployment pays roughly <b>double</b> the token bill of the identical English workload. Set from your real language mix.'},
+
 // ── Caching ───────────────────────────────────────────────
 {c:'Caching', t:'Prompt cache hit rate',
  w:'Share of input tokens served from the provider’s prompt cache at ~10% of the fresh-input price (a ~90% discount on hits). OpenAI requires a stable prefix of ≥1024 tokens to cache at all.',
@@ -250,6 +257,9 @@ const CARDS = [
 {c:'Caching', t:'Tool result cache share 📊',
  w:'MEASURED fraction of volatile tool-return tokens that actually cache in practice — distinct from the overall hit rate (the stable sysprompt always caches; tool payloads often don’t). Default 0.5 modeled; the geospatial reference <b>measured 0.215</b>.',
  $:'Guessing instead of measuring distorts freeform tool cost by up to <b>4× in either direction</b>. Instrument cached_tokens per call to pin it.'},
+{c:'Caching', t:'Tool result ReAct persistence 📊',
+ w:'In a ReAct loop, a tool return from stage K is often still sitting in the conversation at stages K+1, K+2… until summarization pushes it out. This measured knob (0–1) models how strongly prior-stage results accumulate in later calls.',
+ $:'Result tokens × (1 + (calls−1) × persistence): at 0.5 on a 6-call loop, each return is billed ~3.5×. Default 0 — turning it on without re-tuning cache share <b>double-counts</b>.'},
 {c:'Caching', t:'Context compression',
  w:'Summarizing conversation history instead of resending it whole. The knob is the <b>net</b> saving: discount minus the summarization calls you pay to produce it.',
  $:'30% ≈ a Claude-Code-like setup. Long multi-turn sessions benefit most; short sessions can go negative (overhead exceeds savings).'},
@@ -267,6 +277,16 @@ const CARDS = [
 {c:'Tools', t:'Tool memoization',
  w:'Caching identical tool calls at the application layer (same CRM lookup, same KB search). hit_rate × per-call fee and result tokens saved.',
  $:'A 40% memoize rate on a $0.0025 file-search called 4×/query at 1M queries saves ~$4K/mo plus the duplicate result tokens.'},
+
+{c:'Tools', t:'Tool cost shape',
+ w:'How a tool bills: <b>free</b> (self-hosted, infra-absorbed), <b>per_call</b> (each invocation charged), or <b>per_session</b> (one charge per sandbox/session, e.g. code interpreter).',
+ $:'Per-call × calls/query × queries compounds fast; per-session amortizes across the turns inside it; free shifts the cost into the Infrastructure block instead.'},
+{c:'Tools', t:'Tool provider (managed / self-hosted / Bedrock)',
+ w:'Who runs the tool. Managed (OpenAI file search, vendor web search) bills per call. Self-hosted (your geocoder, your STAC API) is $0 per call — the cost lives in your infra line.',
+ $:'Self-hosted “free” tools aren’t free: the $90/mo geocoder line and vector-DB pods sit in Infrastructure. Compare per-call fees against that flat spend at your volume.'},
+{c:'Tools', t:'Cap tokens (templated summary size)',
+ w:'When a tool’s return shape is templated, this is the size of the short status string actually injected into the prompt — measured by tokenizing the template (“Found 15 items” ≈ 27 tokens for stac_search).',
+ $:'The whole templated-vs-freeform saving IS this number vs result-tokens-avg: 27 vs 18,435 on the geospatial reference’s dominant tool.'},
 
 // ── RAG ───────────────────────────────────────────────────
 {c:'RAG', t:'RAG / retrieval',
@@ -321,6 +341,19 @@ const CARDS = [
  w:'MiniCheck: a single-call NLI verifier — cheap enough to run inline at 100% coverage. FR1/FR2: multi-call FactReasoner variants (~24 / ~160 NLI calls per checked response) with stronger guarantees.',
  $:'The variant choice swings verification cost by an order of magnitude — match it to the stakes of the claims being checked.'},
 
+{c:'Verification', t:'Atoms (claims) per response',
+ w:'How many atomic factual claims the atomizer extracts from a typical response. Each atom gets its own NLI entailment check against evidence.',
+ $:'Linear multiplier inside the pipeline: 8 atoms × the variant’s NLI calls per atom × coverage × queries. Long synthesis answers atomize into more claims than terse lookups.'},
+{c:'Verification', t:'Where the fact-check model runs (NLI hosting)',
+ w:'The NLI verifier can run via API per call or on your own GPU (e.g. EC2 g6.xlarge ≈ $588/mo flat). Self-host turns a per-call cost into a fixed monthly line.',
+ $:'High verification volume favors the flat GPU; low coverage on low traffic favors per-call API. The crossover is just volume × per-call price vs $588.'},
+{c:'Verification', t:'Source for evidence retrieval',
+ w:'Where the verifier pulls evidence to check claims against: free Wikipedia, your own corpus (vector-DB pod), or a paid retrieval API.',
+ $:'Wikipedia is $0 per call; a dedicated service pod adds a flat monthly infra line; paid retrieval bills per check. Choose based on whether your claims are about world facts or your own data.'},
+{c:'Verification', t:'Cascade & escalate rate',
+ w:'Two-tier verification: run a cheap verifier (MiniCheck) on everything, escalate only flagged responses (escalate rate, typically ~0.10) to a deeper, costlier variant (FR1/FR2).',
+ $:'Buys most of the deep verifier’s accuracy at a fraction of its price: cost = cheap × coverage + deep × coverage × escalate_rate.'},
+
 // ── Agent fleet ───────────────────────────────────────────
 {c:'Agent fleet', t:'Turn share ×',
  w:'This agent’s call count relative to the global turns/session. ×1 = matches global; ×0.5 = an orchestrator that fires once while workers loop; ×2 = a drafter that revises repeatedly.',
@@ -337,6 +370,22 @@ const CARDS = [
 {c:'Agent fleet', t:'Max output tokens',
  w:'Hard cap on an agent’s output per call. Routers and classifiers should be capped low; long-form drafters set generously.',
  $:'Direct lever on the expensive token direction — output is 4–5× input price. Capping a verbose router from 4K to 256 is free money.'},
+
+{c:'Agent fleet', t:'Per-agent cache hit rate override',
+ w:'Overrides the workload-wide cache rate for one agent — useful when one agent has a stable cache-hot sysprompt and another rewrites its context every call.',
+ $:'Leave at 0 to inherit the workload rate; set explicitly only when you’ve <b>measured</b> this agent’s cache behavior in production telemetry.'},
+{c:'Agent fleet', t:'Few-shot examples',
+ w:'Inline examples in the prompt, ~100–500 input tokens each. They cache across calls but compete for context-window space.',
+ $:'Drop to 0 if the sysprompt alone tunes the agent; pay for them when schema alone won’t enforce the output format you need.'},
+{c:'Agent fleet', t:'JSON schema tokens',
+ w:'The structured-output schema (response_format / tool-use spec) injected on every call — typically 100–800 tokens depending on depth.',
+ $:'Most providers cache it, but some older Bedrock/Vertex SDKs re-send it fresh each call — check before assuming the cache saves you.'},
+{c:'Agent fleet', t:'Persistent memory tokens',
+ w:'Always-on long-term context injected every call (user preferences, project state, prior decisions) — distinct from RAG, which retrieves per query.',
+ $:'Cheap in steady state (changes slowly, so it caches) — but watch memory bloat; production systems summarize it periodically.'},
+{c:'Agent fleet', t:'Citation output tokens',
+ w:'Extra output tokens for citations and source references on RAG-heavy agents.',
+ $:'Output-side, so expensive: 500 citations × 30 tok at GPT-5.2 output prices ≈ <b>$0.21 per query</b> of pure citation cost. Consider footnote-style compression.'},
 
 // ── Hosting ───────────────────────────────────────────────
 {c:'Hosting', t:'API vs self-host',

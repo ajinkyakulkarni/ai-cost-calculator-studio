@@ -3888,6 +3888,19 @@ input[type=range]:disabled { cursor: not-allowed; }
   </div>
   <!-- GitHub source link — top-bar variant (the footer keeps the long-form
        "Source" label; the appbar variant is icon-only to stay compact). -->
+  <!-- Quiz / flashcards link — card-stack icon to the on-site study
+       guide (quiz.html: learn / flashcard / quiz modes covering every
+       knob). Sits left of the explainer icon; same compact treatment. -->
+  <a id="appbar-quiz" href="quiz.html"
+     title="Quiz &amp; flashcards: learn every knob and concept — read-through, flip-to-recall, and scored quiz modes"
+     aria-label="Open the quiz and flashcards study guide"
+     style="display:inline-flex;align-items:center;justify-content:center;width:30px;height:28px;margin-right:6px;color:inherit;text-decoration:none;border:1px solid rgba(255,255,255,.18);border-radius:6px;opacity:.85"
+     onmouseover="this.style.opacity=1" onmouseout="this.style.opacity=.85">
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16"
+         width="15" height="15" aria-hidden="true" focusable="false">
+      <path fill="currentColor" d="M3 1h10a1 1 0 0 1 1 1v9a1 1 0 0 1-1 1H3a1 1 0 0 1-1-1V2a1 1 0 0 1 1-1zm5 2.2c-1.3 0-2.3.8-2.3 2h1.4c0-.5.35-.8.9-.8s.9.3.9.75c0 .4-.2.6-.75 1-.6.45-.85.85-.85 1.55v.3h1.4v-.2c0-.45.15-.65.75-1.1.65-.5 1-1 1-1.75 0-1.05-1-1.75-2.45-1.75zM7.3 9.4v1.4h1.4V9.4H7.3zM1 4H0v10a1 1 0 0 0 1 1h12v-1H1V4z"/>
+    </svg>
+  </a>
   <!-- Interactive explainer link — bar-chart icon to the visual
        cost-paper explainer on ajinkya.ai. Sits left of the tutorial
        icon; same compact icon-button treatment. -->
