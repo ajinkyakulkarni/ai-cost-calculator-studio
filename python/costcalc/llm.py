@@ -100,15 +100,11 @@ def effective_cached_rate(rates: Dict[str, Any], write_share: Optional[float]) -
         return p_read
 
     p_write = rates["cached_write_per_million"]
-    w = write_share if (write_share is not None and not _is_nan(write_share)) else 0.0
+    # NaN write_share behaves like absent (JS: NaN is falsy in the || chain)
+    w = write_share if (write_share is not None
+                        and not math.isnan(float(write_share))) else 0.0
     return w * p_write + (1 - w) * p_read
 
-
-def _is_nan(x: Any) -> bool:
-    try:
-        return math.isnan(float(x))
-    except (TypeError, ValueError):
-        return False
 
 
 # ---------------------------------------------------------------------------

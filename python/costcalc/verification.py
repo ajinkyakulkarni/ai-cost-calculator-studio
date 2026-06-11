@@ -19,7 +19,7 @@ Cascading (escalation): primary verifier → secondary on flagged subset.
 from __future__ import annotations
 
 import math
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Optional
 
 # Per-query NLI call totals (already includes atoms_per_response multiplication)
 VARIANT_NLI_CALLS: Dict[str, int] = {"fr1": 24, "fr2": 160, "fr3": 350}

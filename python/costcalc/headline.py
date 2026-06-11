@@ -13,7 +13,7 @@ headline = llm + fixed + verif + toolFees + fed + emb + pers + ae
 """
 from __future__ import annotations
 
-from typing import Any, Dict, Optional
+from typing import Any, Dict
 
 
 def compose_headline(

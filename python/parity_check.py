@@ -20,10 +20,9 @@ from __future__ import annotations
 
 import json
 import math
-import os
 import sys
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Tuple
 
 # ---------------------------------------------------------------------------
 # Path setup
@@ -165,7 +164,7 @@ def run_preset(slug: str) -> Tuple[bool, str, List[Tuple[str, float, float]]]:
     opts = build_opts(workload)
     # Sanity: stored opts should match
     if stored_opts and stored_opts.get("cacheRate") != opts.get("cacheRate"):
-        print(f"  ⚠ opts.cacheRate mismatch vs stored dump for {name} — comparing anyway", file=sys.stderr)
+        print(f"  ⚠ opts.cacheRate mismatch vs stored dump for {slug} — comparing anyway", file=sys.stderr)
 
     # Run Python engine
     try:
