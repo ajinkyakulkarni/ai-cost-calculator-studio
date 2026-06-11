@@ -56,6 +56,15 @@
   .cost { margin-top:26px; padding:13px 16px; background:rgba(178,106,0,.07); border-left:3px solid var(--amber); border-radius:4px; font-size:13px; line-height:1.8; color:var(--ink-2); }
   .cost b { color:var(--amber); }
 
+  /* ── Interactive mini-calculator on cards ─────────────── */
+  .viz { margin-top:18px; padding:14px 16px; background:rgba(11,61,145,.045); border:1px solid rgba(11,61,145,.15); border-radius:9px; }
+  .viz-tag { font-family:var(--mono); font-size:9.5px; font-weight:700; letter-spacing:.08em; color:var(--navy-2); text-transform:uppercase; margin-bottom:8px; }
+  .viz-top { display:flex; justify-content:space-between; align-items:baseline; font-size:12.5px; color:var(--ink-2); margin-bottom:4px; }
+  .viz-top b { font-family:var(--mono); font-size:14px; color:var(--navy); }
+  .viz input[type=range] { width:100%; accent-color:var(--navy-2); cursor:pointer; }
+  .viz-out { font-family:var(--mono); font-size:12.5px; line-height:1.8; color:var(--ink-2); margin-top:8px; padding-top:8px; border-top:1px dashed rgba(11,61,145,.2); }
+  .viz-out b { color:var(--navy); font-size:13.5px; }
+
   /* ── Nav buttons ───────────────────────────────────────── */
   .navrow { display:flex; gap:12px; justify-content:center; padding:18px; }
   .navrow button { font-size:13px; font-weight:600; padding:10px 22px; border-radius:8px; border:1px solid var(--rule); background:#fff; cursor:pointer; color:var(--ink-2); }
@@ -129,6 +138,7 @@
         <div class="term-sm" id="b-term"></div>
         <div class="body" id="b-body"></div>
         <div class="cost" id="b-cost"></div>
+        <div id="b-viz" onclick="event.stopPropagation()"></div>
       </div>
     </div>
     <!-- Learn mode — everything visible, no flipping, just read + arrow through -->
@@ -138,6 +148,7 @@
         <div class="term-sm" id="r-term" style="font-size:22px; font-weight:800; margin-bottom:12px; color:var(--navy)"></div>
         <div class="body" id="r-body" style="font-size:14.5px; line-height:1.9; color:var(--ink-2); margin-bottom:6px"></div>
         <div class="cost" id="r-cost"></div>
+        <div id="r-viz"></div>
       </div>
     </div>
     <!-- Quiz mode -->
@@ -421,6 +432,72 @@ const CARDS = [
  $:'The geospatial reference measures $0.008–0.026 per cycle depending on templated/freeform × gating — a 3× spread from architecture choices alone.'},
 ];
 
+/* ════════════════════════════════════════════════════════════
+   INTERACTIVE MINI-CALCULATORS — keyed by card title. Each gives
+   the card a live slider: drag the knob, watch the formula and the
+   dollars respond. Reference workload for the examples: ~900K
+   queries/mo (the 10K-MAU geospatial preset), GPT-5.2-class prices
+   (input $3/M fresh, output $14/M).
+   ════════════════════════════════════════════════════════════ */
+const $n = x => x.toLocaleString(undefined,{maximumFractionDigits:0});
+const $d = x => '$' + $n(x);
+const VIZ = {
+'Monthly Active Users (MAU)': {label:'MAU', min:1000, max:200000, step:1000, init:10000, fmt:v=>$n(v),
+ out:v=>{const q=v*0.2*30*10; return `queries/mo = ${$n(v)} MAU × 0.2 sess/day × 30 × 10 q/sess = <b>${$n(q)}</b><br>bill scales linearly: ×${(v/10000).toFixed(1)} vs the 10K-MAU baseline`;}},
+'Sessions per user per day': {label:'Sessions / day', min:0.05, max:3, step:0.05, init:0.2, fmt:v=>v.toFixed(2),
+ out:v=>{const q=10000*v*30*10; return `10,000 MAU × ${v.toFixed(2)} × 30 × 10 q/sess = <b>${$n(q)} queries/mo</b><br>${v<=0.3?'public-portal territory':v<=1?'engaged-product territory':'internal-tool territory'}`;}},
+'MAU-weighted averaging': {label:'Analysts added (3.0 sess/day)', min:0, max:2000, step:50, init:100, fmt:v=>$n(v),
+ out:v=>{const w=(10000*0.2+v*3)/(10000+v); const plain=(0.2+3)/2; return `weighted = (10,000×0.2 + ${$n(v)}×3.0) ÷ ${$n(10000+v)} = <b>${w.toFixed(3)}</b><br>plain mean would claim ${plain.toFixed(2)} — off by <b>×${(plain/w).toFixed(1)}</b>`;}},
+'Bot factor': {label:'Bot factor', min:1, max:3, step:0.1, init:1.5, fmt:v=>'×'+v.toFixed(1),
+ out:v=>{const base=600000; return `${$n(base)} human queries → <b>${$n(base*v)}</b> billed queries<br>${$n(base*(v-1))} of them are bots you still pay for`;}},
+'Retry inflation': {label:'Retry rate', min:0, max:25, step:1, init:3, fmt:v=>v+'%',
+ out:v=>{const f=1+v/100*1.5; return `factor = 1 + ${(v/100).toFixed(2)} × 1.5 = <b>×${f.toFixed(3)}</b><br>a ${$d(10000)} API bill becomes <b>${$d(10000*f)}</b>`;}},
+'Prompt cache hit rate': {label:'Cache hit rate', min:0, max:95, step:5, init:88, fmt:v=>v+'%',
+ out:v=>{const eff=(1-v/100)*3+(v/100)*0.3; return `effective input price = ${(100-v)}% × $3.00 + ${v}% × $0.30 = <b>$${eff.toFixed(2)}/M</b><br>vs $3.00/M uncached → <b>${Math.round((1-eff/3)*100)}% saved</b> on input`;}},
+'Templated vs freeform returns': {label:'Tool result tokens per call', min:27, max:18435, step:100, init:27, fmt:v=>$n(v)+' tok',
+ out:v=>{const m=v*900000*6*3e-6; return `${$n(v)} tok × 6 calls × 900K queries × $3/M (uncached) ≈ <b>${$d(m)}/mo</b><br>drag from 27 (templated) to 18,435 (stac_search raw) and watch why return shape dominates`;}},
+'Extended thinking': {label:'Thinking budget (tok)', min:0, max:32000, step:1000, init:10000, fmt:v=>$n(v),
+ out:v=>{const m=v*0.5*900000*14e-6; return `${$n(v)} tok × 50% of turns × 900K queries × $14/M output = <b>${$d(m)}/mo</b><br>billed as OUTPUT — the expensive direction`;}},
+'Reasoning turns %': {label:'Turns that think', min:0, max:100, step:5, init:50, fmt:v=>v+'%',
+ out:v=>{const m=10000*(v/100)*900000*14e-6; return `10K budget × ${v}% × 900K queries × $14/M = <b>${$d(m)}/mo</b><br>same budget, ${v===100?'every turn pays':'only the turns that need it pay'}`;}},
+'Inter-agent messages': {label:'Handoff size (tok)', min:0, max:2000, step:50, init:500, fmt:v=>$n(v)+' tok',
+ out:v=>{const t=v*6*1000000; return `${$n(v)} tok × 6 calls × 1M queries = <b>${(t/1e9).toFixed(1)}B input tok/mo</b> ≈ <b>${$d(t*3e-6)}</b> uncached`;}},
+'Coverage': {label:'Coverage', min:0, max:100, step:5, init:10, fmt:v=>(v/100).toFixed(2),
+ out:v=>{const checked=900000*v/100; return `<b>${$n(checked)}</b> of 900K responses verified/mo<br>at ~$0.012/check (FR1 self-host) ≈ <b>${$d(checked*0.012)}/mo</b>`;}},
+'Batch async %': {label:'Batch-eligible traffic', min:0, max:100, step:5, init:0, fmt:v=>v+'%',
+ out:v=>{const mult=(100-v)/100*1+(v/100)*0.5; return `blended tier multiplier = <b>×${mult.toFixed(2)}</b><br>a ${$d(10000)} bill becomes <b>${$d(10000*mult)}</b> — ${$d(10000*(1-mult))} saved for tolerating a queue`;}},
+'Language multiplier': {label:'Language multiplier', min:1, max:2.2, step:0.1, init:1, fmt:v=>'×'+v.toFixed(1),
+ out:v=>`identical workload, different script: ${$d(10000)} (EN) → <b>${$d(10000*v)}</b>${v>=1.8?' — CJK territory':v>=1.3?' — code-heavy territory':''}`},
+'Activation rate': {label:'Activation rate', min:0, max:100, step:5, init:100, fmt:v=>v+'%',
+ out:v=>`an agent costing ${$d(3000)}/mo at 100% bills <b>${$d(3000*v/100)}</b> firing on ${v}% of queries`},
+'Max output tokens': {label:'Output cap (tok/call)', min:64, max:4096, step:64, init:1024, fmt:v=>$n(v),
+ out:v=>{const m=v*900000*14e-6; return `worst case: ${$n(v)} tok × 900K queries × $14/M = <b>${$d(m)}/mo</b> of output<br>capping a verbose router 4096 → 256 keeps ~${$d((4096-256)*900000*14e-6)} in your pocket`;}},
+'Cascade & escalate rate': {label:'Escalate rate', min:0, max:100, step:5, init:10, fmt:v=>(v/100).toFixed(2),
+ out:v=>{const cheap=0.001, deep=0.024; const c=cheap+deep*v/100; return `per-response = $${cheap.toFixed(3)} (MiniCheck) + $${deep.toFixed(3)} × ${(v/100).toFixed(2)} = <b>$${c.toFixed(4)}</b><br>vs $${deep.toFixed(3)} running the deep verifier on everything → <b>${Math.round((1-c/deep)*100)}% cheaper</b>`;}},
+'Citation output tokens': {label:'Citation tokens / query', min:0, max:15000, step:500, init:15000, fmt:v=>$n(v),
+ out:v=>`${$n(v)} tok × $14/M = <b>$${(v*14e-6).toFixed(3)}/query</b> ≈ <b>${$d(v*14e-6*900000)}/mo</b> at 900K queries — pure citation cost`},
+'3-year TCO': {label:'Monthly headline', min:1000, max:120000, step:1000, init:7772, fmt:v=>$d(v),
+ out:v=>`${$d(v)}/mo × 36 = <b>${$d(v*36)}</b> 3-year TCO — the number procurement signs`},
+'Sysprompt amortization': {label:'Sysprompt size (tok)', min:0, max:4000, step:100, init:2814, fmt:v=>$n(v),
+ out:v=>{const cached=v*900000*0.3e-6, fresh=v*900000*3e-6; return `cached (~10% rate): <b>${$d(cached)}/mo</b> · if it never cached: ${$d(fresh)}/mo<br>the cache turns a big prompt from scary to cheap`;}},
+};
+
+/* render + wire the mini-calculator into a pane */
+function vizHtml(v, pane){
+  return `<div class="viz">
+    <div class="viz-tag">🎛 try it — drag the slider</div>
+    <div class="viz-top"><span>${v.label}</span><b id="${pane}-viz-val"></b></div>
+    <input type="range" id="${pane}-viz-slider" min="${v.min}" max="${v.max}" step="${v.step}" value="${v.init}" aria-label="${v.label}">
+    <div class="viz-out" id="${pane}-viz-out"></div>
+  </div>`;
+}
+function wireViz(v, pane){
+  const sl = $(pane+'-viz-slider'); if(!sl) return;
+  const upd = ()=>{ $(pane+'-viz-val').textContent = v.fmt(+sl.value); $(pane+'-viz-out').innerHTML = v.out(+sl.value); };
+  sl.addEventListener('input', upd); upd();
+}
+
+
 /* ════════════ Hand-written quiz extras (numeric / formula) ═══════ */
 const NUMERIC_QS = [
  {q:'Retry rate is 4%. What does the retry-inflation factor (1 + rate × 1.5) come to?',
@@ -495,6 +572,11 @@ function renderCard(){
   $('r-term').textContent = card.t;
   $('r-body').innerHTML = card.w;
   $('r-cost').innerHTML = '<b>💰 Cost impact:</b> ' + card.$;
+  // interactive mini-calculator (when this concept has one)
+  const v = VIZ[card.t];
+  $('r-viz').innerHTML = v ? vizHtml(v,'r') : '';
+  $('b-viz').innerHTML = v ? vizHtml(v,'b') : '';
+  if (v) { wireViz(v,'r'); wireViz(v,'b'); }
   $('counter').textContent = `${idx+1} / ${deck.length}`;
   $('prog').style.width = ((idx+1)/deck.length*100) + '%';
 }
