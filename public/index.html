@@ -611,6 +611,14 @@
     #cb-tco, #cb-tco-sep { display: none !important; }
     .cost-pill .cb-label { font-size: 9px; letter-spacing: 0.04em; }
   }
+  /* Agent fleet editor: the 260px sidebar (Fleet actions + What changes
+     here) + agent-card grid doesn't fit side-by-side on phones — the
+     cards get crushed into a sliver. Stack into one column: sidebar
+     cards first, then agent cards full-width below. !important needed
+     because the grid template is set inline on the element. */
+  @media (max-width: 760px) {
+    #agent-editor-grid { grid-template-columns: 1fr !important; }
+  }
   .appbar h1 { white-space: nowrap; }
   .appbar .pill { white-space: nowrap; }
   .appbar h1 {
@@ -2881,7 +2889,19 @@
     font-family: var(--mono);
     border-top: 1px solid rgba(255,255,255,0.1);
     display: flex; gap: 24px;
+    flex-wrap: wrap;
   }
+  /* Full-width disclaimer line under the footer links. */
+  .footer-disclaimer {
+    flex-basis: 100%;
+    font-size: 10.5px;
+    line-height: 1.6;
+    color: rgba(255,255,255,0.55);
+    border-top: 1px solid rgba(255,255,255,0.08);
+    padding-top: 8px;
+    margin-top: 2px;
+  }
+  .footer-disclaimer a { color: rgba(255,255,255,0.75); }
   .footer a { color: rgba(255,255,255,0.85); text-decoration: none; }
   .footer a:hover { color: var(--paper); text-decoration: underline; }
 
@@ -4645,7 +4665,7 @@ How agents coordinate, billed as extra input tokens per turn per agent.
   </div>
 
   <div class="panel">
-    <div style="padding:9px 11px;display:grid;grid-template-columns:260px 1fr;gap:8px">
+    <div id="agent-editor-grid" style="padding:9px 11px;display:grid;grid-template-columns:260px 1fr;gap:8px">
       <div style="display:flex;flex-direction:column;gap:8px">
         <div class="mcard">
           <div class="mlabel">Fleet actions</div>
@@ -6390,8 +6410,18 @@ Both fields are independent; they don't have to match.">ⓘ</span></label>
   <span>AI Cost Calculator</span>
   <span><a href="examples/">Examples</a></span>
   <span id="prices-freshness" title="Prices are scraped daily from vendor pricing pages.">Prices: bundled (loading live…)</span>
+  <span><a href="https://github.com/ajinkyakulkarni/ai-cost-calculator-studio" target="_blank" rel="noopener" title="Source code on GitHub">Source</a></span>
   <span><a href="https://github.com/ajinkyakulkarni/ai-cost-calculator-studio/blob/main/LICENSE" target="_blank" rel="noopener" title="MIT License">MIT</a></span>
   <span style="margin-left:auto;">Math: <a href="lib/cost-engine.js">cost-engine.js</a></span>
+  <div class="footer-disclaimer">
+    ⚠ Experimental project, built for learning — not procurement advice.
+    Estimates are planning figures, not quotes: model prices change,
+    workloads vary, and your numbers will differ. Use discretion and
+    cross-verify the math before relying on it — the full derivation is
+    one click away (Methodology → Math walkthrough, paste it into any AI
+    and ask it to check every formula), and the engine + tests are open
+    source for independent review.
+  </div>
 </div>
 
 <!-- JSON view/edit/import modal — populated + wired by app.js -->
