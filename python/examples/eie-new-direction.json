@@ -1,0 +1,45 @@
+{
+  "_doc": "EIE Agent — proposed new product direction (broad, multi-step, federated queries). Archetype cost model — see python/docs/archetype-cost-spec.md. Token profiles are from the stakeholder estimate (2026-06); Planning+routing is a placeholder (~2.2x Multi-source) until measured. Edit shares/tokens to match real telemetry.",
+  "model": "gpt-5.4",
+  "tier": "standard",
+  "cycles_per_month": 600000,
+  "_volume_note": "~400 DAU x ~50 cycles/user/day x 30 ~= 600,000 cycles/month.",
+  "archetypes": [
+    {
+      "name": "Simple",
+      "share": 0.6,
+      "tool_calls": 6,
+      "turns": 6,
+      "input_tokens": 80000,
+      "cached_tokens": 70000,
+      "output_tokens": 600,
+      "low_factor": 0.8,
+      "high_factor": 1.3,
+      "_example": "Current EIE fixed pipeline (single dataset retrieval)."
+    },
+    {
+      "name": "Multi-source",
+      "share": 0.3,
+      "tool_calls": 8,
+      "turns": 11,
+      "input_tokens": 233498,
+      "cached_tokens": 184917,
+      "output_tokens": 885,
+      "low_factor": 0.8,
+      "high_factor": 1.4,
+      "_example": "Q1: people affected by a power outage (population x AOI)."
+    },
+    {
+      "name": "Planning+routing",
+      "share": 0.1,
+      "tool_calls": 13,
+      "turns": 18,
+      "input_tokens": 513696,
+      "cached_tokens": 406817,
+      "output_tokens": 1947,
+      "low_factor": 0.6,
+      "high_factor": 1.8,
+      "_example": "Q2: shade-maximizing route (fusion + optimization). PLACEHOLDER ~2.2x Multi-source — replace when measured."
+    }
+  ]
+}

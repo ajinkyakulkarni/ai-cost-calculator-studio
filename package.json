@@ -14,7 +14,8 @@
     "calc": "node scripts/calc.js",
     "verify-aws": "node scripts/verify-aws-instances.js",
     "bench:validate": "node scripts/bench-validate.mjs",
-    "test:parity-py": "python3 python/parity_check.py"
+    "test:parity-py": "python3 python/parity_check.py",
+    "test:archetype-py": "python3 python/test_archetype.py"
   },
   "repository": {
     "type": "git",
