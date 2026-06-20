@@ -74,20 +74,7 @@
     <a href="https://github.com/ajinkyakulkarni/ai-cost-calculator-studio/blob/main/python/docs/archetype-cost-spec.md" target="_blank" rel="noopener" style="color:var(--cyan)">Model spec →</a>
   </div>
 
-  <div class="controls">
-    <label>Model
-      <select id="model"></select>
-    </label>
-    <label>Tier
-      <select id="tier"></select>
-    </label>
-    <label>Cycles / month
-      <input id="cycles" type="text" inputmode="numeric" value="600000">
-    </label>
-    <label style="font-size:10px;color:var(--dim);max-width:230px;text-transform:none;letter-spacing:0;font-weight:400;line-height:1.5;align-self:center">
-      ~400 DAU × ~50 cycles/user/day × 30 ≈ 600,000 cycles/mo
-    </label>
-  </div>
+  <p style="font-size:11px;color:var(--dim);margin:0 0 4px">~400 DAU × ~50 cycles/user/day × 30 ≈ 600,000 cycles/mo</p>
 
   <!-- The whole panel (controls, table, buttons, headline) is built by the
        shared ArchetypePanel module — the same widget the main calc inlines. -->
@@ -102,6 +89,7 @@
 
 <script src="lib/prices.js"></script>
 <script src="lib/archetype-math.js"></script>
+<script src="lib/archetype-growth.js"></script>
 <script src="lib/archetype-panel.js"></script>
 <script>
 'use strict';

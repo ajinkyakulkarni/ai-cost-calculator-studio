@@ -50,6 +50,17 @@
     + '.apz tr.blended td{border-top:2px solid #1e5fc9;font-weight:700;background:#f0f6ff;font-size:13px}'
     + '.apz .row-del{cursor:pointer;color:#8a96a8;border:none;background:none;font-size:15px}'
     + '.apz .row-del:hover{color:#c62828}'
+    + '.apz .apz-turns{cursor:pointer;color:#8a96a8;border:none;background:none;font-size:13px;margin-right:2px}'
+    + '.apz .apz-turns:hover{color:#1e5fc9}'
+    + '.apz .apz-turns.on{color:#1e5fc9}'
+    + '.apz tr.apz-editrow td{background:#f0f6ff;text-align:left;padding:10px 12px}'
+    + '.apz-edit{display:flex;gap:14px;align-items:flex-end;flex-wrap:wrap;font-size:11.5px}'
+    + '.apz-edit label{display:flex;flex-direction:column;gap:3px;color:#3a4a62;font-weight:600}'
+    + '.apz-edit input{width:90px;font-family:monospace;font-size:12px;padding:4px 6px;border:1px solid #dde4ee;border-radius:4px}'
+    + '.apz-edit .hint{flex-basis:100%;color:#8a96a8;font-weight:400;font-size:10.5px;margin-bottom:2px}'
+    + '.apz-edit button{font-size:11.5px;padding:6px 12px;border-radius:5px;border:1px solid #dde4ee;background:#fff;cursor:pointer;color:#3a4a62}'
+    + '.apz-edit button.apply{background:#0B3D91;border-color:#0B3D91;color:#fff}'
+    + '.apz-edit .out{font-family:monospace;color:#0B3D91;font-size:11.5px}'
     + '.apz-btns{margin-top:12px;display:flex;gap:10px;flex-wrap:wrap;align-items:center}'
     + '.apz-btns button{font-size:12px;padding:7px 13px;border:1px solid #dde4ee;background:#fff;border-radius:6px;cursor:pointer;color:#3a4a62}'
     + '.apz-btns button:hover{border-color:#1e5fc9;color:#1e5fc9}'
@@ -74,8 +85,11 @@
     });
 
     var archetypes = JSON.parse(JSON.stringify(opts.archetypes || EIE));
+    var editing = -1;  // index of the row whose "from turns" editor is open
+    var Growth = (typeof window !== 'undefined' ? window.ArchetypeGrowth : null) || root.ArchetypeGrowth;
     var fmt = function (n) { return '$' + n.toLocaleString(undefined, { maximumFractionDigits: 0 }); };
     var fmtc = function (n) { return '$' + n.toFixed(4); };
+    var n0 = function (n) { return Math.round(n).toLocaleString(); };
 
     // Build markup inside rootEl.
     var styleTag = opts.scoped ? '<style>' + SCOPED_CSS + '</style>' : '';
@@ -130,21 +144,74 @@
       var tbody = $('.apz-rows'); tbody.innerHTML = '';
       archetypes.forEach(function (a, i) {
         var tr = document.createElement('tr');
-        tr.innerHTML = '<td class="name"><input data-i="' + i + '" data-k="name" value="' + a.name + '"></td>' +
+        tr.innerHTML = '<td class="name"><input class="apz-cell" data-i="' + i + '" data-k="name" value="' + a.name + '"></td>' +
           FIELDS.map(function (f) {
             var k = f[0], t = f[1];
             var val = k === 'share' ? (a.share * 100) : a[k];
-            return '<td><input data-i="' + i + '" data-k="' + k + '" data-t="' + t + '" value="' + val + '"></td>';
+            return '<td><input class="apz-cell" data-i="' + i + '" data-k="' + k + '" data-t="' + t + '" value="' + val + '"></td>';
           }).join('') +
           '<td class="calc apz-cy" data-i="' + i + '"></td><td class="calc apz-mo" data-i="' + i + '"></td>' +
-          '<td><button class="row-del" data-del="' + i + '" title="Remove">×</button></td>';
+          '<td style="white-space:nowrap">' +
+            (Growth ? '<button class="apz-turns' + (editing === i ? ' on' : '') + '" data-turns="' + i + '" title="Build the token columns from per-turn growth">⚙</button>' : '') +
+            '<button class="row-del" data-del="' + i + '" title="Remove">×</button></td>';
         tbody.appendChild(tr);
+        if (editing === i && Growth) tbody.appendChild(editorRow(i));
       });
-      tbody.querySelectorAll('input').forEach(function (inp) { inp.addEventListener('input', onEdit); });
+      tbody.querySelectorAll('input.apz-cell').forEach(function (inp) { inp.addEventListener('input', onEdit); });
       tbody.querySelectorAll('[data-del]').forEach(function (b) {
-        b.addEventListener('click', function (e) { archetypes.splice(+e.target.dataset.del, 1); render(); });
+        b.addEventListener('click', function (e) { archetypes.splice(+e.target.dataset.del, 1); if (editing >= archetypes.length) editing = -1; render(); });
       });
+      tbody.querySelectorAll('[data-turns]').forEach(function (b) {
+        b.addEventListener('click', function (e) { var i = +e.currentTarget.dataset.turns; editing = (editing === i ? -1 : i); render(); });
+      });
+      wireEditor();
       compute();
+    }
+
+    // The "build from turns" inline editor — computes a row's cumulative
+    // {input, cached, output} from base + turns + per-turn growth, via
+    // ArchetypeGrowth.cycleUniform. Defaults are sensible starting points;
+    // cache ratio prefills from the row's current cached/input.
+    function editorRow(i) {
+      var a = archetypes[i];
+      var ratio = (a.input_tokens > 0) ? (a.cached_tokens / a.input_tokens) : Growth.DOC_CACHE_RATIO;
+      var tr = document.createElement('tr');
+      tr.className = 'apz-editrow';
+      tr.innerHTML = '<td colspan="12"><div class="apz-edit" data-edit="' + i + '">' +
+        '<span class="hint">Build “' + (a.name || 'this archetype') + '” from per-turn growth — input accumulates each turn as history + tool results pile up.</span>' +
+        '<label>Base tokens<input class="e-base" type="text" value="20000"></label>' +
+        '<label>Turns<input class="e-turns" type="text" value="' + (a.turns || 8) + '"></label>' +
+        '<label>Added / turn<input class="e-added" type="text" value="500"></label>' +
+        '<label>Output / turn<input class="e-out" type="text" value="100"></label>' +
+        '<label>Cache ratio<input class="e-ratio" type="text" value="' + ratio.toFixed(3) + '"></label>' +
+        '<button class="apply">Apply</button>' +
+        '<span class="out e-preview"></span>' +
+      '</div></td>';
+      return tr;
+    }
+
+    function wireEditor() {
+      var box = rootEl.querySelector('.apz-edit'); if (!box) return;
+      var i = +box.dataset.edit;
+      var get = function (cls) { return parseFloat(box.querySelector(cls).value) || 0; };
+      var preview = function () {
+        try {
+          var p = Growth.cycleUniform(get('.e-base'), get('.e-turns'), get('.e-added'), get('.e-out'), get('.e-ratio'));
+          box.querySelector('.e-preview').textContent =
+            '→ in ' + n0(p.input_tokens) + ' · cached ' + n0(p.cached_tokens) + ' · out ' + n0(p.output_tokens);
+          return p;
+        } catch (ex) { box.querySelector('.e-preview').textContent = '⚠ ' + ex.message; return null; }
+      };
+      box.querySelectorAll('input').forEach(function (inp) { inp.addEventListener('input', preview); });
+      box.querySelector('.apply').addEventListener('click', function () {
+        var p = preview(); if (!p) return;
+        archetypes[i].input_tokens = p.input_tokens;
+        archetypes[i].cached_tokens = p.cached_tokens;
+        archetypes[i].output_tokens = p.output_tokens;
+        archetypes[i].turns = p.turns;
+        editing = -1; render();
+      });
+      preview();
     }
 
     function onEdit(e) {

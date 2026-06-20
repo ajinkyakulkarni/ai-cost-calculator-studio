@@ -197,3 +197,34 @@ parity 17/17; Python & JS archetype tests agree; calc headline still $7,772;
 inline panel renders + live-edits (blended $69,468 on the EIE default,
 normalization warning fires past 100%); basic hides / advanced shows;
 standalone page still works via the shared module.
+
+## Round 4 — intra-cycle growth model + Planning re-derived through it (2026-06-20)
+
+Closes the two open items from the non-goals list.
+
+**Growth model** (`costcalc/growth.py` + `public/lib/archetype-growth.js`,
+parity-tested both sides): cycle_from_turns(base, steps, cache_ratio) and
+cycle_uniform(...) turn a per-turn description of a cycle into the cumulative
+{input, cached, output} an archetype carries — the intra-cycle context-growth
+that the earlier profiles entered by hand. Reproduces the doc's Multi-source
+(233,498/885/184,917) AND the Planning profile (360,938/285,842/3,115) from
+their turn traces. DOC_CACHE_RATIO = 0.7919 shared.
+
+**Planning (item 1)** — there is still NO measured Q2 run; I will not label an
+estimate "measured". What changed: derive_planning_profile.py now derives the
+Planning profile THROUGH the shared growth model, so the number is a transparent
+function of documented per-turn assumptions, and real telemetry is a drop-in
+when Q2 is instrumented. It remains an honest estimate.
+
+**UI (item 2, user-facing)** — archetype-panel.js gained a per-row "⚙ from
+turns" inline editor (base / turns / added-per-turn / output-per-turn / cache
+ratio) that computes the row's tokens via ArchetypeGrowth.cycleUniform with a
+live preview, then writes them back. Available in both the standalone page and
+the inline calc section (shared module).
+
+Regression (all green): npm test (engine smoke + apply + audience + derivation
++ workload-hash + headline-math + archetype-math + archetype-growth) + bench
+±0.00%; engine parity 17/17; Python archetype 15/15 + growth 12/12; pyflakes
+clean; calc headline $7,772; from-turns editor live in both hosts; basic
+hides / advanced shows. Also fixed an orphan empty control row left in
+archetype.html from the round-3 refactor.

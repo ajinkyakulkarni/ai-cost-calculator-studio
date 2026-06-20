@@ -16,6 +16,11 @@ the Q2 workflow is instrumented.
 
     python3 python/examples/derive_planning_profile.py
 """
+import sys
+from pathlib import Path
+
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+from costcalc.growth import cycle_from_turns, DOC_CACHE_RATIO  # noqa: E402
 
 # Doc's published Multi-source 11-turn trace (input, output) per turn.
 # Used purely to validate that summing the trace reproduces the doc's totals.
@@ -25,7 +30,7 @@ MULTI_SOURCE_TRACE = [
     (22162, 101),
 ]
 DOC_MULTI = {"input": 233498, "output": 885, "cached": 184917}
-CACHE_RATIO = DOC_MULTI["cached"] / DOC_MULTI["input"]  # 0.79195...
+CACHE_RATIO = DOC_CACHE_RATIO  # 0.79195... (shared with costcalc.growth)
 
 # ---------------------------------------------------------------------------
 # Q2 shade-routing workflow — derived turn-by-turn trace.
@@ -60,22 +65,6 @@ PLANNING_STEPS = [
 ]
 
 
-def trace_totals(base, steps):
-    """Sum cumulative input/output the doc's way: each turn re-sends the full
-    running context (base + accumulated history), and input_t accumulates."""
-    running_history = 0   # tokens of history beyond the base
-    cum_input = 0
-    cum_output = 0
-    prev_output = 0
-    for _label, added, out in steps:
-        running_history += prev_output + added
-        input_t = base + running_history
-        cum_input += input_t
-        cum_output += out
-        prev_output = out
-    return cum_input, cum_output
-
-
 def main():
     # 1. Validate the method on the doc's Multi-source numbers.
     ms_in = sum(t[0] for t in MULTI_SOURCE_TRACE)
@@ -88,9 +77,14 @@ def main():
     print(f"  cache ratio used : {CACHE_RATIO:.4f}  ({DOC_MULTI['cached']:,}/{DOC_MULTI['input']:,})")
     assert ms_in == DOC_MULTI["input"] and ms_out == DOC_MULTI["output"]
 
-    # 2. Derive Planning+routing from the Q2 trace, same method + cache ratio.
-    p_in, p_out = trace_totals(PLANNING_BASE, PLANNING_STEPS)
-    p_cached = round(p_in * CACHE_RATIO)
+    # 2. Derive Planning+routing from the Q2 trace via the shared growth model
+    #    (same accumulation + cache ratio as costcalc.growth.cycle_from_turns).
+    prof = cycle_from_turns(
+        PLANNING_BASE,
+        [(added, out) for _label, added, out in PLANNING_STEPS],
+        cache_ratio=CACHE_RATIO,
+    )
+    p_in, p_cached, p_out = prof["input_tokens"], prof["cached_tokens"], prof["output_tokens"]
     print(f"\nPlanning+routing derived ({len(PLANNING_STEPS)} turns, "
           f"base {PLANNING_BASE:,}):")
     print(f"  input_tokens : {p_in:,}")
