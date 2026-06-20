@@ -89,31 +89,9 @@
     </label>
   </div>
 
-  <table id="grid">
-    <thead>
-      <tr>
-        <th>Archetype</th><th>Mix %</th><th>Tool calls</th><th>Turns</th>
-        <th>Input tok</th><th>Cached tok</th><th>Output tok</th>
-        <th>Low×</th><th>High×</th>
-        <th>$/cycle</th><th>$/month</th><th></th>
-      </tr>
-    </thead>
-    <tbody id="rows"></tbody>
-    <tfoot id="foot"></tfoot>
-  </table>
-  <div id="err" class="err" hidden></div>
-
-  <div class="btns">
-    <button class="primary" id="add">+ Add archetype</button>
-    <button id="reset">Reset to EIE example</button>
-    <span class="warn" id="sharewarn" hidden></span>
-  </div>
-
-  <div class="headline-box">
-    <div><span class="lbl">Blended cost / cycle</span><span class="big" id="hl-cycle">—</span></div>
-    <div><span class="lbl">Estimated monthly</span><span class="big" id="hl-month">—</span></div>
-    <div><span class="lbl">Range (low – high)</span><span class="range" id="hl-range">—</span></div>
-  </div>
+  <!-- The whole panel (controls, table, buttons, headline) is built by the
+       shared ArchetypePanel module — the same widget the main calc inlines. -->
+  <div id="archetype-root"></div>
 </div>
 
 <div class="foot">
@@ -124,115 +102,11 @@
 
 <script src="lib/prices.js"></script>
 <script src="lib/archetype-math.js"></script>
+<script src="lib/archetype-panel.js"></script>
 <script>
 'use strict';
-// EIE new-direction archetype set (mirrors python/examples/eie-new-direction.json).
-const EIE = [
-  {name:'Simple', share:0.6, tool_calls:6, turns:6, input_tokens:80000, cached_tokens:70000, output_tokens:600, low_factor:0.8, high_factor:1.3},
-  {name:'Multi-source', share:0.3, tool_calls:8, turns:11, input_tokens:233498, cached_tokens:184917, output_tokens:885, low_factor:0.8, high_factor:1.4},
-  {name:'Planning+routing', share:0.1, tool_calls:13, turns:13, input_tokens:360938, cached_tokens:285842, output_tokens:3115, low_factor:0.6, high_factor:1.8},
-];
-let archetypes = JSON.parse(JSON.stringify(EIE));
-
-const $ = id => document.getElementById(id);
-const fmt = n => '$' + n.toLocaleString(undefined,{maximumFractionDigits:0});
-const fmtc = n => '$' + n.toFixed(4);
-
-// Build rate cards + tier multipliers from the calc price book.
-const RATE_CARDS = (window.Prices && window.Prices.llm_models) || {};
-const TIER_MULT = {};
-Object.entries((window.Prices && window.Prices.tier_multipliers) || {})
-  .forEach(([k,v]) => { TIER_MULT[k] = v.multiplier; });
-
-function initControls(){
-  const ms = $('model');
-  Object.keys(RATE_CARDS).forEach(m=>{
-    const o=document.createElement('option'); o.value=m; o.textContent=m;
-    if(m==='gpt-5.4') o.selected=true; ms.appendChild(o);
-  });
-  const ts = $('tier');
-  Object.keys(TIER_MULT).forEach(t=>{
-    const o=document.createElement('option'); o.value=t;
-    o.textContent=t+' (×'+TIER_MULT[t]+')';
-    if(t==='standard') o.selected=true; ts.appendChild(o);
-  });
-  ['model','tier','cycles'].forEach(id=>$(id).addEventListener('input', render));
-  $('add').addEventListener('click', ()=>{
-    archetypes.push({name:'New archetype', share:0.1, tool_calls:5, turns:5, input_tokens:50000, cached_tokens:40000, output_tokens:500, low_factor:0.8, high_factor:1.3});
-    render();
-  });
-  $('reset').addEventListener('click', ()=>{ archetypes = JSON.parse(JSON.stringify(EIE)); render(); });
-}
-
-const FIELDS = [
-  ['share','share','%',v=>v*100,v=>v/100],
-  ['tool_calls','int',''],['turns','int',''],
-  ['input_tokens','int',''],['cached_tokens','int',''],['output_tokens','int',''],
-  ['low_factor','f',''],['high_factor','f',''],
-];
-
-function render(){
-  const tbody = $('rows'); tbody.innerHTML='';
-  archetypes.forEach((a,i)=>{
-    const tr = document.createElement('tr');
-    tr.innerHTML = `<td class="name"><input data-i="${i}" data-k="name" value="${a.name}"></td>` +
-      FIELDS.map(([k,t,suf,disp])=>{
-        const val = disp ? disp(a[k]) : a[k];
-        return `<td><input data-i="${i}" data-k="${k}" data-t="${t}" value="${val}"></td>`;
-      }).join('') +
-      `<td class="calc" id="cy-${i}"></td><td class="calc" id="mo-${i}"></td>` +
-      `<td><button class="row-del" data-del="${i}" title="Remove">×</button></td>`;
-    tbody.appendChild(tr);
-  });
-  tbody.querySelectorAll('input').forEach(inp=>inp.addEventListener('input', onEdit));
-  tbody.querySelectorAll('[data-del]').forEach(b=>b.addEventListener('click', e=>{
-    archetypes.splice(+e.target.dataset.del,1); render();
-  }));
-  compute();
-}
-
-function onEdit(e){
-  const i=+e.target.dataset.i, k=e.target.dataset.k, t=e.target.dataset.t;
-  let v=e.target.value;
-  if(k==='name'){ archetypes[i].name=v; }
-  else if(k==='share'){ archetypes[i].share=(parseFloat(v)||0)/100; }
-  else { archetypes[i][k] = t==='int' ? (parseInt(v)||0) : (parseFloat(v)||0); }
-  compute(); // live recompute without full re-render (keeps focus)
-}
-
-function compute(){
-  const err=$('err'); err.hidden=true;
-  let r;
-  try{
-    r = ArchetypeMath.archetypeCost(archetypes, {
-      model:$('model').value, tier:$('tier').value,
-      cyclesPerMonth: parseFloat($('cycles').value)||0,
-      rateCards:RATE_CARDS, tierMultipliers:TIER_MULT,
-    });
-  }catch(ex){ err.hidden=false; err.textContent='⚠ '+ex.message; return; }
-
-  r.archetypes.forEach((a,i)=>{
-    const cy=$('cy-'+i), mo=$('mo-'+i);
-    if(cy) cy.innerHTML = fmtc(a.cost_cycle)+`<span class="band">${a.cost_cycle_low.toFixed(3)}–${a.cost_cycle_high.toFixed(3)}</span>`;
-    if(mo) mo.textContent = fmt(a.monthly);
-  });
-
-  // footer blended row
-  const b=r.blended;
-  $('foot').innerHTML = `<tr class="blended"><td>BLENDED</td><td>100%</td><td></td><td></td><td></td><td></td><td></td><td></td><td></td>`+
-    `<td class="calc">${fmtc(b.cost_per_cycle)}</td><td class="calc">${fmt(b.monthly)}</td><td></td></tr>`;
-  $('hl-cycle').textContent = fmtc(b.cost_per_cycle);
-  $('hl-month').textContent = fmt(b.monthly);
-  $('hl-range').textContent = fmt(b.monthly_low)+' – '+fmt(b.monthly_high);
-
-  const sw=$('sharewarn');
-  if(Math.abs(r.shares_sum_raw-1)>1e-6){
-    sw.hidden=false; sw.textContent=`mix sums to ${(r.shares_sum_raw*100).toFixed(0)}% — normalized to 100%`;
-  } else sw.hidden=true;
-}
-
-initControls();
-render();
+// The standalone page and the inline calc section mount the SAME widget.
+ArchetypePanel.mount(document.getElementById('archetype-root'), { prices: window.Prices, scoped: true });
 </script>
 </body>
 </html>

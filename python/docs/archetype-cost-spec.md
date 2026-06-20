@@ -178,3 +178,22 @@ Regression (all green): npm test (incl. archetype-math) + bench ±0.00%;
 Python engine parity 17/17; random_parity 200/200; pyflakes clean; Python &
 JS archetype tests agree; UI headline still $7,771.96; archetype.html
 Playwright smoke (live edits recompute, tier switch halves cost).
+
+## Round 3 — inlined into the main calc (2026-06-20)
+
+Extracted the panel UI into a shared module `public/lib/archetype-panel.js`
+(`ArchetypePanel.mount(rootEl, {prices, scoped})`) — builds all its own
+markup. Both the standalone `archetype.html` AND a new inline section of the
+calc mount the same widget: one UI, no duplication.
+
+In `index.html`: an advanced-only `#sec-archetype` section (axiom divider +
+helper + `#archetype-root`) sits before the Federal section; archetype-math.js
++ archetype-panel.js load after headline-math.js; a guarded boot script mounts
+it. Appbar 🧩 icon repointed to the in-page section. Basic mode hides it
+(advanced-only, CSS); the main engine/headline is untouched.
+
+Regression (all green): npm test (incl archetype-math) + bench ±0.00%; engine
+parity 17/17; Python & JS archetype tests agree; calc headline still $7,772;
+inline panel renders + live-edits (blended $69,468 on the EIE default,
+normalization warning fires past 100%); basic hides / advanced shows;
+standalone page still works via the shared module.

@@ -3904,9 +3904,9 @@ input[type=range]:disabled { cursor: not-allowed; }
   <!-- Archetype estimator — layered-stack icon to the archetype cost page
        (variable-pipeline agents: classify queries into archetypes, weight
        by mix). Sits left of the explainer; same compact treatment. -->
-  <a id="appbar-archetype" href="archetype.html"
-     title="Archetype cost estimator: cost variable, multi-step agents by classifying queries into archetypes and weighting by mix"
-     aria-label="Open the archetype cost estimator"
+  <a id="appbar-archetype" href="#axiom-h-archetype"
+     title="Archetype cost estimator: cost variable, multi-step agents by classifying queries into archetypes and weighting by mix (Advanced mode)"
+     aria-label="Jump to the archetype cost estimator"
      style="display:inline-flex;align-items:center;justify-content:center;width:30px;height:28px;margin-right:6px;color:inherit;text-decoration:none;border:1px solid rgba(255,255,255,.18);border-radius:6px;opacity:.85"
      onmouseover="this.style.opacity=1" onmouseout="this.style.opacity=.85">
     <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16"
@@ -5206,6 +5206,25 @@ Measure primary's confidence-score histogram across a labeled validation set; pi
   </div>
 
     </div><!-- /.tab-panel simulator -->
+
+    <!-- ARCHETYPE COST — variable-pipeline agents. Advanced-only analysis
+         tool; renders via the shared ArchetypePanel module (same widget as
+         the standalone archetype.html). Independent of the engine/headline —
+         classifies queries into archetypes, weights by mix. -->
+    <div class="axiom-section-divider advanced-only" id="axiom-h-archetype">
+      <span class="ix-title">Archetype cost</span>
+      <span class="ix-desc">variable, multi-step agents — classify queries, weight by mix</span>
+    </div>
+    <div class="section-helper advanced-only">
+      <p><strong>What this is.</strong> A separate estimator for agents whose queries <em>don't</em> follow one fixed pipeline — they fan out across federated sources over a variable number of turns (the proposed EIE direction). Instead of one anchor query × factors, you define each query <strong>archetype</strong> with its own cumulative token profile and weight them by an expected <strong>mix</strong>.</p>
+      <p><strong>Why it matters.</strong> When Simple / Multi-source / Planning cycles have genuinely different absolute token footprints, a single-anchor model can't represent them. This gives a defensible per-archetype cost with low/high bands and a blended monthly — the answer to "it depends."</p>
+      <p><strong>How to read it.</strong> Edit any cell live. The blended row + headline update instantly. Preloaded with the EIE example; the Planning+routing row is <em>derived, not measured</em> (Q2 workflow estimate — replace when instrumented). This panel is independent of the main headline above; cost math reuses the same price book.</p>
+    </div>
+    <div class="section advanced-only" data-cat="analysis" id="sec-archetype">
+      <div class="section-body" style="padding:12px">
+        <div id="archetype-root"></div>
+      </div>
+    </div>
 
     <div class="section advanced-only" data-cat="setup" id="sec-federal">
       <h2><span class="chev">▶</span><span class="lead">Federal compliance & hosting</span> <em>FedRAMP, ATO, egress, audit retention</em></h2>
@@ -6507,7 +6526,27 @@ Both fields are independent; they don't have to match.">ⓘ</span></label>
 <script src="lib/derivation-trace.js?v=2026-06-10-modular-1"></script>
 <script src="lib/workload-hash.js?v=2026-06-10-modular-2"></script>
 <script src="lib/headline-math.js?v=2026-06-10-modular-3"></script>
+<!-- Archetype cost (variable-pipeline agents) — independent analysis panel,
+     inlined as the #sec-archetype section. Math + UI both shared with the
+     standalone archetype.html. -->
+<script src="lib/archetype-math.js?v=2026-06-20-arch-1"></script>
+<script src="lib/archetype-panel.js?v=2026-06-20-arch-1"></script>
 <script src="app.js?v=2026-06-10-modular-3"></script>
+<script>
+  // Mount the archetype panel once the DOM + Prices are ready. Independent
+  // of the engine — a try/guard so a panel hiccup can never break the calc.
+  (function () {
+    function mountArchetype() {
+      var root = document.getElementById('archetype-root');
+      if (root && window.ArchetypePanel && window.Prices && !root.dataset.mounted) {
+        try { window.ArchetypePanel.mount(root, { prices: window.Prices, scoped: true }); root.dataset.mounted = '1'; }
+        catch (e) { if (window.console) console.error('archetype panel mount failed', e); }
+      }
+    }
+    if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', mountArchetype);
+    else mountArchetype();
+  })();
+</script>
 
 <!-- ===== Live prices from api.ajinkya.ai/prices ==================
      The bundled lib/prices.js gives the calc a working snapshot;
