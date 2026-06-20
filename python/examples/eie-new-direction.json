@@ -33,13 +33,14 @@
       "name": "Planning+routing",
       "share": 0.1,
       "tool_calls": 13,
-      "turns": 18,
-      "input_tokens": 513696,
-      "cached_tokens": 406817,
-      "output_tokens": 1947,
+      "turns": 13,
+      "input_tokens": 360938,
+      "cached_tokens": 285842,
+      "output_tokens": 3115,
       "low_factor": 0.6,
       "high_factor": 1.8,
-      "_example": "Q2: shade-maximizing route (fusion + optimization). PLACEHOLDER ~2.2x Multi-source — replace when measured."
+      "_example": "Q2: shade-maximizing route (fusion + optimization).",
+      "_source": "DERIVED, not measured — python/examples/derive_planning_profile.py applies the doc's turn-by-turn method to the Q2 workflow (~1.55x Multi-source input). Replace with measured telemetry when Q2 is instrumented."
     }
   ]
 }

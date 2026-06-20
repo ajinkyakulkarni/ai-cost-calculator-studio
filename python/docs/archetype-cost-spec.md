@@ -150,5 +150,31 @@ Touched only 2 existing files, both additively: `__init__.py` (new export) and
 | **Blended** | 100% | **0.1250** | **74,999** |
 | range / month | | | 55,222 – 112,699 |
 
-Simple/Multi-source cycle costs match the stakeholder doc to the cent. Planning
-is a ~2.2× placeholder pending measured telemetry.
+Simple/Multi-source cycle costs match the stakeholder doc to the cent.
+
+## Round 2 — Planning derivation + JS port + UI (2026-06-20)
+
+**Planning+routing** is no longer a flat 2.2× placeholder. `derive_planning
+_profile.py` applies the doc's own turn-by-turn accumulation method to the Q2
+shade-routing workflow (~13 turns), and self-validates by first reproducing the
+doc's published Multi-source totals (233,498 / 885 / 184,917) before extending.
+Result: input 360,938 / cached 285,842 / output 3,115 — **~1.55×** Multi-source,
+not 2.2×. Still an ESTIMATE (clearly labeled), pending real telemetry.
+
+EIE blended with the derived Planning: **$0.1158/cycle → $69,468/mo**
+(range $51,903–$102,743).
+
+**JS port** (`public/lib/archetype-math.js`) mirrors the Python helper;
+`scripts/test-archetype-math.mjs` asserts the same fixtures and is wired into
+`npm test`. Python and JS agree to the cent.
+
+**UI** (`public/archetype.html`) — self-contained editable archetype table with
+live per-archetype + blended cost, low/high bands, model/tier/cycles controls,
+preloaded with the EIE set (Planning flagged "derived, not measured"). Reuses
+the calc price book via `window.Prices`. Linked from the calc appbar (🧩 icon)
++ footer. Does not touch index.html/app.js logic.
+
+Regression (all green): npm test (incl. archetype-math) + bench ±0.00%;
+Python engine parity 17/17; random_parity 200/200; pyflakes clean; Python &
+JS archetype tests agree; UI headline still $7,771.96; archetype.html
+Playwright smoke (live edits recompute, tier switch halves cost).

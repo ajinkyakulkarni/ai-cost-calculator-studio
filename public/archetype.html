@@ -1,0 +1,238 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Archetype Cost Estimator · AI Cost Calculator</title>
+<meta name="description" content="Estimate cost for variable, multi-step agents by classifying queries into archetypes and weighting by mix — for the EIE new direction.">
+<style>
+  :root {
+    --navy:#0B3D91; --navy-2:#1e5fc9; --cyan:#0c8db3;
+    --paper:#f6f8fb; --card:#fff; --ink:#14213d; --ink-2:#3a4a62;
+    --dim:#8a96a8; --rule:#dde4ee; --amber:#b26a00; --green:#1b8a5a;
+    --mono:"SF Mono","Cascadia Code",Menlo,Consolas,monospace;
+    --sans:-apple-system,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+  }
+  *{box-sizing:border-box;}
+  body{margin:0;font-family:var(--sans);background:var(--paper);color:var(--ink);min-height:100vh;display:flex;flex-direction:column;}
+  .top{background:linear-gradient(135deg,#0B3D91,#1450b4);color:#fff;padding:14px 22px;display:flex;align-items:center;gap:14px;flex-wrap:wrap;}
+  .top h1{font-size:17px;margin:0;font-weight:700;}
+  .top h1 small{font-weight:400;opacity:.78;font-size:12px;margin-left:8px;}
+  .top a.back{color:#cfe3ff;text-decoration:none;font-size:12px;border:1px solid rgba(255,255,255,.25);padding:4px 10px;border-radius:6px;}
+  .top a.back:hover{background:rgba(255,255,255,.1);}
+  .wrap{max-width:1180px;margin:0 auto;padding:20px 22px 40px;width:100%;}
+  .intro{font-size:13px;line-height:1.7;color:var(--ink-2);background:var(--card);border:1px solid var(--rule);border-radius:10px;padding:14px 18px;margin-bottom:18px;}
+  .intro b{color:var(--ink);}
+  .intro .est{color:var(--amber);font-weight:600;}
+  .controls{display:flex;gap:18px;align-items:flex-end;flex-wrap:wrap;margin-bottom:16px;}
+  .controls label{display:flex;flex-direction:column;font-size:11px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;color:var(--dim);gap:5px;}
+  .controls select,.controls input{font:inherit;font-size:13px;padding:7px 10px;border:1px solid var(--rule);border-radius:6px;background:#fff;color:var(--ink);}
+  .controls input{width:130px;font-family:var(--mono);}
+  table{width:100%;border-collapse:collapse;background:var(--card);border:1px solid var(--rule);border-radius:10px;overflow:hidden;font-size:13px;}
+  th,td{padding:9px 10px;text-align:right;border-bottom:1px solid var(--rule);}
+  th{background:#eef3fa;font-size:10px;letter-spacing:.05em;text-transform:uppercase;color:var(--ink-2);font-weight:700;white-space:nowrap;}
+  th:first-child,td:first-child{text-align:left;}
+  td input{width:100%;font:inherit;font-size:12.5px;font-family:var(--mono);border:1px solid transparent;border-radius:4px;padding:4px 6px;text-align:right;background:transparent;color:var(--ink);}
+  td input:hover{border-color:var(--rule);}
+  td input:focus{border-color:var(--navy-2);background:#fff;outline:none;}
+  td.name input{text-align:left;font-family:var(--sans);}
+  td.calc{font-family:var(--mono);color:var(--navy);}
+  td.calc .band{display:block;font-size:10.5px;color:var(--dim);}
+  tr.blended{background:#f0f6ff;font-weight:700;}
+  tr.blended td{border-top:2px solid var(--navy-2);font-size:14px;}
+  tr.blended td.calc{color:var(--navy);}
+  .row-del{cursor:pointer;color:var(--dim);border:none;background:none;font-size:15px;padding:0 2px;}
+  .row-del:hover{color:#c62828;}
+  .btns{margin-top:14px;display:flex;gap:10px;flex-wrap:wrap;align-items:center;}
+  .btns button{font-size:12.5px;padding:8px 14px;border:1px solid var(--rule);background:#fff;border-radius:7px;cursor:pointer;color:var(--ink-2);}
+  .btns button:hover{border-color:var(--navy-2);color:var(--navy-2);}
+  .btns button.primary{background:var(--navy);border-color:var(--navy);color:#fff;}
+  .btns .warn{font-size:12px;color:var(--amber);}
+  .headline-box{margin-top:22px;background:var(--card);border:1px solid var(--rule);border-radius:10px;padding:18px 22px;display:flex;gap:30px;flex-wrap:wrap;align-items:baseline;}
+  .headline-box .big{font-family:var(--mono);font-size:34px;font-weight:800;color:var(--navy);}
+  .headline-box .lbl{font-size:11px;text-transform:uppercase;letter-spacing:.05em;color:var(--dim);display:block;margin-bottom:3px;}
+  .headline-box .range{font-family:var(--mono);font-size:16px;color:var(--ink-2);}
+  .err{color:#c62828;font-size:13px;margin-top:10px;font-family:var(--mono);}
+  .foot{font-size:11.5px;color:var(--dim);padding:18px 22px;border-top:1px solid var(--rule);text-align:center;}
+  .foot a{color:var(--cyan);text-decoration:none;}
+</style>
+</head>
+<body>
+<div class="top">
+  <a class="back" href="index.html">← Calculator</a>
+  <h1>Archetype Cost Estimator <small>variable, multi-step agents — classify queries, weight by mix</small></h1>
+</div>
+
+<div class="wrap">
+  <div class="intro">
+    For agents whose queries <b>don't follow one fixed pipeline</b> — they fan out across
+    federated sources over a variable number of turns. Define each query <b>archetype</b> with
+    its own cumulative token profile, set the expected <b>mix</b>, and read off per-cycle and
+    monthly cost with low/high bands. Cost math reuses the calculator's own price book.
+    Preloaded with the proposed <b>EIE direction</b>; the <span class="est">Planning+routing</span>
+    row is <span class="est">derived, not measured</span> (Q2 workflow estimate).
+    <a href="https://github.com/ajinkyakulkarni/ai-cost-calculator-studio/blob/main/python/docs/archetype-cost-spec.md" target="_blank" rel="noopener" style="color:var(--cyan)">Model spec →</a>
+  </div>
+
+  <div class="controls">
+    <label>Model
+      <select id="model"></select>
+    </label>
+    <label>Tier
+      <select id="tier"></select>
+    </label>
+    <label>Cycles / month
+      <input id="cycles" type="text" inputmode="numeric" value="600000">
+    </label>
+    <label style="font-size:10px;color:var(--dim);max-width:230px;text-transform:none;letter-spacing:0;font-weight:400;line-height:1.5;align-self:center">
+      ~400 DAU × ~50 cycles/user/day × 30 ≈ 600,000 cycles/mo
+    </label>
+  </div>
+
+  <table id="grid">
+    <thead>
+      <tr>
+        <th>Archetype</th><th>Mix %</th><th>Tool calls</th><th>Turns</th>
+        <th>Input tok</th><th>Cached tok</th><th>Output tok</th>
+        <th>Low×</th><th>High×</th>
+        <th>$/cycle</th><th>$/month</th><th></th>
+      </tr>
+    </thead>
+    <tbody id="rows"></tbody>
+    <tfoot id="foot"></tfoot>
+  </table>
+  <div id="err" class="err" hidden></div>
+
+  <div class="btns">
+    <button class="primary" id="add">+ Add archetype</button>
+    <button id="reset">Reset to EIE example</button>
+    <span class="warn" id="sharewarn" hidden></span>
+  </div>
+
+  <div class="headline-box">
+    <div><span class="lbl">Blended cost / cycle</span><span class="big" id="hl-cycle">—</span></div>
+    <div><span class="lbl">Estimated monthly</span><span class="big" id="hl-month">—</span></div>
+    <div><span class="lbl">Range (low – high)</span><span class="range" id="hl-range">—</span></div>
+  </div>
+</div>
+
+<div class="foot">
+  📚 <a href="https://ajinkya.ai/learn/how-to-cost-an-ai-agent-tutorial.html" target="_blank" rel="noopener">How to cost an AI agent ↗</a>
+  &nbsp;·&nbsp; <a href="https://ajinkya.ai/learn/the-cost-paper-explained.html" target="_blank" rel="noopener">The cost paper, explained ↗</a>
+  &nbsp;·&nbsp; <a href="quiz.html">🎓 Concept flashcards</a>
+</div>
+
+<script src="lib/prices.js"></script>
+<script src="lib/archetype-math.js"></script>
+<script>
+'use strict';
+// EIE new-direction archetype set (mirrors python/examples/eie-new-direction.json).
+const EIE = [
+  {name:'Simple', share:0.6, tool_calls:6, turns:6, input_tokens:80000, cached_tokens:70000, output_tokens:600, low_factor:0.8, high_factor:1.3},
+  {name:'Multi-source', share:0.3, tool_calls:8, turns:11, input_tokens:233498, cached_tokens:184917, output_tokens:885, low_factor:0.8, high_factor:1.4},
+  {name:'Planning+routing', share:0.1, tool_calls:13, turns:13, input_tokens:360938, cached_tokens:285842, output_tokens:3115, low_factor:0.6, high_factor:1.8},
+];
+let archetypes = JSON.parse(JSON.stringify(EIE));
+
+const $ = id => document.getElementById(id);
+const fmt = n => '$' + n.toLocaleString(undefined,{maximumFractionDigits:0});
+const fmtc = n => '$' + n.toFixed(4);
+
+// Build rate cards + tier multipliers from the calc price book.
+const RATE_CARDS = (window.Prices && window.Prices.llm_models) || {};
+const TIER_MULT = {};
+Object.entries((window.Prices && window.Prices.tier_multipliers) || {})
+  .forEach(([k,v]) => { TIER_MULT[k] = v.multiplier; });
+
+function initControls(){
+  const ms = $('model');
+  Object.keys(RATE_CARDS).forEach(m=>{
+    const o=document.createElement('option'); o.value=m; o.textContent=m;
+    if(m==='gpt-5.4') o.selected=true; ms.appendChild(o);
+  });
+  const ts = $('tier');
+  Object.keys(TIER_MULT).forEach(t=>{
+    const o=document.createElement('option'); o.value=t;
+    o.textContent=t+' (×'+TIER_MULT[t]+')';
+    if(t==='standard') o.selected=true; ts.appendChild(o);
+  });
+  ['model','tier','cycles'].forEach(id=>$(id).addEventListener('input', render));
+  $('add').addEventListener('click', ()=>{
+    archetypes.push({name:'New archetype', share:0.1, tool_calls:5, turns:5, input_tokens:50000, cached_tokens:40000, output_tokens:500, low_factor:0.8, high_factor:1.3});
+    render();
+  });
+  $('reset').addEventListener('click', ()=>{ archetypes = JSON.parse(JSON.stringify(EIE)); render(); });
+}
+
+const FIELDS = [
+  ['share','share','%',v=>v*100,v=>v/100],
+  ['tool_calls','int',''],['turns','int',''],
+  ['input_tokens','int',''],['cached_tokens','int',''],['output_tokens','int',''],
+  ['low_factor','f',''],['high_factor','f',''],
+];
+
+function render(){
+  const tbody = $('rows'); tbody.innerHTML='';
+  archetypes.forEach((a,i)=>{
+    const tr = document.createElement('tr');
+    tr.innerHTML = `<td class="name"><input data-i="${i}" data-k="name" value="${a.name}"></td>` +
+      FIELDS.map(([k,t,suf,disp])=>{
+        const val = disp ? disp(a[k]) : a[k];
+        return `<td><input data-i="${i}" data-k="${k}" data-t="${t}" value="${val}"></td>`;
+      }).join('') +
+      `<td class="calc" id="cy-${i}"></td><td class="calc" id="mo-${i}"></td>` +
+      `<td><button class="row-del" data-del="${i}" title="Remove">×</button></td>`;
+    tbody.appendChild(tr);
+  });
+  tbody.querySelectorAll('input').forEach(inp=>inp.addEventListener('input', onEdit));
+  tbody.querySelectorAll('[data-del]').forEach(b=>b.addEventListener('click', e=>{
+    archetypes.splice(+e.target.dataset.del,1); render();
+  }));
+  compute();
+}
+
+function onEdit(e){
+  const i=+e.target.dataset.i, k=e.target.dataset.k, t=e.target.dataset.t;
+  let v=e.target.value;
+  if(k==='name'){ archetypes[i].name=v; }
+  else if(k==='share'){ archetypes[i].share=(parseFloat(v)||0)/100; }
+  else { archetypes[i][k] = t==='int' ? (parseInt(v)||0) : (parseFloat(v)||0); }
+  compute(); // live recompute without full re-render (keeps focus)
+}
+
+function compute(){
+  const err=$('err'); err.hidden=true;
+  let r;
+  try{
+    r = ArchetypeMath.archetypeCost(archetypes, {
+      model:$('model').value, tier:$('tier').value,
+      cyclesPerMonth: parseFloat($('cycles').value)||0,
+      rateCards:RATE_CARDS, tierMultipliers:TIER_MULT,
+    });
+  }catch(ex){ err.hidden=false; err.textContent='⚠ '+ex.message; return; }
+
+  r.archetypes.forEach((a,i)=>{
+    const cy=$('cy-'+i), mo=$('mo-'+i);
+    if(cy) cy.innerHTML = fmtc(a.cost_cycle)+`<span class="band">${a.cost_cycle_low.toFixed(3)}–${a.cost_cycle_high.toFixed(3)}</span>`;
+    if(mo) mo.textContent = fmt(a.monthly);
+  });
+
+  // footer blended row
+  const b=r.blended;
+  $('foot').innerHTML = `<tr class="blended"><td>BLENDED</td><td>100%</td><td></td><td></td><td></td><td></td><td></td><td></td><td></td>`+
+    `<td class="calc">${fmtc(b.cost_per_cycle)}</td><td class="calc">${fmt(b.monthly)}</td><td></td></tr>`;
+  $('hl-cycle').textContent = fmtc(b.cost_per_cycle);
+  $('hl-month').textContent = fmt(b.monthly);
+  $('hl-range').textContent = fmt(b.monthly_low)+' – '+fmt(b.monthly_high);
+
+  const sw=$('sharewarn');
+  if(Math.abs(r.shares_sum_raw-1)>1e-6){
+    sw.hidden=false; sw.textContent=`mix sums to ${(r.shares_sum_raw*100).toFixed(0)}% — normalized to 100%`;
+  } else sw.hidden=true;
+}
+
+initControls();
+render();
+</script>
+</body>
+</html>
