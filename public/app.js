@@ -735,6 +735,23 @@ Engine multiplies this agent's monthly contribution by activation_rate. Per-(age
             <input type="number" min="0" max="1" step="0.05" value="${agent.activation_rate != null ? agent.activation_rate : 1}" data-agent="${idx}" data-key="activation_rate">
           </div>
         </div>
+        <div class="row" style="margin-top:6px;padding:6px 8px;background:rgba(150,120,255,0.06);border:1px solid rgba(150,120,255,0.20);border-radius:5px">
+          <div style="display:flex;align-items:center;gap:8px;font-size:12px;margin-bottom:5px">
+            <input type="checkbox" id="agent-${idx}-arch-mode" data-agent="${idx}" data-key="archetype_mode" ${agent.archetype_mode ? 'checked' : ''} style="margin:0">
+            <label for="agent-${idx}-arch-mode" style="margin:0;cursor:pointer">Cost via query archetypes (mix)</label>
+            <span class="tip" data-tip="### Archetype costing (per agent)
+
+**What it does.** Instead of the fixed token model above (input/output/calls), this agent's per-query cost becomes a **mix of query archetypes** — each a class of query (Simple / Multi-source / Planning…) with its own cumulative token profile (input / cached / output across the whole multi-turn cycle), weighted by an expected mix.
+
+**When to use it.** For agents whose queries don't follow one fixed pipeline — they fan out across sources over a variable number of turns, so different query kinds have genuinely different token footprints.
+
+**How it drives cost.** per-query LLM cost = Σ (mix-share × cycle cost @ this agent's model + the workload tier). That blended number flows into the real headline. The token fields above are ignored while this is on.
+
+**⚙ from turns.** Each row's gear builds its token columns from per-turn growth (base + turns + added/turn + output/turn + cache ratio) — input accumulates each turn as history piles up.">ⓘ</span>
+            <span style="font-size:10px;color:var(--dim)">(default off)</span>
+          </div>
+          ${agent.archetype_mode ? `<div style="font-size:10px;color:var(--dim);margin-bottom:4px">Token fields above are ignored — this agent's cost is the blended cost of the archetypes below.</div><div class="agent-arch" data-arch-idx="${idx}"></div>` : ''}
+        </div>
         <div class="row" style="margin-top:6px;padding:6px 8px;background:rgba(120,180,255,0.06);border:1px solid rgba(120,180,255,0.18);border-radius:5px">
           <div style="display:flex;align-items:center;gap:8px;font-size:12px;margin-bottom:5px">
             <input type="checkbox" id="agent-${idx}-verify-enabled" data-agent="${idx}" data-key="verify_enabled" ${agent.verify_enabled ? 'checked' : ''} style="margin:0">
@@ -872,7 +889,7 @@ Production teams measure their primary's confidence-score distribution; escalate
         else workload.agents[idx][key] = v;
         // Hosting and verify_enabled changes need a full re-render to update
         // visibility of dependent rows (hint text / verify coverage + override).
-        if (key === 'hosting' || key === 'verify_enabled') renderAgentsList();
+        if (key === 'hosting' || key === 'verify_enabled' || key === 'archetype_mode') renderAgentsList();
         // Mirror procurement-side Hosting change back to simulator-side
         // Section C agent.provider so the per-agent Provider dropdown +
         // header BYOK badge stay in sync with whichever editor the user
@@ -900,6 +917,92 @@ Production teams measure their primary's confidence-score distribution; escalate
         renderPreview();
       });
     });
+    // Render the in-card archetype editor for any agent in archetype mode.
+    workload.agents.forEach((agent, idx) => { if (agent.archetype_mode) renderAgentArchetypes(idx); });
+  }
+
+  // In-card archetype editor — edits workload.agents[idx].archetypes directly
+  // and recomputes the live headline. The engine (cost-engine.js) reads these
+  // when agent.archetype_mode is on; the cost math is the engine's, this is
+  // just the editor. Token columns can be built from per-turn growth via ⚙
+  // (ArchetypeGrowth.cycleUniform).
+  function renderAgentArchetypes(idx) {
+    const host = document.querySelector(`.agent-arch[data-arch-idx="${idx}"]`);
+    if (!host) return;
+    const agent = workload.agents[idx];
+    if (!Array.isArray(agent.archetypes) || !agent.archetypes.length) {
+      agent.archetypes = [{ name: 'Default', share: 1, input_tokens: 80000, cached_tokens: 70000, output_tokens: 600 }];
+    }
+    const rows = agent.archetypes.map((a, i) => `
+      <tr>
+        <td><input value="${(a.name || '').replace(/"/g, '&quot;')}" data-ai="${i}" data-ak="name" style="width:100%;font-size:11px"></td>
+        <td><input type="number" value="${(Number(a.share) || 0) * 100}" data-ai="${i}" data-ak="share" style="width:48px;font-size:11px"></td>
+        <td><input type="number" value="${a.input_tokens || 0}" data-ai="${i}" data-ak="input_tokens" style="width:78px;font-size:11px"></td>
+        <td><input type="number" value="${a.cached_tokens || 0}" data-ai="${i}" data-ak="cached_tokens" style="width:78px;font-size:11px"></td>
+        <td><input type="number" value="${a.output_tokens || 0}" data-ai="${i}" data-ak="output_tokens" style="width:64px;font-size:11px"></td>
+        <td style="white-space:nowrap"><button type="button" data-ax-turns="${i}" title="Build tokens from per-turn growth" style="border:none;background:none;cursor:pointer;color:var(--dim);font-size:13px">⚙</button><button type="button" data-ax-del="${i}" title="Remove" style="border:none;background:none;cursor:pointer;color:var(--dim);font-size:13px">×</button></td>
+      </tr>`).join('');
+    host.innerHTML = `
+      <table style="width:100%;border-collapse:collapse;font-size:11px">
+        <thead><tr style="color:var(--dim);font-size:9.5px;text-transform:uppercase;text-align:left">
+          <th>Archetype</th><th>Mix%</th><th>Input</th><th>Cached</th><th>Output</th><th></th>
+        </tr></thead><tbody>${rows}</tbody>
+      </table>
+      <button type="button" data-ax-add style="font-size:11px;margin-top:4px;cursor:pointer">+ archetype</button>
+      <div class="agent-arch-turns" data-arch-idx="${idx}"></div>`;
+
+    host.querySelectorAll('input[data-ai]').forEach(inp => inp.addEventListener('input', () => {
+      const i = +inp.dataset.ai, k = inp.dataset.ak;
+      if (k === 'name') agent.archetypes[i].name = inp.value;
+      else if (k === 'share') agent.archetypes[i].share = (parseFloat(inp.value) || 0) / 100;
+      else agent.archetypes[i][k] = parseFloat(inp.value) || 0;
+      renderPreview(); renderRawJson();
+    }));
+    host.querySelector('[data-ax-add]').addEventListener('click', () => {
+      agent.archetypes.push({ name: 'New', share: 0.1, input_tokens: 50000, cached_tokens: 40000, output_tokens: 500 });
+      renderAgentArchetypes(idx); renderPreview(); renderRawJson();
+    });
+    host.querySelectorAll('[data-ax-del]').forEach(b => b.addEventListener('click', e => {
+      agent.archetypes.splice(+e.currentTarget.dataset.axDel, 1);
+      if (!agent.archetypes.length) agent.archetypes.push({ name: 'Default', share: 1, input_tokens: 80000, cached_tokens: 70000, output_tokens: 600 });
+      renderAgentArchetypes(idx); renderPreview(); renderRawJson();
+    }));
+    host.querySelectorAll('[data-ax-turns]').forEach(b => b.addEventListener('click', e => openAgentTurnsEditor(idx, +e.currentTarget.dataset.axTurns)));
+  }
+
+  // The ⚙ "from turns" mini-editor for one archetype row — computes the
+  // cumulative {input, cached, output} from a per-turn description via the
+  // shared growth model, writes it back, recomputes.
+  function openAgentTurnsEditor(idx, i) {
+    const host = document.querySelector(`.agent-arch-turns[data-arch-idx="${idx}"]`);
+    if (!host || !window.ArchetypeGrowth) return;
+    const a = workload.agents[idx].archetypes[i];
+    const ratio = a.input_tokens > 0 ? (a.cached_tokens / a.input_tokens) : window.ArchetypeGrowth.DOC_CACHE_RATIO;
+    host.innerHTML = `<div style="margin-top:6px;padding:6px 8px;background:rgba(120,180,255,0.07);border-radius:5px;font-size:11px">
+      Build “${(a.name || 'archetype').replace(/"/g, '&quot;')}” from per-turn growth:
+      <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:4px;align-items:flex-end">
+        <label style="display:flex;flex-direction:column;font-size:10px;color:var(--dim)">Base<input class="t-base" type="number" value="20000" style="width:78px;font-size:11px"></label>
+        <label style="display:flex;flex-direction:column;font-size:10px;color:var(--dim)">Turns<input class="t-turns" type="number" value="${a.turns || 8}" style="width:48px;font-size:11px"></label>
+        <label style="display:flex;flex-direction:column;font-size:10px;color:var(--dim)">Added/turn<input class="t-added" type="number" value="500" style="width:66px;font-size:11px"></label>
+        <label style="display:flex;flex-direction:column;font-size:10px;color:var(--dim)">Output/turn<input class="t-out" type="number" value="100" style="width:66px;font-size:11px"></label>
+        <label style="display:flex;flex-direction:column;font-size:10px;color:var(--dim)">Cache ratio<input class="t-ratio" type="number" step="0.01" value="${ratio.toFixed(3)}" style="width:60px;font-size:11px"></label>
+        <button type="button" class="t-apply" style="font-size:11px;cursor:pointer">Apply</button>
+        <span class="t-prev" style="font-family:monospace;color:var(--accent)"></span>
+      </div></div>`;
+    const g = sel => parseFloat(host.querySelector(sel).value) || 0;
+    const prev = () => {
+      const p = window.ArchetypeGrowth.cycleUniform(g('.t-base'), g('.t-turns'), g('.t-added'), g('.t-out'), g('.t-ratio'));
+      host.querySelector('.t-prev').textContent = `→ in ${p.input_tokens.toLocaleString()} · cached ${p.cached_tokens.toLocaleString()} · out ${p.output_tokens.toLocaleString()}`;
+      return p;
+    };
+    host.querySelectorAll('input').forEach(x => x.addEventListener('input', prev));
+    host.querySelector('.t-apply').addEventListener('click', () => {
+      const p = prev();
+      a.input_tokens = p.input_tokens; a.cached_tokens = p.cached_tokens;
+      a.output_tokens = p.output_tokens; a.turns = p.turns;
+      renderAgentArchetypes(idx); renderPreview(); renderRawJson();
+    });
+    prev();
   }
 
   function renderGpuList() {
@@ -6434,17 +6537,50 @@ Production teams measure their primary's confidence-score distribution; escalate
   window.__importFromSimulator = function(payload) {
     if (!payload || !Array.isArray(payload.agents)) return;
     const silent = payload.silent === true;
-    workload.agents = payload.agents.map(a => ({
-      id: a.id || ('agent-' + Math.random().toString(36).slice(2, 8)),
-      label: a.label || a.id || 'Agent',
-      input_tokens: a.input_tokens || 0,
-      output_tokens: a.output_tokens || 0,
-      calls_per_query: a.calls_per_query || 1,
-      model: a.model || null,
-      cache_eligible: !!a.cache_eligible,
-      hosting: a.hosting || 'api',
-      description: a.description || '',
-    }));
+    // Preserve per-agent ARCHETYPE config across the sim→workload rebuild.
+    // The simulator's agent model doesn't carry archetype_mode/archetypes,
+    // so a naive rebuild would wipe them whenever the sim re-syncs (e.g. on
+    // a traffic-slider change). Carry them over from the prior workload.agents,
+    // matched best-effort by id → label → index (the sim can rename ids,
+    // e.g. 'planner' → 'geo-planner', but keeps the label).
+    const prevAgents = Array.isArray(workload.agents) ? workload.agents : [];
+    const prevById = {}, prevByLabel = {};
+    prevAgents.forEach(p => {
+      if (p && p.archetype_mode) {
+        if (p.id) prevById[p.id] = p;
+        if (p.label) prevByLabel[p.label] = p;
+      }
+    });
+    workload.agents = payload.agents.map((a, i) => {
+      const out = {
+        id: a.id || ('agent-' + Math.random().toString(36).slice(2, 8)),
+        label: a.label || a.id || 'Agent',
+        input_tokens: a.input_tokens || 0,
+        output_tokens: a.output_tokens || 0,
+        calls_per_query: a.calls_per_query || 1,
+        model: a.model || null,
+        cache_eligible: !!a.cache_eligible,
+        hosting: a.hosting || 'api',
+        description: a.description || '',
+      };
+      // Primary path: payload carries archetype fields directly from
+      // sim.agents (set by buildPayload after the simulator editor fix).
+      if (a.archetype_mode && Array.isArray(a.archetypes) && a.archetypes.length) {
+        out.archetype_mode = true;
+        out.archetypes = JSON.parse(JSON.stringify(a.archetypes));
+      } else {
+        // Belt-and-braces fallback: preserve from prior workload.agents by
+        // id → label → index in case payload was built before the sim had
+        // archetype fields (old hash link, external import, etc.).
+        const prev = prevById[out.id] || prevByLabel[out.label]
+          || (prevAgents[i] && prevAgents[i].archetype_mode ? prevAgents[i] : null);
+        if (prev && prev.archetype_mode && Array.isArray(prev.archetypes)) {
+          out.archetype_mode = true;
+          out.archetypes = prev.archetypes;
+        }
+      }
+      return out;
+    });
     if (silent) {
       // Auto-sync path: only re-render the cost preview (the topbar
       // pill, the Report). Skip the editor re-render — it can stomp

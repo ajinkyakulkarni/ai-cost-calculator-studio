@@ -3863,6 +3863,7 @@ input[type=range]:disabled { cursor: not-allowed; }
       <option value="customer-support-fleet">Bench · 3-Agent Customer Support Fleet (Triage → KB → Responder)</option>
       <option value="voice-support-agent">Bench · Voice Support Agent (STT → LLM → TTS, Sierra-class)</option>
       <option value="legal-tech-rag">Bench · Legal-tech RAG (2-agent, Harvey/Spellbook-class, FR2 cascade)</option>
+      <option value="archetype-agent-demo">Demo · Archetype-costed agent (per-query mix drives cost)</option>
     </select>
   </div>
 
@@ -6423,6 +6424,7 @@ Both fields are independent; they don't have to match.">ⓘ</span></label>
   <span>AI Cost Calculator</span>
   <span><a href="examples/">Examples</a></span>
   <span><a href="quiz.html" title="Learn / flashcard / quiz study guide for every knob and concept">🎓 Quiz</a></span>
+  <span><a href="archetype.html" title="Archetype cost estimator for variable, multi-step agents">🧩 Archetype cost</a></span>
   <span id="prices-freshness" title="Prices are scraped daily from vendor pricing pages.">Prices: bundled (loading live…)</span>
   <span><a href="https://github.com/ajinkyakulkarni/ai-cost-calculator-studio" target="_blank" rel="noopener" title="Source code on GitHub">Source</a></span>
   <span><a href="https://github.com/ajinkyakulkarni/ai-cost-calculator-studio/blob/main/LICENSE" target="_blank" rel="noopener" title="MIT License">MIT</a></span>
@@ -6483,7 +6485,7 @@ Both fields are independent; they don't have to match.">ⓘ</span></label>
 <!-- SheetJS for client-side Excel export -->
 <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 <script src="lib/prices.js"></script>
-<script src="lib/cost-engine.js"></script>
+<script src="lib/cost-engine.js?v=2026-06-21-archetype-trace-1"></script>
 <!-- PURE modules consumed by app.js — must load BEFORE it. Each is
      dual-exported (browser global + CommonJS) and unit-tested in Node:
      - derivation-trace: trace appendix builder + retry-inflate formula
@@ -6493,7 +6495,11 @@ Both fields are independent; they don't have to match.">ⓘ</span></label>
 <script src="lib/derivation-trace.js?v=2026-06-10-modular-1"></script>
 <script src="lib/workload-hash.js?v=2026-06-10-modular-2"></script>
 <script src="lib/headline-math.js?v=2026-06-10-modular-3"></script>
-<script src="app.js?v=2026-06-10-modular-3"></script>
+<!-- Archetype cost — woven into the per-agent cost model (Agent fleet
+     section). Math + growth shared with the standalone archetype.html. -->
+<script src="lib/archetype-math.js?v=2026-06-21-arch-3"></script>
+<script src="lib/archetype-growth.js?v=2026-06-21-arch-3"></script>
+<script src="app.js?v=2026-06-21-archetype-sim-1"></script>
 
 <!-- ===== Live prices from api.ajinkya.ai/prices ==================
      The bundled lib/prices.js gives the calc a working snapshot;
@@ -6553,7 +6559,7 @@ Both fields are independent; they don't have to match.">ⓘ</span></label>
        All globals (sim, AGENT_DEF, MODELS, computeCost, setMode, setTheme,
        onSlider, …) attach to window so inline blocks below + the bridge
        in app.js see them unchanged. -->
-  <script src="lib/cost-simulator.js?v=2026-06-10-tips-3"></script>
+  <script src="lib/cost-simulator.js?v=2026-06-21-archetype-sim-2"></script>
   <!-- Modular extractions (2026-06-10) — order matters:
        audience-math (pure formulas, no deps) before audience-block
        (DOM layer that consumes it). ui-mode is independent. All three
@@ -6577,18 +6583,32 @@ Both fields are independent; they don't have to match.">ⓘ</span></label>
     const c = computeCost();
     const breakdown = (c && c.agentBreakdown) || [];
     if (breakdown.length === 0) return null;
-    const agents = breakdown.map((a, idx) => ({
-      id: (a.name || ('agent-' + (idx + 1)))
-              .toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, ''),
-      label: a.name + (a.role ? ' (' + a.role + ')' : ''),
-      model: a.model,
-      input_tokens:    Math.max(1, Math.round((a.totalIn  || 0) / Math.max(1, a.turns || 1))),
-      output_tokens:   Math.max(1, Math.round((a.totalOut || 0) / Math.max(1, a.turns || 1))),
-      calls_per_query: Math.max(1, Math.round(a.turns || 1)),
-      cache_eligible:  ((a.cacheReadTok || 0) + (a.cacheWriteTok || 0)) > 0,
-      hosting: 'api',
-      description: 'Imported from cost simulator' + (a.role ? ' · ' + a.role : ''),
-    }));
+    // Pull archetype fields directly from sim.agents so they survive
+    // every buildPayload call (traffic sliders, re-syncs, etc.) without
+    // relying solely on the id/label fallback in __importFromSimulator.
+    const simAgents = (typeof sim !== 'undefined' && Array.isArray(sim.agents)) ? sim.agents : [];
+    const agents = breakdown.map((a, idx) => {
+      const sa = simAgents[idx] || {};
+      const out = {
+        id: (a.name || ('agent-' + (idx + 1)))
+                .toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, ''),
+        label: a.name + (a.role ? ' (' + a.role + ')' : ''),
+        model: a.model,
+        input_tokens:    Math.max(1, Math.round((a.totalIn  || 0) / Math.max(1, a.turns || 1))),
+        output_tokens:   Math.max(1, Math.round((a.totalOut || 0) / Math.max(1, a.turns || 1))),
+        calls_per_query: Math.max(1, Math.round(a.turns || 1)),
+        cache_eligible:  ((a.cacheReadTok || 0) + (a.cacheWriteTok || 0)) > 0,
+        hosting: 'api',
+        description: 'Imported from cost simulator' + (a.role ? ' · ' + a.role : ''),
+      };
+      // Carry archetype fields so __importFromSimulator writes them directly
+      // to workload.agents, not only via the id/label belt-and-braces fallback.
+      if (sa.archetype_mode && Array.isArray(sa.archetypes) && sa.archetypes.length) {
+        out.archetype_mode = true;
+        out.archetypes = JSON.parse(JSON.stringify(sa.archetypes));
+      }
+      return out;
+    });
     return {
       type: 'axiom-export',
       source: 'cost-simulator v9.6 simulator',

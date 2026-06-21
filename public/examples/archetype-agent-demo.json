@@ -1,0 +1,46 @@
+{
+  "schemaVersion": "1.0",
+  "deployment": {
+    "name": "Archetype-agent demo",
+    "agency": "(example)",
+    "description": "Demonstrates per-agent ARCHETYPE costing: the agent's per-query LLM cost is a mix of query archetypes (Simple / Multi-source / Planning), each with its own cumulative token profile, blended by mix — instead of a single fixed token model. Edit the agent's archetypes in the Agent fleet section; the blended cost drives the headline.",
+    "publicFacing": false,
+    "fedrampTier": "none"
+  },
+  "anchor_query": {
+    "input_tokens": 2933,
+    "output_tokens": 41,
+    "cache_rate_baseline": 0.88,
+    "session_baseline_turns": 6
+  },
+  "shapes": {
+    "full": { "input_factor": 1, "output_factor": 1, "cache_eligible": true, "description": "Full pipeline" }
+  },
+  "mix": {
+    "worst": { "label": "Worst-case", "weights": { "full": 1 } }
+  },
+  "segments": [
+    { "id": "all", "label": "Users", "mau": 10000, "sessions_per_day": 0.2, "questions_per_session": 10, "applyBotFactor": false }
+  ],
+  "agents": [
+    {
+      "id": "planner",
+      "label": "Geo planner (archetype-costed)",
+      "model": "gpt-5.4",
+      "archetype_mode": true,
+      "activation_rate": 1,
+      "archetypes": [
+        { "name": "Simple", "share": 0.6, "tool_calls": 6, "turns": 6, "input_tokens": 80000, "cached_tokens": 70000, "output_tokens": 600, "low_factor": 0.8, "high_factor": 1.3 },
+        { "name": "Multi-source", "share": 0.3, "tool_calls": 8, "turns": 11, "input_tokens": 233498, "cached_tokens": 184917, "output_tokens": 885, "low_factor": 0.8, "high_factor": 1.4 },
+        { "name": "Planning+routing", "share": 0.1, "tool_calls": 13, "turns": 13, "input_tokens": 360938, "cached_tokens": 285842, "output_tokens": 3115, "low_factor": 0.6, "high_factor": 1.8, "_source": "DERIVED, not measured" }
+      ]
+    }
+  ],
+  "defaults": {
+    "model": "gpt-5.4",
+    "tier": "standard",
+    "mix": "worst",
+    "hosting": "api",
+    "cost_mode": "optimistic"
+  }
+}

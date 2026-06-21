@@ -37,9 +37,15 @@ const slowMs = slowArg ? parseInt(slowArg.split('=')[1], 10) : 250;
 const filter = args.find(a => a.startsWith('--only='));
 const onlyName = filter ? filter.split('=')[1] : null;
 
-const URL = useLocal
-  ? 'file://' + path.resolve(__dirname, '..', 'public', 'index.html')
-  : 'https://calc.ajinkya.ai/';
+// --base=<url> points the suite at any origin (e.g. a local http server:
+// --base=http://localhost:8765/index.html). Preferable to --local (file://)
+// for scenarios that fetch preset JSONs — Chromium blocks file:// fetch.
+const baseArg = args.find(a => a.startsWith('--base='));
+const URL = baseArg
+  ? baseArg.split('=').slice(1).join('=')
+  : useLocal
+    ? 'file://' + path.resolve(__dirname, '..', 'public', 'index.html')
+    : 'https://calc.ajinkya.ai/';
 
 // ── Helpers ──────────────────────────────────────────────────────────────
 const fmt = (n) => '$' + n.toLocaleString(undefined, { maximumFractionDigits: 0 });
@@ -98,6 +104,19 @@ async function getHeadline(page) {
   return parseHeadline(t);
 }
 
+// Load a bundled example. The appbar example-loader is responsive-hidden at
+// some viewports, which makes page.selectOption flake on a visibility wait;
+// set the value + dispatch change directly (the loader's change handler fires
+// the same fetch + render path).
+async function loadExample(page, slug) {
+  await page.evaluate((s) => {
+    const sel = document.getElementById('example-loader');
+    if (!sel) throw new Error('example-loader not found');
+    sel.value = s;
+    sel.dispatchEvent(new Event('change', { bubbles: true }));
+  }, slug);
+}
+
 async function setSliderValue(page, id, value) {
   // Synthetic dispatchEvent fires with isTrusted=false, which the
   // bidirectional capture-phase listeners in app.js intentionally
@@ -134,11 +153,16 @@ async function setSliderTrusted(page, id, value) {
     cur: parseFloat(el.value) || 0,
   }));
   const target = Math.max(meta.min, Math.min(meta.max, value));
-  // Nudge from current to target using arrows
+  // Nudge from current to target using arrows. Use the element locator's
+  // press (auto-focuses + fires trusted events) and a tiny settle — at
+  // slowMo=0 a bare page.keyboard.press loop can fire before focus lands,
+  // leaving the slider unmoved.
+  const loc = page.locator('#' + id);
+  await loc.focus();
   const stepsNeeded = Math.round((target - meta.cur) / meta.step);
   const key = stepsNeeded > 0 ? 'ArrowRight' : 'ArrowLeft';
   for (let i = 0; i < Math.abs(stepsNeeded); i++) {
-    await page.keyboard.press(key);
+    await loc.press(key);
   }
 }
 
@@ -231,7 +255,7 @@ async function agentPromotion(page) {
   // a workload-mode preset so the original promotion scenario is
   // still exercised. generic-startup-chatbot is workload-mode (no
   // agents array).
-  await page.selectOption('#example-loader', 'generic-startup-chatbot');
+  await loadExample(page, 'generic-startup-chatbot');
   await sleep(1500);
   const stateBefore = await page.evaluate(() => ({
     badgeCount: document.querySelectorAll('#cb-calibrated').length,
@@ -333,6 +357,14 @@ async function agentEnabledTools(page) {
 
 async function shareUrlRoundtrip(page) {
   await waitForBoot(page);
+  // The s-cache slider lives in an advanced-only area; the calc boots in
+  // basic mode where it's hidden (offsetParent null), so a keyboard drag
+  // can't move it. Switch to advanced first so the slider is interactable.
+  await page.evaluate(() => {
+    if (typeof window.setUiMode === 'function') window.setUiMode('advanced');
+    else document.querySelector('[data-mode="advanced"]')?.click();
+  });
+  await sleep(400);
   // Use trusted-event keyboard nudges so the isTrusted-gated
   // bidirectional listener actually pushes the new cache value into
   // workload.anchor_query, which is what gets captured in the URL hash.
@@ -367,7 +399,7 @@ async function shareUrlRoundtrip(page) {
 async function mcpResearchFleet(page) {
   await waitForBoot(page);
   // Switch to the demo preset via the example loader
-  await page.selectOption('#example-loader', 'mcp-research-fleet');
+  await loadExample(page, 'mcp-research-fleet');
   await sleep(1500);
   // Should have 3 agents in the workload, multiple tools enabled
   const state = await page.evaluate(() => ({
@@ -393,7 +425,7 @@ async function mcpResearchFleet(page) {
 // and (d) update the procurement-side sec-agents Hosting dropdown.
 async function byokProviderMirror(page) {
   await waitForBoot(page);
-  await page.selectOption('#example-loader', 'customer-support-fleet');
+  await loadExample(page, 'customer-support-fleet');
   await sleep(1500);
   const baseline = await getHeadline(page);
   // Flip Responder (sim.agents[2]) to BYOK via the sim's setAP() — the
@@ -431,7 +463,7 @@ async function byokProviderMirror(page) {
 // regardless of which one the user touches first.
 async function byokReverseMirror(page) {
   await waitForBoot(page);
-  await page.selectOption('#example-loader', 'customer-support-fleet');
+  await loadExample(page, 'customer-support-fleet');
   await sleep(1500);
   const baseline = await getHeadline(page);
   // Find the third (Responder) hosting select on the procurement side
@@ -477,7 +509,7 @@ async function byokReverseMirror(page) {
 // SELF-HOST badge on the Section C agent card.
 async function selfHostReverseMirror(page) {
   await waitForBoot(page);
-  await page.selectOption('#example-loader', 'customer-support-fleet');
+  await loadExample(page, 'customer-support-fleet');
   await sleep(1500);
   const baseline = await getHeadline(page);
   const changed = await page.evaluate(() => {
@@ -518,7 +550,7 @@ async function selfHostReverseMirror(page) {
 // guard for the no-op-knob bug fixed 2026-05-18.
 async function taskBiasMoves(page) {
   await waitForBoot(page);
-  await page.selectOption('#example-loader', 'public-geospatial-qa');
+  await loadExample(page, 'public-geospatial-qa');
   await sleep(1500);
   // Strip any existing task_bias (this preset shouldn't have any) so we
   // measure a clean baseline, then set every agent to longform.
@@ -639,7 +671,7 @@ async function geospatialDefaultPreset(page) {
 // must be white #fff (not green-on-green from the old var(--card) bug).
 async function validatedButtonContrast(page) {
   await waitForBoot(page);
-  await page.selectOption('#example-loader', 'public-geospatial-qa');
+  await loadExample(page, 'public-geospatial-qa');
   await sleep(1500);
   const state = await page.evaluate(() => {
     const calBadge = document.querySelector('.calibration-badge');
@@ -660,6 +692,42 @@ async function validatedButtonContrast(page) {
   }
   assert(state.spanColor === 'rgb(255, 255, 255)',
     `expected Validated active button span color #fff, got ${state.spanColor} (green-on-green bug regression)`);
+}
+
+// Per-agent ARCHETYPE editor lives in the simulator agent card. Loading the
+// archetype-agent-demo preset should surface the toggle; editing an
+// archetype's input_tokens must move the headline (engine prices the mix).
+async function archetypeEditor(page) {
+  await waitForBoot(page);
+  // Set via JS + change event (the loader can be responsive-hidden at this
+  // viewport, which makes selectOption flake on visibility).
+  await loadExample(page, 'archetype-agent-demo');
+  await sleep(1800);
+  // AC1: the simulator card exposes the archetype toggle.
+  const togExists = await page.evaluate(() =>
+    !!document.querySelector('input[onchange*="simTogArchMode"], input[onclick*="simTogArchMode"]'));
+  assert(togExists, 'archetype toggle not found in simulator agent card');
+  // Ensure mode on + the editable input_tokens cell is present (AC2).
+  await page.evaluate(() => {
+    const t = document.querySelector('input[onchange*="simTogArchMode"], input[onclick*="simTogArchMode"]');
+    if (t && !t.checked) t.click();
+  });
+  await sleep(400);
+  const hasCell = await page.evaluate(() => !!document.querySelector("input[oninput*=\"'input_tokens'\"]"));
+  assert(hasCell, 'archetype input_tokens cell not rendered');
+  // Drop MAU so the default daily cap doesn't clamp and mask edits.
+  await setSliderValue(page, 's-users', 300);
+  await sleep(800);
+  const before = await getHeadline(page);
+  // AC3: doubling an archetype's input_tokens raises the headline.
+  await page.evaluate(() => {
+    const c = document.querySelector("input[oninput*=\"'input_tokens'\"]");
+    c.value = String((parseFloat(c.value) || 80000) * 2);
+    c.dispatchEvent(new Event('input', { bubbles: true }));
+  });
+  await sleep(800);
+  const after = await getHeadline(page);
+  assert(after > before, `editing archetype tokens did not raise headline: ${before} → ${after}`);
 }
 
 // ── Runner ───────────────────────────────────────────────────────────────
@@ -683,6 +751,7 @@ async function validatedButtonContrast(page) {
   await scenario('section-helpers',       sectionHelpersPresent);
   await scenario('geo-default-preset',    geospatialDefaultPreset);
   await scenario('validated-button',      validatedButtonContrast);
+  await scenario('archetype-editor',      archetypeEditor);
   const dt = ((Date.now() - t0) / 1000).toFixed(1);
   console.log(`\n${passed} passed · ${failed} failed · ${dt}s\n`);
   if (failed > 0) {

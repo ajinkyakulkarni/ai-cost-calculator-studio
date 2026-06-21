@@ -457,6 +457,50 @@
     let total = 0;
     const breakdown = [];
     for (const agent of (w.agents || [])) {
+      // ── Per-agent ARCHETYPE mode ──────────────────────────────────────
+      // When an agent describes its per-query cost as a mix of query
+      // archetypes (each with its own cumulative input/cached/output tokens)
+      // rather than the fixed token+tools model, its per-query LLM cost is
+      // the mix-blended cost-per-cycle at the agent's model + workload tier.
+      // The cycle-cost formula is inlined (identical to ArchetypeMath /
+      // costcalc.archetype) so the engine keeps no load-order dependency.
+      // No archetype_mode on an agent → this never fires → existing presets
+      // are byte-identical (parity preserved). activation_rate still applies;
+      // the archetype already encodes the full cycle, so calls/turn_share/
+      // tool math are intentionally subsumed.
+      if (agent.archetype_mode && Array.isArray(agent.archetypes) && agent.archetypes.length) {
+        const aModelId = agent.model || mainModelId;
+        const aRates = w.rate_cards[aModelId];
+        if (aRates) {
+          const arNorm0 = agent.archetypes.reduce((s, a) => s + (Number(a.share) || 0), 0) || 1;
+          let aBlended = 0;
+          const archDetail = [];   // for the derivation trace (auditable per-archetype lines)
+          for (const a of agent.archetypes) {
+            const shareN = (Number(a.share) || 0) / arNorm0;
+            const inp = Number(a.input_tokens) || 0;
+            const cch = Math.min(Number(a.cached_tokens) || 0, inp);
+            const out = Number(a.output_tokens) || 0;
+            const cyc = ((inp - cch) * aRates.input_per_million
+                       + cch * aRates.cached_per_million
+                       + out * aRates.output_per_million) / 1e6 * mult;
+            aBlended += shareN * cyc;
+            archDetail.push({ name: a.name || '?', share_normalized: shareN,
+              input: inp, cached: cch, output: out, cycle_cost: cyc });
+          }
+          const aActRaw = Number(agent.activation_rate);
+          const aAct = Number.isFinite(aActRaw) && aActRaw >= 0 && aActRaw <= 1 ? aActRaw : 1.0;
+          const aPerQuery = aBlended * aAct;
+          total += aPerQuery;
+          breakdown.push({
+            id: agent.id, label: agent.label || agent.id,
+            hosting: 'api', model: aModelId, calls: 1, input: 0, output: 0,
+            tool_cost: 0, per_call_cost: aBlended, per_query_cost: aPerQuery,
+            archetype_mode: true, archetype_blended: aBlended,
+            activation_rate: aAct, archetype_detail: archDetail,
+          });
+          continue;
+        }
+      }
       const hosting = agent.hosting || 'api';  // 'api' | 'byok' | 'self-host'
       const calls = agent.calls_per_query != null ? agent.calls_per_query : 1;
       const inT = agent.input_tokens || 0;
@@ -2040,6 +2084,25 @@
       let agentCycleSum = 0;
       for (const a of (r.api.agent_breakdown || [])) {
         agentCycleSum += a.per_query_cost || 0;
+        // Archetype-mode agent: its per-query cost is a mix of query
+        // archetypes (each a full-cycle token profile), NOT the token+tools
+        // model. Print the auditable per-archetype breakdown so the trace
+        // reconciles to the headline honestly.
+        if (a.archetype_mode && Array.isArray(a.archetype_detail)) {
+          out += `  Agent "${a.label}" (${a.model}) — archetype mode (token/tools sliders bypassed):\n`;
+          for (const d of a.archetype_detail) {
+            const fresh = (d.input || 0) - (d.cached || 0);
+            out += `    "${d.name}" ${(d.share_normalized * 100).toFixed(0)}% mix: `
+                 + `${num(d.input)} in (${num(d.cached)} cached → ${num(fresh)} fresh) + ${num(d.output)} out`
+                 + ` ⇒ cycle ${$6(d.cycle_cost)}\n`;
+          }
+          out += `    Blended over mix: ${$6(a.archetype_blended || 0)}/cycle`
+               + (a.activation_rate != null && a.activation_rate !== 1
+                  ? ` × ${a.activation_rate} activation = ${$6(a.per_query_cost)}` : '')
+               + `\n`;
+          out += `    Per-query: ${$4(a.per_query_cost)} (unrounded ${$6(a.per_query_cost)})\n`;
+          continue;
+        }
         const ownIn = a.input || 0;
         const schemaTok = a.tool_schema_tokens || 0;
         const resultTok = a.tool_result_tokens || 0;

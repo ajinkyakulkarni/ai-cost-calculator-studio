@@ -118,6 +118,39 @@ def per_query_cost_agents(
     breakdown: List[Dict[str, Any]] = []
 
     for agent in workload.get("agents") or []:
+        # Per-agent ARCHETYPE mode (mirrors cost-engine.js): when an agent
+        # describes its per-query cost as a mix of query archetypes, its
+        # per-query LLM cost is the mix-blended cost-per-cycle at the agent's
+        # model + workload tier. Inlined cycle-cost formula = ArchetypeMath /
+        # costcalc.archetype. No archetype_mode → never fires → parity held.
+        archs = agent.get("archetypes")
+        if agent.get("archetype_mode") and isinstance(archs, list) and archs:
+            a_model = agent.get("model") or main_model_id
+            a_rates = workload["rate_cards"].get(a_model)
+            if a_rates:
+                norm0 = sum(_to_float(a.get("share")) for a in archs) or 1.0
+                a_blended = 0.0
+                for a in archs:
+                    share_n = _to_float(a.get("share")) / norm0
+                    inp = _to_float(a.get("input_tokens"))
+                    cch = min(_to_float(a.get("cached_tokens")), inp)
+                    out = _to_float(a.get("output_tokens"))
+                    cyc = ((inp - cch) * a_rates["input_per_million"]
+                           + cch * a_rates["cached_per_million"]
+                           + out * a_rates["output_per_million"]) / 1e6 * mult
+                    a_blended += share_n * cyc
+                act_raw = _to_float(agent.get("activation_rate"), 1.0)
+                a_act = act_raw if 0 <= act_raw <= 1 else 1.0
+                a_pq = a_blended * a_act
+                total += a_pq
+                breakdown.append({
+                    "id": agent.get("id"), "label": agent.get("label") or agent.get("id"),
+                    "hosting": "api", "model": a_model, "calls": 1, "input": 0, "output": 0,
+                    "tool_cost": 0, "per_call_cost": a_blended, "per_query_cost": a_pq,
+                    "archetype_mode": True,
+                })
+                continue
+
         hosting = agent.get("hosting") or "api"
         calls = _to_float(agent.get("calls_per_query"), 1.0)
         in_t = _to_float(agent.get("input_tokens"))
