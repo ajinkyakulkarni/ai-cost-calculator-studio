@@ -37,9 +37,15 @@ const slowMs = slowArg ? parseInt(slowArg.split('=')[1], 10) : 250;
 const filter = args.find(a => a.startsWith('--only='));
 const onlyName = filter ? filter.split('=')[1] : null;
 
-const URL = useLocal
-  ? 'file://' + path.resolve(__dirname, '..', 'public', 'index.html')
-  : 'https://calc.ajinkya.ai/';
+// --base=<url> points the suite at any origin (e.g. a local http server:
+// --base=http://localhost:8765/index.html). Preferable to --local (file://)
+// for scenarios that fetch preset JSONs — Chromium blocks file:// fetch.
+const baseArg = args.find(a => a.startsWith('--base='));
+const URL = baseArg
+  ? baseArg.split('=').slice(1).join('=')
+  : useLocal
+    ? 'file://' + path.resolve(__dirname, '..', 'public', 'index.html')
+    : 'https://calc.ajinkya.ai/';
 
 // ── Helpers ──────────────────────────────────────────────────────────────
 const fmt = (n) => '$' + n.toLocaleString(undefined, { maximumFractionDigits: 0 });
@@ -662,6 +668,46 @@ async function validatedButtonContrast(page) {
     `expected Validated active button span color #fff, got ${state.spanColor} (green-on-green bug regression)`);
 }
 
+// Per-agent ARCHETYPE editor lives in the simulator agent card. Loading the
+// archetype-agent-demo preset should surface the toggle; editing an
+// archetype's input_tokens must move the headline (engine prices the mix).
+async function archetypeEditor(page) {
+  await waitForBoot(page);
+  // Set via JS + change event (the loader can be responsive-hidden at this
+  // viewport, which makes selectOption flake on visibility).
+  await page.evaluate(() => {
+    const sel = document.getElementById('example-loader');
+    sel.value = 'archetype-agent-demo';
+    sel.dispatchEvent(new Event('change', { bubbles: true }));
+  });
+  await sleep(1800);
+  // AC1: the simulator card exposes the archetype toggle.
+  const togExists = await page.evaluate(() =>
+    !!document.querySelector('input[onchange*="simTogArchMode"], input[onclick*="simTogArchMode"]'));
+  assert(togExists, 'archetype toggle not found in simulator agent card');
+  // Ensure mode on + the editable input_tokens cell is present (AC2).
+  await page.evaluate(() => {
+    const t = document.querySelector('input[onchange*="simTogArchMode"], input[onclick*="simTogArchMode"]');
+    if (t && !t.checked) t.click();
+  });
+  await sleep(400);
+  const hasCell = await page.evaluate(() => !!document.querySelector("input[oninput*=\"'input_tokens'\"]"));
+  assert(hasCell, 'archetype input_tokens cell not rendered');
+  // Drop MAU so the default daily cap doesn't clamp and mask edits.
+  await setSliderValue(page, 's-users', 300);
+  await sleep(800);
+  const before = await getHeadline(page);
+  // AC3: doubling an archetype's input_tokens raises the headline.
+  await page.evaluate(() => {
+    const c = document.querySelector("input[oninput*=\"'input_tokens'\"]");
+    c.value = String((parseFloat(c.value) || 80000) * 2);
+    c.dispatchEvent(new Event('input', { bubbles: true }));
+  });
+  await sleep(800);
+  const after = await getHeadline(page);
+  assert(after > before, `editing archetype tokens did not raise headline: ${before} → ${after}`);
+}
+
 // ── Runner ───────────────────────────────────────────────────────────────
 (async () => {
   console.log(`\nE2E suite — target: ${URL}`);
@@ -683,6 +729,7 @@ async function validatedButtonContrast(page) {
   await scenario('section-helpers',       sectionHelpersPresent);
   await scenario('geo-default-preset',    geospatialDefaultPreset);
   await scenario('validated-button',      validatedButtonContrast);
+  await scenario('archetype-editor',      archetypeEditor);
   const dt = ((Date.now() - t0) / 1000).toFixed(1);
   console.log(`\n${passed} passed · ${failed} failed · ${dt}s\n`);
   if (failed > 0) {
