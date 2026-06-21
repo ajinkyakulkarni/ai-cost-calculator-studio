@@ -6563,11 +6563,21 @@ Production teams measure their primary's confidence-score distribution; escalate
         hosting: a.hosting || 'api',
         description: a.description || '',
       };
-      const prev = prevById[out.id] || prevByLabel[out.label]
-        || (prevAgents[i] && prevAgents[i].archetype_mode ? prevAgents[i] : null);
-      if (prev && prev.archetype_mode && Array.isArray(prev.archetypes)) {
+      // Primary path: payload carries archetype fields directly from
+      // sim.agents (set by buildPayload after the simulator editor fix).
+      if (a.archetype_mode && Array.isArray(a.archetypes) && a.archetypes.length) {
         out.archetype_mode = true;
-        out.archetypes = prev.archetypes;
+        out.archetypes = JSON.parse(JSON.stringify(a.archetypes));
+      } else {
+        // Belt-and-braces fallback: preserve from prior workload.agents by
+        // id → label → index in case payload was built before the sim had
+        // archetype fields (old hash link, external import, etc.).
+        const prev = prevById[out.id] || prevByLabel[out.label]
+          || (prevAgents[i] && prevAgents[i].archetype_mode ? prevAgents[i] : null);
+        if (prev && prev.archetype_mode && Array.isArray(prev.archetypes)) {
+          out.archetype_mode = true;
+          out.archetypes = prev.archetypes;
+        }
       }
       return out;
     });

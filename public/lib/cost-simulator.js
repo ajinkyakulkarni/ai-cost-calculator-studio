@@ -1151,7 +1151,7 @@ let sim={running:false,agents:[],users:[],totalIn:0,totalOut:0,totalCost:0,ragTo
 if (typeof window !== 'undefined') window.sim = sim;
 function cfg(id){return parseInt(document.getElementById(id)?.value)||0;}
 function cfgF(id){return parseFloat(document.getElementById(id)?.value)||0;}
-const AGENT_CONFIG_FIELDS=['model','provider','temp','maxOut','turnsShare','toolsOn','ragOn','reasonOn','guardOn','tools_per','schema','result','rag_chunks','rag_size','rag_calls','think_tok','think_pct','cot','factcheck','guard_in','guard_out','guard_pii','guard_policy','cache_rate','task_bias','tool_result_cache_share','tool_result_react_persistence'];
+const AGENT_CONFIG_FIELDS=['model','provider','temp','maxOut','turnsShare','toolsOn','ragOn','reasonOn','guardOn','tools_per','schema','result','rag_chunks','rag_size','rag_calls','think_tok','think_pct','cot','factcheck','guard_in','guard_out','guard_pii','guard_policy','cache_rate','task_bias','tool_result_cache_share','tool_result_react_persistence','archetype_mode','archetypes'];
 function cloneAgentBase(src,i){return {...JSON.parse(JSON.stringify(src)),id:i,tokens:0,calls:0,busy:false,utilPct:0,realIn:0,realOut:0,ctxUsed:0,expanded:false};}
 function snapshotAgentConfig(){return sim.agents.map(a=>{const o={name:a.name,role:a.role};AGENT_CONFIG_FIELDS.forEach(k=>{if(a[k]!==undefined)o[k]=a[k];});return o;});}
 function applyAgentConfigSnapshot(arr){if(!Array.isArray(arr))return;arr.forEach((src,i)=>{const a=sim.agents[i];if(!a||!src)return;AGENT_CONFIG_FIELDS.forEach(k=>{if(src[k]!==undefined)a[k]=src[k];});});renderAgents();updateCostPanel();renderLedger();updateKPIs();}
@@ -1527,6 +1527,54 @@ function toggleAgentModelCompare(id) {
   a._modelCompareOpen = !a._modelCompareOpen;
   renderAgents();
 }
+// Builds the "Cost via query archetypes (mix)" section for a simulator
+// agent card. The function is pure HTML — all mutations happen through the
+// global simTogArchMode / simArchEdit / simArchAddRow / simArchDelRow /
+// simArchOpenTurns / simArchApplyTurns functions wired as inline handlers.
+function agentArchetypeSectionHtml(a, scope){
+  const on=!!a.archetype_mode;
+  const borderColor = on ? '#9c27b066' : 'var(--b)';
+  const titleColor  = on ? '#9c27b0' : 'var(--ink-2,#3a4a62)';
+  let body='';
+  if(on){
+    // Ensure at least one row (seed defensively — actual mutation happens in simTogArchMode)
+    const arcs=Array.isArray(a.archetypes)&&a.archetypes.length ? a.archetypes
+      : [{name:'Default',share:1,input_tokens:80000,cached_tokens:70000,output_tokens:600}];
+    const rows=arcs.map((r,i)=>`
+      <tr>
+        <td><input value="${(r.name||'').replace(/"/g,'&quot;')}" oninput="simArchEdit(${a.id},${i},'name',this.value)" style="width:100%;font-size:11px"></td>
+        <td><input type="number" value="${Math.round((Number(r.share)||0)*100)}" oninput="simArchEdit(${a.id},${i},'share',this.value)" style="width:48px;font-size:11px"></td>
+        <td><input type="number" value="${r.input_tokens||0}" oninput="simArchEdit(${a.id},${i},'input_tokens',this.value)" style="width:70px;font-size:11px"></td>
+        <td><input type="number" value="${r.cached_tokens||0}" oninput="simArchEdit(${a.id},${i},'cached_tokens',this.value)" style="width:70px;font-size:11px"></td>
+        <td><input type="number" value="${r.output_tokens||0}" oninput="simArchEdit(${a.id},${i},'output_tokens',this.value)" style="width:60px;font-size:11px"></td>
+        <td style="white-space:nowrap">
+          <button type="button" onclick="simArchOpenTurns(${a.id},${i},'${scope}')" title="Build from per-turn growth" style="border:none;background:none;cursor:pointer;color:var(--dim);font-size:13px">⚙</button>
+          <button type="button" onclick="simArchDelRow(${a.id},${i})" title="Remove" style="border:none;background:none;cursor:pointer;color:var(--dim);font-size:13px">×</button>
+        </td>
+      </tr>
+      <tr><td colspan="6"><div id="arch-turns-${scope}-${a.id}-${i}"></div></td></tr>`).join('');
+    body=`<div style="overflow-x:auto">
+      <table style="width:100%;border-collapse:collapse;font-size:11px;margin-bottom:4px">
+        <thead><tr style="color:var(--dim);font-size:9.5px;text-transform:uppercase;text-align:left">
+          <th>Archetype</th><th>Mix%</th><th>Input</th><th>Cached</th><th>Output</th><th></th>
+        </tr></thead>
+        <tbody>${rows}</tbody>
+      </table></div>
+      <button type="button" onclick="simArchAddRow(${a.id})" style="font-size:11px;cursor:pointer;margin-top:2px">+ archetype</button>
+      <div style="font-size:10px;color:var(--dim);margin-top:5px">Token/RAG/tools sliders are ignored while this is on — cost comes from the archetype mix.</div>`;
+  }
+  return `<div class="agent-detail-section" style="border-color:${borderColor};margin-top:6px">
+    <div class="agent-section-title" style="color:${titleColor};display:flex;align-items:center;gap:7px">
+      <label style="display:flex;align-items:center;gap:5px;cursor:pointer;margin:0">
+        <input type="checkbox" ${on?'checked':''} onchange="simTogArchMode(${a.id})" style="margin:0;cursor:pointer">
+        <span style="font-size:11px;font-weight:600">Cost via query archetypes (mix)</span>
+      </label>
+      <span style="font-size:8px;font-weight:600;letter-spacing:0.04em;padding:1px 5px;border-radius:3px;background:${on?'#9c27b018':'rgba(180,180,180,0.10)'};color:${on?'#9c27b0':'var(--ink-2,#3a4a62)'}">${on?'ACTIVE':'OFF — fixed token model'}</span>
+    </div>
+    ${body}
+  </div>`;
+}
+
 function agentCardHtml(a,scope){
   const m=MODELS[a.model]||MODELS['claude-sonnet-4.6'];
   const ctxP=Math.min(100,Math.round((a.ctxUsed||0)/m.ctx*100));
@@ -1621,6 +1669,7 @@ function agentCardHtml(a,scope){
       ${agentSection('Reasoning', '#00bcd4', a.reasonOn, reasonBody)}
       ${agentSection('Guardrails', '#ff6d00', a.guardOn, guardBody)}
       ${verifyAgentHtml(a)}
+      ${agentArchetypeSectionHtml(a, scope)}
       ${sim.agents.length > 1 ? `<div style="margin-top:8px;padding:7px 10px;border:1px dashed var(--b);border-radius:5px;font-size:11px;color:var(--ink-2,#3a4a62);display:flex;justify-content:space-between;align-items:center;gap:10px"><span>Want every agent to share this one's TOOLS / RAG / Reasoning / Guardrails settings?</span><button type="button" onclick="applyAgentSettingsToAll(${a.id});event.stopPropagation();" style="font-size:11px;padding:4px 10px;background:rgba(0,212,255,.08);border:1px solid rgba(0,212,255,.35);border-radius:3px;color:var(--cyan);cursor:pointer;white-space:nowrap;font-weight:600">↧ Apply to all agents</button></div>` : ''}
       <div style="font-size:10px;color:var(--ink-2,#3a4a62);margin-top:7px">Task bias: ${a.task_bias||'balanced'} · ctx fill: ${ctxP}% · source: ${m.source||'static bootstrap'}</div>
     </div>
@@ -2110,6 +2159,128 @@ function setAgentToolCalls(id, toolId, valueStr) {
   if (typeof window.renderPreview === 'function') window.renderPreview();
 }
 function togAF(id,f,btn){const a=sim.agents.find(x=>x.id===id);if(!a)return;a[f]=!a[f];const labels={ragOn:['RAG','rag-on'],reasonOn:['THINK','reason-on'],guardOn:['GUARD','guard-on'],toolsOn:['TOOLS','on']};const[l,cls]=labels[f]||['','on'];if(btn){btn.textContent=l+' '+(a[f]?'ON':'OFF');btn.className='tgl '+(a[f]?cls:'');}renderAgents();refreshAfterAgentEdit();}
+
+// ── Simulator archetype editor ─────────────────────────────────────────────
+// Global handlers called by inline onclick/oninput in agentCardHtml's
+// archetype section. Pattern mirrors togAF / setAP / togAgentTool.
+
+function _simArchSeed(a){
+  if(!Array.isArray(a.archetypes)||!a.archetypes.length){
+    a.archetypes=[{name:'Default',share:1,input_tokens:80000,cached_tokens:70000,output_tokens:600}];
+  }
+}
+
+function simTogArchMode(id){
+  const a=sim.agents.find(x=>x.id===id);
+  if(!a)return;
+  a.archetype_mode=!a.archetype_mode;
+  if(a.archetype_mode) _simArchSeed(a);
+  // Mirror to workload
+  const wa=_wlAgentForSimId(id);
+  if(wa){
+    wa.archetype_mode=a.archetype_mode;
+    if(a.archetype_mode) wa.archetypes=JSON.parse(JSON.stringify(a.archetypes));
+  }
+  renderAgents();
+  refreshAfterAgentEdit();
+  if(typeof window.renderPreview==='function') window.renderPreview();
+}
+
+function simArchEdit(id,rowIdx,field,rawVal){
+  const a=sim.agents.find(x=>x.id===id);
+  if(!a||!Array.isArray(a.archetypes)||!a.archetypes[rowIdx])return;
+  const row=a.archetypes[rowIdx];
+  if(field==='name') row.name=rawVal;
+  else if(field==='share') row.share=(parseFloat(rawVal)||0)/100;
+  else row[field]=parseFloat(rawVal)||0;
+  // Mirror archetypes to workload
+  const wa=_wlAgentForSimId(id);
+  if(wa){wa.archetype_mode=true;wa.archetypes=JSON.parse(JSON.stringify(a.archetypes));}
+  refreshAfterAgentEdit();
+  if(typeof window.renderPreview==='function') window.renderPreview();
+}
+
+function simArchAddRow(id){
+  const a=sim.agents.find(x=>x.id===id);
+  if(!a)return;
+  _simArchSeed(a);
+  a.archetypes.push({name:'New',share:0.1,input_tokens:50000,cached_tokens:40000,output_tokens:500});
+  const wa=_wlAgentForSimId(id);
+  if(wa){wa.archetype_mode=true;wa.archetypes=JSON.parse(JSON.stringify(a.archetypes));}
+  renderAgents();
+  refreshAfterAgentEdit();
+  if(typeof window.renderPreview==='function') window.renderPreview();
+}
+
+function simArchDelRow(id,rowIdx){
+  const a=sim.agents.find(x=>x.id===id);
+  if(!a||!Array.isArray(a.archetypes))return;
+  a.archetypes.splice(rowIdx,1);
+  if(!a.archetypes.length) _simArchSeed(a);
+  const wa=_wlAgentForSimId(id);
+  if(wa){wa.archetype_mode=true;wa.archetypes=JSON.parse(JSON.stringify(a.archetypes));}
+  renderAgents();
+  refreshAfterAgentEdit();
+  if(typeof window.renderPreview==='function') window.renderPreview();
+}
+
+// ⚙ "from turns" builder — opens an inline mini-editor beneath the row.
+// Uses a per-(agent, row) id for the host div so multiple agents can each
+// have one open simultaneously without DOM collision.
+function simArchOpenTurns(id,rowIdx,scope){
+  const hostId=`arch-turns-${scope}-${id}-${rowIdx}`;
+  const host=document.getElementById(hostId);
+  if(!host||!window.ArchetypeGrowth)return;
+  const a=sim.agents.find(x=>x.id===id);
+  if(!a||!Array.isArray(a.archetypes)||!a.archetypes[rowIdx])return;
+  const row=a.archetypes[rowIdx];
+  const ratio=row.input_tokens>0?(row.cached_tokens/row.input_tokens):window.ArchetypeGrowth.DOC_CACHE_RATIO;
+  host.innerHTML=`<div style="margin-top:5px;padding:6px 8px;background:rgba(120,180,255,0.07);border-radius:5px;font-size:11px">
+    Build "${(row.name||'archetype').replace(/"/g,'&quot;')}" from per-turn growth:
+    <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:4px;align-items:flex-end">
+      <label style="display:flex;flex-direction:column;font-size:10px;color:var(--dim)">Base<input id="${hostId}-base" type="number" value="20000" style="width:78px;font-size:11px"></label>
+      <label style="display:flex;flex-direction:column;font-size:10px;color:var(--dim)">Turns<input id="${hostId}-turns" type="number" value="${row.turns||8}" style="width:48px;font-size:11px"></label>
+      <label style="display:flex;flex-direction:column;font-size:10px;color:var(--dim)">Added/turn<input id="${hostId}-added" type="number" value="500" style="width:66px;font-size:11px"></label>
+      <label style="display:flex;flex-direction:column;font-size:10px;color:var(--dim)">Output/turn<input id="${hostId}-out" type="number" value="100" style="width:66px;font-size:11px"></label>
+      <label style="display:flex;flex-direction:column;font-size:10px;color:var(--dim)">Cache ratio<input id="${hostId}-ratio" type="number" step="0.01" value="${ratio.toFixed(3)}" style="width:60px;font-size:11px"></label>
+      <button type="button" onclick="simArchApplyTurns(${id},${rowIdx},'${scope}')" style="font-size:11px;cursor:pointer">Apply</button>
+      <span id="${hostId}-prev" style="font-family:monospace;color:var(--accent)"></span>
+    </div>
+  </div>`;
+  // Wire live preview on input
+  ['base','turns','added','out','ratio'].forEach(k=>{
+    const el=document.getElementById(`${hostId}-${k}`);
+    if(el) el.addEventListener('input',()=>_simArchTurnsPreview(hostId));
+  });
+  _simArchTurnsPreview(hostId);
+}
+
+function _simArchTurnsPreview(hostId){
+  const g=k=>{const el=document.getElementById(`${hostId}-${k}`);return el?parseFloat(el.value)||0:0;};
+  if(!window.ArchetypeGrowth)return;
+  const p=window.ArchetypeGrowth.cycleUniform(g('base'),g('turns'),g('added'),g('out'),g('ratio'));
+  const el=document.getElementById(`${hostId}-prev`);
+  if(el) el.textContent=`→ in ${p.input_tokens.toLocaleString()} · cached ${p.cached_tokens.toLocaleString()} · out ${p.output_tokens.toLocaleString()}`;
+}
+
+function simArchApplyTurns(id,rowIdx,scope){
+  const hostId=`arch-turns-${scope}-${id}-${rowIdx}`;
+  const g=k=>{const el=document.getElementById(`${hostId}-${k}`);return el?parseFloat(el.value)||0:0;};
+  if(!window.ArchetypeGrowth)return;
+  const p=window.ArchetypeGrowth.cycleUniform(g('base'),g('turns'),g('added'),g('out'),g('ratio'));
+  const a=sim.agents.find(x=>x.id===id);
+  if(!a||!Array.isArray(a.archetypes)||!a.archetypes[rowIdx])return;
+  const row=a.archetypes[rowIdx];
+  row.input_tokens=p.input_tokens; row.cached_tokens=p.cached_tokens;
+  row.output_tokens=p.output_tokens; row.turns=p.turns;
+  const wa=_wlAgentForSimId(id);
+  if(wa){wa.archetype_mode=true;wa.archetypes=JSON.parse(JSON.stringify(a.archetypes));}
+  renderAgents();
+  refreshAfterAgentEdit();
+  if(typeof window.renderPreview==='function') window.renderPreview();
+}
+// ── end archetype editor ───────────────────────────────────────────────────
+
 // applyGlobalsToAgents() removed — the global RAG/Tools/Guardrails sliders
 // it pulled from were deleted in the per-agent canonicalization redesign
 // (d03b276). The remaining global sliders are workload-shape only and
@@ -2878,6 +3049,15 @@ window.__setSimulatorFromWorkload = function(workload) {
       // is correctly billing them via workload.agents[i].enabled_tools.
       if (w.enabled_tools && typeof w.enabled_tools === 'object') {
         base.enabled_tools = JSON.parse(JSON.stringify(w.enabled_tools));
+      }
+      // Restore archetype mode so hash round-trips preserve the editor state.
+      // Without this, loadFromHash() sets workload.agents with archetype fields,
+      // but __setSimulatorFromWorkload (here) would rebuild sim.agents from
+      // cloneAgentBase (no archetypes). Then __promoteAgentModeFromSimulator
+      // overwrites workload.agents from sim.agents, stripping the archetypes.
+      if (w.archetype_mode && Array.isArray(w.archetypes) && w.archetypes.length) {
+        base.archetype_mode = true;
+        base.archetypes = JSON.parse(JSON.stringify(w.archetypes));
       }
       return base;
     });
