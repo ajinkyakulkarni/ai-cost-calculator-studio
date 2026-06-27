@@ -9,7 +9,7 @@
     "lib": "lib"
   },
   "scripts": {
-    "test": "node scripts/test-engine-smoke.js && node scripts/test-apply.js && node scripts/test-audience-math.js && node scripts/test-derivation-trace.js && node scripts/test-workload-hash.js && node scripts/test-headline-math.js && node scripts/test-archetype-math.mjs && node scripts/test-archetype-growth.mjs && node scripts/test-archetype-agent.mjs",
+    "test": "node scripts/test-engine-smoke.js && node scripts/test-apply.js && node scripts/test-audience-math.js && node scripts/test-derivation-trace.js && node scripts/test-workload-hash.js && node scripts/test-headline-math.js && node scripts/test-archetype-math.mjs && node scripts/test-archetype-growth.mjs && node scripts/test-archetype-agent.mjs && node mcp/test/test-build-opts.mjs",
     "test:e2e": "node scripts/test-e2e.js",
     "calc": "node scripts/calc.js",
     "verify-aws": "node scripts/verify-aws-instances.js",
