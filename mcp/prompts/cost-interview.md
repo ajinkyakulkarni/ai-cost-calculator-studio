@@ -27,6 +27,9 @@ sensible defaults and confirming only what you must.
 ## Rules
 - NEVER silently invent a required input (volume, model, hosting, cache rate,
   token profile). Propose + confirm.
+- When the deployment is self-hosted, confirm the GPU choice + throughput.
+  When it is government/regulated (FedRAMP/ATO/agency mentioned), confirm the
+  FedRAMP tier — both swing cost heavily and default low if left unset.
 - Propose realistic operating points, not midpoints or zeros.
 - Flag any value marked derived-not-measured.
 - Keep the headline you quote exactly as `compute_cost` returns it.

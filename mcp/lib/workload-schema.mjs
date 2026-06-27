@@ -45,20 +45,14 @@ export const REQUIRED = [
   },
 ];
 
-export const CONDITIONAL = [
-  {
-    field: 'self_host_gpu',
-    applies: (w) => w.defaults && w.defaults.hosting === 'self-host',
-    present: (w) => !!(w.self_host && w.self_host.gpu_choice),
-    why: 'Self-host cost depends on the chosen GPU + throughput.',
-  },
-  {
-    field: 'fedramp_tier',
-    applies: (w) => !!(w.federal && w.federal.indicated),
-    present: (w) => !!(w.federal && w.federal.fedramp_tier && w.federal.fedramp_tier !== 'none'),
-    why: 'FedRAMP tier adds large compliance overhead.',
-  },
-];
+// No conditional HARD gates. Self-host GPU choice and FedRAMP tier are
+// high-impact, but (a) the engine computes with sensible defaults if they're
+// unset, so a hard gate risks an unsatisfiable dead-end, and (b) "intends
+// federal" can't be detected from the workload without circularity (the tier
+// IS the signal). These are confirmed in the INTERVIEW instead (see
+// prompts/cost-interview.md + instructions.md: confirm hosting / self-host GPU
+// and FedRAMP tier when the deployment is self-hosted or government/regulated).
+export const CONDITIONAL = [];
 
 export const SUGGESTIBLE = [
   { field: 'tier',      get: (w) => w.defaults?.tier,      default: 'standard',   source: 'default' },
