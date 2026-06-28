@@ -1817,7 +1817,11 @@ Production teams measure their primary's confidence-score distribution; escalate
     // (1 + retry_rate × 1.5) on top of CostEngine's headline. The 1.5
     // factor accounts for partial output already generated before failure.
     const sRetryEl = $('s-retry');
-    const retryRate = sRetryEl ? parseFloat(sRetryEl.value) / 100 : 0;
+    // s-retry slider is an EDITOR of workload.anchor_query.retry_rate (fraction).
+    if (sRetryEl && workload.anchor_query) {
+      workload.anchor_query.retry_rate = (parseFloat(sRetryEl.value) || 0) / 100;
+    }
+    const retryRate = (workload.anchor_query && workload.anchor_query.retry_rate) || 0;
 
     const opts = {
       hosting: val('prev-hosting', workload.defaults.hosting),
@@ -1826,7 +1830,9 @@ Production teams measure their primary's confidence-score distribution; escalate
       mix: val('prev-mix', workload.defaults.mix),
       costMode: val('prev-cost-mode', workload.defaults.cost_mode),
       botFactor: numVal('prev-bot', 1.5),
-      cacheRate: cacheFromAxiom !== null ? cacheFromAxiom : numVal('prev-cache', workload.anchor_query.cache_rate_baseline),
+      cacheRate: (workload.anchor_query && workload.anchor_query.cache_rate_baseline != null)
+        ? workload.anchor_query.cache_rate_baseline
+        : (cacheFromAxiom !== null ? cacheFromAxiom : numVal('prev-cache', 0.7)),
       // s-cache-write-share threads the per-million premium for first-write
       // cached tokens (Anthropic 1.25×–2× input, OpenAI 0× auto-prefix).
       // Without this, the cost engine fell back to 0 (read-only blend) and
