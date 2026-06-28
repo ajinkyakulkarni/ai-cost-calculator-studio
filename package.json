@@ -9,7 +9,7 @@
     "lib": "lib"
   },
   "scripts": {
-    "test": "node scripts/test-engine-smoke.js && node scripts/test-apply.js && node scripts/test-audience-math.js && node scripts/test-derivation-trace.js && node scripts/test-workload-hash.js && node scripts/test-headline-math.js && node scripts/test-archetype-math.mjs && node scripts/test-archetype-growth.mjs && node scripts/test-archetype-agent.mjs && node mcp/test/test-build-opts.mjs",
+    "test": "node scripts/test-engine-smoke.js && node scripts/test-apply.js && node scripts/test-audience-math.js && node scripts/test-derivation-trace.js && node scripts/test-workload-hash.js && node scripts/test-headline-math.js && node scripts/test-archetype-math.mjs && node scripts/test-archetype-growth.mjs && node scripts/test-archetype-agent.mjs && node mcp/test/test-build-opts.mjs && node scripts/test-retry-cache-authoritative.mjs",
     "mcp:test": "for t in mcp/test/test-build-opts.mjs mcp/test/test-engine-bridge.mjs mcp/test/test-validate.mjs mcp/test/test-presets.mjs mcp/test/test-sharelink.mjs mcp/test/test-compute-gate.mjs mcp/test/test-parity.mjs mcp/test/test-protocol.mjs mcp/test/test-e2e-thorough.mjs; do node \"$t\" || exit 1; done",
     "test:e2e": "node scripts/test-e2e.js",
     "calc": "node scripts/calc.js",
