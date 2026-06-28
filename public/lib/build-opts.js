@@ -27,6 +27,8 @@
       cacheRate:     (w.anchor_query && w.anchor_query.cache_rate_baseline != null)
                        ? w.anchor_query.cache_rate_baseline : 0.7,
       verifCoverage: (w.verification && w.verification.coverage) || 0,
+      retry_rate:    (w.anchor_query && w.anchor_query.retry_rate != null)
+                       ? w.anchor_query.retry_rate : 0,
     };
   }
 

@@ -7,15 +7,15 @@ const eq = (l, a, b) => { const ok = JSON.stringify(a) === JSON.stringify(b); ok
 
 eq('empty → defaults', buildOpts({}), {
   hosting: 'api', model: 'gpt-5.2', tier: 'standard', mix: 'mixed',
-  costMode: 'realistic', botFactor: 1.5, cacheRate: 0.7, verifCoverage: 0,
+  costMode: 'realistic', botFactor: 1.5, cacheRate: 0.7, verifCoverage: 0, retry_rate: 0,
 });
 eq('from workload', buildOpts({
   defaults: { hosting: 'self-host', model: 'gpt-5.4', tier: 'batch', mix: 'worst', cost_mode: 'optimistic' },
-  anchor_query: { cache_rate_baseline: 0.88 },
+  anchor_query: { cache_rate_baseline: 0.88, retry_rate: 0.03 },
   verification: { coverage: 0.1 },
 }), {
   hosting: 'self-host', model: 'gpt-5.4', tier: 'batch', mix: 'worst',
-  costMode: 'optimistic', botFactor: 1.5, cacheRate: 0.88, verifCoverage: 0.1,
+  costMode: 'optimistic', botFactor: 1.5, cacheRate: 0.88, verifCoverage: 0.1, retry_rate: 0.03,
 });
 
 console.log(`\nbuild-opts: ${pass} passed, ${fail} failed.`);
