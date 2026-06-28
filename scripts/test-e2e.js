@@ -746,8 +746,13 @@ async function uiMcpConsistency(page) {
   // from defaulting to true on load (which would apply a 1.5× bot multiplier
   // that the MCP engine doesn't see when applyBotFactor is absent).
   lowVol.segments = [{ id: 'all', mau: 300, sessions_per_day: 0.2, questions_per_session: 10, applyBotFactor: false }];
+  // no-botfactor: segment deliberately omits applyBotFactor entirely.
+  // Engine treats absent as falsy (no bot multiplier). After the fix,
+  // ensureFields() also defaults to false, so UI == MCP for this case.
+  const noBot = JSON.parse(JSON.stringify(demo));
+  noBot.segments = [{ id: 'all', mau: 300, sessions_per_day: 0.2, questions_per_session: 10 }];
   const base = URL.split('#')[0];
-  for (const [name, w] of [['demo', demo], ['low-volume', lowVol]]) {
+  for (const [name, w] of [['demo', demo], ['low-volume', lowVol], ['no-botfactor', noBot]]) {
     const mcp = computeCost(w);
     assert(!mcp.error, `${name}: compute_cost errored: ${mcp.error}`);
     // share_link is "https://calc.ajinkya.ai/#w=...&mode=advanced"

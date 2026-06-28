@@ -1766,7 +1766,7 @@ Production teams measure their primary's confidence-score distribution; escalate
           mau: mau,
           sessions_per_day: sessionsPerUserPerDay,
           questions_per_session: turnsPerSession,
-          applyBotFactor: existing.applyBotFactor != null ? existing.applyBotFactor : true,
+          applyBotFactor: existing.applyBotFactor === true,
           description: existing.description || 'Aggregate traffic — MAU × sessions/user/day × turns/session × bot factor.',
         }];
       } else {
