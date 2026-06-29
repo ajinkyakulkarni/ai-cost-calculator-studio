@@ -571,3 +571,8 @@ means:
 | **Parity gap if workstream #1 is not merged** — the Worker could ship with slightly different `buildOpts()` behavior than the live site on edge cases, violating the "byte-identical" acceptance criterion. | Medium | Block the production deploy on workstream #1 merge (OD-7). Enforce via the T2/T5 parity acceptance gate. |
 | **MCP spec evolution** — if Anthropic updates Claude Code's MCP HTTP transport expectations (e.g., requires SSE support or a specific protocol version header), the Worker needs to be updated. | Low | SDK upgrades automatically pick up spec changes; staying on SDK rather than hand-rolling (Option A over C) is the mitigation. |
 | **Cloudflare rate limit misconfiguration** — too-tight rate limits block legitimate users (e.g., CI pipelines running parity checks); too-loose limits allow abuse. | Low | Start conservative (60 req/min per IP); tune based on observability data (`wrangler tail`). Admin bypass header available for CI. |
+
+---
+## Decisions locked (2026-06-28, user)
+- **Endpoint posture:** open + rate-limited (OD-4 recommendation: Cloudflare native rate limiting, no token gate).
+- **Sequencing:** consistency fix #1 merged to `main` first (done, commit 5b60e8a) — implement/deploy the Worker against `main`.

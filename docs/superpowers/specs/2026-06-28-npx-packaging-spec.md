@@ -569,3 +569,8 @@ developers; the README should document both.
 evaluates to `undefined` (globalThis would be the correct target). The existing
 `createRequire` path bypasses this entirely, which is why Option A (copy) is
 safer than Option C (bundle).
+
+---
+## Decisions locked (2026-06-28, user)
+- **Package name:** `@ajinkyakulkarni/cost-calc-mcp` (scoped to npm account https://www.npmjs.com/~ajinkyakulkarni). Install: `npx -y @ajinkyakulkarni/cost-calc-mcp`.
+- **Sequencing:** consistency fix #1 merged to `main` first (done, commit 5b60e8a) — implement packaging against `main`.
