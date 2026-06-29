@@ -17,7 +17,9 @@
     "bench:validate": "node scripts/bench-validate.mjs",
     "test:parity-py": "python3 python/parity_check.py",
     "test:archetype-py": "python3 python/test_archetype.py",
-    "test:growth-py": "python3 python/test_growth.py"
+    "test:growth-py": "python3 python/test_growth.py",
+    "pkg:build": "node scripts/copy-engine.mjs",
+    "pkg:test": "cd npm-package && npm pack && cd .. && node scripts/test-packaged.mjs"
   },
   "repository": {
     "type": "git",
