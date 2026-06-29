@@ -1197,9 +1197,12 @@
     // for partial output before the failure. Accept either `retry_rate` (paper
     // form) or precomputed `retryInflate` for caller convenience. When neither
     // is supplied we default to 1.0 (no retry), preserving legacy behavior.
+    const retryRateEff = opts.retry_rate != null
+      ? opts.retry_rate
+      : ((w.anchor_query && w.anchor_query.retry_rate) || 0);
     const retryInflate = opts.retryInflate != null
       ? opts.retryInflate
-      : (1 + 1.5 * (opts.retry_rate || 0));
+      : (1 + 1.5 * retryRateEff);
     const monthlyWithRetry = cappedScaled * retryInflate;
 
     return {

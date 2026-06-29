@@ -730,6 +730,54 @@ async function archetypeEditor(page) {
   assert(after > before, `editing archetype tokens did not raise headline: ${before} → ${after}`);
 }
 
+// Guard: browser-rendered headline must equal MCP compute_cost headline for
+// the same workload. Covers the cap-clamped archetype-agent-demo (MAU 10K)
+// and a non-capped low-volume variant (MAU 300). Navigation uses the
+// hash-assignment pattern because page.goto() corrupts 3K+ char hash URLs.
+async function uiMcpConsistency(page) {
+  const { computeCost } = await import('../mcp/lib/compute.mjs');
+  const fs = require('node:fs');
+  const nodePath = require('node:path');
+  const demo = JSON.parse(
+    fs.readFileSync(nodePath.join(__dirname, '..', 'public', 'examples', 'archetype-agent-demo.json'))
+  );
+  const lowVol = JSON.parse(JSON.stringify(demo));
+  // applyBotFactor: false matches the demo segment and prevents ensureFields()
+  // from defaulting to true on load (which would apply a 1.5× bot multiplier
+  // that the MCP engine doesn't see when applyBotFactor is absent).
+  lowVol.segments = [{ id: 'all', mau: 300, sessions_per_day: 0.2, questions_per_session: 10, applyBotFactor: false }];
+  // no-botfactor: segment deliberately omits applyBotFactor entirely.
+  // Engine treats absent as falsy (no bot multiplier). After the fix,
+  // ensureFields() also defaults to false, so UI == MCP for this case.
+  const noBot = JSON.parse(JSON.stringify(demo));
+  noBot.segments = [{ id: 'all', mau: 300, sessions_per_day: 0.2, questions_per_session: 10 }];
+  const base = URL.split('#')[0];
+  for (const [name, w] of [['demo', demo], ['low-volume', lowVol], ['no-botfactor', noBot]]) {
+    const mcp = computeCost(w);
+    assert(!mcp.error, `${name}: compute_cost errored: ${mcp.error}`);
+    // share_link is "https://calc.ajinkya.ai/#w=...&mode=advanced"
+    // Split on the origin to get just the hash portion ("#w=...").
+    const hashStr = mcp.share_link.split('calc.ajinkya.ai/')[1];
+    assert(hashStr && hashStr.startsWith('#'), `${name}: unexpected share_link format`);
+    // Load base page (no hash), then set hash via evaluate (avoids URL-length
+    // limit on page.goto), then reload so boot reads the hash.
+    await page.goto(base, { waitUntil: 'networkidle' });
+    await page.evaluate((h) => { window.location.hash = h; }, hashStr);
+    await page.reload({ waitUntil: 'networkidle' });
+    await page.waitForFunction(
+      () => { const e = document.getElementById('cb-num'); return e && e.textContent && !e.textContent.includes('—'); },
+      { timeout: 15000 }
+    );
+    await page.evaluate(() => { const o = document.getElementById('welcome-overlay'); if (o) o.remove(); });
+    await sleep(2500); // bench loader + recompute settle
+    const ui = await page.evaluate(
+      () => parseInt((document.getElementById('cb-num').textContent || '').replace(/[^\d]/g, ''), 10)
+    );
+    assert(ui === mcp.headline_monthly_usd,
+      `${name}: UI $${ui} != MCP $${mcp.headline_monthly_usd}`);
+  }
+}
+
 // ── Runner ───────────────────────────────────────────────────────────────
 (async () => {
   console.log(`\nE2E suite — target: ${URL}`);
@@ -752,6 +800,7 @@ async function archetypeEditor(page) {
   await scenario('geo-default-preset',    geospatialDefaultPreset);
   await scenario('validated-button',      validatedButtonContrast);
   await scenario('archetype-editor',      archetypeEditor);
+  await scenario('ui-mcp-consistency',    uiMcpConsistency);
   const dt = ((Date.now() - t0) / 1000).toFixed(1);
   console.log(`\n${passed} passed · ${failed} failed · ${dt}s\n`);
   if (failed > 0) {

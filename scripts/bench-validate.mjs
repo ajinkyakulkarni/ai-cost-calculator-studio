@@ -35,9 +35,11 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname  = path.dirname(__filename);
 const require    = createRequire(import.meta.url);
 
-const ENGINE_PATH   = path.resolve(__dirname, '..', 'public', 'lib', 'cost-engine.js');
-const EXAMPLES_DIR  = path.resolve(__dirname, '..', 'public', 'examples');
-const CostEngine    = require(ENGINE_PATH);
+const ENGINE_PATH     = path.resolve(__dirname, '..', 'public', 'lib', 'cost-engine.js');
+const BUILD_OPTS_PATH = path.resolve(__dirname, '..', 'public', 'lib', 'build-opts.js');
+const EXAMPLES_DIR    = path.resolve(__dirname, '..', 'public', 'examples');
+const CostEngine      = require(ENGINE_PATH);
+const { buildOpts }   = require(BUILD_OPTS_PATH);
 
 // ---------------------------------------------------------------------
 // Expected headline values — `api.monthly_with_retry`, USD/mo,
@@ -176,26 +178,12 @@ const EXPECTED = {
 // Engine invocation — mirrors the option shape used by the live UI and
 // by scripts/test-engine-smoke.js so the numbers we compute here are
 // the numbers users see.
+// (buildOpts imported from public/lib/build-opts.js above)
 // ---------------------------------------------------------------------
 
 function loadPreset(slug) {
   const p = path.join(EXAMPLES_DIR, slug + '.json');
   return JSON.parse(fs.readFileSync(p, 'utf8'));
-}
-
-function buildOpts(w) {
-  const d = w.defaults || {};
-  return {
-    hosting:       d.hosting       || 'api',
-    model:         d.model         || 'gpt-5.2',
-    tier:          d.tier          || 'standard',
-    mix:           d.mix           || 'mixed',
-    costMode:      d.cost_mode     || 'realistic',
-    botFactor:     1.5,
-    cacheRate:     (w.anchor_query && w.anchor_query.cache_rate_baseline != null)
-                     ? w.anchor_query.cache_rate_baseline : 0.7,
-    verifCoverage: (w.verification && w.verification.coverage) || 0,
-  };
 }
 
 function fmtUsd(n) {

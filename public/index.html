@@ -4469,7 +4469,7 @@ The single highest-leverage cost lever in the whole calculator. Every 10 percent
 This is pure waste. You pay for the failed call AND the retry. Going from a 10% retry rate down to 3% saves about 7% of the input bill — on a $30K/mo deployment that's around $2,000/mo of pure operational savings, with no quality tradeoff.
 
 **Tip**
-The fix is usually backoff/rate-limit code on the app side, or an enterprise contract with the AI vendor for higher rate limits. Both are cheap relative to the savings.">Retry rate</span><span class="sr-val" id="v-retry" style="color:var(--amber)">3%</span></div><input type="range" min="0" max="25" value="3" step="1" id="s-retry" oninput="onSlider()" aria-label="Retry rate percentage"></div>
+The fix is usually backoff/rate-limit code on the app side, or an enterprise contract with the AI vendor for higher rate limits. Both are cheap relative to the savings.">Rate-limit retry</span><span class="sr-val" id="v-retry" style="color:var(--amber)">3%</span></div><input type="range" min="0" max="25" value="3" step="1" id="s-retry" oninput="onSlider()" aria-label="Retry rate percentage"><div class="sr-hint">0% default — set if throttled retries expected; bill = 1+1.5×rate</div></div>
         <div class="sr"><div class="sr-top"><span class="sr-label" data-tip="### Monthly traffic growth
 
 Monthly compounding traffic growth used to project capacity headroom over the next 12 months. Mature steady product 0-10%; product-market-fit launch 30-100%.

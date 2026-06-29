@@ -1766,7 +1766,7 @@ Production teams measure their primary's confidence-score distribution; escalate
           mau: mau,
           sessions_per_day: sessionsPerUserPerDay,
           questions_per_session: turnsPerSession,
-          applyBotFactor: existing.applyBotFactor != null ? existing.applyBotFactor : true,
+          applyBotFactor: existing.applyBotFactor === true,
           description: existing.description || 'Aggregate traffic — MAU × sessions/user/day × turns/session × bot factor.',
         }];
       } else {
@@ -1817,7 +1817,11 @@ Production teams measure their primary's confidence-score distribution; escalate
     // (1 + retry_rate × 1.5) on top of CostEngine's headline. The 1.5
     // factor accounts for partial output already generated before failure.
     const sRetryEl = $('s-retry');
-    const retryRate = sRetryEl ? parseFloat(sRetryEl.value) / 100 : 0;
+    // s-retry slider is an EDITOR of workload.anchor_query.retry_rate (fraction).
+    if (sRetryEl && workload.anchor_query) {
+      workload.anchor_query.retry_rate = (parseFloat(sRetryEl.value) || 0) / 100;
+    }
+    const retryRate = (workload.anchor_query && workload.anchor_query.retry_rate) || 0;
 
     const opts = {
       hosting: val('prev-hosting', workload.defaults.hosting),
@@ -1826,7 +1830,9 @@ Production teams measure their primary's confidence-score distribution; escalate
       mix: val('prev-mix', workload.defaults.mix),
       costMode: val('prev-cost-mode', workload.defaults.cost_mode),
       botFactor: numVal('prev-bot', 1.5),
-      cacheRate: cacheFromAxiom !== null ? cacheFromAxiom : numVal('prev-cache', workload.anchor_query.cache_rate_baseline),
+      cacheRate: (workload.anchor_query && workload.anchor_query.cache_rate_baseline != null)
+        ? workload.anchor_query.cache_rate_baseline
+        : (cacheFromAxiom !== null ? cacheFromAxiom : numVal('prev-cache', 0.7)),
       // s-cache-write-share threads the per-million premium for first-write
       // cached tokens (Anthropic 1.25×–2× input, OpenAI 0× auto-prefix).
       // Without this, the cost engine fell back to 0 (read-only blend) and
@@ -5259,6 +5265,11 @@ Production teams measure their primary's confidence-score distribution; escalate
   // values can be applied AFTER the simulator script has wired its
   // sliders (it doesn't exist at loadFromHash time).
   let _pendingUiRestore = null;
+  // Stash the ORIGINAL anchor_query opt-slider values from the decoded
+  // workload so that syncOptSlidersFromWorkload (called after the first
+  // renderPreview has run and may have overwritten aq.retry_rate with a
+  // stale slider default) can still restore the correct values.
+  let _pendingWorkloadSliderSync = null;
 
   function loadFromHash() {
     // Codec (decode + shape classification) lives in lib/workload-hash.js
@@ -5273,6 +5284,17 @@ Production teams measure their primary's confidence-score distribution; escalate
       if (c.kind === 'invalid') return false;
       workload = ensureFields(c.workload); window.workload = workload;
       if (c.kind === 'wrapped') _pendingUiRestore = c.ui;
+      // Stash the authoritative opt-slider values from the freshly
+      // decoded workload. onSlider() → renderPreview() fires before
+      // syncOptSlidersFromWorkload gets a chance to run (triggered by
+      // __syncAxiomFromSegments / __setSimulatorFromWorkload), which
+      // writes stale slider defaults back into aq.retry_rate. Capturing
+      // the pre-render values here lets the sync use the original data.
+      const _aq = workload.anchor_query || {};
+      _pendingWorkloadSliderSync = {
+        retryRate:         _aq.retry_rate,           // undefined means "absent from JSON → default 0"
+        cacheRateBaseline: _aq.cache_rate_baseline,  // may also be absent
+      };
       return true;
     } catch (_) {
       return false;
@@ -5528,10 +5550,38 @@ Production teams measure their primary's confidence-score distribution; escalate
     // If the URL hash carried a `ui` block, apply it now — overrides the
     // segment-derived slider values so a shared link reproduces the
     // sender's exact knob state (cache, retry, hosting, model, etc.).
+    const _restoredUiBlock = _pendingUiRestore;
     if (_pendingUiRestore) {
       restoreUiState(_pendingUiRestore);
       _pendingUiRestore = null;
     }
+    // Sliders mirror the authoritative workload fields on load, UNLESS the
+    // restored ui block explicitly provided them. Empty-ui hashes (e.g. MCP
+    // share-links, which send ui:{}) thus reflect the workload, not stale
+    // slider defaults.
+    //
+    // IMPORTANT: onSlider() → renderPreview() is triggered during
+    // __syncAxiomFromSegments / __setSimulatorFromWorkload above, BEFORE
+    // this block runs. That renderPreview call writes the stale slider
+    // default (e.g. s-retry HTML value=3) into workload.anchor_query
+    // .retry_rate. Reading aq.retry_rate here would therefore read the
+    // clobbered value. We use _pendingWorkloadSliderSync instead, which
+    // was captured from the freshly decoded workload in loadFromHash(),
+    // before any renderPreview had a chance to overwrite it.
+    (function syncOptSlidersFromWorkload(uiBlock, syncSnap) {
+      if (!syncSnap) return;
+      const hasUi = k => uiBlock && uiBlock[k] !== undefined && uiBlock[k] !== null && uiBlock[k] !== '';
+      const sRetry = document.getElementById('s-retry');
+      if (sRetry && !hasUi('s-retry')) {
+        // retryRate is undefined when absent from JSON → default 0.
+        sRetry.value = String(Math.round(((syncSnap.retryRate) || 0) * 100));
+      }
+      const sCache = document.getElementById('s-cache');
+      if (sCache && !hasUi('s-cache') && syncSnap.cacheRateBaseline != null) {
+        sCache.value = String(Math.round(syncSnap.cacheRateBaseline * 100));
+      }
+    })(_restoredUiBlock, _pendingWorkloadSliderSync);
+    _pendingWorkloadSliderSync = null;
     renderPreview();
     // Boot-time mirror complete. Defer enabling writeback past the simulator's
     // own boot-time setTimeout(...,100ms) at the bottom of cost-simulator.js,
