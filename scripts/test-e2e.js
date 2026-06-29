@@ -776,6 +776,28 @@ async function uiMcpConsistency(page) {
     assert(ui === mcp.headline_monthly_usd,
       `${name}: UI $${ui} != MCP $${mcp.headline_monthly_usd}`);
   }
+
+  // Non-hash path: load presets via the example-loader (the default / preset
+  // load path, NOT a share-link hash). Guards that slider HTML defaults
+  // (e.g. s-retry) don't reintroduce a UI-vs-MCP divergence on a plain load.
+  for (const slug of ['public-geospatial-qa', 'archetype-agent-demo']) {
+    const w = JSON.parse(fs.readFileSync(nodePath.join(__dirname, '..', 'public', 'examples', slug + '.json')));
+    const mcp = computeCost(w);
+    assert(!mcp.error, `example-loader ${slug}: compute_cost errored: ${mcp.error}`);
+    await page.goto(base, { waitUntil: 'networkidle' });
+    await page.waitForFunction(
+      () => { const e = document.getElementById('cb-num'); return e && e.textContent && !e.textContent.includes('—'); },
+      { timeout: 15000 }
+    );
+    await page.evaluate(() => { const o = document.getElementById('welcome-overlay'); if (o) o.remove(); });
+    await loadExample(page, slug);
+    await sleep(2500);
+    const ui = await page.evaluate(
+      () => parseInt((document.getElementById('cb-num').textContent || '').replace(/[^\d]/g, ''), 10)
+    );
+    assert(ui === mcp.headline_monthly_usd,
+      `example-loader ${slug}: UI $${ui} != MCP $${mcp.headline_monthly_usd}`);
+  }
 }
 
 // ── Runner ───────────────────────────────────────────────────────────────
