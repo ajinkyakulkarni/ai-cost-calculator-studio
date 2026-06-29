@@ -1,16 +1,23 @@
 {
-  // Cloudflare Workers Static Assets deployment for the AI Cost Calculator.
-  // Pure static site — no build step. Only the public/ subfolder is
-  // uploaded as static assets; tooling files (package.json, scripts/,
-  // docs/, node_modules/, etc.) at the repo root are excluded from the
-  // deploy. Visitors landing at / hit a redirect (public/index.html)
-  // that forwards to /studio/ (where the actual calculator lives).
+  // Cloudflare Workers deployment for calc.ajinkya.ai.
+  //
+  // Hybrid Worker+Assets setup:
+  //   - src/worker.mjs is the fetch handler.
+  //   - POST/GET /mcp → MCP handler (stateless WebStandardStreamableHTTP).
+  //   - All other paths → env.ASSETS.fetch() → public/ static site.
+  //
+  // Rate limiting: configured via Cloudflare dashboard (60 req/min per IP).
+  // The RATE_LIMITER binding below wires the CF Rate Limiting API to the
+  // Worker. The namespace_id must be provisioned in the CF dashboard before
+  // production deploy. In wrangler dev the binding is absent and the Worker
+  // skips the check gracefully.
   //
   // Schema reference:
   //   https://developers.cloudflare.com/workers/wrangler/configuration/
 
   "$schema":            "node_modules/wrangler/config-schema.json",
   "name":               "ai-cost-calculator-studio",
+  "main":               "src/worker.mjs",
   "compatibility_date": "2026-05-03",
   "compatibility_flags": ["nodejs_compat"],
   "observability":      { "enabled": true },
