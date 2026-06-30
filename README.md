@@ -21,6 +21,22 @@ What makes this different from generic per-token calculators:
 - **Production-shape benchmark**: the bench uses LiteLLM + LangGraph
   + OpenTelemetry GenAI semconv — the same stack real teams deploy.
 
+### Cost it from your AI assistant (MCP)
+
+The calculator is also an **MCP server** — describe a deployment in plain
+language to Claude Code, Cursor, or Claude Desktop and it interviews you,
+computes via the same engine (no hallucinated math — `compute_cost` is
+hard-gated and refuses until the cost-drivers are provided), and returns a
+`calc.ajinkya.ai/#w=…` link to the full visual model. Numbers are
+byte-identical to the website.
+
+- **Hosted (zero install):**
+  `claude mcp add --transport http cost-calc https://calc.ajinkya.ai/mcp`
+- **npx:**
+  `claude mcp add cost-calc -- npx -y @ajinkyakulkarni/cost-calc-mcp`
+
+See [`mcp/README.md`](mcp/README.md) for Cursor / Claude Desktop config and architecture.
+
 ### What you get out of the box
 
 - **~12 preset scenarios** spanning federal (Public Geospatial Q&A,
@@ -132,7 +148,7 @@ ai-cost-calculator-studio/
 │   │   ├── cost-simulator.js # per-agent fleet editor + simulator math
 │   │   └── prices.js        # model rate cards (last_verified dates)
 │   ├── coefficients.json    # bench-produced empirical coefficients
-│   └── examples/            # 16 preset workload JSONs incl. mcp-research-fleet + per-tool registry walkthrough
+│   └── examples/            # 18 preset workload JSONs incl. mcp-research-fleet + per-tool registry walkthrough
 ├── bench/                   # agent-cost-bench — Python harness
 │   ├── README.md            # full bench docs (LiteLLM + LangGraph + OTEL)
 │   ├── pyproject.toml

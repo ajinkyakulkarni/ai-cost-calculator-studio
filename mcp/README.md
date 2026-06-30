@@ -5,11 +5,27 @@ canonical engine. The LLM runs the interview; every number comes from the
 engine via `compute_cost` (hard-gated so it refuses until the cost-driving
 inputs are present). Numbers are byte-identical to calc.ajinkya.ai.
 
-## Install (Claude Code)
+Three ways to use it — pick one:
+
+## 1. Hosted (zero install)
+Point any MCP client at the live Worker:
+```bash
+claude mcp add --transport http cost-calc https://calc.ajinkya.ai/mcp
+```
+Cursor / Claude Desktop: an `mcpServers` entry with `"url": "https://calc.ajinkya.ai/mcp"`.
+
+## 2. npx (published package)
+```bash
+claude mcp add cost-calc -- npx -y @ajinkyakulkarni/cost-calc-mcp
+```
+Cursor / Desktop: `mcpServers` entry with `"command": "npx", "args": ["-y", "@ajinkyakulkarni/cost-calc-mcp"]`.
+
+## 3. Local from this repo (development)
 ```bash
 npm install
-claude mcp add cost-calc -- node /Users/akulkarn/Desktop/Code/Ajinkya/websites/ai-cost-calculator-studio/mcp/server.mjs
+claude mcp add cost-calc -- node "$(pwd)/mcp/server.mjs"
 ```
+(Use the absolute path to `mcp/server.mjs`.)
 
 ## Use
 Invoke the `cost_interview` prompt, or just say "help me cost an AI agent". The
@@ -19,7 +35,18 @@ agent proposes defaults, confirms the cost-drivers, computes, and returns a
 ## Tools
 list_presets · load_preset · get_schema · validate_workload · compute_cost · make_share_link
 
+## Architecture
+- **stdio** (methods 2 & 3): `mcp/server.mjs` + `mcp/lib/*.mjs`, reusing the canonical
+  engine in `public/lib/*` via `createRequire`.
+- **hosted** (method 1): `src/worker.mjs` serves `/mcp` (SDK Streamable HTTP) from the
+  same site Worker; `src/*-worker.mjs` mirror the lib with esbuild-friendly imports.
+- **npm package**: `npm-package/` bundles the engine into a self-contained tarball.
+
+All three share one engine, so numbers stay identical across surfaces (guarded by the
+HTTP/stdio parity tests).
+
 ## Test
 ```bash
-npm run mcp:test
+npm run mcp:test        # stdio server + engine parity
+npm run mcp:test:http   # against a running `wrangler dev` (the /mcp Worker)
 ```
