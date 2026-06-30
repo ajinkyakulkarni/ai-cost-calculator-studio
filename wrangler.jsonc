@@ -1,16 +1,25 @@
 {
-  // Cloudflare Workers Static Assets deployment for the AI Cost Calculator.
-  // Pure static site — no build step. Only the public/ subfolder is
-  // uploaded as static assets; tooling files (package.json, scripts/,
-  // docs/, node_modules/, etc.) at the repo root are excluded from the
-  // deploy. Visitors landing at / hit a redirect (public/index.html)
-  // that forwards to /studio/ (where the actual calculator lives).
+  // Cloudflare Workers deployment for calc.ajinkya.ai.
+  //
+  // Hybrid Worker+Assets setup:
+  //   - src/worker.mjs is the fetch handler.
+  //   - POST/GET /mcp → MCP handler (stateless WebStandardStreamableHTTP).
+  //   - All other paths → env.ASSETS.fetch() → public/ static site.
+  //
+  // Rate limiting: the RATE_LIMITER binding below uses the Workers Rate
+  // Limiting API (env.RATE_LIMITER.limit({ key: ip })). It is configured
+  // ENTIRELY here — `namespace_id` is just an integer you choose, unique
+  // within this account; there is NO Cloudflare-dashboard provisioning step.
+  // 60 requests per 60s per client IP (open + rate-limited). In `wrangler dev`
+  // the binding may be absent, in which case the Worker skips the check.
   //
   // Schema reference:
   //   https://developers.cloudflare.com/workers/wrangler/configuration/
+  //   https://developers.cloudflare.com/workers/runtime-apis/bindings/rate-limit/
 
   "$schema":            "node_modules/wrangler/config-schema.json",
   "name":               "ai-cost-calculator-studio",
+  "main":               "src/worker.mjs",
   "compatibility_date": "2026-05-03",
   "compatibility_flags": ["nodejs_compat"],
   "observability":      { "enabled": true },
@@ -22,5 +31,16 @@
   "assets": {
     "directory":          "./public",
     "not_found_handling": "404-page"
+  },
+
+  "unsafe": {
+    "bindings": [
+      {
+        "name":         "RATE_LIMITER",
+        "type":         "ratelimit",
+        "namespace_id": "1001",
+        "simple":       { "limit": 60, "period": 60 }
+      }
+    ]
   }
 }
