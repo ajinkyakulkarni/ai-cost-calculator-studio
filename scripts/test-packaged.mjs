@@ -185,12 +185,15 @@ if (smokeResult.status !== 0 && !smokeResult.stdout.includes('SMOKE_RESULTS:')) 
 
 console.log(`\n${'='.repeat(50)}`);
 console.log(`Packaged artifact tests: ${pass} passed, ${fail} failed`);
-console.log('Temp dir (for inspection):', tmpDir);
 
 if (fail > 0) {
+  // Keep the temp dir on failure so it can be inspected for debugging.
+  console.error('Temp dir kept for inspection:', tmpDir);
   console.error('\nPACKAGED PARITY: BLOCKED — do not publish.');
   process.exit(1);
 } else {
+  // Clean up the (npm-installed, multi-MB) temp dir on success — no leak.
+  try { fs.rmSync(tmpDir, { recursive: true, force: true }); } catch { /* best-effort */ }
   console.log('\nPACKAGED PARITY: OK — safe to publish.');
   process.exit(0);
 }
