@@ -1,0 +1,42 @@
+{
+  "name": "@ajinkyakulkarni/cost-calc-mcp",
+  "version": "1.0.0",
+  "description": "MCP server for the AI Cost Calculator — numbers byte-identical to calc.ajinkya.ai",
+  "type": "module",
+  "bin": {
+    "cost-calc-mcp": "bin/cost-calc-mcp.js"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "files": [
+    "bin/",
+    "mcp/",
+    "dist/"
+  ],
+  "scripts": {
+    "prepare": "node ../scripts/copy-engine.mjs",
+    "build": "node ../scripts/copy-engine.mjs",
+    "test": "node ../scripts/test-packaged.mjs"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.29.0",
+    "zod": "^4.0.0"
+  },
+  "keywords": [
+    "mcp",
+    "llm",
+    "ai",
+    "cost-calculator",
+    "agent",
+    "anthropic",
+    "openai"
+  ],
+  "author": "Ajinkya Kulkarni",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/ajinkyakulkarni/ai-cost-calculator-studio.git"
+  },
+  "homepage": "https://calc.ajinkya.ai"
+}
