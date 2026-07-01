@@ -48,6 +48,26 @@ Invoke the `cost_interview` prompt, or just say "help me cost an AI agent". The
 agent proposes defaults, confirms the cost-drivers, computes, and returns a
 `calc.ajinkya.ai/#w=…` link to open the full visual calculator.
 
+## Example prompts
+- *"Cost a single-agent RAG support bot for ~5,000 monthly users on gpt-5-mini."*
+- *"How much would a 3-agent research fleet cost at 50k MAU with FedRAMP moderate?"*
+- *"Load the customer-support-fleet preset and show me the cost on a cheaper model."*
+- *"What drives the cost — show the breakdown."* · *"Give me a share link."*
+
+## Worked example
+*(Wording is illustrative; the numbers + tool behavior are exactly what the engine returns.)*
+
+> **You:** "Cost a RAG support bot for ~5,000 monthly users — single agent, managed API."
+> **Assistant** → `validate_workload` → proposes gpt-5-mini, ~3,000 in / 500 out tokens,
+> 80% cache, 5,000 MAU × 0.2 × 10, and asks you to confirm.
+> **You:** "Yes."
+> **Assistant** → `compute_cost` → **≈ $397/month** (~$0.00118/query), + breakdown + a
+> `calc.ajinkya.ai/#w=…` link.
+
+Omit a cost-driver (say, the model) and `compute_cost` returns **no number** —
+`{ "error": "missing_required", "missing_required": [{ "field": "model", … }] }`.
+That's the hard gate: real inputs before any dollar figure.
+
 ## Tools
 list_presets · load_preset · get_schema · validate_workload · compute_cost · make_share_link
 
